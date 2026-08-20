@@ -159,6 +159,21 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	if m.State != StateError || !contains(m.Status, "network unavailable") {
 		t.Fatalf("fetch failure state/status = %v/%q", m.State, m.Status)
 	}
+	updated, cmd = m.Update(key("m"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || !contains(m.Status, "pulling merge") {
+		t.Fatalf("pull command/state = %v/%v/%q", cmd == nil, m.State, m.Status)
+	}
+	updated, _ = m.Update(RemoteOperationFinishedMsg{Operation: "pull merge", Remote: "origin"})
+	m = updated.(Model)
+	if m.State != StateReady || !contains(m.Status, "pull merge complete") {
+		t.Fatalf("pull completion state/status = %v/%q", m.State, m.Status)
+	}
+	updated, cmd = m.Update(key("p"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || m.Status != "pushing" {
+		t.Fatalf("push command/state = %v/%v/%q", cmd == nil, m.State, m.Status)
+	}
 }
 
 func contains(s, want string) bool {

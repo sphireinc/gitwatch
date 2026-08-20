@@ -15,6 +15,8 @@
 | l | History view |
 | n | Remotes view |
 | f | Fetch selected remote (in Remotes view) |
+| m / e / o | Pull with merge / rebase / fast-forward-only strategy |
+| p | Push current branch (in Remotes view) |
 | c | Commit workspace |
 | Ctrl-S | Execute a valid commit |
 | Tab | Cycle focus/panes |

@@ -17,7 +17,7 @@ Release archives and SHA256SUMS are produced by `make release VERSION=0.1.0`. Th
 
 ## Quick start
 
-Run `gitwatch` inside any normal Git worktree, including a nested directory. Select a status row with arrows or `j`/`k`; click a row to open its diff/details pane on the right in wide terminals. Press `Enter` or `d` for the keyboard equivalent, Space to stage/unstage, `b` for branches, `s` for stashes, `l` for history, `n` for remotes, `f` to fetch the selected remote, `c` for the commit workspace, and `q` to quit. In the commit workspace, Tab switches subject/body and Ctrl-S executes a valid commit.
+Run `gitwatch` inside any normal Git worktree, including a nested directory. Select a status row with arrows or `j`/`k`; click a row to open its diff/details pane on the right in wide terminals. Press `Enter` or `d` for the keyboard equivalent, Space to stage/unstage, `b` for branches, `s` for stashes, `l` for history, `n` for remotes, `f` to fetch the selected remote, `m`/`e`/`o` to pull with merge/rebase/ff-only, `p` to push the current branch, `c` for the commit workspace, and `q` to quit. In the commit workspace, Tab switches subject/body and Ctrl-S executes a valid commit.
 
 ## Keymap and status symbols
 
