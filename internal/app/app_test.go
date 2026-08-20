@@ -289,6 +289,16 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	if cmd == nil || m.HistoryActionConfirm || m.State != StateOperationPending {
 		t.Fatalf("history action acceptance = cmdnil=%v confirm=%v state=%v", cmd == nil, m.HistoryActionConfirm, m.State)
 	}
+	updated, cmd = m.Update(key("t"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending {
+		t.Fatalf("tag loading command/state = %v/%v", cmd == nil, m.State)
+	}
+	updated, _ = m.Update(HistoryTagsReadyMsg{Tags: []history.Ref{{Name: "v1.0.0", OID: "abc123", Kind: "tag"}}})
+	m = updated.(Model)
+	if got := m.View().Content; !contains(got, "v1.0.0") || !contains(got, "abc123") {
+		t.Fatalf("tag view missing: %q", got)
+	}
 	updated, _ = m.Update(key("/"))
 	m = updated.(Model)
 	if !m.HistorySearching {

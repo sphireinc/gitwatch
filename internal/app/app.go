@@ -85,6 +85,10 @@ type HistoryInspectorReadyMsg struct {
 	Inspector history.Inspector
 	Err       error
 }
+type HistoryTagsReadyMsg struct {
+	Tags []history.Ref
+	Err  error
+}
 type HistoryActionFinishedMsg struct {
 	Action, Target string
 	Err            error
@@ -133,6 +137,7 @@ type Model struct {
 	HistoryFilter         string
 	HistorySearching      bool
 	HistoryInspector      history.Inspector
+	HistoryTags           []history.Ref
 	HistoryActionConfirm  bool
 	HistoryActionTarget   string
 	HistoryBranchCreating bool
@@ -292,6 +297,14 @@ func (m Model) inspectSelectedCommit() tea.Cmd {
 	return func() tea.Msg {
 		inspector, err := history.Inspect(context.Background(), runner, sha, "")
 		return HistoryInspectorReadyMsg{Inspector: inspector, Err: err}
+	}
+}
+
+func (m Model) loadHistoryTags() tea.Cmd {
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		tags, err := history.ListTags(context.Background(), runner)
+		return HistoryTagsReadyMsg{Tags: tags, Err: err}
 	}
 }
 
@@ -665,6 +678,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryRevertInput, m.HistoryRevertConfirm, m.HistoryRevertInvalid = "", true, false
 				m.Status = "type SHA " + m.HistoryRevertTarget + ": "
 			}
+		case "t":
+			if m.currentView() == workspace.Log {
+				m.State, m.Status = StateOperationPending, "loading tags"
+				return m, m.loadHistoryTags()
+			}
 		case "c":
 			m.beginCommit()
 			return m, nil
@@ -837,6 +855,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.HistoryInspector, m.State, m.Status = v.Inspector, StateReady, ""
 		}
+	case HistoryTagsReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.HistoryTags, m.State, m.Status = v.Tags, StateReady, ""
+		}
 	case HistoryActionFinishedMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -935,6 +959,12 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.HistoryRevertConfirm {
 			content += "\n\nRevert confirmation: type " + m.HistoryRevertTarget + "\n" + m.HistoryRevertInput
 		}
+		if len(m.HistoryTags) > 0 {
+			content += "\n\nTags:\n"
+			for _, tag := range m.HistoryTags {
+				content += "  " + tag.Name + " (" + tag.OID + ")\n"
+			}
+		}
 	} else if view == workspace.Commit {
 		title, content = "gitwatch · commit", m.Composer.View()
 	} else if view == workspace.Remotes {
@@ -945,7 +975,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
 	if view == workspace.Log {
-		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [x] checkout  [B] branch  [R] revert (exact SHA)  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [t] tags  [x] checkout  [B] branch  [R] revert (exact SHA)  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
 		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push  [P] force-with-lease  [esc] back  [q] quit"
