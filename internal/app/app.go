@@ -9,6 +9,8 @@ import (
 	"charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/repo"
+	"github.com/jusanchez/gitwatch/internal/ui/layout"
+	uimouse "github.com/jusanchez/gitwatch/internal/ui/mouse"
 	"github.com/jusanchez/gitwatch/internal/ui/table"
 	"github.com/jusanchez/gitwatch/internal/ui/theme"
 )
@@ -155,8 +157,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.mutate()
 		case "enter", "d":
 			return m, m.openDiff()
+		case "?":
+			m.Modal, m.State = "help", StateModal
 		case "r":
 			return m, m.refresh()
+		}
+	case tea.MouseWheelMsg:
+		if v.Button == tea.MouseWheelUp {
+			m.Files.Move(-1, m.Height-8)
+		} else if v.Button == tea.MouseWheelDown {
+			m.Files.Move(1, m.Height-8)
+		}
+	case tea.MouseClickMsg:
+		if v.Button == tea.MouseLeft {
+			hit := uimouse.HitMap{Files: layout.Rect{X: 0, Y: 3, Width: m.Width, Height: max(1, m.Height-8)}, RowTop: 3, RowHeight: 1, StageX: 0, StageWidth: 3, RowCount: len(m.Files.Visible)}
+			action, row, ok := hit.Hit(v.X, v.Y, 0)
+			if ok {
+				m.Files.Selected = row
+				if action == uimouse.ToggleStage {
+					return m, m.mutate()
+				}
+				if action == uimouse.SelectRow {
+					return m, m.openDiff()
+				}
+			}
 		}
 	case tea.WindowSizeMsg:
 		m.Width, m.Height = v.Width, v.Height
@@ -246,9 +270,13 @@ func (m Model) View() tea.View {
 			}
 		}
 	}
+	if m.Modal == "help" {
+		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     open selected diff", "r              refresh", "Esc            close help", "q              quit"}
+	}
 	lines = append(lines, "──────────────────────────────────────────────────────────────", "[j/k] move  [space] stage/unstage  [enter/d] diff  [r] refresh  [?] help  [q] quit")
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
 	return v
 }
 func max(a, b int) int {
