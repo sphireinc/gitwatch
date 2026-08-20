@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added GitHub remote detection, optional environment-backed token loading, and direct-argv GitHub CLI credential reuse; token values are never persisted or formatted. Provider API calls and UI integration remain.
+Progress: Added GitHub remote detection, optional environment-backed token loading, direct-argv GitHub CLI credential reuse, and an optional context-aware GitHub API client for pull requests and check runs; token values are never persisted or formatted, and provider errors omit response bodies. UI integration remains.
 
 ## Objective
 Detect GitHub remotes and implement an optional provider abstraction. Prefer GitHub CLI credential reuse when available; otherwise support secure token configuration without writing secrets to normal config/logs. Core gitwatch must remain fully functional when GitHub integration is disabled.
