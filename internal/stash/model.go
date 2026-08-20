@@ -45,7 +45,15 @@ func List(ctx context.Context, r git.Runner) ([]Entry, error) {
 	return Parse(res.Stdout), nil
 }
 func Create(ctx context.Context, r git.Runner, message string) (git.Result, error) {
-	return r.Run(ctx, "stash", "push", "-m", message, "--include-untracked", "--")
+	return CreateWithOptions(ctx, r, message, true)
+}
+
+func CreateWithOptions(ctx context.Context, r git.Runner, message string, includeUntracked bool) (git.Result, error) {
+	args := []string{"stash", "push", "-m", message}
+	if includeUntracked {
+		args = append(args, "--include-untracked")
+	}
+	return r.Run(ctx, append(args, "--")...)
 }
 func Apply(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
 	if !validRef(ref) {

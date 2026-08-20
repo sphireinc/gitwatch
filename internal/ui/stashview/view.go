@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"strings"
+	"time"
 )
 
 type Model struct {
@@ -48,6 +49,25 @@ func (m Model) View() string {
 			p = "> "
 		}
 		lines = append(lines, fmt.Sprintf("%s%s · %s", p, e.Ref, e.Message))
+		metadata := ""
+		if e.Branch != "" {
+			metadata = "branch: " + e.Branch
+		}
+		if e.OID != "" {
+			if metadata != "" {
+				metadata += " · "
+			}
+			metadata += "oid: " + e.OID
+		}
+		if e.Unix != 0 {
+			if metadata != "" {
+				metadata += " · "
+			}
+			metadata += "time: " + time.Unix(e.Unix, 0).Format(time.RFC3339)
+		}
+		if metadata != "" {
+			lines = append(lines, "    "+metadata)
+		}
 	}
 	if len(lines) == 1 {
 		lines = append(lines, "  No stashes")

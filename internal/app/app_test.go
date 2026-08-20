@@ -172,6 +172,16 @@ func TestStashMutationRoutingAndConfirmation(t *testing.T) {
 	if !m.StashCreateMode {
 		t.Fatal("stash create mode did not start")
 	}
+	if !m.StashIncludeUntracked {
+		t.Fatal("stash create should include untracked by default")
+	}
+	updated, _ = m.Update(key("u"))
+	m = updated.(Model)
+	if m.StashIncludeUntracked {
+		t.Fatal("stash include-untracked toggle did not turn off")
+	}
+	updated, _ = m.Update(key("u"))
+	m = updated.(Model)
 	for _, ch := range "save work" {
 		updated, _ = m.Update(key(string(ch)))
 		m = updated.(Model)
@@ -207,6 +217,17 @@ func TestStashMutationRoutingAndConfirmation(t *testing.T) {
 	m = updated.(Model)
 	if m.State != StateError || !contains(m.Status, "would clobber") {
 		t.Fatalf("stash conflict = state=%v status=%q", m.State, m.Status)
+	}
+}
+
+func TestStashMouseSelectsAndPreviewsRow(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Stashes, "Stashes")
+	m.Stashes = stashview.New([]stash.Entry{{Ref: "stash@{0}"}, {Ref: "stash@{1}"}})
+	updated, cmd := m.Update(tea.MouseClickMsg{X: 2, Y: 4, Button: tea.MouseLeft})
+	m = updated.(Model)
+	if m.Stashes.Selected != 1 || cmd == nil {
+		t.Fatalf("stash mouse selection = %d, cmd nil=%v", m.Stashes.Selected, cmd == nil)
 	}
 }
 

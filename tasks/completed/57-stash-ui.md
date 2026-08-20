@@ -23,4 +23,14 @@ Build a dedicated stash view with list, metadata/details, patch preview, create-
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — stash list view with selection, filtering, empty-state rendering, asynchronous Bubble Tea loading, selected-stash patch preview, create message entry, apply/pop/drop confirmation routing, conflict/error feedback, and selection-preserving refresh are implemented; full UI integration coverage and branch-from-stash remain.
+**Status:** Complete
+
+## Completion summary
+
+- Added asynchronous Stashes workspace loading with filtering, empty state, metadata, and patch preview.
+- Added mouse row selection and keyboard-equivalent create, apply, pop, and drop workflows.
+- Added create message entry with an explicit include-untracked toggle, enabled by default.
+- Added confirmation for mutating actions, conflict/error feedback, authoritative status/stash refresh, and selection preservation.
+- Added application tests for routing, confirmation, conflict feedback, and mouse behavior.
+- Added a real temporary-repository integration scenario covering create, apply, drop, and pop.
+- Verified with `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.

@@ -156,6 +156,7 @@ type Model struct {
 	StashPreviewRef       string
 	StashCreateMode       bool
 	StashCreateMessage    string
+	StashIncludeUntracked bool
 	StashConfirmAction    string
 	StashConfirmRef       string
 	Remotes               remoteview.Model
@@ -291,7 +292,7 @@ func (m Model) createStash() tea.Cmd {
 	}
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		_, err := stash.Create(context.Background(), runner, message)
+		_, err := stash.CreateWithOptions(context.Background(), runner, message, m.StashIncludeUntracked)
 		return StashOperationFinishedMsg{Operation: "created stash", Ref: message, Err: err}
 	}
 }
@@ -333,6 +334,8 @@ func (m *Model) updateStashCreateKey(key string) tea.Cmd {
 		}
 	case "space":
 		m.StashCreateMessage += " "
+	case "u":
+		m.StashIncludeUntracked = !m.StashIncludeUntracked
 	default:
 		if len([]rune(key)) == 1 {
 			m.StashCreateMessage += key
@@ -773,7 +776,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "C":
 			if m.currentView() == workspace.Stashes {
-				m.StashCreateMode, m.StashCreateMessage = true, ""
+				m.StashCreateMode, m.StashCreateMessage, m.StashIncludeUntracked = true, "", true
 				m.Status = "stash message: "
 			}
 		case "a", "D":
@@ -838,6 +841,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
+			if m.currentView() == workspace.Stashes {
+				row := v.Y - 3 // feature title, blank line, and "Stashes" header
+				if row >= 0 && row < len(m.Stashes.Entries) {
+					m.Stashes.Selected = row
+					return m, m.previewSelectedStash()
+				}
+				return m, nil
+			}
 			hit := uimouse.HitMap{Files: layout.Rect{X: 0, Y: 3, Width: m.Width, Height: max(1, m.Height-8)}, RowTop: 3, RowHeight: 1, StageX: 0, StageWidth: 3, RowCount: len(m.Files.Visible)}
 			action, row, ok := hit.Hit(v.X, v.Y, 0)
 			if ok {
@@ -1055,7 +1066,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 			content += "\n\nPreview " + m.StashPreviewRef + ":\n" + m.StashPreview
 		}
 		if m.StashCreateMode {
-			content += "\n\nStash message: " + m.StashCreateMessage
+			content += fmt.Sprintf("\n\nStash message: %s\nInclude untracked [u]: %t", m.StashCreateMessage, m.StashIncludeUntracked)
 		}
 		if m.StashConfirmAction != "" {
 			content += "\n\n" + m.Status

@@ -24,6 +24,7 @@
 | f | Fetch selected remote (in Remotes view) |
 | C | Create stash (in Stashes view) |
 | a / p / D | Apply / pop / drop selected stash (in Stashes view) |
+| u | Toggle include-untracked while creating a stash |
 | m / e / o | Pull with merge / rebase / fast-forward-only strategy |
 | p | Push current branch (in Remotes view) |
 | P then y | Confirm force-with-lease push (in Remotes view) |
