@@ -2,6 +2,8 @@
 
 **Priority:** P0
 
-Add a viewport-based diff overlay/pane. Fetch diffs on demand, not every refresh. Support unstaged (`git diff -- path`) and staged (`git diff --cached -- path`) modes, syntax-preserving raw text, horizontal handling/truncation strategy, search optional if cheap. Detect binary files and show metadata instead of garbage.
+Add a viewport-based diff pane for the selected status path. On wide terminals it occupies the right side of the dashboard beside the file table; on medium/narrow terminals it becomes a tab or overlay without losing the selected path. Clicking a file row opens this pane immediately; `Enter` or `d` provides the keyboard-equivalent open action. Fetch diffs on demand, not every refresh. Support unstaged (`git diff -- path`) and staged (`git diff --cached -- path`) modes, syntax-preserving raw text, horizontal handling/truncation strategy, search optional if cheap. Detect binary files and show metadata instead of garbage.
 
-**Acceptance:** Large diff loading is asynchronous/cancellable; UI remains responsive.
+**Acceptance:** Clicking a file visible in Git status opens that file’s diff/details in the right-side pane when layout permits, with an equivalent keyboard action and an obvious close/back action; large diff loading is asynchronous/cancellable; UI remains responsive; changing selection updates the pane without running a mutation; binary files show metadata rather than rendered binary bytes.
+
+**Status:** Planned — right-side click-to-open per-file diff behavior is now a required v1 interaction.

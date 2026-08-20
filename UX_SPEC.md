@@ -32,7 +32,7 @@ Think `htop` for a Git repository: dense, legible, interactive, colorful where s
 - `r` forces refresh.
 - `?` opens full help overlay.
 - `q` quits when no modal is open; Esc closes the active modal/pane first.
-- Mouse click selects a row. Double-click must not perform destructive actions. A click on an explicit stage control may stage/unstage.
+- Mouse click on a file row selects it and opens its non-destructive diff/details pane on the right in wide layouts, or the equivalent tab/overlay in narrow layouts. Double-click must not perform destructive actions. A click on an explicit stage control may stage/unstage and must remain distinct from the row hit target.
 - Mouse wheel scrolls active list/pane.
 
 ## Animation
