@@ -1,5 +1,9 @@
 # Task 87: Publish plugin SDK, examples and compatibility tests
 
+Status: In progress
+
+Progress: Added dependency-free public `pkg/plugin` manifest/message SDK, wire compatibility tests, a status-plugin example, and SDK documentation. Full command/panel/widget examples, generated protocol fixtures, and runtime compatibility matrix remain.
+
 ## Objective
 Create a minimal SDK/protocol package, example status widget, example command, example panel, manifest documentation, capability guide, and compatibility test harness. Plugins should be buildable without importing gitwatch internal packages.
 
