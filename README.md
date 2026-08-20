@@ -55,6 +55,8 @@ Advanced workflow notes are in [docs/advanced-workflows.md](docs/advanced-workfl
 
 Configuration is JSON at `$XDG_CONFIG_HOME/gitwatch/config.json` or the platform fallback. `GITWATCH_CONFIG`, `GITWATCH_THEME`, `GITWATCH_MOTION`, `GITWATCH_WATCH`, and `GITWATCH_INTERVAL` provide explicit environment overrides; CLI flags take precedence. Watch modes are `auto`, `fs`, and `poll`. Motion is `full`, `reduced`, or `off`.
 
+See [docs/configuration.md](docs/configuration.md) for the v2 schema, migration behavior, and keymap validation.
+
 ## Safety
 
 Git is invoked through argv arrays, never shell strings. Paths are passed after `--` where supported. Staging and unstaging are reversible and refresh from Git afterward. Restore requires a confirmation naming the exact path and affected content; generic `reset --hard` and `clean -fd` actions are not available.

@@ -84,9 +84,21 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return c, err
 	}
+	var envelope struct {
+		Version *int `json:"version"`
+	}
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		return c, fmt.Errorf("invalid config %s: %w", path, err)
+	}
+	if envelope.Version != nil && *envelope.Version > c.Version {
+		return c, fmt.Errorf("unsupported config version %d", *envelope.Version)
+	}
 	if err := json.Unmarshal(data, &c); err != nil {
 		return c, fmt.Errorf("invalid config %s: %w", path, err)
 	}
+	// Version 1 and files without a version used the same scalar settings;
+	// unmarshal over v2 defaults supplies the newly introduced module defaults.
+	c.Version = 2
 	c = applyEnv(c)
 	if err := Validate(c); err != nil {
 		return c, err

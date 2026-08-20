@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added versioned v2 module configuration for repositories, remotes, GitHub, plugins, and keymaps; defaults, limit/duration validation, binding collision detection, and `--config-check` are implemented. Migration handling, full CLI keymap wiring, and user-facing schema documentation remain.
+Progress: Added versioned v2 module configuration for repositories, remotes, GitHub, plugins, and keymaps; defaults, limit/duration validation, binding collision detection, and `--config-check` are implemented. Loading now migrates unversioned/v1 files in memory and rejects future versions; the complete schema and migration behavior are documented. Full runtime CLI keymap wiring remains.
 
 ## Objective
 Add structured config for new modules, remote behavior, GitHub, plugins, repo roots/groups, refresh budgets, animation, and keymaps. Provide schema validation, migrations, `gitwatch config check`, and collision detection for bindings.

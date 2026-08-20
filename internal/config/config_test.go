@@ -34,3 +34,28 @@ func TestV2DefaultsAndBindingCollisionValidation(t *testing.T) {
 		t.Fatal("binding collision was not rejected")
 	}
 }
+
+func TestLoadMigratesUnversionedAndV1Configuration(t *testing.T) {
+	for _, data := range []string{`{"theme":"dark"}`, `{"version":1,"motion":"reduced"}`} {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "config.json")
+		if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+		loaded, err := Load(path)
+		if err != nil || loaded.Version != 2 {
+			t.Fatalf("migration for %s = %#v, %v", data, loaded, err)
+		}
+	}
+}
+
+func TestLoadRejectsFutureConfigurationVersion(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(path, []byte(`{"version":99}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Fatal("future version was accepted")
+	}
+}
