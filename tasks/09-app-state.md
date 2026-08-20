@@ -5,3 +5,5 @@
 Implement typed messages for snapshots, refresh start/end, watcher state, Git operation start/end, ticks, resize, toast, modal open/close, focus changes, and shutdown. Keep side effects in commands; Update remains deterministic enough for unit testing.
 
 **Acceptance:** State transition tests cover loading, ready, refreshing, operation pending, error, resize, modal, shutdown.
+
+**Status:** Complete — typed Bubble Tea messages and deterministic root state transitions cover loading, ready, refreshing, operation, error, resize, modal, focus, toast, and shutdown behavior.
