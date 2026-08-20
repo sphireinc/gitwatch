@@ -22,3 +22,5 @@ Introduce a top-level workspace/view model for Status, Commit, Stashes, Branches
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+**Status:** In progress — typed workspace views, breadcrumbs, modal ownership, and cancellable job state are implemented; Bubble Tea routing and architecture-boundary tests remain.
