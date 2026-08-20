@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added a deterministic render-neutral lane graph, merge-parent lanes, ref decoration classification (HEAD/branches/tags), and case-insensitive history filtering. Bubble Tea graph rendering, scrolling/search UI, and reduced-motion animation remain.
+Progress: Added a deterministic render-neutral lane graph, merge-parent lanes, ref decoration classification (HEAD/branches/tags), and case-insensitive history filtering. Bubble Tea now renders the graph rows with selection and preserves selection across refresh/filter changes; search input, selected-commit details, and reduced-motion animation remain.
 
 ## Objective
 Create a high-quality terminal commit graph with lanes, merges, branches/tags/HEAD decorations, scrolling, filtering, search, selected-commit details, and adaptive layout. Graph correctness takes priority over animation.

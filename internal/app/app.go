@@ -10,9 +10,11 @@ import (
 	"github.com/jusanchez/gitwatch/internal/branches"
 	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/ui/branchview"
+	"github.com/jusanchez/gitwatch/internal/ui/historyview"
 	"github.com/jusanchez/gitwatch/internal/ui/layout"
 	uimouse "github.com/jusanchez/gitwatch/internal/ui/mouse"
 	"github.com/jusanchez/gitwatch/internal/ui/stashview"
@@ -69,6 +71,10 @@ type StashesReadyMsg struct {
 	Entries []stash.Entry
 	Err     error
 }
+type HistoryReadyMsg struct {
+	Commits []history.Commit
+	Err     error
+}
 
 type Model struct {
 	State                State
@@ -86,6 +92,7 @@ type Model struct {
 	Workspace            *workspace.Model
 	Branches             branchview.Model
 	Stashes              stashview.Model
+	History              historyview.Model
 }
 
 func New() Model {
@@ -181,6 +188,14 @@ func (m Model) loadStashes() tea.Cmd {
 	}
 }
 
+func (m Model) loadHistory() tea.Cmd {
+	r := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		commits, err := history.LoadLog(context.Background(), r, 100)
+		return HistoryReadyMsg{Commits: commits, Err: err}
+	}
+}
+
 func (m Model) navigate(view workspace.View, label string) tea.Cmd {
 	if m.Workspace == nil {
 		m.Workspace = workspace.New()
@@ -191,6 +206,8 @@ func (m Model) navigate(view workspace.View, label string) tea.Cmd {
 		return m.loadBranches()
 	case workspace.Stashes:
 		return m.loadStashes()
+	case workspace.Log:
+		return m.loadHistory()
 	default:
 		return nil
 	}
@@ -224,12 +241,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.navigate(workspace.Branches, "Branches")
 		case "s":
 			return m, m.navigate(workspace.Stashes, "Stashes")
+		case "l":
+			return m, m.navigate(workspace.Log, "History")
 		case "j", "down":
 			switch m.currentView() {
 			case workspace.Branches:
 				m.Branches.Move(1)
 			case workspace.Stashes:
 				m.Stashes.Move(1)
+			case workspace.Log:
+				m.History.Move(1)
 			default:
 				m.Files.Move(1, m.Height-8)
 			}
@@ -239,6 +260,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Branches.Move(-1)
 			case workspace.Stashes:
 				m.Stashes.Move(-1)
+			case workspace.Log:
+				m.History.Move(-1)
 			default:
 				m.Files.Move(-1, m.Height-8)
 			}
@@ -333,12 +356,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.Stashes, m.State = stashview.New(v.Entries), StateReady
 		}
+	case HistoryReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.History, m.State = historyview.New(v.Commits), StateReady
+		}
 	}
 	return m, nil
 }
 
 func (m Model) View() tea.View {
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log {
 		return m.featureView(view)
 	}
 	name := m.Snapshot.Branch.Name
@@ -375,7 +404,7 @@ func (m Model) View() tea.View {
 		}
 	}
 	if m.Modal == "help" {
-		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     open selected diff", "b              branches", "s              stashes", "1              status", "r              refresh", "Esc            close help", "q              quit"}
+		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     open selected diff", "b              branches", "s              stashes", "l              history", "1              status", "r              refresh", "Esc            close help", "q              quit"}
 	}
 	lines = append(lines, "──────────────────────────────────────────────────────────────", "[j/k] move  [space] stage/unstage  [enter/d] diff  [r] refresh  [?] help  [q] quit")
 	v := tea.NewView(strings.Join(lines, "\n"))
@@ -390,8 +419,10 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · branches", m.Branches.View()
 	} else if view == workspace.Stashes {
 		title, content = "gitwatch · stashes", m.Stashes.View()
+	} else if view == workspace.Log {
+		title, content = "gitwatch · history", m.History.View()
 	}
-	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [esc] back  [q] quit"}
+	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [esc] back  [q] quit"}
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v
