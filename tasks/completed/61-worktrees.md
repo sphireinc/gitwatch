@@ -1,8 +1,8 @@
 # Task 61: Add Git worktree management
 
-Status: In progress
+Status: Complete
 
-Progress: Added porcelain worktree parsing with HEAD, branch, detached, bare, lock, and prunable metadata, typed add/remove/prune commands, path validation, and branch occupancy mapping. The workspace now exposes an asynchronous `w` Worktrees view with selectable path/branch/HEAD and lock/prunable state; `A` adds, `D` confirms removal, and `P` confirms stale metadata pruning. Successful mutations refresh status, worktrees, and branches; the Branches view now shows each local branch's linked worktree path.
+Progress: Added porcelain worktree parsing with HEAD, branch, detached, bare, lock, and prunable metadata, typed add/remove/prune commands, path validation, and branch occupancy mapping. The workspace exposes an asynchronous `w` Worktrees view with selectable path/branch/HEAD and lock/prunable state; `A` adds, `D` confirms removal, `P` confirms stale metadata pruning, and Enter asynchronously opens the selected worktree. Successful mutations refresh status, worktrees, and branches; the Branches view shows each local branch's linked worktree path.
 
 ## Objective
 Discover worktrees and expose path, branch, HEAD, lock/prunable state. Add create/open/remove/prune workflows with safety checks. Integrate worktree occupancy into branch management and multi-repo navigation.
@@ -25,4 +25,8 @@ Discover worktrees and expose path, branch, HEAD, lock/prunable state. Add creat
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- Worktree discovery uses `git worktree list --porcelain`; mutation and path validation remain in the typed worktree package.
+- Opening a selected worktree performs asynchronous repository discovery and routes through the same authoritative refresh path as multi-repository navigation.
+- Tests cover parsing, lifecycle commands, path safety, branch occupancy, UI selection/rendering, and repository/worktree opening transitions.

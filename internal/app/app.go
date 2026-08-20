@@ -691,6 +691,17 @@ func (m Model) openSelectedRepository() tea.Cmd {
 	}
 }
 
+func (m Model) openSelectedWorktree() tea.Cmd {
+	if m.Worktrees.Selected < 0 || m.Worktrees.Selected >= len(m.Worktrees.Entries) {
+		return nil
+	}
+	path := m.Worktrees.Entries[m.Worktrees.Selected].Path
+	return func() tea.Msg {
+		discovery, err := git.Discover(context.Background(), path)
+		return RepositoryOpenedMsg{Path: path, Discovery: discovery, Err: err}
+	}
+}
+
 func (m Model) addWorktree() tea.Cmd {
 	path := strings.TrimSpace(m.WorktreeAddPath)
 	if path == "" {
@@ -1369,6 +1380,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Branches {
 				m.State, m.Status = StateOperationPending, "checking out"
 				return m, m.checkoutSelectedBranch()
+			}
+			if m.currentView() == workspace.Worktrees {
+				m.State, m.Status = StateOperationPending, "opening worktree"
+				return m, m.openSelectedWorktree()
 			}
 			if m.currentView() == workspace.Log {
 				m.State, m.Status = StateOperationPending, "loading commit details"

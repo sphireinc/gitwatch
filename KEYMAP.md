@@ -25,6 +25,7 @@
 | w | Worktrees view |
 | v / Enter | Repositories dashboard / open selected repository |
 | A / D / P | Add / remove / prune worktrees (in Worktrees view) |
+| Enter | Open selected repository or worktree |
 | f | Fetch selected remote (in Remotes view) |
 | C | Create stash (in Stashes view) |
 | a / p / D | Apply / pop / drop selected stash (in Stashes view) |

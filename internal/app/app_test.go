@@ -327,6 +327,17 @@ func TestPaletteAcceptsProviderOrPluginActions(t *testing.T) {
 	}
 }
 
+func TestSelectedWorktreeOpensThroughRepositoryDiscovery(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Worktrees, "Worktrees")
+	m.Worktrees = worktreeview.New([]worktrees.Entry{{Path: "/tmp/worktree", Branch: "main"}})
+	updated, cmd := m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || m.Status != "opening worktree" {
+		t.Fatalf("worktree open = cmdnil=%v state=%v status=%q", cmd == nil, m.State, m.Status)
+	}
+}
+
 func TestBranchCheckoutRejectsRemoteEntries(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Branches, "Branches")
