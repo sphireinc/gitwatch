@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 	"time"
@@ -50,6 +51,14 @@ type Runner struct {
 func NewRunner(dir string) Runner { return Runner{Binary: "git", Dir: dir} }
 
 func (r Runner) Run(ctx context.Context, args ...string) (Result, error) {
+	return r.run(ctx, nil, args...)
+}
+
+func (r Runner) RunInput(ctx context.Context, input []byte, args ...string) (Result, error) {
+	return r.run(ctx, bytes.NewReader(input), args...)
+}
+
+func (r Runner) run(ctx context.Context, input io.Reader, args ...string) (Result, error) {
 	binary := r.Binary
 	if binary == "" {
 		binary = "git"
@@ -57,6 +66,7 @@ func (r Runner) Run(ctx context.Context, args ...string) (Result, error) {
 	start := time.Now()
 	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Dir = r.Dir
+	cmd.Stdin = input
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

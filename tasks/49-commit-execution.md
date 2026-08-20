@@ -22,3 +22,5 @@ Execute normal commits from the composer. Show exact staged scope, run hooks nor
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+**Status:** In progress — safe stdin-backed commit execution supports normal/amend/no-edit/signoff/signing/author options, captures hook output through the typed runner, and returns the resulting SHA; composer confirmation and app refresh integration remain.
