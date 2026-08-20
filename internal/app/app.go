@@ -223,6 +223,8 @@ type Model struct {
 	PaletteQuery             string
 	PaletteSelected          int
 	PaletteResults           []commands.Match
+	PaletteActions           []commands.Action
+	PaletteCommands          map[string]func() tea.Cmd
 }
 
 func New() Model {
@@ -230,7 +232,7 @@ func New() Model {
 }
 
 func (m Model) paletteActions() []commands.Action {
-	return []commands.Action{
+	actions := []commands.Action{
 		{ID: "status", Label: "Show status", Shortcut: "1", Enabled: m.Discovery.Root != ""},
 		{ID: "branches", Label: "Open branches", Shortcut: "b", Enabled: m.Discovery.Root != ""},
 		{ID: "stashes", Label: "Open stashes", Shortcut: "s", Enabled: m.Discovery.Root != ""},
@@ -240,6 +242,18 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "repositories", Label: "Open repositories", Shortcut: "v", Enabled: len(m.RepositoryRoots) > 0 || m.Discovery.Root != ""},
 		{ID: "refresh", Label: "Refresh repository", Shortcut: "r", Enabled: m.Discovery.Root != ""},
 	}
+	return append(actions, m.PaletteActions...)
+}
+
+// RegisterPaletteAction exposes provider and plugin commands without coupling
+// those packages to the Bubble Tea model. The command factory runs only after
+// the user selects the action.
+func (m *Model) RegisterPaletteAction(action commands.Action, command func() tea.Cmd) {
+	if m.PaletteCommands == nil {
+		m.PaletteCommands = make(map[string]func() tea.Cmd)
+	}
+	m.PaletteActions = append(m.PaletteActions, action)
+	m.PaletteCommands[action.ID] = command
 }
 
 func (m *Model) openPalette() {
@@ -289,6 +303,9 @@ func (m *Model) updatePaletteKey(key string) tea.Cmd {
 }
 
 func (m *Model) executePaletteAction(id string) tea.Cmd {
+	if command := m.PaletteCommands[id]; command != nil {
+		return command()
+	}
 	switch id {
 	case "status":
 		m.Workspace.Navigate(workspace.Status, "Status")

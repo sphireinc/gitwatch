@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/branches"
+	"github.com/jusanchez/gitwatch/internal/commands"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/registry"
@@ -288,6 +289,28 @@ func TestRemoteOperationTracksActiveJobAndCancellation(t *testing.T) {
 	m = updated.(Model)
 	if cmd != nil || m.RemoteCancel != nil || m.Status != "remote operation cancellation requested" {
 		t.Fatalf("remote cancellation = cmdnil=%v cancelnil=%v status=%q", cmd == nil, m.RemoteCancel == nil, m.Status)
+	}
+}
+
+func TestPaletteAcceptsProviderOrPluginActions(t *testing.T) {
+	m := New()
+	run := false
+	m.RegisterPaletteAction(commands.Action{ID: "provider-pr", Label: "Open pull request", Enabled: true}, func() tea.Cmd {
+		run = true
+		return nil
+	})
+	m.openPalette()
+	found := false
+	for _, result := range m.PaletteResults {
+		if result.ID == "provider-pr" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("registered palette action missing")
+	}
+	if cmd := m.executePaletteAction("provider-pr"); cmd != nil || !run {
+		t.Fatalf("registered palette action execution = cmdnil=%v run=%v", cmd == nil, run)
 	}
 }
 

@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added pure action descriptors with enabled/disabled reasons and deterministic subsequence fuzzy search/ranking. Bubble Tea now exposes a global `Ctrl-P` palette with query editing, keyboard selection, disabled-reason rendering, and asynchronous navigation/refresh action execution; provider/plugin action registration remains.
+Progress: Added pure action descriptors with enabled/disabled reasons and deterministic subsequence fuzzy search/ranking. Bubble Tea now exposes a global `Ctrl-P` palette with query editing, keyboard selection, disabled-reason rendering, and asynchronous navigation/refresh action execution. Provider and plugin integrations can register action descriptors with deferred command factories.
 
 ## Objective
 Provide fuzzy searchable actions across current context: stage, commit, stash, switch branch, fetch, open PR, jump repo, plugin commands, settings, etc. Commands declare availability and disabled reasons. Add configurable key binding.
