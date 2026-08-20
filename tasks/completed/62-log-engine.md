@@ -1,8 +1,10 @@
 # Task 62: Build scalable commit history engine
 
-Status: In progress
+Status: Complete
 
 Progress: Added bounded NUL/record-delimited log parsing with SHA, parents, author, timestamp, subject, refs, and signature fields, plus skip/limit pagination with a one-record lookahead. The TUI now loads history pages asynchronously and appends additional pages from the History workspace while preserving the graph selection; leaving History cancels an in-flight page request so stale results do not update the workspace.
+
+Completion summary: History uses typed Git arguments and record-delimited machine-readable output. Pagination performs a bounded one-record lookahead, and each asynchronous page request owns a cancellable context; leaving History or starting another request cancels the active load. Added parser, pagination, cancellation-routing, integration, race, and benchmark coverage. No new keybinding was required; existing History navigation and `]` pagination remain unchanged.
 
 ## Objective
 Load commit history incrementally using stable machine-readable formatting. Model SHA, parents, refs, author, timestamp, subject, signature state, and graph topology. Support pagination/lazy loading and cancellation for very large histories.
