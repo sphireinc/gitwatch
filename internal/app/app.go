@@ -77,6 +77,8 @@ type StashesReadyMsg struct {
 }
 type HistoryReadyMsg struct {
 	Commits []history.Commit
+	Skip    int
+	HasMore bool
 	Err     error
 }
 type CommitFinishedMsg struct {
@@ -117,6 +119,9 @@ type Model struct {
 	Branches             branchview.Model
 	Stashes              stashview.Model
 	History              historyview.Model
+	HistoryCommits       []history.Commit
+	HistorySkip          int
+	HistoryHasMore       bool
 	Composer             commitview.Composer
 	StashPreview         string
 	StashPreviewRef      string
@@ -246,10 +251,14 @@ func (m Model) previewSelectedStash() tea.Cmd {
 }
 
 func (m Model) loadHistory() tea.Cmd {
+	return m.loadHistoryPage(0)
+}
+
+func (m Model) loadHistoryPage(skip int) tea.Cmd {
 	r := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		commits, err := history.LoadLog(context.Background(), r, 100)
-		return HistoryReadyMsg{Commits: commits, Err: err}
+		page, err := history.LoadPage(context.Background(), r, skip, 100)
+		return HistoryReadyMsg{Commits: page.Commits, Skip: skip, HasMore: page.HasMore, Err: err}
 	}
 }
 
@@ -463,6 +472,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.State, m.Status = StateOperationPending, "pushing"
 				return m, m.pushSelectedRemote()
 			}
+		case "]":
+			if m.currentView() == workspace.Log && m.HistoryHasMore {
+				m.State, m.Status = StateOperationPending, "loading more history"
+				return m, m.loadHistoryPage(m.HistorySkip)
+			}
 		case "c":
 			m.beginCommit()
 			return m, nil
@@ -613,7 +627,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
-			m.History, m.State = historyview.New(v.Commits), StateReady
+			if v.Skip == 0 {
+				m.HistoryCommits = append([]history.Commit(nil), v.Commits...)
+			} else {
+				m.HistoryCommits = append(m.HistoryCommits, v.Commits...)
+			}
+			if v.Skip == 0 {
+				m.History = historyview.New(m.HistoryCommits)
+			} else {
+				m.History.SetCommits(m.HistoryCommits)
+			}
+			m.HistorySkip, m.HistoryHasMore, m.State = v.Skip+len(v.Commits), v.HasMore, StateReady
 		}
 	case RemotesReadyMsg:
 		if v.Err != nil {
@@ -696,6 +720,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · remotes", m.Remotes.View()
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
+	if view == workspace.Log {
+		lines[len(lines)-1] = "[j/k] move  [] load more  [1] status  [esc] back  [q] quit"
+	}
 	if view == workspace.Remotes {
 		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push  [esc] back  [q] quit"
 	}

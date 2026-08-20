@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/branches"
+	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/remotes"
 	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/stash"
@@ -173,6 +174,26 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	m = updated.(Model)
 	if cmd == nil || m.State != StateOperationPending || m.Status != "pushing" {
 		t.Fatalf("push command/state = %v/%v/%q", cmd == nil, m.State, m.Status)
+	}
+	updated, cmd = m.Update(key("l"))
+	m = updated.(Model)
+	if cmd == nil || m.currentView() != workspace.Log {
+		t.Fatalf("history route = %q, cmd nil=%v", m.currentView(), cmd == nil)
+	}
+	updated, _ = m.Update(HistoryReadyMsg{Commits: []history.Commit{{SHA: "one", Short: "one", Subject: "first"}}, Skip: 0, HasMore: true})
+	m = updated.(Model)
+	if !m.HistoryHasMore || len(m.History.Rows) != 1 {
+		t.Fatalf("history page state = more=%v rows=%d", m.HistoryHasMore, len(m.History.Rows))
+	}
+	updated, cmd = m.Update(key("]"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending {
+		t.Fatalf("history next-page command/state = %v/%v", cmd == nil, m.State)
+	}
+	updated, _ = m.Update(HistoryReadyMsg{Commits: []history.Commit{{SHA: "two", Short: "two", Subject: "second"}}, Skip: 1, HasMore: false})
+	m = updated.(Model)
+	if m.HistoryHasMore || len(m.History.Rows) != 2 {
+		t.Fatalf("history append state = more=%v rows=%d", m.HistoryHasMore, len(m.History.Rows))
 	}
 }
 

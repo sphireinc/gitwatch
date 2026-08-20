@@ -19,6 +19,8 @@ Release archives and SHA256SUMS are produced by `make release VERSION=0.1.0`. Th
 
 Run `gitwatch` inside any normal Git worktree, including a nested directory. Select a status row with arrows or `j`/`k`; click a row to open its diff/details pane on the right in wide terminals. Press `Enter` or `d` for the keyboard equivalent, Space to stage/unstage, `b` for branches, `s` for stashes, `l` for history, `n` for remotes, `f` to fetch the selected remote, `m`/`e`/`o` to pull with merge/rebase/ff-only, `p` to push the current branch, `c` for the commit workspace, and `q` to quit. In the commit workspace, Tab switches subject/body and Ctrl-S executes a valid commit.
 
+In the History workspace, press `]` to load the next bounded page of commits.
+
 ## Keymap and status symbols
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.
