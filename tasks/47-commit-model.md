@@ -22,3 +22,5 @@ Model staged files, unstaged files, selected hunks, commit message subject/body,
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+**Status:** In progress — pure commit draft, staged-file, metadata, message, validation, and clear/preserve rules are implemented and tested; composer UI and execution remain.
