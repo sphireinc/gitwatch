@@ -48,6 +48,11 @@ type ModalMsg struct {
 }
 type FocusMsg struct{ Pane string }
 type ShutdownMsg struct{}
+type DiffReadyMsg struct {
+	Path, Text string
+	Binary     bool
+	Err        error
+}
 
 type Model struct {
 	State                State
@@ -59,6 +64,8 @@ type Model struct {
 	Files                table.Model
 	Theme                theme.Roles
 	ctx                  context.Context
+	DiffPath, DiffText   string
+	DiffBinary           bool
 }
 
 func New() Model {
@@ -82,6 +89,48 @@ func (m Model) refresh() tea.Cmd {
 	}
 }
 
+func (m Model) mutate() tea.Cmd {
+	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
+		return nil
+	}
+	e := m.Files.Entries[m.Files.Visible[m.Files.Selected]]
+	if e.Conflicted {
+		return func() tea.Msg {
+			return OperationFinishedMsg{Name: "stage", Err: fmt.Errorf("conflicted path requires external resolution")}
+		}
+	}
+	r, path := git.NewRunner(m.Discovery.Root), append([]byte(nil), e.Path...)
+	return func() tea.Msg {
+		var err error
+		if e.Staged && !e.Unstaged {
+			_, err = r.Unstage(context.Background(), path)
+		} else {
+			_, err = r.Stage(context.Background(), path)
+		}
+		if err != nil {
+			return OperationFinishedMsg{Name: "path operation", Err: err}
+		}
+		s, err := git.Snapshot(context.Background(), m.Discovery, 0)
+		if err != nil {
+			return RefreshFinishedMsg{Err: err}
+		}
+		return SnapshotMsg{Snapshot: s}
+	}
+}
+
+func (m Model) openDiff() tea.Cmd {
+	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
+		return nil
+	}
+	e := m.Files.Entries[m.Files.Visible[m.Files.Selected]]
+	path := append([]byte(nil), e.Path...)
+	r := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		d, err := r.Diff(context.Background(), path, e.Staged && !e.Unstaged)
+		return DiffReadyMsg{Path: string(path), Text: string(d.Text), Binary: d.Binary, Err: err}
+	}
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch v := msg.(type) {
 	case tea.KeyPressMsg:
@@ -98,6 +147,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Files.Move(1, m.Height-8)
 		case "k", "up":
 			m.Files.Move(-1, m.Height-8)
+		case "space":
+			return m, m.mutate()
+		case "enter", "d":
+			return m, m.openDiff()
 		case "r":
 			return m, m.refresh()
 		}
@@ -144,6 +197,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Focus = v.Pane
 	case ShutdownMsg:
 		m.State = StateShutdown
+	case DiffReadyMsg:
+		m.DiffPath, m.DiffText, m.DiffBinary, m.Status = v.Path, v.Text, v.Binary, ""
+		if v.Err != nil {
+			m.Status = v.Err.Error()
+		}
 	}
 	return m, nil
 }
@@ -169,10 +227,29 @@ func (m Model) View() tea.View {
 	if len(lines) == 3 {
 		lines = append(lines, "  clean worktree")
 	}
+	if m.Width >= 100 && m.DiffPath != "" {
+		lines = append(lines, "", "Selected diff: "+m.DiffPath)
+		if m.DiffBinary {
+			lines = append(lines, "  [binary file]")
+		} else {
+			for i, line := range strings.Split(m.DiffText, "\n") {
+				if i >= max(1, m.Height-10) {
+					break
+				}
+				lines = append(lines, "  "+line)
+			}
+		}
+	}
 	lines = append(lines, "──────────────────────────────────────────────────────────────", "[j/k] move  [space] stage/unstage  [enter/d] diff  [r] refresh  [?] help  [q] quit")
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen = true
 	return v
+}
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 func stateName(s State) string {
 	switch s {
