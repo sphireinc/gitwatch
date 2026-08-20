@@ -16,3 +16,9 @@ func TestRevertConfirmationRequiresExactSHA(t *testing.T) {
 		t.Fatalf("expected missing target, got %v", err)
 	}
 }
+
+func TestHistoryActionsRejectOptionLikeTargets(t *testing.T) {
+	if _, err := CreateBranchAt(nil, git.Runner{}, "feature", "-bad"); !errors.Is(err, ErrMissingTarget) {
+		t.Fatalf("expected target validation, got %v", err)
+	}
+}

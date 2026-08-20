@@ -31,17 +31,17 @@ func (c RevertConfirmation) Accept(input string) bool {
 }
 
 func CheckoutCommit(ctx context.Context, runner git.Runner, sha string) (git.Result, error) {
-	if strings.TrimSpace(sha) == "" {
+	if !validTarget(sha) {
 		return git.Result{}, ErrMissingTarget
 	}
 	return runner.Run(ctx, "switch", "--detach", "--", sha)
 }
 
 func CreateBranchAt(ctx context.Context, runner git.Runner, name, sha string) (git.Result, error) {
-	if strings.TrimSpace(name) == "" || strings.TrimSpace(sha) == "" {
+	if !validTarget(name) || !validTarget(sha) {
 		return git.Result{}, ErrMissingTarget
 	}
-	return runner.Run(ctx, "switch", "--create", name, sha)
+	return runner.Run(ctx, "switch", "--create", name, "--", sha)
 }
 
 func ListTags(ctx context.Context, runner git.Runner) ([]Ref, error) {
@@ -53,10 +53,15 @@ func ListTags(ctx context.Context, runner git.Runner) ([]Ref, error) {
 }
 
 func Revert(ctx context.Context, runner git.Runner, confirmation RevertConfirmation, input string) (git.Result, error) {
-	if strings.TrimSpace(confirmation.SHA) == "" || !confirmation.Accept(input) {
+	if !validTarget(confirmation.SHA) || !confirmation.Accept(input) {
 		return git.Result{}, ErrMissingTarget
 	}
-	return runner.Run(ctx, "revert", "--no-edit", "--", confirmation.SHA)
+	return runner.Run(ctx, "revert", "--no-edit", confirmation.SHA)
+}
+
+func validTarget(value string) bool {
+	value = strings.TrimSpace(value)
+	return value != "" && !strings.HasPrefix(value, "-") && !strings.ContainsAny(value, "\r\n\x00")
 }
 
 func parseRefs(data []byte, kind string) []Ref {
