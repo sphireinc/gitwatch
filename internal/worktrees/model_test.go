@@ -1,10 +1,25 @@
 package worktrees
 
-import "testing"
+import (
+	"errors"
+	"testing"
+
+	"github.com/jusanchez/gitwatch/internal/git"
+)
 
 func TestParse(t *testing.T) {
 	v := Parse([]byte("worktree /tmp/main\nHEAD abc\nbranch refs/heads/main\n\nworktree /tmp/other\nHEAD def\ndetached\n"))
 	if len(v) != 2 || v[1].Branch != "" || !v[1].Detached {
 		t.Fatal(v)
+	}
+}
+
+func TestOccupancyAndTargetValidation(t *testing.T) {
+	entries := Parse([]byte("worktree /tmp/main\nHEAD abc\nbranch refs/heads/main\n"))
+	if got := Occupancy(entries)["main"]; got != "/tmp/main" {
+		t.Fatalf("unexpected occupancy: %#v", Occupancy(entries))
+	}
+	if _, err := Add(nil, git.Runner{}, "-bad", ""); !errors.Is(err, ErrInvalidTarget) {
+		t.Fatalf("expected target validation, got %v", err)
 	}
 }
