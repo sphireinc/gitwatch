@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added provider-neutral check-run parsing with pass/fail/pending counts, URLs, failure summaries, timestamps, and duration calculation. API transport, caching, UI presentation, and external-open actions remain.
+Progress: Added provider-neutral check-run parsing with pass/fail/pending counts, URLs, failure summaries, timestamps, and duration calculation. API transport and GitHub workspace presentation now show aggregate check state; per-check caching, links, and richer external-open actions remain.
 
 ## Objective
 Show recent workflow/check runs relevant to HEAD/branch/PR with state, duration, conclusion, and failure summary. Allow opening the run externally. Do not turn gitwatch into a full CI log client in this phase.

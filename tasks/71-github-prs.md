@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added provider-neutral pull-request metadata parsing and a TTL cache keyed by repository/branch. API transport, checks/review enrichment, UI actions, and browser/URL integration remain.
+Progress: Added provider-neutral pull-request metadata parsing and a TTL cache keyed by repository/branch. API transport now feeds the opt-in GitHub workspace, which renders PR metadata and provides safe open-in-browser and copy-URL actions; checks/review enrichment and richer PR actions remain.
 
 ## Objective
 For the current repository/branch, show associated PR, state, draft status, checks summary, review state, mergeability when available, base/head, URL, and comments/count metadata. Add open-in-browser and copy-URL actions. Cache/rate-limit API reads.

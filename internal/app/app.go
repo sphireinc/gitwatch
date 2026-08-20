@@ -1398,6 +1398,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "path filter: "
 			}
 		case "m", "e", "o":
+			if m.currentView() == workspace.GitHub && v.String() == "o" {
+				if command, err := platform.OpenURLCommand(m.GitHub.Pull.URL); err == nil {
+					m.Status = "opening pull request"
+					return m, tea.ExecProcess(command, nil)
+				} else {
+					m.Status = err.Error()
+				}
+				break
+			}
 			if m.currentView() == workspace.Remotes {
 				strategy := map[string]string{"m": "merge", "e": "rebase", "o": "ff-only"}[v.String()]
 				m.State, m.Status = StateOperationPending, "pulling "+strategy
@@ -1486,6 +1495,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" {
 				m.Status = "copied " + m.HistoryInspector.Commit.SHA
 				return m, tea.SetClipboard(m.HistoryInspector.Commit.SHA)
+			}
+			if m.currentView() == workspace.GitHub && m.GitHub.Pull.URL != "" {
+				m.Status = "copied pull request URL"
+				return m, tea.SetClipboard(m.GitHub.Pull.URL)
 			}
 		case "t":
 			if m.currentView() == workspace.Log {
