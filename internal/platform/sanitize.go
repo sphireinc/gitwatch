@@ -1,6 +1,12 @@
 package platform
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
+
+var secretPattern = regexp.MustCompile(`(?i)(token|password|passwd|secret|authorization|x-access-token)([=:][^\s,;]+)`)
+var urlUserPattern = regexp.MustCompile(`(?i)(https?://)[^/\s@]+@`)
 
 // SafeText removes terminal control and escape bytes from untrusted Git text.
 func SafeText(value string) string {
@@ -13,4 +19,16 @@ func SafeText(value string) string {
 		}
 	}
 	return b.String()
+}
+
+func RedactSecrets(value string) string {
+	value = secretPattern.ReplaceAllString(value, "$1=[REDACTED]")
+	if strings.Contains(value, "https://") || strings.Contains(value, "http://") {
+		value = redactURLUserInfo(value)
+	}
+	return value
+}
+
+func redactURLUserInfo(value string) string {
+	return urlUserPattern.ReplaceAllString(value, "$1[REDACTED]@")
 }

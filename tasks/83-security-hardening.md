@@ -1,5 +1,9 @@
 # Task 83: Threat-model post-v1 surfaces
 
+Status: In progress
+
+Progress: Added centralized secret redaction for logs/diagnostics, URL userinfo redaction, safe terminal text handling, and hostile secret fixtures. Symlink/discovery policy, plugin RPC threat tests, and full threat-model documentation remain.
+
 ## Objective
 Threat-model patches, commit messages, refs, remotes, credentials, GitHub responses, plugin RPC, repository discovery, terminal escape injection, symlinks, and malicious repository contents. Add redaction and hostile-fixture tests.
 
