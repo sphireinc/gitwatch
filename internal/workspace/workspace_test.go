@@ -39,3 +39,16 @@ func TestJobCancellationAndCompletionState(t *testing.T) {
 		t.Fatalf("job was not cancelled: %#v", jobs["refresh"])
 	}
 }
+
+func TestJobSuccessfulCompletion(t *testing.T) {
+	model := New()
+	jobContext := model.StartJob(context.Background(), "fetch", "Fetch")
+	model.FinishJob("fetch", nil)
+	if jobContext.Err() != nil {
+		t.Fatalf("successful job context was cancelled: %v", jobContext.Err())
+	}
+	_, _, _, jobs := model.Snapshot()
+	if jobs["fetch"].State != JobSucceeded {
+		t.Fatalf("job did not succeed: %#v", jobs["fetch"])
+	}
+}
