@@ -6,4 +6,4 @@ Enable Bubble Tea mouse events. A single click on a file row selects it and open
 
 **Acceptance:** Mouse actions have keyboard equivalents; clicking a status-file row selects it and reveals its per-file diff/details view without performing a mutation; hit testing is tested for scroll offsets and resized layouts; explicit stage controls remain distinct from the row hit region.
 
-**Status:** Planned — mouse row-to-diff-pane behavior is specified for implementation with the file table and diff viewer.
+**Status:** Complete — scroll-aware hit regions distinguish row selection, explicit stage controls, wheel scrolling, and non-destructive diff opening.
