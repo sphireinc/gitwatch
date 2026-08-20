@@ -1,9 +1,11 @@
 package provider
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -17,6 +19,27 @@ type Repository struct {
 
 type TokenSource interface {
 	Token() (string, error)
+}
+
+type CLIToken struct {
+	Binary string
+}
+
+func (c CLIToken) Token() (string, error) {
+	binary := c.Binary
+	if binary == "" {
+		binary = "gh"
+	}
+	command := exec.CommandContext(context.Background(), binary, "auth", "token")
+	output, err := command.Output()
+	if err != nil {
+		return "", ErrNoToken
+	}
+	token := strings.TrimSpace(string(output))
+	if token == "" {
+		return "", ErrNoToken
+	}
+	return token, nil
 }
 
 type EnvironmentToken string

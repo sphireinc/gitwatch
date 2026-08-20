@@ -23,3 +23,10 @@ func TestEnvironmentTokenDoesNotExposeMissingSecret(t *testing.T) {
 		t.Fatalf("expected missing token, got %v", err)
 	}
 }
+
+func TestCLITokenFailureDoesNotExposeCommandDetails(t *testing.T) {
+	_, err := CLIToken{Binary: "gitwatch-test-missing-gh"}.Token()
+	if !errors.Is(err, ErrNoToken) {
+		t.Fatalf("expected missing token, got %v", err)
+	}
+}
