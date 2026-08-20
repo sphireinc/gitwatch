@@ -138,6 +138,11 @@ type RepositoriesReadyMsg struct {
 	Rows []registry.Row
 	Err  error
 }
+type RepositoryOpenedMsg struct {
+	Path      string
+	Discovery git.Discovery
+	Err       error
+}
 type RemoteOperationFinishedMsg struct {
 	Operation, Remote string
 	Err               error
@@ -639,6 +644,17 @@ func (m Model) loadRepositories() tea.Cmd {
 		}
 		results := engine.Refresh(context.Background(), repositories, m.Discovery.Root)
 		return RepositoriesReadyMsg{Rows: registry.Rows(results)}
+	}
+}
+
+func (m Model) openSelectedRepository() tea.Cmd {
+	if m.Repositories.Selected < 0 || m.Repositories.Selected >= len(m.Repositories.Rows) {
+		return nil
+	}
+	path := m.Repositories.Rows[m.Repositories.Selected].Repository.Path
+	return func() tea.Msg {
+		discovery, err := git.Discover(context.Background(), path)
+		return RepositoryOpenedMsg{Path: path, Discovery: discovery, Err: err}
 	}
 }
 
@@ -1240,6 +1256,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.beginCommit()
 			return m, nil
 		case "enter":
+			if m.currentView() == workspace.Repositories {
+				m.State, m.Status = StateOperationPending, "opening repository"
+				return m, m.openSelectedRepository()
+			}
 			if m.currentView() == workspace.Branches {
 				m.State, m.Status = StateOperationPending, "checking out"
 				return m, m.checkoutSelectedBranch()
@@ -1509,6 +1529,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Repositories.SetRows(v.Rows)
 			}
 			m.State = StateReady
+		}
+	case RepositoryOpenedMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.Discovery, m.State, m.Status = v.Discovery, StateReady, "opened "+v.Path
+			m.Workspace.Navigate(workspace.Status, "Status")
+			return m, m.refresh()
 		}
 	case WorktreeOperationFinishedMsg:
 		if v.Err != nil {

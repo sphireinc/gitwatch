@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/branches"
+	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/registry"
 	"github.com/jusanchez/gitwatch/internal/remotes"
@@ -181,6 +182,16 @@ func TestRepositoriesRouteLoadsRows(t *testing.T) {
 	m = updated.(Model)
 	if !contains(m.View().Content, "repo") || !contains(m.View().Content, "dirty:1") {
 		t.Fatalf("repository view missing row: %q", m.View().Content)
+	}
+	updated, cmd = m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending {
+		t.Fatalf("repository open = cmdnil=%v state=%v", cmd == nil, m.State)
+	}
+	updated, cmd = m.Update(RepositoryOpenedMsg{Path: "/repo", Discovery: git.Discovery{Root: "/repo"}})
+	m = updated.(Model)
+	if cmd == nil || m.currentView() != workspace.Status || m.Discovery.Root != "/repo" {
+		t.Fatalf("repository opened = cmdnil=%v view=%q root=%q", cmd == nil, m.currentView(), m.Discovery.Root)
 	}
 }
 

@@ -23,7 +23,7 @@
 | M / f / g / y | Inspect next parent / filter inspected path / jump to ref / copy SHA (in History view) |
 | n | Remotes view |
 | w | Worktrees view |
-| v | Repositories dashboard |
+| v / Enter | Repositories dashboard / open selected repository |
 | A / D / P | Add / remove / prune worktrees (in Worktrees view) |
 | f | Fetch selected remote (in Remotes view) |
 | C | Create stash (in Stashes view) |

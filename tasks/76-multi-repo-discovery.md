@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added bounded filesystem discovery for explicit roots, nested normal/worktree repositories, ignored and symlinked directories, depth/repository limits, and a private JSON registry with favorite/group/last-opened metadata. The `v` repository dashboard now loads discovered roots asynchronously through the bounded status engine.
+Progress: Added bounded filesystem discovery for explicit roots, nested normal/worktree repositories, ignored and symlinked directories, depth/repository limits, and a private JSON registry with favorite/group/last-opened metadata. The `v` repository dashboard now loads discovered roots asynchronously through the bounded status engine and opens the selected repository with authoritative discovery/refresh.
 
 ## Objective
 Support explicitly configured roots plus bounded directory scanning for repositories/worktrees. Persist a lightweight registry with path, display name, last-opened time, favorite state, and optional groups. Respect ignore rules and avoid scanning huge trees without limits.
