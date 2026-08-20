@@ -213,6 +213,23 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	if got := m.View().Content; !contains(got, "Selected commit: two") || !contains(got, "file.txt +2 -1") || !contains(got, "+new") {
 		t.Fatalf("history inspector missing: %q", got)
 	}
+	updated, _ = m.Update(key("x"))
+	m = updated.(Model)
+	if !m.HistoryActionConfirm || !contains(m.Status, "checkout commit one") {
+		t.Fatalf("history action confirmation = %v/%q", m.HistoryActionConfirm, m.Status)
+	}
+	updated, _ = m.Update(key("n"))
+	m = updated.(Model)
+	if m.HistoryActionConfirm || !contains(m.Status, "cancelled") {
+		t.Fatalf("history action cancellation = %v/%q", m.HistoryActionConfirm, m.Status)
+	}
+	updated, _ = m.Update(key("x"))
+	m = updated.(Model)
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.HistoryActionConfirm || m.State != StateOperationPending {
+		t.Fatalf("history action acceptance = cmdnil=%v confirm=%v state=%v", cmd == nil, m.HistoryActionConfirm, m.State)
+	}
 	updated, _ = m.Update(key("/"))
 	m = updated.(Model)
 	if !m.HistorySearching {

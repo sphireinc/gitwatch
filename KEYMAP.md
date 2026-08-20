@@ -16,6 +16,7 @@
 | ] | Load more history (in History view) |
 | / | Search history (in History view) |
 | Enter | Inspect selected commit (in History view) |
+| x then y | Confirm checkout of selected commit (in History view) |
 | n | Remotes view |
 | f | Fetch selected remote (in Remotes view) |
 | m / e / o | Pull with merge / rebase / fast-forward-only strategy |

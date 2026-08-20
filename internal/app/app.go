@@ -85,6 +85,10 @@ type HistoryInspectorReadyMsg struct {
 	Inspector history.Inspector
 	Err       error
 }
+type HistoryActionFinishedMsg struct {
+	Action, Target string
+	Err            error
+}
 type CommitFinishedMsg struct {
 	SHA string
 	Err error
@@ -129,6 +133,8 @@ type Model struct {
 	HistoryFilter        string
 	HistorySearching     bool
 	HistoryInspector     history.Inspector
+	HistoryActionConfirm bool
+	HistoryActionTarget  string
 	Composer             commitview.Composer
 	StashPreview         string
 	StashPreviewRef      string
@@ -279,6 +285,18 @@ func (m Model) inspectSelectedCommit() tea.Cmd {
 	return func() tea.Msg {
 		inspector, err := history.Inspect(context.Background(), runner, sha, "")
 		return HistoryInspectorReadyMsg{Inspector: inspector, Err: err}
+	}
+}
+
+func (m Model) checkoutSelectedHistory() tea.Cmd {
+	if m.HistoryActionTarget == "" {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	target := m.HistoryActionTarget
+	return func() tea.Msg {
+		_, err := history.CheckoutCommit(context.Background(), runner, target)
+		return HistoryActionFinishedMsg{Action: "checkout", Target: target, Err: err}
 	}
 }
 
@@ -474,6 +492,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Log && m.HistorySearching {
 			return m, m.updateHistorySearch(v.String())
 		}
+		if m.currentView() == workspace.Log && m.HistoryActionConfirm {
+			switch v.String() {
+			case "y":
+				m.HistoryActionConfirm, m.State, m.Status = false, StateOperationPending, "checking out "+m.HistoryActionTarget
+				return m, m.checkoutSelectedHistory()
+			case "n", "esc":
+				m.HistoryActionConfirm, m.HistoryActionTarget, m.Status = false, "", "history action cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Stashes && v.String() == "enter" {
 			m.State, m.Status = StateOperationPending, "loading stash preview"
 			return m, m.previewSelectedStash()
@@ -538,6 +566,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "/":
 			if m.currentView() == workspace.Log {
 				m.HistorySearching, m.Status = true, "filter: "
+			}
+		case "x":
+			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+				m.HistoryActionTarget = m.History.Rows[m.History.Selected].Commit.SHA
+				m.HistoryActionConfirm = true
+				m.Status = "checkout commit " + m.HistoryActionTarget + "? (y/n)"
 			}
 		case "c":
 			m.beginCommit()
@@ -711,6 +745,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.HistoryInspector, m.State, m.Status = v.Inspector, StateReady, ""
 		}
+	case HistoryActionFinishedMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.State, m.Status = StateReady, v.Action+" "+v.Target
+			m.Workspace.Back()
+			return m, m.refresh()
+		}
 	case RemotesReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -792,6 +834,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.HistoryInspector.Commit.SHA != "" {
 			content += "\n\n" + inspectorText(m.HistoryInspector)
 		}
+		if m.HistoryActionConfirm {
+			content += "\n\n" + m.Status
+		}
 	} else if view == workspace.Commit {
 		title, content = "gitwatch · commit", m.Composer.View()
 	} else if view == workspace.Remotes {
@@ -802,7 +847,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
 	if view == workspace.Log {
-		lines[len(lines)-1] = "[j/k] move  [/] search  [] load more  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [x] checkout  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
 		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push  [P] force-with-lease  [esc] back  [q] quit"

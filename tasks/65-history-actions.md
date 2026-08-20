@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added explicit-target checkout, branch-at-commit, tag listing, SHA-confirmed revert primitives, and option-like target rejection. Confirmation UI, authoritative refresh, and end-to-end mutation tests remain.
+Progress: Added explicit-target checkout, branch-at-commit, tag listing, SHA-confirmed revert primitives, and option-like target rejection. The History workspace now requires explicit `x` then `y` confirmation naming the selected commit before detached checkout, and refreshes status after success; branch-at-commit, tag navigation, revert UI, and end-to-end mutation coverage remain.
 
 ## Objective
 Implement checkout/switch from refs, create branch at commit, tag navigation, and guarded revert. Keep reset/rebase/cherry-pick out unless separately implemented with explicit workflows. All history mutations must identify target SHA/ref before confirmation.

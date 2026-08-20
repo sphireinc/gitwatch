@@ -23,6 +23,8 @@ Force pushes are never implicit: in the Remotes workspace, `P` opens a confirmat
 
 In the History workspace, press `Enter` to inspect the selected commit, `/` to search by subject, author, or SHA, and `]` to load the next bounded page of commits.
 
+Press `x` in History to request detached checkout of the selected commit; the exact SHA is shown and `y` is required to confirm.
+
 ## Keymap and status symbols
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.
