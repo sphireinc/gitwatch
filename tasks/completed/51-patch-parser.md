@@ -1,5 +1,7 @@
 # Task 51: Implement Git patch/hunk parser
 
+Status: Complete
+
 ## Objective
 Create a lossless parser/model for git diff patch output: files, headers, binary markers, hunks, line ranges, context/add/remove lines, rename/copy metadata, and no-newline markers. Fuzz test malformed and adversarial patches.
 
@@ -21,6 +23,11 @@ Create a lossless parser/model for git diff patch output: files, headers, binary
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- The parser preserves file headers, binary/rename/copy metadata, hunk ranges, line kinds, line numbers, raw text, and no-newline markers.
+- Quoted and spaced paths are decoded without shell parsing; malformed headers return typed parse errors.
+- Fuzz coverage asserts malformed/adversarial input never panics, and parser benchmarks cover large patches.
+- Partial application and interactive hunk integration remain covered by Tasks 52–55.
 
 **Status:** In progress — path-aware headers now preserve unquoted spaces and Git-quoted paths; parser coverage includes malformed/adversarial fuzz inputs alongside hunks, ranges, binary markers, rename/copy metadata, and no-newline markers. Hunk mutation generation remains.
