@@ -9,6 +9,7 @@ import (
 
 type Inspector struct {
 	Commit  Commit
+	Parent  string
 	Files   []string
 	Stats   []FileStat
 	Diff    string
@@ -61,7 +62,7 @@ func InspectPath(ctx context.Context, runner git.Runner, sha, parent, path strin
 	if err != nil {
 		return Inspector{Files: statPaths(pathsResult.Stdout), Stats: parseStats(pathsResult.Stdout), Error: err}, err
 	}
-	return Inspector{Files: statPaths(pathsResult.Stdout), Stats: parseStats(pathsResult.Stdout), Diff: string(patchResult.Stdout)}, nil
+	return Inspector{Commit: Commit{SHA: sha}, Parent: parent, Files: statPaths(pathsResult.Stdout), Stats: parseStats(pathsResult.Stdout), Diff: string(patchResult.Stdout)}, nil
 }
 
 func statPaths(data []byte) []string {

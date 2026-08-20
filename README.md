@@ -37,6 +37,8 @@ Branches show the linked worktree path for locally checked-out branches.
 
 Leaving the History workspace cancels its in-flight page load.
 
+In the History inspector, `M` switches to the next merge parent, `f` filters the patch by path, and `y` copies the selected SHA through terminal OSC52 clipboard support when available.
+
 ## Keymap and status symbols
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.

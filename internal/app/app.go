@@ -12,6 +12,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/jusanchez/gitwatch/internal/platform"
 	"github.com/jusanchez/gitwatch/internal/remotes"
 	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/stash"
@@ -130,57 +131,60 @@ type RemoteOperationFinishedMsg struct {
 }
 
 type Model struct {
-	State                 State
-	Width, Height         int
-	Focus, Modal, Status  string
-	Toast                 ToastMsg
-	Snapshot              repo.Snapshot
-	Discovery             git.Discovery
-	Files                 table.Model
-	Theme                 theme.Roles
-	ctx                   context.Context
-	RefreshInterval       time.Duration
-	DiffPath, DiffText    string
-	DiffBinary            bool
-	Workspace             *workspace.Model
-	Branches              branchview.Model
-	Stashes               stashview.Model
-	History               historyview.Model
-	HistoryCommits        []history.Commit
-	HistorySkip           int
-	HistoryHasMore        bool
-	HistoryCancel         context.CancelFunc
-	HistoryFilter         string
-	HistorySearching      bool
-	HistoryInspector      history.Inspector
-	HistoryTags           []history.Ref
-	HistoryActionConfirm  bool
-	HistoryActionTarget   string
-	HistoryBranchCreating bool
-	HistoryBranchTarget   string
-	HistoryBranchName     string
-	HistoryRevertConfirm  bool
-	HistoryRevertTarget   string
-	HistoryRevertInput    string
-	HistoryRevertInvalid  bool
-	Composer              commitview.Composer
-	StashPreview          string
-	StashPreviewRef       string
-	StashCreateMode       bool
-	StashCreateMessage    string
-	StashIncludeUntracked bool
-	StashConfirmAction    string
-	StashConfirmRef       string
-	StashBranchMode       bool
-	StashBranchRef        string
-	StashBranchName       string
-	Remotes               remoteview.Model
-	Worktrees             worktreeview.Model
-	WorktreeAddMode       bool
-	WorktreeAddPath       string
-	WorktreeConfirmAction string
-	WorktreeConfirmTarget string
-	RemoteForceConfirm    bool
+	State                    State
+	Width, Height            int
+	Focus, Modal, Status     string
+	Toast                    ToastMsg
+	Snapshot                 repo.Snapshot
+	Discovery                git.Discovery
+	Files                    table.Model
+	Theme                    theme.Roles
+	ctx                      context.Context
+	RefreshInterval          time.Duration
+	DiffPath, DiffText       string
+	DiffBinary               bool
+	Workspace                *workspace.Model
+	Branches                 branchview.Model
+	Stashes                  stashview.Model
+	History                  historyview.Model
+	HistoryCommits           []history.Commit
+	HistorySkip              int
+	HistoryHasMore           bool
+	HistoryCancel            context.CancelFunc
+	HistoryFilter            string
+	HistorySearching         bool
+	HistoryInspector         history.Inspector
+	HistoryInspectorParent   string
+	HistoryInspectorPathMode bool
+	HistoryInspectorPath     string
+	HistoryTags              []history.Ref
+	HistoryActionConfirm     bool
+	HistoryActionTarget      string
+	HistoryBranchCreating    bool
+	HistoryBranchTarget      string
+	HistoryBranchName        string
+	HistoryRevertConfirm     bool
+	HistoryRevertTarget      string
+	HistoryRevertInput       string
+	HistoryRevertInvalid     bool
+	Composer                 commitview.Composer
+	StashPreview             string
+	StashPreviewRef          string
+	StashCreateMode          bool
+	StashCreateMessage       string
+	StashIncludeUntracked    bool
+	StashConfirmAction       string
+	StashConfirmRef          string
+	StashBranchMode          bool
+	StashBranchRef           string
+	StashBranchName          string
+	Remotes                  remoteview.Model
+	Worktrees                worktreeview.Model
+	WorktreeAddMode          bool
+	WorktreeAddPath          string
+	WorktreeConfirmAction    string
+	WorktreeConfirmTarget    string
+	RemoteForceConfirm       bool
 }
 
 func New() Model {
@@ -404,10 +408,16 @@ func (m Model) inspectSelectedCommit() tea.Cmd {
 	if m.History.Selected < 0 || m.History.Selected >= len(m.History.Rows) {
 		return nil
 	}
-	sha := m.History.Rows[m.History.Selected].Commit.SHA
+	commit := m.History.Rows[m.History.Selected].Commit
+	return m.inspectCommit(commit, m.HistoryInspectorParent, m.HistoryInspectorPath)
+}
+
+func (m Model) inspectCommit(commit history.Commit, parent, path string) tea.Cmd {
+	sha := commit.SHA
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		inspector, err := history.Inspect(context.Background(), runner, sha, "")
+		inspector, err := history.InspectPath(context.Background(), runner, sha, parent, path)
+		inspector.Commit = commit
 		return HistoryInspectorReadyMsg{Inspector: inspector, Err: err}
 	}
 }
@@ -717,6 +727,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Log && m.HistorySearching {
 			return m, m.updateHistorySearch(v.String())
 		}
+		if m.currentView() == workspace.Log && m.HistoryInspectorPathMode {
+			switch v.String() {
+			case "esc":
+				m.HistoryInspectorPathMode, m.HistoryInspectorPath = false, ""
+				m.Status = "path filter cancelled"
+			case "backspace":
+				m.HistoryInspectorPath = removeLastRune(m.HistoryInspectorPath)
+			case "space":
+				m.HistoryInspectorPath += " "
+			case "enter":
+				m.HistoryInspectorPathMode, m.State, m.Status = false, StateOperationPending, "loading filtered commit details"
+				return m, m.inspectSelectedCommit()
+			default:
+				if len([]rune(v.String())) == 1 {
+					m.HistoryInspectorPath += v.String()
+				}
+			}
+			if m.HistoryInspectorPathMode {
+				m.Status = "path filter: " + m.HistoryInspectorPath
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Stashes && m.StashCreateMode {
 			return m, m.updateStashCreateKey(v.String())
 		}
@@ -891,6 +923,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Remotes {
 				m.State, m.Status = StateOperationPending, "fetching"
 				return m, m.fetchSelectedRemote()
+			} else if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" {
+				m.HistoryInspectorPathMode, m.HistoryInspectorPath = true, ""
+				m.Status = "path filter: "
 			}
 		case "m", "e", "o":
 			if m.currentView() == workspace.Remotes {
@@ -946,6 +981,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryRevertTarget = m.History.Rows[m.History.Selected].Commit.SHA
 				m.HistoryRevertInput, m.HistoryRevertConfirm, m.HistoryRevertInvalid = "", true, false
 				m.Status = "type SHA " + m.HistoryRevertTarget + ": "
+			}
+		case "M":
+			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" && len(m.HistoryInspector.Commit.Parents) > 0 {
+				parent := ""
+				for i, candidate := range m.HistoryInspector.Commit.Parents {
+					if candidate == m.HistoryInspectorParent {
+						parent = m.HistoryInspector.Commit.Parents[(i+1)%len(m.HistoryInspector.Commit.Parents)]
+						break
+					}
+				}
+				if parent == "" {
+					parent = m.HistoryInspector.Commit.Parents[0]
+				}
+				m.HistoryInspectorParent, m.State, m.Status = parent, StateOperationPending, "loading parent-relative details"
+				return m, m.inspectSelectedCommit()
+			}
+		case "y":
+			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" {
+				m.Status = "copied " + m.HistoryInspector.Commit.SHA
+				return m, tea.SetClipboard(m.HistoryInspector.Commit.SHA)
 			}
 		case "t":
 			if m.currentView() == workspace.Log {
@@ -1283,6 +1338,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.HistoryInspector.Commit.SHA != "" {
 			content += "\n\n" + inspectorText(m.HistoryInspector)
 		}
+		if m.HistoryInspectorPathMode {
+			content += "\n\n" + m.Status
+		}
 		if m.HistoryActionConfirm {
 			content += "\n\n" + m.Status
 		}
@@ -1336,12 +1394,15 @@ func (m Model) featureView(view workspace.View) tea.View {
 }
 
 func inspectorText(inspector history.Inspector) string {
-	lines := []string{"Selected commit: " + inspector.Summary(), "Files:"}
+	lines := []string{"Selected commit: " + platform.SafeText(inspector.Summary()), "Files:"}
+	if inspector.Parent != "" {
+		lines[0] += " (parent " + platform.SafeText(inspector.Parent) + ")"
+	}
 	for _, stat := range inspector.Stats {
 		if stat.Binary {
-			lines = append(lines, "  "+stat.Path+" [binary]")
+			lines = append(lines, "  "+platform.SafeText(stat.Path)+" [binary]")
 		} else {
-			lines = append(lines, fmt.Sprintf("  %s +%d -%d", stat.Path, stat.Added, stat.Deleted))
+			lines = append(lines, fmt.Sprintf("  %s +%d -%d", platform.SafeText(stat.Path), stat.Added, stat.Deleted))
 		}
 	}
 	if inspector.Diff != "" {

@@ -415,12 +415,36 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 		t.Fatalf("history append state = more=%v rows=%d", m.HistoryHasMore, len(m.History.Rows))
 	}
 	updated, _ = m.Update(HistoryInspectorReadyMsg{Inspector: history.Inspector{
-		Commit: history.Commit{SHA: "two", Short: "two", Author: "Alice", Subject: "second"},
+		Commit: history.Commit{SHA: "two", Short: "two", Author: "Alice", Subject: "second", Parents: []string{"parent-one", "parent-two"}},
 		Stats:  []history.FileStat{{Path: "file.txt", Added: 2, Deleted: 1}}, Diff: "+new",
 	}})
 	m = updated.(Model)
 	if got := m.View().Content; !contains(got, "Selected commit: two") || !contains(got, "file.txt +2 -1") || !contains(got, "+new") {
 		t.Fatalf("history inspector missing: %q", got)
+	}
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || !contains(m.Status, "copied two") {
+		t.Fatalf("copy SHA = cmdnil=%v status=%q", cmd == nil, m.Status)
+	}
+	updated, cmd = m.Update(key("M"))
+	m = updated.(Model)
+	if cmd == nil || m.HistoryInspectorParent != "parent-one" || m.State != StateOperationPending {
+		t.Fatalf("parent inspection = cmdnil=%v parent=%q state=%v", cmd == nil, m.HistoryInspectorParent, m.State)
+	}
+	updated, _ = m.Update(key("f"))
+	m = updated.(Model)
+	if !m.HistoryInspectorPathMode {
+		t.Fatal("path filter mode did not open")
+	}
+	for _, r := range "file.txt" {
+		updated, _ = m.Update(key(string(r)))
+		m = updated.(Model)
+	}
+	updated, cmd = m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.HistoryInspectorPathMode || m.State != StateOperationPending {
+		t.Fatalf("path inspection = cmdnil=%v mode=%v state=%v", cmd == nil, m.HistoryInspectorPathMode, m.State)
 	}
 	updated, _ = m.Update(key("x"))
 	m = updated.(Model)

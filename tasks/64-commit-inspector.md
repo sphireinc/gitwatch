@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added parent-relative commit inspection primitives returning changed paths, add/delete/binary stats, full patches, and path-safe filtering, plus commit metadata summary. The History workspace now asynchronously inspects the selected commit and renders metadata, file stats, and a bounded patch preview; SHA copy, ref jumps, path filtering, and merge-parent controls remain.
+Progress: Added parent-relative commit inspection primitives returning changed paths, add/delete/binary stats, full patches, and path-safe filtering, plus commit metadata summary. The History workspace now asynchronously inspects the selected commit and renders metadata, file stats, and a bounded patch preview; `M` cycles merge parents, `f` applies a path filter, and `y` requests native OSC52 SHA copy. Ref jumps remain.
 
 ## Objective
 Selecting a commit should show metadata, parents, refs, changed-file stats, full patch, and parent-relative diff. Add copy-SHA, inspect parent, jump-to-ref, and path filtering. Support merge commits explicitly.
