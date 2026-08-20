@@ -41,6 +41,8 @@ In the History inspector, `M` switches to the next merge parent, `f` filters the
 
 Remote conflict and non-fast-forward failures identify the operation and direct you to resolve conflicts before refreshing.
 
+Press `Ctrl-P` from any workspace to search and run available commands; disabled commands explain why they cannot run.
+
 ## Keymap and status symbols
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.

@@ -9,6 +9,7 @@ import (
 
 	"charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/branches"
+	"github.com/jusanchez/gitwatch/internal/commands"
 	"github.com/jusanchez/gitwatch/internal/commitmodel"
 	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
@@ -198,10 +199,93 @@ type Model struct {
 	RemoteForceConfirm       bool
 	RemotePushConfirm        bool
 	RemotePushPreview        remotes.RefMovement
+	PaletteMode              bool
+	PaletteQuery             string
+	PaletteSelected          int
+	PaletteResults           []commands.Match
 }
 
 func New() Model {
 	return Model{State: StateLoading, Focus: "files", Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New()}
+}
+
+func (m Model) paletteActions() []commands.Action {
+	return []commands.Action{
+		{ID: "status", Label: "Show status", Shortcut: "1", Enabled: m.Discovery.Root != ""},
+		{ID: "branches", Label: "Open branches", Shortcut: "b", Enabled: m.Discovery.Root != ""},
+		{ID: "stashes", Label: "Open stashes", Shortcut: "s", Enabled: m.Discovery.Root != ""},
+		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
+		{ID: "remotes", Label: "Open remotes", Shortcut: "n", Enabled: m.Discovery.Root != ""},
+		{ID: "worktrees", Label: "Open worktrees", Shortcut: "w", Enabled: m.Discovery.Root != ""},
+		{ID: "refresh", Label: "Refresh repository", Shortcut: "r", Enabled: m.Discovery.Root != ""},
+	}
+}
+
+func (m *Model) openPalette() {
+	m.PaletteMode, m.PaletteQuery, m.PaletteSelected = true, "", 0
+	m.PaletteResults = commands.Search(m.paletteActions(), "")
+	m.Status = "command palette"
+}
+
+func (m *Model) updatePaletteKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.PaletteMode, m.PaletteQuery, m.PaletteResults = false, "", nil
+		m.Status = "palette closed"
+	case "backspace":
+		m.PaletteQuery = removeLastRune(m.PaletteQuery)
+	case "up", "k":
+		m.PaletteSelected--
+		if m.PaletteSelected < 0 {
+			m.PaletteSelected = 0
+		}
+	case "down", "j":
+		m.PaletteSelected++
+		if m.PaletteSelected >= len(m.PaletteResults) {
+			m.PaletteSelected = max(0, len(m.PaletteResults)-1)
+		}
+	case "enter":
+		if m.PaletteSelected >= 0 && m.PaletteSelected < len(m.PaletteResults) && m.PaletteResults[m.PaletteSelected].Enabled {
+			id := m.PaletteResults[m.PaletteSelected].ID
+			m.PaletteMode, m.PaletteQuery, m.PaletteResults = false, "", nil
+			return m.executePaletteAction(id)
+		}
+	default:
+		if key == "space" {
+			m.PaletteQuery += " "
+		} else if len([]rune(key)) == 1 {
+			m.PaletteQuery += key
+		}
+	}
+	if m.PaletteMode {
+		m.PaletteResults = commands.Search(m.paletteActions(), m.PaletteQuery)
+		if m.PaletteSelected >= len(m.PaletteResults) {
+			m.PaletteSelected = max(0, len(m.PaletteResults)-1)
+		}
+		m.Status = "command palette: " + m.PaletteQuery
+	}
+	return nil
+}
+
+func (m *Model) executePaletteAction(id string) tea.Cmd {
+	switch id {
+	case "status":
+		m.Workspace.Navigate(workspace.Status, "Status")
+	case "branches":
+		return m.navigate(workspace.Branches, "Branches")
+	case "stashes":
+		return m.navigate(workspace.Stashes, "Stashes")
+	case "history":
+		return m.navigate(workspace.Log, "History")
+	case "remotes":
+		return m.navigate(workspace.Remotes, "Remotes")
+	case "worktrees":
+		return m.navigate(workspace.Worktrees, "Worktrees")
+	case "refresh":
+		m.State, m.Status = StateRefreshing, "refreshing"
+		return m.refresh()
+	}
+	return nil
 }
 func NewRepository(d git.Discovery) Model { m := New(); m.Discovery = d; return m }
 func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
@@ -768,6 +852,9 @@ func (m Model) currentView() workspace.View {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch v := msg.(type) {
 	case tea.KeyPressMsg:
+		if m.PaletteMode {
+			return m, m.updatePaletteKey(v.String())
+		}
 		if m.currentView() == workspace.Commit {
 			return m, m.updateComposerKey(v.String())
 		}
@@ -964,6 +1051,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			m.State = StateShutdown
 			return m, tea.Quit
+		case "ctrl+p":
+			m.openPalette()
+			return m, nil
 		case "esc":
 			if m.Modal != "" {
 				m.Modal = ""
@@ -1400,7 +1490,32 @@ func remoteConflict(err error) bool {
 	return strings.Contains(text, "conflict") || strings.Contains(text, "would be overwritten") || strings.Contains(text, "non-fast-forward")
 }
 
+func (m Model) paletteView() tea.View {
+	lines := []string{"gitwatch command palette", "", "Search: " + platform.SafeText(m.PaletteQuery), ""}
+	if len(m.PaletteResults) == 0 {
+		lines = append(lines, "  No matching commands")
+	}
+	for i, result := range m.PaletteResults {
+		prefix := "  "
+		if i == m.PaletteSelected {
+			prefix = "> "
+		}
+		state := result.Shortcut
+		if !result.Enabled {
+			state += " — disabled: " + result.Reason
+		}
+		lines = append(lines, prefix+result.Label+" ["+state+"]")
+	}
+	lines = append(lines, "", "[j/k] move  [enter] run  [esc] close")
+	v := tea.NewView(strings.Join(lines, "\n"))
+	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
+	return v
+}
+
 func (m Model) View() tea.View {
+	if m.PaletteMode {
+		return m.paletteView()
+	}
 	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.Worktrees {
 		return m.featureView(view)
 	}

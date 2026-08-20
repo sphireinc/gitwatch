@@ -37,6 +37,7 @@
 | / | Filter |
 | r | Force refresh |
 | ? | Help |
+| Ctrl-P | Open command palette |
 | Esc | Close overlay / cancel |
 | q | Quit |
 

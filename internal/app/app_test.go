@@ -137,6 +137,25 @@ func TestHistoryRefJumpRouting(t *testing.T) {
 	}
 }
 
+func TestCommandPaletteSearchAndExecution(t *testing.T) {
+	m := New()
+	m.Discovery.Root = "/repo"
+	m.openPalette()
+	if !m.PaletteMode || len(m.PaletteResults) == 0 {
+		t.Fatalf("palette open = mode=%v results=%d", m.PaletteMode, len(m.PaletteResults))
+	}
+	updated, _ := m.Update(key("w"))
+	m = updated.(Model)
+	if !m.PaletteMode || !contains(m.PaletteQuery, "w") {
+		t.Fatalf("palette query = mode=%v query=%q", m.PaletteMode, m.PaletteQuery)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if m.PaletteMode || m.currentView() != workspace.Worktrees {
+		t.Fatalf("palette execution = mode=%v view=%q", m.PaletteMode, m.currentView())
+	}
+}
+
 func key(text string) tea.KeyPressMsg {
 	if text == "esc" {
 		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape})
