@@ -16,6 +16,7 @@ const (
 	Remotes      View = "remotes"
 	GitHub       View = "github"
 	Plugins      View = "plugins"
+	Hunks        View = "hunks"
 	Repositories View = "repositories"
 	Worktrees    View = "worktrees"
 )

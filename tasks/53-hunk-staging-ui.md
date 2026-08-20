@@ -3,6 +3,8 @@
 ## Objective
 Add a patch-mode diff view with gutter selection, current hunk emphasis, selected-line indicators, hunk counters, context expansion, mouse selection, keyboard navigation, help hints, and animation that never obscures patch content.
 
+Progress: The app now exposes an asynchronous Hunk workspace from the loaded diff with selected-line markers, hunk counters, keyboard selection/all/invert controls, partial stage/unstage actions, and a guarded discard path. Mouse selection, context expansion, and final animation polish remain.
+
 ## Required implementation
 - Produce production-quality implementation, not a prototype.
 - Integrate with the existing Bubble Tea message/update architecture and typed Git runner.

@@ -29,6 +29,7 @@
 | c | Open the first check URL (in GitHub view) |
 | A / D / P | Add / remove / prune worktrees (in Worktrees view) |
 | Enter | Open selected repository or worktree |
+| H | Open hunk selection for the currently loaded diff |
 | f | Fetch selected remote (in Remotes view) |
 | C | Create stash (in Stashes view) |
 | a / p / D | Apply / pop / drop selected stash (in Stashes view) |

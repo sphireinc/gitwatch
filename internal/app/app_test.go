@@ -393,6 +393,36 @@ func TestPluginWorkspaceTogglesSelectedEntry(t *testing.T) {
 	}
 }
 
+func TestHunkWorkspaceSelectionAndDiscardConfirmation(t *testing.T) {
+	m := New()
+	m.DiffText = "diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1,2 +1,2 @@\n keep\n-old\n+new\n"
+	m.Workspace.Navigate(workspace.Status, "Status")
+	updated, _ := m.Update(key("H"))
+	m = updated.(Model)
+	if m.currentView() != workspace.Hunks || len(m.Hunks.Files) != 1 {
+		t.Fatalf("hunk route = view=%q files=%d", m.currentView(), len(m.Hunks.Files))
+	}
+	updated, _ = m.Update(key("a"))
+	m = updated.(Model)
+	if m.Hunks.Selection.Count() != 2 {
+		t.Fatalf("hunk selection count = %d", m.Hunks.Selection.Count())
+	}
+	updated, cmd := m.Update(key("d"))
+	m = updated.(Model)
+	if cmd != nil || !m.HunkDiscardConfirm {
+		t.Fatalf("discard confirmation = cmdnil=%v confirm=%v", cmd == nil, m.HunkDiscardConfirm)
+	}
+	for _, ch := range "discard" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, cmd = m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.HunkDiscardConfirm || m.State != StateOperationPending {
+		t.Fatalf("discard execution = cmdnil=%v confirm=%v state=%v", cmd == nil, m.HunkDiscardConfirm, m.State)
+	}
+}
+
 func TestRemoteSetUpstreamAndTagPushControls(t *testing.T) {
 	m := New()
 	m.Snapshot.Branch.Name = "main"

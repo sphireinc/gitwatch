@@ -15,6 +15,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/notifications"
+	"github.com/jusanchez/gitwatch/internal/patch"
 	"github.com/jusanchez/gitwatch/internal/platform"
 	"github.com/jusanchez/gitwatch/internal/plugins"
 	"github.com/jusanchez/gitwatch/internal/provider"
@@ -26,6 +27,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/ui/commitview"
 	"github.com/jusanchez/gitwatch/internal/ui/githubview"
 	"github.com/jusanchez/gitwatch/internal/ui/historyview"
+	"github.com/jusanchez/gitwatch/internal/ui/hunkview"
 	"github.com/jusanchez/gitwatch/internal/ui/layout"
 	uimouse "github.com/jusanchez/gitwatch/internal/ui/mouse"
 	"github.com/jusanchez/gitwatch/internal/ui/pluginview"
@@ -76,8 +78,13 @@ type FocusMsg struct{ Pane string }
 type ShutdownMsg struct{}
 type DiffReadyMsg struct {
 	Path, Text string
+	Staged     bool
 	Binary     bool
 	Err        error
+}
+type PartialOperationFinishedMsg struct {
+	Name string
+	Err  error
 }
 type BranchesReadyMsg struct {
 	Entries []branches.Branch
@@ -185,6 +192,7 @@ type Model struct {
 	RefreshInterval          time.Duration
 	DiffPath, DiffText       string
 	DiffBinary               bool
+	DiffStaged               bool
 	Workspace                *workspace.Model
 	Branches                 branchview.Model
 	Stashes                  stashview.Model
@@ -213,6 +221,9 @@ type Model struct {
 	HistoryRevertInput       string
 	HistoryRevertInvalid     bool
 	Composer                 commitview.Composer
+	Hunks                    hunkview.Model
+	HunkDiscardConfirm       bool
+	HunkDiscardInput         string
 	CommitConfig             git.CommitConfig
 	CommitConfigReady        bool
 	CommitAmendConfirm       bool
@@ -471,7 +482,41 @@ func (m Model) openDiff() tea.Cmd {
 	r := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
 		d, err := r.Diff(context.Background(), path, e.Staged && !e.Unstaged)
-		return DiffReadyMsg{Path: string(path), Text: string(d.Text), Binary: d.Binary, Err: err}
+		return DiffReadyMsg{Path: string(path), Text: string(d.Text), Staged: d.Staged, Binary: d.Binary, Err: err}
+	}
+}
+
+func (m *Model) beginHunks() {
+	files, err := patch.Parse(m.DiffText)
+	if err != nil || len(files) == 0 {
+		m.Status = "selected diff is not a patch"
+		return
+	}
+	m.Hunks = hunkview.New(files)
+	m.Workspace.Navigate(workspace.Hunks, "Hunks")
+	m.Status = "hunk selection"
+}
+
+func (m Model) applySelectedHunks(discard bool) tea.Cmd {
+	if len(m.Hunks.Files) == 0 || m.Hunks.Selection.Count() == 0 {
+		return nil
+	}
+	data, err := m.Hunks.Selection.BuildPatch(m.Hunks.Files)
+	if err != nil {
+		return func() tea.Msg { return PartialOperationFinishedMsg{Name: "partial patch", Err: err} }
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	staged := m.DiffStaged
+	return func() tea.Msg {
+		var operationErr error
+		if discard {
+			_, operationErr = runner.ApplyReversePatch(context.Background(), git.PartialPatch{Patch: data})
+		} else if staged {
+			_, operationErr = runner.ApplyReverseCachedPatch(context.Background(), git.PartialPatch{Patch: data})
+		} else {
+			_, operationErr = runner.ApplyCachedPatch(context.Background(), git.PartialPatch{Patch: data})
+		}
+		return PartialOperationFinishedMsg{Name: map[bool]string{true: "discard", false: "partial stage"}[discard], Err: operationErr}
 	}
 }
 
@@ -1109,6 +1154,63 @@ func (m *Model) updateComposerKey(key string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) updateHunkKey(key string) tea.Cmd {
+	if m.HunkDiscardConfirm {
+		switch key {
+		case "esc", "n":
+			m.HunkDiscardConfirm, m.HunkDiscardInput = false, ""
+			m.Status = "partial discard cancelled"
+		case "backspace":
+			m.HunkDiscardInput = removeLastRune(m.HunkDiscardInput)
+		case "enter":
+			if m.HunkDiscardInput == "discard" {
+				m.HunkDiscardConfirm, m.HunkDiscardInput, m.State = false, "", StateOperationPending
+				m.Status = "discarding selected hunks"
+				return m.applySelectedHunks(true)
+			}
+			m.Status = "type discard to confirm"
+		case "space":
+			m.HunkDiscardInput += " "
+		default:
+			if len([]rune(key)) == 1 {
+				m.HunkDiscardInput += key
+			}
+		}
+		return nil
+	}
+	switch key {
+	case "esc":
+		m.Workspace.Back()
+	case "j", "down":
+		m.Hunks.Move(1)
+	case "k", "up":
+		m.Hunks.Move(-1)
+	case "space":
+		m.Hunks.Toggle()
+	case "a":
+		if m.Hunks.File < len(m.Hunks.Files) && m.Hunks.Hunk < len(m.Hunks.Files[m.Hunks.File].Hunks) {
+			m.Hunks.Selection.SelectHunk(m.Hunks.File, m.Hunks.Hunk, m.Hunks.Files[m.Hunks.File].Hunks[m.Hunks.Hunk])
+		}
+	case "A":
+		m.Hunks.Selection.SelectAll(m.Hunks.Files)
+	case "i":
+		m.Hunks.Selection.Invert(m.Hunks.Files)
+	case "s":
+		m.State, m.Status = StateOperationPending, "applying selected hunks"
+		return m.applySelectedHunks(false)
+	case "d":
+		if m.DiffStaged {
+			m.Status = "discard is available only for working-tree hunks"
+		} else if m.Hunks.Selection.Count() == 0 {
+			m.Status = "select hunks before discarding"
+		} else {
+			m.HunkDiscardConfirm, m.HunkDiscardInput = true, ""
+			m.Status = "type discard to confirm partial discard"
+		}
+	}
+	return nil
+}
+
 func (m *Model) updateHistorySearch(key string) tea.Cmd {
 	if key == "esc" || key == "enter" {
 		m.HistorySearching = false
@@ -1145,6 +1247,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.PaletteMode {
 			return m, m.updatePaletteKey(v.String())
+		}
+		if m.currentView() == workspace.Hunks {
+			return m, m.updateHunkKey(v.String())
 		}
 		if m.currentView() == workspace.Commit && m.CommitAmendConfirm {
 			switch v.String() {
@@ -1655,6 +1760,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.mutate()
 		case "d":
 			return m, m.openDiff()
+		case "H":
+			if m.DiffText != "" {
+				m.beginHunks()
+			}
 		case "?":
 			m.Modal, m.State = "help", StateModal
 		case "r":
@@ -1737,6 +1846,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Status = v.Name + " complete"
 			m.notify(notifications.JobComplete, notifications.Success, m.Status, "", false)
 		}
+	case PartialOperationFinishedMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+			m.notify(notifications.JobComplete, notifications.Error, v.Name, v.Err.Error(), true)
+		} else {
+			m.State, m.Status = StateReady, v.Name+" complete"
+			return m, m.refresh()
+		}
 	case ToastMsg:
 		m.Toast = v
 	case ModalMsg:
@@ -1751,7 +1868,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ShutdownMsg:
 		m.State = StateShutdown
 	case DiffReadyMsg:
-		m.DiffPath, m.DiffText, m.DiffBinary, m.Status = v.Path, v.Text, v.Binary, ""
+		m.DiffPath, m.DiffText, m.DiffStaged, m.DiffBinary, m.Status = v.Path, v.Text, v.Staged, v.Binary, ""
 		if v.Err != nil {
 			m.Status = v.Err.Error()
 		}
@@ -2029,7 +2146,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Worktrees || view == workspace.Repositories {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories {
 		return m.featureView(view)
 	}
 	name := m.Snapshot.Branch.Name
@@ -2139,6 +2256,11 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · GitHub", m.GitHub.View()
 	} else if view == workspace.Plugins {
 		title, content = "gitwatch · plugins", m.Plugins.View()
+	} else if view == workspace.Hunks {
+		title, content = "gitwatch · hunk selection", m.Hunks.View()
+		if m.HunkDiscardConfirm {
+			content += "\n\n" + m.Status + ": " + m.HunkDiscardInput
+		}
 	} else if view == workspace.Worktrees {
 		title, content = "gitwatch · worktrees", m.Worktrees.View()
 	} else if view == workspace.Repositories {
@@ -2156,6 +2278,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Plugins {
 		lines[len(lines)-1] = "[j/k] move  [r] reload  [esc] back  [q] quit"
+	}
+	if view == workspace.Hunks {
+		lines[len(lines)-1] = "[j/k] move  [space] select  [a/A/i] hunk/all/invert  [s] stage  [d] discard  [esc] back  [q] quit"
 	}
 	if view == workspace.Commit {
 		lines[len(lines)-1] = "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"

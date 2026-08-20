@@ -36,6 +36,9 @@ func (m Model) View() string {
 		return "No patch"
 	}
 	f := m.Files[m.File]
+	if len(f.Hunks) == 0 || m.Hunk < 0 || m.Hunk >= len(f.Hunks) {
+		return "No selectable hunks"
+	}
 	lines := []string{fmt.Sprintf("%s · hunk %d/%d · selected %d", f.NewPath, m.Hunk+1, len(f.Hunks), m.Selection.Count())}
 	for i, l := range f.Hunks[m.Hunk].Lines {
 		mark := " "
