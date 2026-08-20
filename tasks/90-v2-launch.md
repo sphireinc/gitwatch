@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Versioned configuration, public plugin SDK foundations, documentation, benchmark coverage, and reproducible v1 release tooling are present. v2 schema/API freeze, full feature integration, publication, clean-install/upgrade verification, and announcement remain.
+Progress: Versioned configuration, public plugin SDK foundations, documentation, benchmark coverage, and reproducible v1 release tooling are present; the release-check script passes all tests, race checks, vet/build checks, and five archive checksums. v2 schema/API freeze, full feature integration, publication, clean-install/upgrade verification, and announcement remain.
 
 ## Objective
 Freeze schemas/APIs, finalize changelog and migration notes, tag v2.0.0, build/sign/checksum release artifacts, publish package-manager updates, publish plugin SDK version, verify clean installs/upgrades, and announce the release with demo assets highlighting the full Git workbench and multi-repo dashboard.
