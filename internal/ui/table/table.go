@@ -36,7 +36,15 @@ func (m *Model) SetEntries(entries []repo.Entry) {
 	m.rebuild(selected)
 }
 func (m *Model) SetFilter(filter string) { m.Filter = filter; m.rebuild(m.SelectedPath()) }
-func (m *Model) CycleSort()              { m.Sort = (m.Sort + 1) % 4; m.rebuild(m.SelectedPath()) }
+func (m *Model) SetConflictFilter(enabled bool) {
+	if enabled {
+		m.Filter = "!conflict"
+	} else {
+		m.Filter = ""
+	}
+	m.rebuild(m.SelectedPath())
+}
+func (m *Model) CycleSort() { m.Sort = (m.Sort + 1) % 4; m.rebuild(m.SelectedPath()) }
 func (m Model) SelectedPath() string {
 	if m.Selected < 0 || m.Selected >= len(m.Visible) {
 		return ""
@@ -74,6 +82,12 @@ func (m Model) RowAt(y, top, height int) (repo.Entry, bool) {
 func (m *Model) rebuild(previous string) {
 	m.Visible = m.Visible[:0]
 	for i, entry := range m.Entries {
+		if m.Filter == "!conflict" {
+			if entry.Conflicted {
+				m.Visible = append(m.Visible, i)
+			}
+			continue
+		}
 		if fuzzy(string(entry.Path), m.Filter) {
 			m.Visible = append(m.Visible, i)
 		}

@@ -34,3 +34,11 @@ func TestRowHitTesting(t *testing.T) {
 		t.Fatal(e, ok)
 	}
 }
+
+func TestConflictFilter(t *testing.T) {
+	m := New([]repo.Entry{{Path: repo.Path("clean")}, {Path: repo.Path("conflict"), Conflicted: true}})
+	m.SetConflictFilter(true)
+	if len(m.Visible) != 1 || string(m.Entries[m.Visible[0]].Path) != "conflict" {
+		t.Fatal(m.Visible)
+	}
+}

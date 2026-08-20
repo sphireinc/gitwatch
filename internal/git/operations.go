@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/jusanchez/gitwatch/internal/repo"
 )
 
 type OperationResult struct {
@@ -15,6 +17,8 @@ type OperationResult struct {
 func (r Runner) Stage(ctx context.Context, path []byte) (OperationResult, error) {
 	return r.pathOperation(ctx, "stage", []byte(path), "add", "--")
 }
+
+func StageAllowed(entry repo.Entry) bool { return !entry.Conflicted }
 
 func (r Runner) Unstage(ctx context.Context, path []byte) (OperationResult, error) {
 	result, err := r.pathOperation(ctx, "unstage", path, "restore", "--staged", "--")

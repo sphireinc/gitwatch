@@ -7,3 +7,9 @@ func TestStatusLabel(t *testing.T) {
 		t.Fatal("status labels are not semantic")
 	}
 }
+
+func TestConflictType(t *testing.T) {
+	if (Entry{Conflicted: true, XY: "UU"}).ConflictType() != "both modified" {
+		t.Fatal("conflict type")
+	}
+}

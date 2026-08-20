@@ -24,6 +24,30 @@ type Entry struct {
 	ModeWork   string
 }
 
+func (e Entry) ConflictType() string {
+	if !e.Conflicted {
+		return ""
+	}
+	switch e.XY {
+	case "DD":
+		return "both deleted"
+	case "AU":
+		return "added by us"
+	case "UD":
+		return "deleted by them"
+	case "UA":
+		return "added by them"
+	case "DU":
+		return "deleted by us"
+	case "AA":
+		return "both added"
+	case "UU":
+		return "both modified"
+	default:
+		return "unmerged"
+	}
+}
+
 type Branch struct {
 	Name     string
 	OID      string
