@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added bounded NUL/record-delimited log parsing with SHA, parents, author, timestamp, and subject fields. Incremental UI loading, signature/ref metadata, cancellation integration, and pagination remain.
+Progress: Added bounded NUL/record-delimited log parsing with SHA, parents, author, timestamp, subject, refs, and signature fields, plus skip/limit pagination with a one-record lookahead. Incremental UI loading and cancellation integration remain.
 
 ## Objective
 Load commit history incrementally using stable machine-readable formatting. Model SHA, parents, refs, author, timestamp, subject, signature state, and graph topology. Support pagination/lazy loading and cancellation for very large histories.

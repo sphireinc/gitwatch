@@ -11,12 +11,14 @@ type Commit struct {
 	SHA, Short, Author, Subject string
 	Unix                        int64
 	Parents                     []string
+	Refs                        []string
+	Signature                   string
 }
 
 func ParseLog(data []byte) []Commit {
 	var commits []Commit
 	for _, record := range strings.Split(string(data), "\x1e") {
-		fields := strings.SplitN(strings.TrimSuffix(record, "\n"), "\x00", 6)
+		fields := strings.SplitN(strings.TrimSuffix(record, "\n"), "\x00", 8)
 		if len(fields) < 6 || fields[0] == "" {
 			continue
 		}
@@ -24,12 +26,29 @@ func ParseLog(data []byte) []Commit {
 		if fields[4] != "" {
 			parents = strings.Fields(fields[4])
 		}
-		commits = append(commits, Commit{
+		commit := Commit{
 			SHA: fields[0], Short: fields[1], Author: fields[2],
 			Unix: parseInt(fields[3]), Parents: parents, Subject: fields[5],
-		})
+		}
+		if len(fields) == 8 {
+			commit.Refs = splitRefs(fields[5])
+			commit.Signature = fields[6]
+			commit.Subject = fields[7]
+		}
+		commits = append(commits, commit)
 	}
 	return commits
+}
+
+func splitRefs(value string) []string {
+	var refs []string
+	for _, ref := range strings.Split(value, ", ") {
+		ref = strings.TrimSpace(ref)
+		if ref != "" {
+			refs = append(refs, ref)
+		}
+	}
+	return refs
 }
 
 func parseInt(s string) int64 {
@@ -43,14 +62,33 @@ func parseInt(s string) int64 {
 }
 
 func LoadLog(ctx context.Context, runner git.Runner, limit int) ([]Commit, error) {
+	page, err := LoadPage(ctx, runner, 0, limit)
+	return page.Commits, err
+}
+
+type Page struct {
+	Commits []Commit
+	HasMore bool
+}
+
+func LoadPage(ctx context.Context, runner git.Runner, skip, limit int) (Page, error) {
 	if limit < 1 {
 		limit = 100
 	}
-	result, err := runner.Run(ctx, "log", "-n", fmtInt(limit), "--format=%H%x00%h%x00%an%x00%at%x00%P%x00%s%x1e")
-	if err != nil {
-		return nil, err
+	if skip < 0 {
+		skip = 0
 	}
-	return ParseLog(result.Stdout), nil
+	result, err := runner.Run(ctx, "log", "--skip", fmtInt(skip), "-n", fmtInt(limit+1), "--format=%H%x00%h%x00%an%x00%at%x00%P%x00%D%x00%G?%x00%s%x1e")
+	if err != nil {
+		return Page{}, err
+	}
+	commits := ParseLog(result.Stdout)
+	page := Page{Commits: commits}
+	if len(commits) > limit {
+		page.HasMore = true
+		page.Commits = commits[:limit]
+	}
+	return page, nil
 }
 
 func fmtInt(n int) string {
