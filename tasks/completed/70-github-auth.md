@@ -1,8 +1,8 @@
 # Task 70: Add optional GitHub authentication/provider layer
 
-Status: In progress
+Status: Complete
 
-Progress: Added GitHub remote detection, optional environment-backed token loading, direct-argv GitHub CLI credential reuse, and an optional context-aware GitHub API client for pull requests and check runs; token values are never persisted or formatted, and provider errors omit response bodies. UI integration remains.
+Progress: Added GitHub remote detection, optional environment-backed token loading, direct-argv GitHub CLI credential reuse with environment fallback, and an optional context-aware GitHub API client for pull requests and check runs; token values are never persisted or formatted, and provider errors omit response bodies. The opt-in GitHub workspace now loads and renders provider data asynchronously with graceful offline/error handling.
 
 ## Objective
 Detect GitHub remotes and implement an optional provider abstraction. Prefer GitHub CLI credential reuse when available; otherwise support secure token configuration without writing secrets to normal config/logs. Core gitwatch must remain fully functional when GitHub integration is disabled.
@@ -25,4 +25,9 @@ Detect GitHub remotes and implement an optional provider abstraction. Prefer Git
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- GitHub support is disabled unless `github.enabled` is true; core status and Git workflows remain independent of provider availability.
+- The `G` workspace detects the first GitHub remote, prefers `gh auth token`, then falls back to the configured token environment variable, and never writes credentials to config, logs, or rendered output.
+- PR/check reads run asynchronously through the typed provider client and are rendered through a sanitized GitHub view. PR actions and browser integration remain scoped to Tasks 71 and 72.
+- Tests cover remote parsing, token-source fallback, transport/error redaction, provider parsing/cache behavior, async app routing, and sanitized UI rendering.

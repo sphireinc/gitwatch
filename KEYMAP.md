@@ -24,6 +24,7 @@
 | n | Remotes view |
 | w | Worktrees view |
 | v / Enter | Repositories dashboard / open selected repository |
+| G | GitHub workspace (when enabled) |
 | A / D / P | Add / remove / prune worktrees (in Worktrees view) |
 | Enter | Open selected repository or worktree |
 | f | Fetch selected remote (in Remotes view) |

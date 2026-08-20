@@ -56,6 +56,20 @@ func (e EnvironmentToken) Token() (string, error) {
 	return value, nil
 }
 
+type FallbackToken struct{ Sources []TokenSource }
+
+func (f FallbackToken) Token() (string, error) {
+	for _, source := range f.Sources {
+		if source == nil {
+			continue
+		}
+		if token, err := source.Token(); err == nil && strings.TrimSpace(token) != "" {
+			return strings.TrimSpace(token), nil
+		}
+	}
+	return "", ErrNoToken
+}
+
 func ParseGitHubRemote(raw string) (Repository, bool) {
 	raw = strings.TrimSpace(raw)
 	if strings.HasPrefix(raw, "git@github.com:") {

@@ -11,6 +11,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/jusanchez/gitwatch/internal/provider"
 	"github.com/jusanchez/gitwatch/internal/registry"
 	"github.com/jusanchez/gitwatch/internal/remotes"
 	"github.com/jusanchez/gitwatch/internal/repo"
@@ -362,6 +363,20 @@ func TestConfiguredKeymapDispatchesCanonicalActions(t *testing.T) {
 	m = updated.(Model)
 	if cmd == nil || m.State != StateShutdown {
 		t.Fatalf("remapped quit = cmdnil=%v state=%v", cmd == nil, m.State)
+	}
+}
+
+func TestGitHubWorkspaceLoadsAsynchronouslyWhenEnabled(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true, TokenEnv: "GITHUB_TOKEN"}})
+	updated, cmd := m.Update(key("G"))
+	m = updated.(Model)
+	if cmd == nil || m.currentView() != workspace.GitHub || m.State != StateLoading {
+		t.Fatalf("GitHub route = cmdnil=%v view=%q state=%v", cmd == nil, m.currentView(), m.State)
+	}
+	updated, _ = m.Update(GitHubReadyMsg{Repository: provider.Repository{Owner: "octo", Name: "repo"}, Branch: "main", Pull: provider.PullRequest{Number: 1, Title: "Improve", State: "open"}, Checks: provider.ChecksSnapshot{Passing: 1}})
+	m = updated.(Model)
+	if !m.GitHub.Ready || m.State != StateReady || !strings.Contains(m.GitHub.View(), "PR #1") {
+		t.Fatalf("GitHub result = ready=%v state=%v view=%s", m.GitHub.Ready, m.State, m.GitHub.View())
 	}
 }
 
