@@ -1,5 +1,9 @@
 # Task 65: Add history navigation actions
 
+Status: In progress
+
+Progress: Added explicit-target checkout, branch-at-commit, tag listing, and SHA-confirmed revert primitives. Confirmation UI, authoritative refresh, and end-to-end mutation tests remain.
+
 ## Objective
 Implement checkout/switch from refs, create branch at commit, tag navigation, and guarded revert. Keep reset/rebase/cherry-pick out unless separately implemented with explicit workflows. All history mutations must identify target SHA/ref before confirmation.
 

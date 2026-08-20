@@ -1,5 +1,9 @@
 # Task 61: Add Git worktree management
 
+Status: In progress
+
+Progress: Added porcelain worktree parsing with HEAD, branch, detached, bare, lock, and prunable metadata. Worktree create/open/remove/prune commands, UI integration, and occupancy safeguards remain.
+
 ## Objective
 Discover worktrees and expose path, branch, HEAD, lock/prunable state. Add create/open/remove/prune workflows with safety checks. Integrate worktree occupancy into branch management and multi-repo navigation.
 

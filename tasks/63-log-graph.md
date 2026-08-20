@@ -1,5 +1,9 @@
 # Task 63: Render animated Git log graph
 
+Status: In progress
+
+Progress: Added a deterministic render-neutral lane graph and case-insensitive history filtering. Bubble Tea graph rendering, decorations, scrolling/search UI, and reduced-motion animation remain.
+
 ## Objective
 Create a high-quality terminal commit graph with lanes, merges, branches/tags/HEAD decorations, scrolling, filtering, search, selected-commit details, and adaptive layout. Graph correctness takes priority over animation.
 
