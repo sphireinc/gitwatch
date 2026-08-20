@@ -6,4 +6,4 @@ Run `RELEASE_CRITERIA.md` line-by-line. Update changelog, version, release notes
 
 **Acceptance:** v1 artifacts install, launch, detect a repo, refresh live, stage/unstage safely, show diff/help, and exit cleanly on all supported platforms.
 
-**Status:** In progress — launch now detects repositories and renders an initial status snapshot; live watcher wiring, complete mutation/diff UI, and release acceptance evidence remain.
+**Status:** In progress — launch detects repositories, refreshes status, stages/unstages, shows diffs/help, and produces checksummed archives; final cross-platform/manual acceptance and publication remain.

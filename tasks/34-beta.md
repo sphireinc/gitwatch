@@ -6,4 +6,4 @@ Tag `v0.9.0`, distribute binaries, test in real repositories including monorepos
 
 **Acceptance:** Zero open blocker/critical issues and no known data-loss issue.
 
-**Status:** In progress — repository discovery and initial status rendering are now wired into the executable; beta validation still requires the full interactive mutation/diff UI and cross-platform manual checks.
+**Status:** In progress — repository discovery, status rendering, mutation/diff flows, and a repeatable release-check script are present; native Windows and operator/manual beta checks remain open.
