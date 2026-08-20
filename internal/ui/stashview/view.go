@@ -13,6 +13,21 @@ type Model struct {
 }
 
 func New(e []stash.Entry) Model { return Model{Entries: e} }
+
+func (m *Model) SetEntries(entries []stash.Entry) {
+	selectedRef := ""
+	if m.Selected >= 0 && m.Selected < len(m.Entries) {
+		selectedRef = m.Entries[m.Selected].Ref
+	}
+	m.Entries = append([]stash.Entry(nil), entries...)
+	m.Selected = 0
+	for i, entry := range m.Entries {
+		if entry.Ref == selectedRef {
+			m.Selected = i
+			break
+		}
+	}
+}
 func (m *Model) Move(d int) {
 	m.Selected += d
 	if m.Selected < 0 {

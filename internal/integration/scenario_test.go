@@ -145,3 +145,68 @@ func TestHistoryActionsRealRepositoryScenario(t *testing.T) {
 		t.Fatalf("reverted file = %q, err=%v", contents, err)
 	}
 }
+
+func TestStashMutationsRealRepositoryScenario(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "stash-test"}, {"config", "user.email", "stash@example.com"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := filepath.Join(root, "stash.txt")
+	if err := os.WriteFile(path, []byte("base\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("stash.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("base\n")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("applied\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stash.Create(ctx, runner, "apply-test"); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := stash.List(ctx, runner)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("stash list after create = %#v, err=%v", entries, err)
+	}
+	if _, err := stash.Apply(ctx, runner, entries[0].Ref); err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil || string(contents) != "applied\n" {
+		t.Fatalf("applied contents = %q, err=%v", contents, err)
+	}
+	if _, err := runner.Run(ctx, "restore", "--worktree", "--", "stash.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stash.Drop(ctx, runner, entries[0].Ref); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("popped\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stash.Create(ctx, runner, "pop-test"); err != nil {
+		t.Fatal(err)
+	}
+	entries, err = stash.List(ctx, runner)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("stash list before pop = %#v, err=%v", entries, err)
+	}
+	if _, err := stash.Pop(ctx, runner, entries[0].Ref); err != nil {
+		t.Fatal(err)
+	}
+	contents, err = os.ReadFile(path)
+	if err != nil || string(contents) != "popped\n" {
+		t.Fatalf("popped contents = %q, err=%v", contents, err)
+	}
+	entries, err = stash.List(ctx, runner)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("stash list after pop = %#v, err=%v", entries, err)
+	}
+}

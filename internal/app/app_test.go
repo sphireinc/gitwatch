@@ -12,6 +12,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/ui/branchview"
 	"github.com/jusanchez/gitwatch/internal/ui/historyview"
+	"github.com/jusanchez/gitwatch/internal/ui/stashview"
 	"github.com/jusanchez/gitwatch/internal/workspace"
 )
 
@@ -159,6 +160,53 @@ func TestHistoryRevertRequiresExactSHA(t *testing.T) {
 	m = updated.(Model)
 	if cmd == nil || m.HistoryRevertConfirm || m.State != StateOperationPending {
 		t.Fatalf("exact SHA revert = cmdnil=%v confirm=%v state=%v", cmd == nil, m.HistoryRevertConfirm, m.State)
+	}
+}
+
+func TestStashMutationRoutingAndConfirmation(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Stashes, "Stashes")
+	m.Stashes = stashview.New([]stash.Entry{{Ref: "stash@{0}", Message: "work"}})
+	updated, _ := m.Update(key("C"))
+	m = updated.(Model)
+	if !m.StashCreateMode {
+		t.Fatal("stash create mode did not start")
+	}
+	for _, ch := range "save work" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, cmd := m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || m.StashCreateMode {
+		t.Fatalf("stash create = cmdnil=%v state=%v mode=%v", cmd == nil, m.State, m.StashCreateMode)
+	}
+	updated, _ = m.Update(StashOperationFinishedMsg{Operation: "created stash", Ref: "save work"})
+	m = updated.(Model)
+	if m.State != StateReady || !contains(m.Status, "created stash") {
+		t.Fatalf("stash create completion = state=%v status=%q", m.State, m.Status)
+	}
+	updated, _ = m.Update(key("a"))
+	m = updated.(Model)
+	if m.StashConfirmAction != "apply" || m.StashConfirmRef != "stash@{0}" {
+		t.Fatalf("stash apply confirmation = %q/%q", m.StashConfirmAction, m.StashConfirmRef)
+	}
+	updated, _ = m.Update(key("n"))
+	m = updated.(Model)
+	if m.StashConfirmAction != "" || !contains(m.Status, "cancelled") {
+		t.Fatalf("stash cancellation = %q/%q", m.StashConfirmAction, m.Status)
+	}
+	updated, _ = m.Update(key("p"))
+	m = updated.(Model)
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || m.StashConfirmAction != "" {
+		t.Fatalf("stash pop execution = cmdnil=%v state=%v action=%q", cmd == nil, m.State, m.StashConfirmAction)
+	}
+	updated, _ = m.Update(StashOperationFinishedMsg{Operation: "pop", Ref: "stash@{0}", Err: errors.New("would clobber local changes")})
+	m = updated.(Model)
+	if m.State != StateError || !contains(m.Status, "would clobber") {
+		t.Fatalf("stash conflict = state=%v status=%q", m.State, m.Status)
 	}
 }
 

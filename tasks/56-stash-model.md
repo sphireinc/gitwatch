@@ -23,4 +23,4 @@ Parse stash list with stable refs, timestamps, messages, branch context, and obj
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — typed stash list parsing and safe list/create/apply/pop/drop/branch/show operations are implemented with ref/name validation and dirty-worktree detection; conflict guards, branch-from-stash refresh integration, and end-to-end mutation tests remain.
+**Status:** In progress — typed stash list parsing and safe list/create/apply/pop/drop/branch/show operations are implemented with ref/name validation and dirty-worktree detection. Real-repository create/apply/drop/pop coverage is now present; conflict guards, branch-from-stash refresh integration, and full mutation coverage remain.

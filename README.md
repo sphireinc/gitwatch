@@ -29,6 +29,8 @@ Press `B` in History to enter a branch name for the selected commit; Enter execu
 
 Press `R` in History to start a revert; the exact selected SHA must be typed before Enter can execute it.
 
+In Stashes, `C` creates a stash from an entered message; `a`, `p`, and `D` apply, pop, or drop the selected stash with confirmation where needed.
+
 Press `t` in History to load tag names and object IDs from the repository.
 
 ## Keymap and status symbols

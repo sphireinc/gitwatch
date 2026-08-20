@@ -105,6 +105,10 @@ type StashPreviewReadyMsg struct {
 	Ref, Text string
 	Err       error
 }
+type StashOperationFinishedMsg struct {
+	Operation, Ref string
+	Err            error
+}
 type RemotesReadyMsg struct {
 	Dashboard remotes.Dashboard
 	Err       error
@@ -150,6 +154,10 @@ type Model struct {
 	Composer              commitview.Composer
 	StashPreview          string
 	StashPreviewRef       string
+	StashCreateMode       bool
+	StashCreateMessage    string
+	StashConfirmAction    string
+	StashConfirmRef       string
 	Remotes               remoteview.Model
 	RemoteForceConfirm    bool
 }
@@ -274,6 +282,66 @@ func (m Model) previewSelectedStash() tea.Cmd {
 		result, err := stash.Show(context.Background(), runner, ref)
 		return StashPreviewReadyMsg{Ref: ref, Text: string(result.Stdout), Err: err}
 	}
+}
+
+func (m Model) createStash() tea.Cmd {
+	message := strings.TrimSpace(m.StashCreateMessage)
+	if message == "" {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		_, err := stash.Create(context.Background(), runner, message)
+		return StashOperationFinishedMsg{Operation: "created stash", Ref: message, Err: err}
+	}
+}
+
+func (m Model) executeStashAction() tea.Cmd {
+	if m.StashConfirmRef == "" {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	action, ref := m.StashConfirmAction, m.StashConfirmRef
+	return func() tea.Msg {
+		var err error
+		switch action {
+		case "apply":
+			_, err = stash.Apply(context.Background(), runner, ref)
+		case "pop":
+			_, err = stash.Pop(context.Background(), runner, ref)
+		case "drop":
+			_, err = stash.Drop(context.Background(), runner, ref)
+		default:
+			err = fmt.Errorf("unknown stash action: %s", action)
+		}
+		return StashOperationFinishedMsg{Operation: action, Ref: ref, Err: err}
+	}
+}
+
+func (m *Model) updateStashCreateKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.StashCreateMode, m.StashCreateMessage, m.Status = false, "", "stash creation cancelled"
+	case "backspace":
+		m.StashCreateMessage = removeLastRune(m.StashCreateMessage)
+	case "enter":
+		if strings.TrimSpace(m.StashCreateMessage) == "" {
+			m.Status = "stash message is required"
+		} else {
+			m.StashCreateMode, m.State, m.Status = false, StateOperationPending, "creating stash"
+			return m.createStash()
+		}
+	case "space":
+		m.StashCreateMessage += " "
+	default:
+		if len([]rune(key)) == 1 {
+			m.StashCreateMessage += key
+		}
+	}
+	if m.StashCreateMode {
+		m.Status = "stash message: " + m.StashCreateMessage
+	}
+	return nil
 }
 
 func (m Model) loadHistory() tea.Cmd {
@@ -536,6 +604,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Log && m.HistorySearching {
 			return m, m.updateHistorySearch(v.String())
 		}
+		if m.currentView() == workspace.Stashes && m.StashCreateMode {
+			return m, m.updateStashCreateKey(v.String())
+		}
+		if m.currentView() == workspace.Stashes && m.StashConfirmAction != "" {
+			switch v.String() {
+			case "y":
+				m.State, m.Status = StateOperationPending, m.StashConfirmAction+" stash"
+				action := m.executeStashAction()
+				m.StashConfirmAction, m.StashConfirmRef = "", ""
+				return m, action
+			case "n", "esc":
+				m.StashConfirmAction, m.StashConfirmRef, m.Status = "", "", "stash action cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Log && m.HistoryActionConfirm {
 			switch v.String() {
 			case "y":
@@ -646,6 +729,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.State, m.Status = StateOperationPending, "pushing"
 				return m, m.pushSelectedRemote(false)
 			}
+			if m.currentView() == workspace.Stashes && m.Stashes.Selected >= 0 && m.Stashes.Selected < len(m.Stashes.Entries) {
+				ref := m.Stashes.Entries[m.Stashes.Selected].Ref
+				m.StashConfirmAction, m.StashConfirmRef = "pop", ref
+				m.Status = "confirm pop " + ref + "? (y/n)"
+			}
 		case "P":
 			if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
 				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
@@ -682,6 +770,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Log {
 				m.State, m.Status = StateOperationPending, "loading tags"
 				return m, m.loadHistoryTags()
+			}
+		case "C":
+			if m.currentView() == workspace.Stashes {
+				m.StashCreateMode, m.StashCreateMessage = true, ""
+				m.Status = "stash message: "
+			}
+		case "a", "D":
+			if m.currentView() == workspace.Stashes && m.Stashes.Selected >= 0 && m.Stashes.Selected < len(m.Stashes.Entries) {
+				ref := m.Stashes.Entries[m.Stashes.Selected].Ref
+				action := map[string]string{"a": "apply", "D": "drop"}[v.String()]
+				m.StashConfirmAction, m.StashConfirmRef = action, ref
+				m.Status = "confirm " + action + " " + ref + "? (y/n)"
 			}
 		case "c":
 			m.beginCommit()
@@ -810,13 +910,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
-			m.Stashes, m.State = stashview.New(v.Entries), StateReady
+			if len(m.Stashes.Entries) == 0 {
+				m.Stashes = stashview.New(v.Entries)
+			} else {
+				m.Stashes.SetEntries(v.Entries)
+			}
+			m.State = StateReady
 		}
 	case StashPreviewReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			m.StashPreview, m.StashPreviewRef, m.State, m.Status = v.Text, v.Ref, StateReady, ""
+		}
+	case StashOperationFinishedMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.State, m.Status = StateReady, v.Operation+" complete"
+			return m, tea.Batch(m.refresh(), m.loadStashes())
 		}
 	case CommitFinishedMsg:
 		if v.Err != nil {
@@ -942,6 +1054,12 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.StashPreviewRef != "" {
 			content += "\n\nPreview " + m.StashPreviewRef + ":\n" + m.StashPreview
 		}
+		if m.StashCreateMode {
+			content += "\n\nStash message: " + m.StashCreateMessage
+		}
+		if m.StashConfirmAction != "" {
+			content += "\n\n" + m.Status
+		}
 	} else if view == workspace.Log {
 		title, content = "gitwatch · history", m.History.View()
 		if m.HistorySearching {
@@ -982,6 +1100,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Commit {
 		lines[len(lines)-1] = "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"
+	}
+	if view == workspace.Stashes {
+		lines[len(lines)-1] = "[j/k] move  [C] create  [a] apply  [p] pop  [D] drop  [enter] preview  [esc] back  [q] quit"
 	}
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
