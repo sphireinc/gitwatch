@@ -81,6 +81,10 @@ type CommitFinishedMsg struct {
 	SHA string
 	Err error
 }
+type BranchOperationFinishedMsg struct {
+	Name string
+	Err  error
+}
 
 type Model struct {
 	State                State
@@ -184,6 +188,23 @@ func (m Model) loadBranches() tea.Cmd {
 	return func() tea.Msg {
 		entries, err := branches.List(context.Background(), r)
 		return BranchesReadyMsg{Entries: entries, Err: err}
+	}
+}
+
+func (m Model) checkoutSelectedBranch() tea.Cmd {
+	if m.Branches.Selected < 0 || m.Branches.Selected >= len(m.Branches.Entries) {
+		return nil
+	}
+	branch := m.Branches.Entries[m.Branches.Selected]
+	if branch.Remote {
+		return func() tea.Msg {
+			return BranchOperationFinishedMsg{Name: branch.Name, Err: fmt.Errorf("remote branch cannot be checked out directly: %s", branch.Name)}
+		}
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		_, err := branches.Checkout(context.Background(), runner, branch.Name)
+		return BranchOperationFinishedMsg{Name: branch.Name, Err: err}
 	}
 }
 
@@ -339,6 +360,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "c":
 			m.beginCommit()
 			return m, nil
+		case "enter":
+			if m.currentView() == workspace.Branches {
+				m.State, m.Status = StateOperationPending, "checking out"
+				return m, m.checkoutSelectedBranch()
+			}
 		case "j", "down":
 			switch m.currentView() {
 			case workspace.Branches:
@@ -363,7 +389,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "space":
 			return m, m.mutate()
-		case "enter", "d":
+		case "d":
 			return m, m.openDiff()
 		case "?":
 			m.Modal, m.State = "help", StateModal
@@ -459,6 +485,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateReady, "commit "+v.SHA
 			m.Workspace.Back()
 			return m, m.refresh()
+		}
+	case BranchOperationFinishedMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.State, m.Status = StateReady, "checked out "+v.Name
+			return m, tea.Batch(m.refresh(), m.loadBranches())
 		}
 	case HistoryReadyMsg:
 		if v.Err != nil {

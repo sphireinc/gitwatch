@@ -23,4 +23,4 @@ Support create, switch, rename, set/unset upstream, delete merged branch, and fo
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — branch delete confirmation requires typing the exact branch name, prevents checked-out deletion, and distinguishes force deletion; rename/upstream/delete execution is now typed; worktree occupancy and refresh integration remain.
+**Status:** In progress — branch delete confirmation requires typing the exact branch name, prevents checked-out deletion, and distinguishes force deletion; rename/upstream/delete execution is now typed. Routed local-branch checkout is asynchronous, rejects remote entries, and refreshes status/branch data after success; rename/delete UI, worktree occupancy, and broader refresh integration remain.

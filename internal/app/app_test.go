@@ -8,6 +8,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/branches"
 	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/stash"
+	"github.com/jusanchez/gitwatch/internal/ui/branchview"
 	"github.com/jusanchez/gitwatch/internal/workspace"
 )
 
@@ -47,6 +48,9 @@ func key(text string) tea.KeyPressMsg {
 	if text == "tab" {
 		return tea.KeyPressMsg(tea.Key{Code: tea.KeyTab})
 	}
+	if text == "enter" {
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter})
+	}
 	if text == "ctrl+s" {
 		return tea.KeyPressMsg(tea.Key{Text: "s", Code: 's', Mod: tea.ModCtrl})
 	}
@@ -78,6 +82,22 @@ func TestCommitWorkspaceEditsDraftAndPreservesItOnFailure(t *testing.T) {
 	m = updated.(Model)
 	if m.currentView() != workspace.Commit || m.Composer.Draft.Subject != "add" || m.State != StateError {
 		t.Fatalf("failed commit changed workspace: view=%q draft=%#v state=%v", m.currentView(), m.Composer.Draft, m.State)
+	}
+}
+
+func TestBranchCheckoutRejectsRemoteEntries(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	m.Branches = branchview.New([]branches.Branch{{Name: "origin/main", Remote: true}})
+	updated, cmd := m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending {
+		t.Fatalf("checkout command/state = %v/%v", cmd == nil, m.State)
+	}
+	msg := cmd()
+	finished, ok := msg.(BranchOperationFinishedMsg)
+	if !ok || finished.Err == nil {
+		t.Fatalf("remote checkout result = %#v", msg)
 	}
 }
 

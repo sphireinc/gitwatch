@@ -23,4 +23,4 @@ Build searchable/sortable local and remote branch views with checkout/switch, cr
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — branch list view with current-branch indication, keyboard selection, and asynchronous Bubble Tea loading are implemented; search/sort metadata and mutation feedback remain.
+**Status:** In progress — branch list view with current-branch indication, keyboard selection, asynchronous Bubble Tea loading, and keyboard checkout are implemented; search/sort metadata and richer mutation feedback remain.
