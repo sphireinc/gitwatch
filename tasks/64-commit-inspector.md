@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added parent-relative commit inspection primitives returning changed paths and patches, plus commit metadata summary. Full inspector UI, SHA copy, ref jumps, path filtering, and merge-parent controls remain.
+Progress: Added parent-relative commit inspection primitives returning changed paths, add/delete/binary stats, full patches, and path-safe filtering, plus commit metadata summary. Full inspector UI, SHA copy, ref jumps, and merge-parent controls remain.
 
 ## Objective
 Selecting a commit should show metadata, parents, refs, changed-file stats, full patch, and parent-relative diff. Add copy-SHA, inspect parent, jump-to-ref, and path filtering. Support merge commits explicitly.

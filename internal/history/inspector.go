@@ -10,9 +10,16 @@ import (
 type Inspector struct {
 	Commit  Commit
 	Files   []string
+	Stats   []FileStat
 	Diff    string
 	Loading bool
 	Error   error
+}
+
+type FileStat struct {
+	Path           string
+	Added, Deleted int
+	Binary         bool
 }
 
 func (i Inspector) Summary() string {
@@ -22,12 +29,22 @@ func (i Inspector) Summary() string {
 // Inspect loads the changed paths and patch for a commit. The optional parent
 // makes merge inspection explicit and produces a parent-relative diff.
 func Inspect(ctx context.Context, runner git.Runner, sha, parent string) (Inspector, error) {
+	return InspectPath(ctx, runner, sha, parent, "")
+}
+
+func InspectPath(ctx context.Context, runner git.Runner, sha, parent, path string) (Inspector, error) {
 	if strings.TrimSpace(sha) == "" {
 		return Inspector{}, git.ErrCommandFailed
 	}
-	args := []string{"show", "--format=", "--name-only", "--no-renames", sha}
+	if strings.HasPrefix(strings.TrimSpace(sha), "-") || strings.ContainsAny(path, "\r\n\x00") {
+		return Inspector{}, git.ErrCommandFailed
+	}
+	args := []string{"show", "--format=", "--numstat", "--no-renames", sha}
 	if parent != "" {
-		args = []string{"diff", "--name-only", parent, sha}
+		args = []string{"diff", "--numstat", "--no-renames", parent, sha}
+	}
+	if path != "" {
+		args = append(args, "--", path)
 	}
 	pathsResult, err := runner.Run(ctx, args...)
 	if err != nil {
@@ -37,19 +54,41 @@ func Inspect(ctx context.Context, runner git.Runner, sha, parent string) (Inspec
 	if parent != "" {
 		patchArgs = []string{"diff", "--no-ext-diff", parent, sha}
 	}
+	if path != "" {
+		patchArgs = append(patchArgs, "--", path)
+	}
 	patchResult, err := runner.Run(ctx, patchArgs...)
 	if err != nil {
-		return Inspector{Files: nonEmptyLines(pathsResult.Stdout), Error: err}, err
+		return Inspector{Files: statPaths(pathsResult.Stdout), Stats: parseStats(pathsResult.Stdout), Error: err}, err
 	}
-	return Inspector{Files: nonEmptyLines(pathsResult.Stdout), Diff: string(patchResult.Stdout)}, nil
+	return Inspector{Files: statPaths(pathsResult.Stdout), Stats: parseStats(pathsResult.Stdout), Diff: string(patchResult.Stdout)}, nil
 }
 
-func nonEmptyLines(data []byte) []string {
+func statPaths(data []byte) []string {
 	var lines []string
-	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
-		if line != "" {
-			lines = append(lines, line)
+	for _, stat := range parseStats(data) {
+		if stat.Path != "" {
+			lines = append(lines, stat.Path)
 		}
 	}
 	return lines
+}
+
+func parseStats(data []byte) []FileStat {
+	var stats []FileStat
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		fields := strings.SplitN(line, "\t", 3)
+		if len(fields) != 3 {
+			continue
+		}
+		stat := FileStat{Path: fields[2]}
+		if fields[0] == "-" || fields[1] == "-" {
+			stat.Binary = true
+		} else {
+			stat.Added = int(parseInt(fields[0]))
+			stat.Deleted = int(parseInt(fields[1]))
+		}
+		stats = append(stats, stat)
+	}
+	return stats
 }
