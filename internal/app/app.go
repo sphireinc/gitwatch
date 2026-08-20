@@ -1185,6 +1185,14 @@ func (m *Model) updateHunkKey(key string) tea.Cmd {
 		m.Hunks.Move(1)
 	case "k", "up":
 		m.Hunks.Move(-1)
+	case "n", "]":
+		m.Hunks.MoveHunk(1)
+	case "p", "[":
+		m.Hunks.MoveHunk(-1)
+	case "N":
+		m.Hunks.MoveFile(1)
+	case "P":
+		m.Hunks.MoveFile(-1)
 	case "space":
 		m.Hunks.Toggle()
 	case "a":
@@ -1781,6 +1789,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
+			if m.currentView() == workspace.Hunks {
+				// The hunk header occupies the first content row; patch lines start at y=3.
+				m.Hunks.SelectLine(v.Y - 3)
+				return m, nil
+			}
 			if m.currentView() == workspace.Remotes {
 				row := (v.Y - 4) / 3
 				if v.Y >= 4 && row >= 0 && row < len(m.Remotes.Dashboard.Remotes) {
@@ -2280,7 +2293,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [r] reload  [esc] back  [q] quit"
 	}
 	if view == workspace.Hunks {
-		lines[len(lines)-1] = "[j/k] move  [space] select  [a/A/i] hunk/all/invert  [s] stage  [d] discard  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [n/p] hunk  [N/P] file  [space] select  [a/A/i] hunk/all/invert  [s] stage  [d] discard  [esc] back  [q] quit"
 	}
 	if view == workspace.Commit {
 		lines[len(lines)-1] = "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"

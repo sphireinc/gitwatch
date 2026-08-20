@@ -11,6 +11,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/jusanchez/gitwatch/internal/patch"
 	"github.com/jusanchez/gitwatch/internal/plugins"
 	"github.com/jusanchez/gitwatch/internal/provider"
 	"github.com/jusanchez/gitwatch/internal/registry"
@@ -19,6 +20,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/ui/branchview"
 	"github.com/jusanchez/gitwatch/internal/ui/historyview"
+	"github.com/jusanchez/gitwatch/internal/ui/hunkview"
 	"github.com/jusanchez/gitwatch/internal/ui/pluginview"
 	"github.com/jusanchez/gitwatch/internal/ui/remoteview"
 	"github.com/jusanchez/gitwatch/internal/ui/stashview"
@@ -624,6 +626,21 @@ func TestStashMouseSelectsAndPreviewsRow(t *testing.T) {
 	m = updated.(Model)
 	if m.Stashes.Selected != 1 || cmd == nil {
 		t.Fatalf("stash mouse selection = %d, cmd nil=%v", m.Stashes.Selected, cmd == nil)
+	}
+}
+
+func TestHunkMouseSelectsChangedLine(t *testing.T) {
+	files, err := patch.Parse("diff --git a/a b/a\n@@ -1 +1 @@\n-old\n+new\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := New()
+	m.Workspace.Navigate(workspace.Hunks, "Hunks")
+	m.Hunks = hunkview.New(files)
+	updated, cmd := m.Update(tea.MouseClickMsg{X: 2, Y: 4, Button: tea.MouseLeft})
+	m = updated.(Model)
+	if cmd != nil || m.Hunks.Selection.Count() != 1 || m.Hunks.Line != 1 {
+		t.Fatalf("hunk mouse selection = cmdnil=%v line=%d selected=%d", cmd == nil, m.Hunks.Line, m.Hunks.Selection.Count())
 	}
 }
 
