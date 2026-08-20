@@ -1,7 +1,7 @@
 APP := gitwatch
 GOFLAGS ?=
 
-.PHONY: test race vet fmt lint build clean
+.PHONY: test race vet fmt lint build release clean
 
 test:
 	go test ./...
@@ -20,6 +20,9 @@ lint:
 
 build:
 	go build $(GOFLAGS) ./cmd/gitwatch
+
+release:
+	VERSION=$(VERSION) ./scripts/release.sh
 
 clean:
 	rm -f $(APP)
