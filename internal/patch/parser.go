@@ -41,6 +41,7 @@ func Parse(input string) ([]File, error) {
 	var files []File
 	var current *File
 	var hunk *Hunk
+	var raw strings.Builder
 	oldLine, newLine := 0, 0
 	flush := func() {
 		if current != nil {
@@ -48,8 +49,10 @@ func Parse(input string) ([]File, error) {
 				current.Hunks = append(current.Hunks, *hunk)
 				hunk = nil
 			}
+			current.Raw = raw.String()
 			files = append(files, *current)
 			current = nil
+			raw.Reset()
 		}
 	}
 	for _, line := range lines {
@@ -60,24 +63,31 @@ func Parse(input string) ([]File, error) {
 			if err != nil {
 				return nil, &ParseError{line, err.Error()}
 			}
-			current = &File{OldPath: oldPath, NewPath: newPath, Raw: line + "\n"}
+			current = &File{OldPath: oldPath, NewPath: newPath}
+			raw.WriteString(line)
+			raw.WriteByte('\n')
 		case current == nil:
 			continue
 		case strings.HasPrefix(line, "Binary files ") || strings.HasPrefix(line, "GIT binary patch"):
 			current.Binary = true
-			current.Raw += line + "\n"
+			raw.WriteString(line)
+			raw.WriteByte('\n')
 		case strings.HasPrefix(line, "rename from "):
 			current.RenameFrom = strings.TrimPrefix(line, "rename from ")
-			current.Raw += line + "\n"
+			raw.WriteString(line)
+			raw.WriteByte('\n')
 		case strings.HasPrefix(line, "rename to "):
 			current.RenameTo = strings.TrimPrefix(line, "rename to ")
-			current.Raw += line + "\n"
+			raw.WriteString(line)
+			raw.WriteByte('\n')
 		case strings.HasPrefix(line, "copy from "):
 			current.CopyFrom = strings.TrimPrefix(line, "copy from ")
-			current.Raw += line + "\n"
+			raw.WriteString(line)
+			raw.WriteByte('\n')
 		case strings.HasPrefix(line, "copy to "):
 			current.CopyTo = strings.TrimPrefix(line, "copy to ")
-			current.Raw += line + "\n"
+			raw.WriteString(line)
+			raw.WriteByte('\n')
 		case strings.HasPrefix(line, "@@ "):
 			if hunk != nil {
 				current.Hunks = append(current.Hunks, *hunk)
@@ -88,10 +98,12 @@ func Parse(input string) ([]File, error) {
 			}
 			hunk = &Hunk{OldStart: a, OldCount: b, NewStart: c, NewCount: d, Header: line}
 			oldLine, newLine = a, c
-			current.Raw += line + "\n"
+			raw.WriteString(line)
+			raw.WriteByte('\n')
 		case hunk != nil && line == "\\ No newline at end of file":
 			hunk.Lines = append(hunk.Lines, Line{Kind: Meta, Text: line, NoNewline: true})
-			current.Raw += line + "\n"
+			raw.WriteString(line)
+			raw.WriteByte('\n')
 		case hunk != nil && (strings.HasPrefix(line, " ") || strings.HasPrefix(line, "+") || strings.HasPrefix(line, "-")):
 			kind := LineKind(line[0])
 			l := Line{Kind: kind, Text: line[1:], OldLine: oldLine, NewLine: newLine}
@@ -102,9 +114,11 @@ func Parse(input string) ([]File, error) {
 				newLine++
 			}
 			hunk.Lines = append(hunk.Lines, l)
-			current.Raw += line + "\n"
+			raw.WriteString(line)
+			raw.WriteByte('\n')
 		default:
-			current.Raw += line + "\n"
+			raw.WriteString(line)
+			raw.WriteByte('\n')
 		}
 	}
 	flush()

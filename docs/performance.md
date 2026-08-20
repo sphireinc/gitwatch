@@ -10,3 +10,10 @@ go test ./internal/ui/table -run '^$' -bench BenchmarkTable10KFilter -benchmem
 ```
 
 The acceptance target is that 10,000 changed paths remain navigable and filtering remains responsive on a supported development machine. Benchmark numbers are machine-dependent; CI treats correctness and bounded behavior as gates, while maintainers should record benchmark output with Go version, OS, CPU, and terminal dimensions when investigating regressions.
+
+Additional workload benchmarks cover `BenchmarkParseLog100K`, `BenchmarkBuildGraph100K`,
+`BenchmarkRows1000Repositories`, and `BenchmarkParseLargePatch`. Practical budgets for
+interactive work are: no Git or filesystem process in `View`, bounded repository refresh
+workers, bounded plugin output, and visible-list rendering proportional to the viewport
+rather than total history/repository size. Record benchmark output with
+`go test -bench . -benchmem` before changing those budgets.

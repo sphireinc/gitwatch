@@ -1,5 +1,9 @@
 # Task 84: Benchmark history, multi-repo and patch workflows
 
+Status: In progress
+
+Progress: Added repeatable 100k-history parse/graph, 1k-repository row, and 10k-line patch benchmarks, documented bounded-render/worker/plugin-output budgets, and removed quadratic raw-patch accumulation (10k-line benchmark dropped from about 2 GB to about 6 MB allocations). Slow-disk/network/plugin integration benchmarks and enforced regression thresholds remain.
+
 ## Objective
 Add repeatable benchmarks for huge diffs, 100k+ commit histories, wide merge graphs, hundreds/thousands of repositories, slow disks, network latency, and plugin overhead. Define CPU/memory/UI-latency budgets and enforce regression thresholds where practical.
 
