@@ -22,3 +22,5 @@ Model local branches, remote-tracking branches, current HEAD, detached HEAD, ups
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+**Status:** In progress — branch parsing, current/remote metadata, listing, checkout, and create operations use typed Git argv; divergence enrichment and delete/rename safeguards remain.
