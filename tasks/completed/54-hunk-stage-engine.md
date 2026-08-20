@@ -3,7 +3,7 @@
 ## Objective
 Generate/apply patches safely using Git plumbing (`git apply --cached` / reverse operations as appropriate). Never hand-edit the index. Validate patch applicability before mutation, handle CRLF/binary/rename edge cases, refresh after success, and preserve selection on recoverable failure.
 
-Progress: Typed partial patch operations now perform `git apply --check` before applying, with cached stage, cached reverse unstage, and working-tree reverse discard paths wired to the Hunk workspace. A real temporary-repository scenario verifies separated-hunk staging and preserves the remaining unstaged hunk; CRLF/binary/rename integration coverage remains.
+Progress: Typed partial patch operations now perform `git apply --check` before applying, with cached stage, cached reverse unstage, and working-tree reverse discard paths wired to the Hunk workspace. A real temporary-repository scenario verifies separated-hunk staging and preserves the remaining unstaged hunk. CRLF text is normalized by the parser and delegated to Git apply; binary, rename, and copy files are explicitly refused by the line-selection engine so they remain available through whole-file diff actions.
 
 ## Required implementation
 - Produce production-quality implementation, not a prototype.
@@ -25,4 +25,11 @@ Progress: Typed partial patch operations now perform `git apply --check` before 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — selection-aware patch generation and typed stdin application for cached/reverse operations now validate with `git apply --check` before mutation; CRLF/binary/rename edge handling and refresh integration remain.
+**Status:** Complete — selection-aware patch generation and typed stdin application for cached/reverse operations validate with `git apply --check` before mutation; CRLF text, unsupported binary/rename/copy metadata, refresh behavior, and separated-hunk integration are covered by the implementation and tests. Binary/rename/copy changes are deliberately refused by the line-selection path rather than mutated partially.
+
+## Completion summary
+
+- Added `ErrUnsupportedPartialPatch` for binary, rename, and copy metadata when a selection touches the file.
+- Preserved CRLF handling through parser normalization and Git's patch application.
+- Added unit coverage for each refused metadata class and integration coverage for stage/discard refresh behavior.
+- Whole-file diff actions remain the supported path for binary and metadata-only changes.

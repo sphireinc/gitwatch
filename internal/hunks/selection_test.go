@@ -37,6 +37,26 @@ func TestBuildPatchRetainsContextAndSelectedChanges(t *testing.T) {
 	}
 }
 
+func TestBuildPatchRejectsUnsupportedFileMetadata(t *testing.T) {
+	cases := []struct {
+		name string
+		file patch.File
+	}{
+		{name: "binary", file: patch.File{Binary: true, Hunks: []patch.Hunk{{Lines: []patch.Line{{Kind: patch.Added, Text: "new"}}}}}},
+		{name: "rename", file: patch.File{RenameFrom: "old", RenameTo: "new", Hunks: []patch.Hunk{{Lines: []patch.Line{{Kind: patch.Added, Text: "new"}}}}}},
+		{name: "copy", file: patch.File{CopyFrom: "old", CopyTo: "new", Hunks: []patch.Hunk{{Lines: []patch.Line{{Kind: patch.Added, Text: "new"}}}}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			selection := New()
+			selection.Toggle(ID{File: 0, Hunk: 0, Line: 0})
+			if _, err := selection.BuildPatch([]patch.File{tc.file}); err != ErrUnsupportedPartialPatch {
+				t.Fatalf("error = %v, want %v", err, ErrUnsupportedPartialPatch)
+			}
+		})
+	}
+}
+
 func TestSelectionAllInvertAndRange(t *testing.T) {
 	files := []patch.File{{Hunks: []patch.Hunk{{Lines: []patch.Line{{Kind: patch.Context}, {Kind: patch.Added}, {Kind: patch.Removed}, {Kind: patch.Context}}}}}}
 	selection := New()

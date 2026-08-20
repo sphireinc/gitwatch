@@ -8,6 +8,8 @@ import (
 	"github.com/jusanchez/gitwatch/internal/patch"
 )
 
+var ErrUnsupportedPartialPatch = fmt.Errorf("partial patch is unsupported for binary, rename, or copy changes")
+
 // BuildPatch creates a Git-applyable partial patch. Context is retained for
 // every selected hunk while only selected additions/removals are emitted.
 func (s Selection) BuildPatch(files []patch.File) ([]byte, error) {
@@ -16,6 +18,9 @@ func (s Selection) BuildPatch(files []patch.File) ([]byte, error) {
 	}
 	var output strings.Builder
 	for fileIndex, file := range files {
+		if hasUnsupportedMetadata(file) && selectionTouchesFile(s, fileIndex) {
+			return nil, ErrUnsupportedPartialPatch
+		}
 		var hunks []string
 		for hunkIndex, hunk := range file.Hunks {
 			var lines []patch.Line
@@ -70,6 +75,19 @@ func (s Selection) BuildPatch(files []patch.File) ([]byte, error) {
 		output.WriteString(strings.Join(hunks, ""))
 	}
 	return []byte(output.String()), nil
+}
+
+func hasUnsupportedMetadata(file patch.File) bool {
+	return file.Binary || file.RenameFrom != "" || file.RenameTo != "" || file.CopyFrom != "" || file.CopyTo != ""
+}
+
+func selectionTouchesFile(s Selection, fileIndex int) bool {
+	for id := range s.Selected {
+		if id.File == fileIndex {
+			return true
+		}
+	}
+	return false
 }
 
 func rangeText(start, count int) string {
