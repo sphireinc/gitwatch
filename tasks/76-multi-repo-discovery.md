@@ -1,5 +1,9 @@
 # Task 76: Implement multi-repository discovery and registry
 
+Status: In progress
+
+Progress: Added bounded filesystem discovery for explicit roots, nested normal/worktree repositories, ignored directories, depth/repository limits, and a private JSON registry with favorite/group/last-opened metadata. Multi-repository UI and refresh engine remain.
+
 ## Objective
 Support explicitly configured roots plus bounded directory scanning for repositories/worktrees. Persist a lightweight registry with path, display name, last-opened time, favorite state, and optional groups. Respect ignore rules and avoid scanning huge trees without limits.
 
