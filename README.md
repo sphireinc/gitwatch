@@ -1,4 +1,41 @@
-# gitwatch — v1 Build Task Pack
+# gitwatch
+
+An htop-style interactive Git worktree dashboard for the terminal. gitwatch continuously reflects authoritative Git status, shows staged/unstaged state and branch health, and lets you inspect diffs and safely stage or unstage paths without leaving the terminal.
+
+## Install
+
+Requires Go 1.25+ for source installation and Git on `PATH`.
+
+```sh
+go install github.com/jusanchez/gitwatch/cmd/gitwatch@latest
+gitwatch --help
+```
+
+Release archives and SHA256SUMS are produced by `make release VERSION=0.1.0`. The binary reports its build identity with `gitwatch --version`.
+
+## Quick start
+
+Run `gitwatch` inside any normal Git worktree, including a nested directory. Select a status row with arrows or `j`/`k`; click a row to open its diff/details pane on the right in wide terminals. Press `Enter` or `d` for the keyboard equivalent, Space to stage/unstage, and `q` to quit.
+
+## Keymap and status symbols
+
+See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.
+
+## Configuration and watch modes
+
+Configuration is JSON at `$XDG_CONFIG_HOME/gitwatch/config.json` or the platform fallback. `GITWATCH_CONFIG`, `GITWATCH_THEME`, `GITWATCH_MOTION`, `GITWATCH_WATCH`, and `GITWATCH_INTERVAL` provide explicit environment overrides; CLI flags take precedence. Watch modes are `auto`, `fs`, and `poll`. Motion is `full`, `reduced`, or `off`.
+
+## Safety
+
+Git is invoked through argv arrays, never shell strings. Paths are passed after `--` where supported. Staging and unstaging are reversible and refresh from Git afterward. Restore requires a confirmation naming the exact path and affected content; generic `reset --hard` and `clean -fd` actions are not available.
+
+## Troubleshooting and architecture
+
+Gitwatch requires an external Git executable and rejects bare repositories in v1. If filesystem notifications fail, `--watch=poll` or the configured poll mode keeps status current. See [ARCHITECTURE.md](ARCHITECTURE.md), [docs/performance.md](docs/performance.md), and [docs/edge-cases.md](docs/edge-cases.md) for design and validation details.
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security reports belong in [SECURITY.md](SECURITY.md).
 
 ## Product
 `gitwatch` is an htop-style interactive Git worktree dashboard for the terminal. It continuously reflects repository state, makes Git status understandable at a glance, and lets the user perform safe day-to-day Git actions directly from a rich TUI.
