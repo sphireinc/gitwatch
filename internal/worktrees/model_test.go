@@ -23,3 +23,9 @@ func TestOccupancyAndTargetValidation(t *testing.T) {
 		t.Fatalf("expected target validation, got %v", err)
 	}
 }
+
+func TestAddWithCommitRejectsUnsafeArguments(t *testing.T) {
+	if _, err := AddWithCommit(nil, git.Runner{}, "/tmp/tree", "feature", "bad\nref"); !errors.Is(err, ErrInvalidTarget) {
+		t.Fatalf("expected invalid commit, got %v", err)
+	}
+}

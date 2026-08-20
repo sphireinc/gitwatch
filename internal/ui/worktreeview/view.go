@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jusanchez/gitwatch/internal/platform"
 	"github.com/jusanchez/gitwatch/internal/worktrees"
 )
 
@@ -70,10 +71,10 @@ func (m Model) View() string {
 		if len(states) > 0 {
 			state = " [" + strings.Join(states, ", ") + "]"
 		}
-		lines = append(lines, fmt.Sprintf("%s%s · %s%s", prefix, branch, entry.Path, state))
-		lines = append(lines, "    HEAD: "+entry.HEAD)
+		lines = append(lines, fmt.Sprintf("%s%s · %s%s", prefix, platform.SafeText(branch), platform.SafeText(entry.Path), state))
+		lines = append(lines, "    HEAD: "+platform.SafeText(entry.HEAD))
 		if entry.LockNote != "" {
-			lines = append(lines, "    lock: "+entry.LockNote)
+			lines = append(lines, "    lock: "+platform.SafeText(entry.LockNote))
 		}
 	}
 	if len(m.Entries) == 0 {

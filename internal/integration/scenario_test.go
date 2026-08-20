@@ -70,6 +70,16 @@ func TestRepositoryWorkbenchScenario(t *testing.T) {
 	if worktrees.Occupancy(entries)["scenario-worktree"] != canonicalWorktreePath {
 		t.Fatalf("worktree occupancy missing: %#v", worktrees.Occupancy(entries))
 	}
+	if _, err := worktrees.Remove(ctx, runner, worktreePath, false); err != nil {
+		t.Fatalf("worktree remove failed: %v", err)
+	}
+	entries, err = worktrees.List(ctx, runner)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("worktree discovery after remove = %#v, err=%v", entries, err)
+	}
+	if _, err := worktrees.Prune(ctx, runner, true); err != nil {
+		t.Fatalf("worktree prune dry run failed: %v", err)
+	}
 }
 
 func TestHistoryActionsRealRepositoryScenario(t *testing.T) {

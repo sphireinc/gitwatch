@@ -21,6 +21,24 @@ func Add(ctx context.Context, runner git.Runner, path, branch string) (git.Resul
 	return runner.Run(ctx, append(args, path)...)
 }
 
+// AddWithCommit creates a worktree at path, optionally creating branch from
+// commit. Keeping the commit argument separate avoids shell-like command
+// construction while allowing callers to expose a useful open workflow.
+func AddWithCommit(ctx context.Context, runner git.Runner, path, branch, commit string) (git.Result, error) {
+	if !validTarget(path) || (branch != "" && !validTarget(branch)) || (commit != "" && !validTarget(commit)) {
+		return git.Result{}, ErrInvalidTarget
+	}
+	args := []string{"worktree", "add"}
+	if branch != "" {
+		args = append(args, "-b", branch)
+	}
+	args = append(args, path)
+	if commit != "" {
+		args = append(args, commit)
+	}
+	return runner.Run(ctx, args...)
+}
+
 func Remove(ctx context.Context, runner git.Runner, path string, force bool) (git.Result, error) {
 	if !validTarget(path) {
 		return git.Result{}, ErrInvalidTarget

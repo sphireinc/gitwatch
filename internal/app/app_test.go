@@ -13,6 +13,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/ui/branchview"
 	"github.com/jusanchez/gitwatch/internal/ui/historyview"
 	"github.com/jusanchez/gitwatch/internal/ui/stashview"
+	"github.com/jusanchez/gitwatch/internal/ui/worktreeview"
 	"github.com/jusanchez/gitwatch/internal/workspace"
 	"github.com/jusanchez/gitwatch/internal/worktrees"
 )
@@ -59,6 +60,41 @@ func TestWorktreeRouteLoadsAndRendersState(t *testing.T) {
 		if !contains(m.View().Content, want) {
 			t.Fatalf("worktree view missing %q: %s", want, m.View().Content)
 		}
+	}
+}
+
+func TestWorktreeMutationRouting(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Worktrees, "Worktrees")
+	m.Worktrees = worktreeview.New([]worktrees.Entry{{Path: "/linked", HEAD: "abc"}})
+	updated, cmd := m.Update(key("D"))
+	m = updated.(Model)
+	if cmd != nil || m.WorktreeConfirmAction != "remove" || m.WorktreeConfirmTarget != "/linked" {
+		t.Fatalf("remove confirmation = cmdnil=%v action=%q target=%q", cmd == nil, m.WorktreeConfirmAction, m.WorktreeConfirmTarget)
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if cmd != nil || m.WorktreeConfirmAction != "" || !contains(m.Status, "cancelled") {
+		t.Fatalf("remove cancellation = cmdnil=%v action=%q status=%q", cmd == nil, m.WorktreeConfirmAction, m.Status)
+	}
+	updated, cmd = m.Update(key("A"))
+	m = updated.(Model)
+	if cmd != nil || !m.WorktreeAddMode {
+		t.Fatalf("add mode = cmdnil=%v mode=%v", cmd == nil, m.WorktreeAddMode)
+	}
+	for _, r := range "/tmp/new-tree" {
+		updated, _ = m.Update(key(string(r)))
+		m = updated.(Model)
+	}
+	updated, cmd = m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.WorktreeAddMode || m.State != StateOperationPending {
+		t.Fatalf("add execution = cmdnil=%v mode=%v state=%v", cmd == nil, m.WorktreeAddMode, m.State)
+	}
+	updated, cmd = m.Update(WorktreeOperationFinishedMsg{Operation: "added worktree", Target: "/tmp/new-tree"})
+	m = updated.(Model)
+	if cmd == nil || m.State != StateReady || !contains(m.Status, "complete") {
+		t.Fatalf("add completion = cmdnil=%v state=%v status=%q", cmd == nil, m.State, m.Status)
 	}
 }
 

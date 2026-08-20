@@ -119,6 +119,11 @@ type WorktreesReadyMsg struct {
 	Entries []worktrees.Entry
 	Err     error
 }
+type WorktreeOperationFinishedMsg struct {
+	Operation string
+	Target    string
+	Err       error
+}
 type RemoteOperationFinishedMsg struct {
 	Operation, Remote string
 	Err               error
@@ -170,6 +175,10 @@ type Model struct {
 	StashBranchName       string
 	Remotes               remoteview.Model
 	Worktrees             worktreeview.Model
+	WorktreeAddMode       bool
+	WorktreeAddPath       string
+	WorktreeConfirmAction string
+	WorktreeConfirmTarget string
 	RemoteForceConfirm    bool
 }
 
@@ -460,6 +469,65 @@ func (m Model) loadWorktrees() tea.Cmd {
 	}
 }
 
+func (m Model) addWorktree() tea.Cmd {
+	path := strings.TrimSpace(m.WorktreeAddPath)
+	if path == "" {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		_, err := worktrees.Add(context.Background(), runner, path, "")
+		return WorktreeOperationFinishedMsg{Operation: "added worktree", Target: path, Err: err}
+	}
+}
+
+func (m Model) executeWorktreeAction() tea.Cmd {
+	target := m.WorktreeConfirmTarget
+	if target == "" {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	action := m.WorktreeConfirmAction
+	return func() tea.Msg {
+		var err error
+		switch action {
+		case "remove":
+			_, err = worktrees.Remove(context.Background(), runner, target, false)
+		case "prune":
+			_, err = worktrees.Prune(context.Background(), runner, false)
+		default:
+			err = fmt.Errorf("unknown worktree action: %s", action)
+		}
+		return WorktreeOperationFinishedMsg{Operation: action, Target: target, Err: err}
+	}
+}
+
+func (m *Model) updateWorktreeAddKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.WorktreeAddMode, m.WorktreeAddPath, m.Status = false, "", "worktree creation cancelled"
+	case "backspace":
+		m.WorktreeAddPath = removeLastRune(m.WorktreeAddPath)
+	case "enter":
+		if strings.TrimSpace(m.WorktreeAddPath) == "" {
+			m.Status = "worktree path is required"
+		} else {
+			m.WorktreeAddMode, m.State, m.Status = false, StateOperationPending, "adding worktree"
+			return m.addWorktree()
+		}
+	case "space":
+		m.WorktreeAddPath += " "
+	default:
+		if len([]rune(key)) == 1 {
+			m.WorktreeAddPath += key
+		}
+	}
+	if m.WorktreeAddMode {
+		m.Status = "worktree path: " + m.WorktreeAddPath
+	}
+	return nil
+}
+
 func (m Model) fetchSelectedRemote() tea.Cmd {
 	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) {
 		return nil
@@ -642,6 +710,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Stashes && m.StashCreateMode {
 			return m, m.updateStashCreateKey(v.String())
 		}
+		if m.currentView() == workspace.Worktrees && m.WorktreeAddMode {
+			return m, m.updateWorktreeAddKey(v.String())
+		}
 		if m.currentView() == workspace.Stashes && m.StashBranchMode {
 			switch v.String() {
 			case "esc":
@@ -752,6 +823,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Worktrees && m.WorktreeConfirmAction != "" {
+			switch v.String() {
+			case "y":
+				m.State, m.Status = StateOperationPending, m.WorktreeConfirmAction+" worktree"
+				action := m.executeWorktreeAction()
+				m.WorktreeConfirmAction, m.WorktreeConfirmTarget = "", ""
+				return m, action
+			case "n", "esc":
+				m.WorktreeConfirmAction, m.WorktreeConfirmTarget, m.Status = "", "", "worktree action cancelled"
+			}
+			return m, nil
+		}
 		switch v.String() {
 		case "q", "ctrl+c":
 			m.State = StateShutdown
@@ -775,6 +858,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.navigate(workspace.Remotes, "Remotes")
 		case "w":
 			return m, m.navigate(workspace.Worktrees, "Worktrees")
+		case "A":
+			if m.currentView() == workspace.Worktrees {
+				m.WorktreeAddMode, m.WorktreeAddPath = true, ""
+				m.Status = "worktree path: "
+			}
+		case "D":
+			if m.currentView() == workspace.Worktrees && m.Worktrees.Selected >= 0 && m.Worktrees.Selected < len(m.Worktrees.Entries) {
+				path := m.Worktrees.Entries[m.Worktrees.Selected].Path
+				m.WorktreeConfirmAction, m.WorktreeConfirmTarget = "remove", path
+				m.Status = "confirm remove worktree " + path + "? (y/n)"
+			} else if m.currentView() == workspace.Stashes && m.Stashes.Selected >= 0 && m.Stashes.Selected < len(m.Stashes.Entries) {
+				ref := m.Stashes.Entries[m.Stashes.Selected].Ref
+				m.StashConfirmAction, m.StashConfirmRef = "drop", ref
+				m.Status = "confirm drop " + ref + "? (y/n)"
+			}
 		case "f":
 			if m.currentView() == workspace.Remotes {
 				m.State, m.Status = StateOperationPending, "fetching"
@@ -797,7 +895,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "confirm pop " + ref + "? (y/n)"
 			}
 		case "P":
-			if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
+			if m.currentView() == workspace.Worktrees {
+				m.WorktreeConfirmAction, m.WorktreeConfirmTarget = "prune", "repository"
+				m.Status = "confirm prune stale worktrees? (y/n)"
+			} else if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
 				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
 				m.RemoteForceConfirm, m.Status = true, "confirm force-with-lease push to "+remote+" for "+m.Snapshot.Branch.Name+" (y/n)"
 			}
@@ -842,7 +943,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.StashCreateMode, m.StashCreateMessage, m.StashIncludeUntracked = true, "", true
 				m.Status = "stash message: "
 			}
-		case "a", "D":
+		case "a":
 			if m.currentView() == workspace.Stashes && m.Stashes.Selected >= 0 && m.Stashes.Selected < len(m.Stashes.Entries) {
 				ref := m.Stashes.Entries[m.Stashes.Selected].Ref
 				action := map[string]string{"a": "apply", "D": "drop"}[v.String()]
@@ -1076,6 +1177,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.State = StateReady
 		}
+	case WorktreeOperationFinishedMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.State, m.Status = StateReady, v.Operation+" complete"
+			return m, tea.Batch(m.refresh(), m.loadWorktrees(), m.loadBranches())
+		}
 	case RemoteOperationFinishedMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -1199,7 +1307,13 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [C] create  [B] branch  [a] apply  [p] pop  [D] drop  [enter] preview  [esc] back  [q] quit"
 	}
 	if view == workspace.Worktrees {
-		lines[len(lines)-1] = "[j/k] move  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [A] add  [D] remove  [P] prune  [1] status  [esc] back  [q] quit"
+		if m.WorktreeAddMode {
+			content += "\n\n" + m.Status
+		}
+		if m.WorktreeConfirmAction != "" {
+			content += "\n\n" + m.Status
+		}
 	}
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion

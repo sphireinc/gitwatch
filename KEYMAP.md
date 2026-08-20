@@ -22,6 +22,7 @@
 | t | Load tag refs (in History view) |
 | n | Remotes view |
 | w | Worktrees view |
+| A / D / P | Add / remove / prune worktrees (in Worktrees view) |
 | f | Fetch selected remote (in Remotes view) |
 | C | Create stash (in Stashes view) |
 | a / p / D | Apply / pop / drop selected stash (in Stashes view) |
