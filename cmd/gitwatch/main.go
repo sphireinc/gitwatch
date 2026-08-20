@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 
 	"charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/app"
+	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/version"
 )
 
@@ -27,7 +29,12 @@ func main() {
 		return
 	}
 
-	if _, err := tea.NewProgram(app.New()).Run(); err != nil {
+	discovery, err := git.Discover(context.Background(), ".")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gitwatch: %v\n", err)
+		os.Exit(1)
+	}
+	if _, err := tea.NewProgram(app.NewRepository(discovery)).Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "gitwatch: %v\n", err)
 		os.Exit(1)
 	}

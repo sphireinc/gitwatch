@@ -39,6 +39,6 @@ tasks/completed/29-tests.md
 tasks/completed/30-ci.md
 tasks/completed/31-packaging.md
 tasks/completed/32-docs.md
-tasks/33-demo.md
+tasks/completed/33-demo.md
 tasks/34-beta.md
 tasks/35-launch.md
