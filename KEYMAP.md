@@ -9,9 +9,12 @@
 | a | Stage all |
 | U | Unstage all |
 | d | Open diff |
+| 1 | Status view |
+| b | Branches view |
+| s | Stashes view |
+| l | History view |
 | Tab | Cycle focus/panes |
 | / | Filter |
-| s | Cycle sort |
 | r | Force refresh |
 | ? | Help |
 | Esc | Close overlay / cancel |
