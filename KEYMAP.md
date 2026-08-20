@@ -20,6 +20,7 @@
 | f | Fetch selected remote (in Remotes view) |
 | m / e / o | Pull with merge / rebase / fast-forward-only strategy |
 | p | Push current branch (in Remotes view) |
+| P then y | Confirm force-with-lease push (in Remotes view) |
 | c | Commit workspace |
 | Ctrl-S | Execute a valid commit |
 | Tab | Cycle focus/panes |

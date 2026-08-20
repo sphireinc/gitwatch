@@ -175,6 +175,16 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	if cmd == nil || m.State != StateOperationPending || m.Status != "pushing" {
 		t.Fatalf("push command/state = %v/%v/%q", cmd == nil, m.State, m.Status)
 	}
+	updated, _ = m.Update(key("P"))
+	m = updated.(Model)
+	if !m.RemoteForceConfirm || !contains(m.Status, "force-with-lease") {
+		t.Fatalf("force confirmation = %v/%q", m.RemoteForceConfirm, m.Status)
+	}
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.RemoteForceConfirm || m.State != StateOperationPending || m.Status != "force pushing" {
+		t.Fatalf("force confirmation acceptance = cmdnil=%v confirm=%v state=%v status=%q", cmd == nil, m.RemoteForceConfirm, m.State, m.Status)
+	}
 	updated, cmd = m.Update(key("l"))
 	m = updated.(Model)
 	if cmd == nil || m.currentView() != workspace.Log {

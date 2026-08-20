@@ -133,6 +133,7 @@ type Model struct {
 	StashPreview         string
 	StashPreviewRef      string
 	Remotes              remoteview.Model
+	RemoteForceConfirm   bool
 }
 
 func New() Model {
@@ -321,7 +322,7 @@ func (m Model) pullSelectedRemote(strategy string) tea.Cmd {
 	}
 }
 
-func (m Model) pushSelectedRemote() tea.Cmd {
+func (m Model) pushSelectedRemote(forceWithLease bool) tea.Cmd {
 	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) {
 		return nil
 	}
@@ -329,7 +330,7 @@ func (m Model) pushSelectedRemote() tea.Cmd {
 	branch := m.Snapshot.Branch.Name
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		_, err := remotes.Push(context.Background(), runner, remote, branch, false)
+		_, err := remotes.Push(context.Background(), runner, remote, branch, forceWithLease)
 		return RemoteOperationFinishedMsg{Operation: "push", Remote: remote, Err: err}
 	}
 }
@@ -477,6 +478,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateOperationPending, "loading stash preview"
 			return m, m.previewSelectedStash()
 		}
+		if m.currentView() == workspace.Remotes && m.RemoteForceConfirm {
+			switch v.String() {
+			case "y":
+				m.RemoteForceConfirm, m.State, m.Status = false, StateOperationPending, "force pushing"
+				return m, m.pushSelectedRemote(true)
+			case "n", "esc":
+				m.RemoteForceConfirm, m.Status = false, "force push cancelled"
+			}
+			return m, nil
+		}
 		switch v.String() {
 		case "q", "ctrl+c":
 			m.State = StateShutdown
@@ -512,7 +523,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "p":
 			if m.currentView() == workspace.Remotes {
 				m.State, m.Status = StateOperationPending, "pushing"
-				return m, m.pushSelectedRemote()
+				return m, m.pushSelectedRemote(false)
+			}
+		case "P":
+			if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
+				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
+				m.RemoteForceConfirm, m.Status = true, "confirm force-with-lease push to "+remote+" for "+m.Snapshot.Branch.Name+" (y/n)"
 			}
 		case "]":
 			if m.currentView() == workspace.Log && m.HistoryHasMore {
@@ -780,13 +796,16 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · commit", m.Composer.View()
 	} else if view == workspace.Remotes {
 		title, content = "gitwatch · remotes", m.Remotes.View()
+		if m.RemoteForceConfirm {
+			content += "\n\n" + m.Status
+		}
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
 	if view == workspace.Log {
 		lines[len(lines)-1] = "[j/k] move  [/] search  [] load more  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
-		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push  [P] force-with-lease  [esc] back  [q] quit"
 	}
 	if view == workspace.Commit {
 		lines[len(lines)-1] = "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"
