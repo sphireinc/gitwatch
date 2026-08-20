@@ -129,6 +129,39 @@ func TestHistoryBranchCreationUsesExplicitNameAndTarget(t *testing.T) {
 	}
 }
 
+func TestHistoryRevertRequiresExactSHA(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Log, "History")
+	m.History = historyview.New([]history.Commit{{SHA: "abc123", Short: "abc123", Subject: "commit"}})
+	updated, _ := m.Update(key("R"))
+	m = updated.(Model)
+	if !m.HistoryRevertConfirm || m.HistoryRevertTarget != "abc123" {
+		t.Fatalf("revert mode = %v target=%q", m.HistoryRevertConfirm, m.HistoryRevertTarget)
+	}
+	for _, ch := range "abc12x" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if !m.HistoryRevertConfirm || !contains(m.Status, "exact SHA") {
+		t.Fatalf("wrong SHA accepted: confirm=%v status=%q", m.HistoryRevertConfirm, m.Status)
+	}
+	updated, _ = m.Update(key("esc"))
+	m = updated.(Model)
+	updated, _ = m.Update(key("R"))
+	m = updated.(Model)
+	for _, ch := range "abc123" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, cmd := m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.HistoryRevertConfirm || m.State != StateOperationPending {
+		t.Fatalf("exact SHA revert = cmdnil=%v confirm=%v state=%v", cmd == nil, m.HistoryRevertConfirm, m.State)
+	}
+}
+
 func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	m := New()
 	updated, cmd := m.Update(key("b"))

@@ -138,6 +138,10 @@ type Model struct {
 	HistoryBranchCreating bool
 	HistoryBranchTarget   string
 	HistoryBranchName     string
+	HistoryRevertConfirm  bool
+	HistoryRevertTarget   string
+	HistoryRevertInput    string
+	HistoryRevertInvalid  bool
 	Composer              commitview.Composer
 	StashPreview          string
 	StashPreviewRef       string
@@ -312,6 +316,18 @@ func (m Model) createHistoryBranch() tea.Cmd {
 	return func() tea.Msg {
 		_, err := history.CreateBranchAt(context.Background(), runner, name, target)
 		return HistoryActionFinishedMsg{Action: "created branch " + name, Target: target, Err: err}
+	}
+}
+
+func (m Model) revertSelectedHistory() tea.Cmd {
+	if m.HistoryRevertTarget == "" || !(history.RevertConfirmation{SHA: m.HistoryRevertTarget}).Accept(m.HistoryRevertInput) {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	confirmation := history.RevertConfirmation{SHA: m.HistoryRevertTarget}
+	return func() tea.Msg {
+		_, err := history.Revert(context.Background(), runner, confirmation, m.HistoryRevertInput)
+		return HistoryActionFinishedMsg{Action: "reverted", Target: m.HistoryRevertTarget, Err: err}
 	}
 }
 
@@ -540,6 +556,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Status = "branch at " + m.HistoryBranchTarget + ": " + m.HistoryBranchName
 			return m, nil
 		}
+		if m.currentView() == workspace.Log && m.HistoryRevertConfirm {
+			switch v.String() {
+			case "esc":
+				m.HistoryRevertConfirm, m.HistoryRevertTarget, m.HistoryRevertInput, m.HistoryRevertInvalid, m.Status = false, "", "", false, "revert cancelled"
+			case "backspace":
+				m.HistoryRevertInput = removeLastRune(m.HistoryRevertInput)
+				m.HistoryRevertInvalid = false
+			case "enter":
+				if !(history.RevertConfirmation{SHA: m.HistoryRevertTarget}).Accept(m.HistoryRevertInput) {
+					m.HistoryRevertInvalid = true
+					m.Status = "type the exact SHA to revert"
+				} else {
+					m.HistoryRevertConfirm, m.HistoryRevertInvalid, m.State, m.Status = false, false, StateOperationPending, "reverting"
+					return m, m.revertSelectedHistory()
+				}
+			default:
+				if len([]rune(v.String())) == 1 {
+					m.HistoryRevertInput += v.String()
+				}
+				m.HistoryRevertInvalid = false
+			}
+			if m.HistoryRevertConfirm && !m.HistoryRevertInvalid {
+				m.Status = "type SHA " + m.HistoryRevertTarget + ": " + m.HistoryRevertInput
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Stashes && v.String() == "enter" {
 			m.State, m.Status = StateOperationPending, "loading stash preview"
 			return m, m.previewSelectedStash()
@@ -616,6 +658,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryBranchTarget = m.History.Rows[m.History.Selected].Commit.SHA
 				m.HistoryBranchName, m.HistoryBranchCreating = "", true
 				m.Status = "branch at " + m.HistoryBranchTarget + ": enter name"
+			}
+		case "R":
+			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+				m.HistoryRevertTarget = m.History.Rows[m.History.Selected].Commit.SHA
+				m.HistoryRevertInput, m.HistoryRevertConfirm, m.HistoryRevertInvalid = "", true, false
+				m.Status = "type SHA " + m.HistoryRevertTarget + ": "
 			}
 		case "c":
 			m.beginCommit()
@@ -884,6 +932,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.HistoryBranchCreating {
 			content += "\n\nBranch name: " + m.HistoryBranchName + "\n" + m.Status
 		}
+		if m.HistoryRevertConfirm {
+			content += "\n\nRevert confirmation: type " + m.HistoryRevertTarget + "\n" + m.HistoryRevertInput
+		}
 	} else if view == workspace.Commit {
 		title, content = "gitwatch · commit", m.Composer.View()
 	} else if view == workspace.Remotes {
@@ -894,7 +945,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
 	if view == workspace.Log {
-		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [x] checkout  [B] branch at commit  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [x] checkout  [B] branch  [R] revert (exact SHA)  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
 		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push  [P] force-with-lease  [esc] back  [q] quit"

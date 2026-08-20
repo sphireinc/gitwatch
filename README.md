@@ -27,6 +27,8 @@ Press `x` in History to request detached checkout of the selected commit; the ex
 
 Press `B` in History to enter a branch name for the selected commit; Enter executes the typed branch creation and Esc cancels.
 
+Press `R` in History to start a revert; the exact selected SHA must be typed before Enter can execute it.
+
 ## Keymap and status symbols
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.

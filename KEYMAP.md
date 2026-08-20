@@ -18,6 +18,7 @@
 | Enter | Inspect selected commit (in History view) |
 | x then y | Confirm checkout of selected commit (in History view) |
 | B | Create a named branch at selected commit (in History view) |
+| R | Revert selected commit after typing its exact SHA (in History view) |
 | n | Remotes view |
 | f | Fetch selected remote (in Remotes view) |
 | m / e / o | Pull with merge / rebase / fast-forward-only strategy |
