@@ -2,7 +2,10 @@ module github.com/jusanchez/gitwatch
 
 go 1.25.0
 
-require charm.land/bubbletea/v2 v2.0.8
+require (
+	charm.land/bubbletea/v2 v2.0.8
+	github.com/fsnotify/fsnotify v1.10.1
+)
 
 require (
 	github.com/aymanbagabas/go-udiff v0.4.1 // indirect
