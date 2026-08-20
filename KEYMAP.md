@@ -21,6 +21,7 @@
 | R | Revert selected commit after typing its exact SHA (in History view) |
 | t | Load tag refs (in History view) |
 | n | Remotes view |
+| w | Worktrees view |
 | f | Fetch selected remote (in Remotes view) |
 | C | Create stash (in Stashes view) |
 | a / p / D | Apply / pop / drop selected stash (in Stashes view) |

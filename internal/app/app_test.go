@@ -14,6 +14,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/ui/historyview"
 	"github.com/jusanchez/gitwatch/internal/ui/stashview"
 	"github.com/jusanchez/gitwatch/internal/workspace"
+	"github.com/jusanchez/gitwatch/internal/worktrees"
 )
 
 func TestStateTransitions(t *testing.T) {
@@ -42,6 +43,22 @@ func TestStateTransitions(t *testing.T) {
 	m = updated.(Model)
 	if m.State != StateModal || m.Modal != "help" {
 		t.Fatal(m)
+	}
+}
+
+func TestWorktreeRouteLoadsAndRendersState(t *testing.T) {
+	m := New()
+	updated, cmd := m.Update(key("w"))
+	m = updated.(Model)
+	if cmd == nil || m.currentView() != workspace.Worktrees {
+		t.Fatalf("worktree route = %q cmdnil=%v", m.currentView(), cmd == nil)
+	}
+	updated, _ = m.Update(WorktreesReadyMsg{Entries: []worktrees.Entry{{Path: "/linked", HEAD: "abc", Branch: "refs/heads/feature", Locked: true, Prunable: true}}})
+	m = updated.(Model)
+	for _, want := range []string{"/linked", "refs/heads/feature", "locked", "prunable"} {
+		if !contains(m.View().Content, want) {
+			t.Fatalf("worktree view missing %q: %s", want, m.View().Content)
+		}
 	}
 }
 

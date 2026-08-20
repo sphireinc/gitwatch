@@ -24,7 +24,9 @@ import (
 	"github.com/jusanchez/gitwatch/internal/ui/stashview"
 	"github.com/jusanchez/gitwatch/internal/ui/table"
 	"github.com/jusanchez/gitwatch/internal/ui/theme"
+	"github.com/jusanchez/gitwatch/internal/ui/worktreeview"
 	"github.com/jusanchez/gitwatch/internal/workspace"
+	"github.com/jusanchez/gitwatch/internal/worktrees"
 )
 
 type State uint8
@@ -113,6 +115,10 @@ type RemotesReadyMsg struct {
 	Dashboard remotes.Dashboard
 	Err       error
 }
+type WorktreesReadyMsg struct {
+	Entries []worktrees.Entry
+	Err     error
+}
 type RemoteOperationFinishedMsg struct {
 	Operation, Remote string
 	Err               error
@@ -163,6 +169,7 @@ type Model struct {
 	StashBranchRef        string
 	StashBranchName       string
 	Remotes               remoteview.Model
+	Worktrees             worktreeview.Model
 	RemoteForceConfirm    bool
 }
 
@@ -445,6 +452,14 @@ func (m Model) loadRemotes() tea.Cmd {
 	}
 }
 
+func (m Model) loadWorktrees() tea.Cmd {
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		entries, err := worktrees.List(context.Background(), runner)
+		return WorktreesReadyMsg{Entries: entries, Err: err}
+	}
+}
+
 func (m Model) fetchSelectedRemote() tea.Cmd {
 	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) {
 		return nil
@@ -497,6 +512,8 @@ func (m Model) navigate(view workspace.View, label string) tea.Cmd {
 		return m.loadHistory()
 	case workspace.Remotes:
 		return m.loadRemotes()
+	case workspace.Worktrees:
+		return m.loadWorktrees()
 	default:
 		return nil
 	}
@@ -756,6 +773,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.navigate(workspace.Log, "History")
 		case "n":
 			return m, m.navigate(workspace.Remotes, "Remotes")
+		case "w":
+			return m, m.navigate(workspace.Worktrees, "Worktrees")
 		case "f":
 			if m.currentView() == workspace.Remotes {
 				m.State, m.Status = StateOperationPending, "fetching"
@@ -852,6 +871,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.History.Move(1)
 			case workspace.Remotes:
 				m.Remotes.Move(1)
+			case workspace.Worktrees:
+				m.Worktrees.Move(1)
 			default:
 				m.Files.Move(1, m.Height-8)
 			}
@@ -865,6 +886,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.History.Move(-1)
 			case workspace.Remotes:
 				m.Remotes.Move(-1)
+			case workspace.Worktrees:
+				m.Worktrees.Move(-1)
 			default:
 				m.Files.Move(-1, m.Height-8)
 			}
@@ -1042,6 +1065,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.Remotes, m.State = remoteview.New(v.Dashboard), StateReady
 		}
+	case WorktreesReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			if len(m.Worktrees.Entries) == 0 {
+				m.Worktrees = worktreeview.New(v.Entries)
+			} else {
+				m.Worktrees.SetEntries(v.Entries)
+			}
+			m.State = StateReady
+		}
 	case RemoteOperationFinishedMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -1054,7 +1088,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() tea.View {
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.Worktrees {
 		return m.featureView(view)
 	}
 	name := m.Snapshot.Branch.Name
@@ -1091,7 +1125,7 @@ func (m Model) View() tea.View {
 		}
 	}
 	if m.Modal == "help" {
-		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     select/inspect", "b              branches", "s              stashes", "l              history", "n              remotes", "f              fetch", "m/e/o          pull merge/rebase/ff-only", "p              push", "c              commit", "1              status", "r              refresh", "Esc            close help", "q              quit"}
+		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     select/inspect", "b              branches", "s              stashes", "l              history", "n              remotes", "w              worktrees", "f              fetch", "m/e/o          pull merge/rebase/ff-only", "p              push", "c              commit", "1              status", "r              refresh", "Esc            close help", "q              quit"}
 	}
 	lines = append(lines, "──────────────────────────────────────────────────────────────", "[j/k] move  [space] stage/unstage  [enter/d] diff  [r] refresh  [?] help  [q] quit")
 	v := tea.NewView(strings.Join(lines, "\n"))
@@ -1148,6 +1182,8 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.RemoteForceConfirm {
 			content += "\n\n" + m.Status
 		}
+	} else if view == workspace.Worktrees {
+		title, content = "gitwatch · worktrees", m.Worktrees.View()
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
 	if view == workspace.Log {
@@ -1161,6 +1197,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Stashes {
 		lines[len(lines)-1] = "[j/k] move  [C] create  [B] branch  [a] apply  [p] pop  [D] drop  [enter] preview  [esc] back  [q] quit"
+	}
+	if view == workspace.Worktrees {
+		lines[len(lines)-1] = "[j/k] move  [1] status  [esc] back  [q] quit"
 	}
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion

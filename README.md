@@ -29,7 +29,7 @@ Press `B` in History to enter a branch name for the selected commit; Enter execu
 
 Press `R` in History to start a revert; the exact selected SHA must be typed before Enter can execute it.
 
-In Stashes, `C` creates a stash from an entered message; `u` toggles include-untracked (enabled by default); `a`, `p`, and `D` apply, pop, or drop the selected stash with confirmation where needed.
+In Stashes, `C` creates a stash from an entered message; `u` toggles include-untracked (enabled by default); `a`, `p`, and `D` apply, pop, or drop the selected stash with confirmation where needed. Press `w` to inspect linked worktrees and their lock/prunable state.
 
 Press `t` in History to load tag names and object IDs from the repository.
 

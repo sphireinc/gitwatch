@@ -17,6 +17,7 @@ const (
 	GitHub       View = "github"
 	Plugins      View = "plugins"
 	Repositories View = "repositories"
+	Worktrees    View = "worktrees"
 )
 
 type Breadcrumb struct {
