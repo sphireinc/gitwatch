@@ -109,6 +109,7 @@ type CommitFinishedMsg struct {
 	SHA string
 	Err error
 }
+type CommitConfigReadyMsg struct{ Config git.CommitConfig }
 type BranchOperationFinishedMsg struct {
 	Name string
 	Err  error
@@ -194,6 +195,8 @@ type Model struct {
 	HistoryRevertInput       string
 	HistoryRevertInvalid     bool
 	Composer                 commitview.Composer
+	CommitConfig             git.CommitConfig
+	CommitConfigReady        bool
 	CommitAmendConfirm       bool
 	CommitAuthorMode         bool
 	StashPreview             string
@@ -836,13 +839,16 @@ func (m *Model) navigate(view workspace.View, label string) tea.Cmd {
 	}
 }
 
-func (m *Model) beginCommit() {
+func (m *Model) beginCommit() tea.Cmd {
 	files := make([]commitmodel.File, 0, len(m.Snapshot.Entries))
 	for _, entry := range m.Snapshot.Entries {
 		files = append(files, commitmodel.File{Path: string(entry.Path), Staged: entry.Staged})
 	}
 	m.Composer = commitview.New(files)
+	m.CommitConfig, m.CommitConfigReady = git.CommitConfig{}, false
 	m.Workspace.Navigate(workspace.Commit, "Commit")
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg { return CommitConfigReadyMsg{Config: runner.CommitConfig(context.Background())} }
 }
 
 func (m Model) commit() tea.Cmd {
@@ -1354,8 +1360,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "confirm " + action + " " + ref + "? (y/n)"
 			}
 		case "c":
-			m.beginCommit()
-			return m, nil
+			return m, m.beginCommit()
 		case "enter":
 			if m.currentView() == workspace.Repositories {
 				m.State, m.Status = StateOperationPending, "opening repository"
@@ -1531,6 +1536,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Workspace.Back()
 			return m, m.refresh()
 		}
+	case CommitConfigReadyMsg:
+		m.CommitConfig, m.CommitConfigReady = v.Config, true
+		identity := strings.TrimSpace(strings.TrimSpace(v.Config.UserName) + " <" + strings.TrimSpace(v.Config.UserEmail) + ">")
+		if strings.TrimSpace(v.Config.UserName) == "" && strings.TrimSpace(v.Config.UserEmail) == "" {
+			identity = "Git user identity is not configured"
+		}
+		signing := "signing off"
+		if v.Config.SignEnabled {
+			signing = "configured signing: " + strings.TrimSpace(v.Config.SignFormat)
+			if strings.TrimSpace(v.Config.SignFormat) == "" {
+				signing = "configured signing"
+			}
+		}
+		m.Composer.SetConfigSummary(platform.SafeText("identity: " + identity + "; " + signing))
 	case BranchOperationFinishedMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()

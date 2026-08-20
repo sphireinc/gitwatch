@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -273,6 +274,18 @@ func TestCommitComposerOptionsAndAmendConfirmation(t *testing.T) {
 	m = updated.(Model)
 	if cmd != nil || m.CommitAmendConfirm || m.State == StateOperationPending {
 		t.Fatalf("amend cancellation = cmdnil=%v confirm=%v state=%v", cmd == nil, m.CommitAmendConfirm, m.State)
+	}
+}
+
+func TestCommitConfigIsShownInComposer(t *testing.T) {
+	m := New()
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("file.txt"), Staged: true}}
+	updated, _ := m.Update(key("c"))
+	m = updated.(Model)
+	updated, _ = m.Update(CommitConfigReadyMsg{Config: git.CommitConfig{UserName: "Ada", UserEmail: "ada@example.com", SignEnabled: true, SignFormat: "ssh"}})
+	m = updated.(Model)
+	if !m.CommitConfigReady || !strings.Contains(m.Composer.View(), "Ada <ada@example.com>") || !strings.Contains(m.Composer.View(), "configured signing: ssh") {
+		t.Fatalf("composer config summary missing: %s", m.Composer.View())
 	}
 }
 
