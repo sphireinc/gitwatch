@@ -85,6 +85,10 @@ type BranchOperationFinishedMsg struct {
 	Name string
 	Err  error
 }
+type StashPreviewReadyMsg struct {
+	Ref, Text string
+	Err       error
+}
 
 type Model struct {
 	State                State
@@ -104,6 +108,8 @@ type Model struct {
 	Stashes              stashview.Model
 	History              historyview.Model
 	Composer             commitview.Composer
+	StashPreview         string
+	StashPreviewRef      string
 }
 
 func New() Model {
@@ -213,6 +219,18 @@ func (m Model) loadStashes() tea.Cmd {
 	return func() tea.Msg {
 		entries, err := stash.List(context.Background(), r)
 		return StashesReadyMsg{Entries: entries, Err: err}
+	}
+}
+
+func (m Model) previewSelectedStash() tea.Cmd {
+	if m.Stashes.Selected < 0 || m.Stashes.Selected >= len(m.Stashes.Entries) {
+		return nil
+	}
+	ref := m.Stashes.Entries[m.Stashes.Selected].Ref
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		result, err := stash.Show(context.Background(), runner, ref)
+		return StashPreviewReadyMsg{Ref: ref, Text: string(result.Stdout), Err: err}
 	}
 }
 
@@ -337,6 +355,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		if m.currentView() == workspace.Commit {
 			return m, m.updateComposerKey(v.String())
+		}
+		if m.currentView() == workspace.Stashes && v.String() == "enter" {
+			m.State, m.Status = StateOperationPending, "loading stash preview"
+			return m, m.previewSelectedStash()
 		}
 		switch v.String() {
 		case "q", "ctrl+c":
@@ -478,6 +500,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.Stashes, m.State = stashview.New(v.Entries), StateReady
 		}
+	case StashPreviewReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.StashPreview, m.StashPreviewRef, m.State, m.Status = v.Text, v.Ref, StateReady, ""
+		}
 	case CommitFinishedMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -556,6 +584,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · branches", m.Branches.View()
 	} else if view == workspace.Stashes {
 		title, content = "gitwatch · stashes", m.Stashes.View()
+		if m.StashPreviewRef != "" {
+			content += "\n\nPreview " + m.StashPreviewRef + ":\n" + m.StashPreview
+		}
 	} else if view == workspace.Log {
 		title, content = "gitwatch · history", m.History.View()
 	} else if view == workspace.Commit {

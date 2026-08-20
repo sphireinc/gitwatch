@@ -123,6 +123,11 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	if got := m.View().Content; !contains(got, "work") {
 		t.Fatalf("stash view missing entry: %q", got)
 	}
+	updated, _ = m.Update(StashPreviewReadyMsg{Ref: "stash@{0}", Text: "-old\n+new"})
+	m = updated.(Model)
+	if got := m.View().Content; !contains(got, "Preview stash@{0}") || !contains(got, "+new") {
+		t.Fatalf("stash preview missing: %q", got)
+	}
 	updated, _ = m.Update(key("esc"))
 	m = updated.(Model)
 	if m.currentView() != workspace.Branches {
