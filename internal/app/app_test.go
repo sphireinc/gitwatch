@@ -355,6 +355,43 @@ func TestHistoryPulseRespectsMotionPolicy(t *testing.T) {
 	}
 }
 
+func TestRemoteSetUpstreamAndTagPushControls(t *testing.T) {
+	m := New()
+	m.Snapshot.Branch.Name = "main"
+	m.Workspace.Navigate(workspace.Remotes, "Remotes")
+	m.Remotes = remoteview.New(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin"}}})
+	updated, _ := m.Update(key("u"))
+	m = updated.(Model)
+	if !m.RemotePushConfirm || !m.RemoteSetUpstream {
+		t.Fatalf("upstream confirmation = %#v", m)
+	}
+	updated, cmd := m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.RemoteSetUpstream != true || len(m.Remotes.Dashboard.ActiveJobs()) != 1 {
+		t.Fatalf("upstream push = cmdnil=%v setup=%v jobs=%#v", cmd == nil, m.RemoteSetUpstream, m.Remotes.Dashboard.Jobs)
+	}
+
+	m = New()
+	m.Workspace.Navigate(workspace.Remotes, "Remotes")
+	m.Remotes = remoteview.New(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin"}}})
+	updated, _ = m.Update(key("T"))
+	m = updated.(Model)
+	for _, ch := range "v1.2.3" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if !m.RemotePushConfirm || m.RemoteTag != "v1.2.3" {
+		t.Fatalf("tag confirmation = confirm=%v tag=%q", m.RemotePushConfirm, m.RemoteTag)
+	}
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || len(m.Remotes.Dashboard.ActiveJobs()) != 1 {
+		t.Fatalf("tag push = cmdnil=%v jobs=%#v", cmd == nil, m.Remotes.Dashboard.Jobs)
+	}
+}
+
 func TestBranchCheckoutRejectsRemoteEntries(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Branches, "Branches")

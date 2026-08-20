@@ -11,6 +11,7 @@ import (
 var (
 	ErrMissingRemote    = errors.New("remote operation requires an explicit remote")
 	ErrStrategyRequired = errors.New("pull strategy must be explicitly selected")
+	ErrMissingTag       = errors.New("tag push requires an explicit tag")
 )
 
 type RefMovement struct {
@@ -66,14 +67,46 @@ func Pull(ctx context.Context, runner git.Runner, remote, branch, strategy strin
 }
 
 func Push(ctx context.Context, runner git.Runner, remote, branch string, forceWithLease bool) (git.Result, error) {
-	if !validArg(remote) || !validArg(branch) {
+	return PushWithOptions(ctx, runner, remote, branch, PushOptions{ForceWithLease: forceWithLease})
+}
+
+type PushOptions struct {
+	ForceWithLease bool
+	SetUpstream    bool
+	Tag            bool
+}
+
+func PushWithOptions(ctx context.Context, runner git.Runner, remote, ref string, options PushOptions) (git.Result, error) {
+	if !validArg(remote) {
+		return git.Result{}, ErrMissingRemote
+	}
+	if !validArg(ref) {
+		if options.Tag {
+			return git.Result{}, ErrMissingTag
+		}
 		return git.Result{}, ErrMissingRemote
 	}
 	args := []string{"push", "--progress"}
-	if forceWithLease {
+	if options.ForceWithLease {
 		args = append(args, "--force-with-lease")
 	}
-	return runner.Run(ctx, append(args, remote, branch)...)
+	if options.SetUpstream {
+		args = append(args, "--set-upstream")
+	}
+	if options.Tag {
+		args = append(args, remote, "refs/tags/"+ref+":refs/tags/"+ref)
+	} else {
+		args = append(args, remote, ref)
+	}
+	return runner.Run(ctx, args...)
+}
+
+func PushTag(ctx context.Context, runner git.Runner, remote, tag string) (git.Result, error) {
+	return PushWithOptions(ctx, runner, remote, tag, PushOptions{Tag: true})
+}
+
+func PushSetUpstream(ctx context.Context, runner git.Runner, remote, branch string) (git.Result, error) {
+	return PushWithOptions(ctx, runner, remote, branch, PushOptions{SetUpstream: true})
 }
 
 func validArg(value string) bool {

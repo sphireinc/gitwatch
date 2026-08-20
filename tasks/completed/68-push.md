@@ -1,8 +1,8 @@
 # Task 68: Implement push workflows
 
-Status: In progress
+Status: Complete
 
-Progress: Added explicit branch push and opt-in force-with-lease command primitives with validated remote/ref arguments, plus a typed `PreviewPush` operation that resolves local and remote SHAs through Git's structured commands. The remotes workspace now asynchronously previews and confirms normal pushes and requires explicit `P` then `y` confirmation before force-with-lease; set-upstream/tag workflows remain. A real bare-remote integration scenario covers new-ref preview, push, post-push preview, and fetch.
+Progress: Added explicit branch push and opt-in force-with-lease command primitives with validated remote/ref arguments, plus a typed `PreviewPush` operation that resolves local and remote SHAs through Git's structured commands. The remotes workspace asynchronously previews and confirms normal pushes, supports `u` set-upstream pushes, and requires explicit `P` then `y` confirmation before force-with-lease; `T` enters an explicit tag name and confirms tag push. A real bare-remote integration scenario covers new-ref preview, push, post-push preview, and fetch.
 
 ## Objective
 Add push current branch, set-upstream push, tag push where explicitly selected, and force-with-lease behind strong confirmation. Never offer raw --force as the default. Preview local/remote ref movement before destructive/non-fast-forward operations.
@@ -25,4 +25,10 @@ Add push current branch, set-upstream push, tag push where explicitly selected, 
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- Normal pushes retain typed local/remote SHA preview and confirmation; force-with-lease is separately gated behind `P` then `y` and raw `--force` is never offered.
+- `u` performs an explicit `--set-upstream` push for the selected remote and current branch.
+- `T` accepts one explicit validated tag name and pushes it using an explicit tag refspec after confirmation; tag and remote names reject option-like/control-containing values.
+- Successful pushes continue through the authoritative status and remote metadata refresh path, while failures preserve actionable notifications/activity.
+- Tests cover validation, push previews, real bare-remote push/fetch behavior, set-upstream/tag controls, and repository-wide race/vet/build gates.

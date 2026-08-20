@@ -32,6 +32,7 @@
 | u | Toggle include-untracked while creating a stash |
 | m / e / o | Pull with merge / rebase / fast-forward-only strategy |
 | p | Push current branch (in Remotes view) |
+| u / T | Push current branch with upstream tracking / push an explicitly entered tag (in Remotes view) |
 | P then y | Confirm force-with-lease push (in Remotes view) |
 | c | Commit workspace |
 | Ctrl-S | Execute a valid commit |

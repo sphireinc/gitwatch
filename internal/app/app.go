@@ -219,6 +219,9 @@ type Model struct {
 	RemoteForceConfirm       bool
 	RemotePushConfirm        bool
 	RemotePushPreview        remotes.RefMovement
+	RemoteSetUpstream        bool
+	RemoteTag                string
+	RemoteTagMode            bool
 	RemoteCancel             context.CancelFunc
 	RemoteJobID              string
 	Repositories             repoview.Model
@@ -809,9 +812,23 @@ func (m *Model) pushSelectedRemote(forceWithLease bool) tea.Cmd {
 	branch := m.Snapshot.Branch.Name
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx := m.startRemoteJob("push", remote)
+	setUpstream := m.RemoteSetUpstream
 	return func() tea.Msg {
-		_, err := remotes.Push(ctx, runner, remote, branch, forceWithLease)
+		_, err := remotes.PushWithOptions(ctx, runner, remote, branch, remotes.PushOptions{ForceWithLease: forceWithLease, SetUpstream: setUpstream})
 		return RemoteOperationFinishedMsg{Operation: "push", Remote: remote, Err: err}
+	}
+}
+
+func (m *Model) pushSelectedTag() tea.Cmd {
+	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) || strings.TrimSpace(m.RemoteTag) == "" {
+		return nil
+	}
+	remote, tag := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name, strings.TrimSpace(m.RemoteTag)
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx := m.startRemoteJob("push tag", remote)
+	return func() tea.Msg {
+		_, err := remotes.PushTag(ctx, runner, remote, tag)
+		return RemoteOperationFinishedMsg{Operation: "push tag " + tag, Remote: remote, Err: err}
 	}
 }
 
@@ -1081,6 +1098,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Worktrees && m.WorktreeAddMode {
 			return m, m.updateWorktreeAddKey(v.String())
 		}
+		if m.currentView() == workspace.Remotes && m.RemoteTagMode {
+			switch v.String() {
+			case "esc":
+				m.RemoteTagMode, m.RemoteTag = false, ""
+				m.Status = "tag push cancelled"
+			case "backspace":
+				m.RemoteTag = removeLastRune(m.RemoteTag)
+			case "enter":
+				if strings.TrimSpace(m.RemoteTag) == "" {
+					m.Status = "tag name is required"
+				} else {
+					m.RemoteTagMode, m.RemotePushConfirm = false, true
+					m.Status = "confirm push tag " + strings.TrimSpace(m.RemoteTag) + "? (y/n)"
+				}
+			case "space":
+				m.RemoteTag += " "
+			default:
+				if len([]rune(v.String())) == 1 {
+					m.RemoteTag += v.String()
+				}
+			}
+			if m.RemoteTagMode {
+				m.Status = "tag name: " + m.RemoteTag
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Stashes && m.StashBranchMode {
 			switch v.String() {
 			case "esc":
@@ -1195,9 +1238,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch v.String() {
 			case "y":
 				m.RemotePushConfirm, m.State, m.Status = false, StateOperationPending, "pushing"
+				if m.RemoteTag != "" {
+					return m, m.pushSelectedTag()
+				}
 				return m, m.pushSelectedRemote(false)
 			case "n", "esc":
-				m.RemotePushConfirm, m.Status = false, "push cancelled"
+				m.RemotePushConfirm, m.RemoteSetUpstream, m.RemoteTag, m.Status = false, false, "", "push cancelled"
 			}
 			return m, nil
 		}
@@ -1289,6 +1335,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				ref := m.Stashes.Entries[m.Stashes.Selected].Ref
 				m.StashConfirmAction, m.StashConfirmRef = "pop", ref
 				m.Status = "confirm pop " + ref + "? (y/n)"
+			}
+		case "u":
+			if m.currentView() == workspace.Remotes {
+				m.RemoteSetUpstream, m.RemotePushConfirm = true, true
+				m.Status = "confirm push with upstream tracking to selected remote? (y/n)"
+			}
+		case "T":
+			if m.currentView() == workspace.Remotes {
+				m.RemoteTagMode, m.RemoteTag = true, ""
+				m.Status = "tag name: "
 			}
 		case "P":
 			if m.currentView() == workspace.Worktrees {
@@ -1687,6 +1743,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.refresh(), m.loadWorktrees(), m.loadBranches())
 		}
 	case RemoteOperationFinishedMsg:
+		m.RemoteSetUpstream, m.RemoteTag = false, ""
 		if m.RemoteJobID != "" {
 			for i := range m.Remotes.Dashboard.Jobs {
 				if m.Remotes.Dashboard.Jobs[i].ID == m.RemoteJobID {
