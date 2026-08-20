@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"charm.land/bubbletea/v2"
+	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/ui/layout"
@@ -66,14 +67,21 @@ type Model struct {
 	Files                table.Model
 	Theme                theme.Roles
 	ctx                  context.Context
+	RefreshInterval      time.Duration
 	DiffPath, DiffText   string
 	DiffBinary           bool
 }
 
 func New() Model {
-	return Model{State: StateLoading, Focus: "files", Theme: theme.New(theme.Auto, false), ctx: context.Background()}
+	return Model{State: StateLoading, Focus: "files", Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second}
 }
 func NewRepository(d git.Discovery) Model { m := New(); m.Discovery = d; return m }
+func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
+	m := NewRepository(d)
+	m.RefreshInterval = c.Interval
+	m.Theme = theme.New(theme.Name(c.Theme), false)
+	return m
+}
 func (m Model) Init() tea.Cmd {
 	if m.Discovery.Root == "" {
 		return nil
@@ -82,7 +90,11 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) tick() tea.Cmd {
-	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg { return TickMsg{At: t} })
+	interval := m.RefreshInterval
+	if interval <= 0 {
+		interval = 2 * time.Second
+	}
+	return tea.Tick(interval, func(t time.Time) tea.Msg { return TickMsg{At: t} })
 }
 func (m Model) refresh() tea.Cmd {
 	d := m.Discovery
