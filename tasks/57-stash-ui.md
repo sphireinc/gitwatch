@@ -23,4 +23,4 @@ Build a dedicated stash view with list, metadata/details, patch preview, create-
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — stash list view with selection, filtering, and empty-state rendering is implemented; asynchronous action routing and conflict-state UI remain.
+**Status:** In progress — stash list view with selection, filtering, empty-state rendering, and asynchronous Bubble Tea loading are implemented; create/apply/pop/drop actions and conflict-state UI remain.

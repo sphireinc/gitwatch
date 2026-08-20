@@ -7,13 +7,18 @@ import (
 	"time"
 
 	"charm.land/bubbletea/v2"
+	"github.com/jusanchez/gitwatch/internal/branches"
 	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/repo"
+	"github.com/jusanchez/gitwatch/internal/stash"
+	"github.com/jusanchez/gitwatch/internal/ui/branchview"
 	"github.com/jusanchez/gitwatch/internal/ui/layout"
 	uimouse "github.com/jusanchez/gitwatch/internal/ui/mouse"
+	"github.com/jusanchez/gitwatch/internal/ui/stashview"
 	"github.com/jusanchez/gitwatch/internal/ui/table"
 	"github.com/jusanchez/gitwatch/internal/ui/theme"
+	"github.com/jusanchez/gitwatch/internal/workspace"
 )
 
 type State uint8
@@ -56,6 +61,14 @@ type DiffReadyMsg struct {
 	Binary     bool
 	Err        error
 }
+type BranchesReadyMsg struct {
+	Entries []branches.Branch
+	Err     error
+}
+type StashesReadyMsg struct {
+	Entries []stash.Entry
+	Err     error
+}
 
 type Model struct {
 	State                State
@@ -70,10 +83,13 @@ type Model struct {
 	RefreshInterval      time.Duration
 	DiffPath, DiffText   string
 	DiffBinary           bool
+	Workspace            *workspace.Model
+	Branches             branchview.Model
+	Stashes              stashview.Model
 }
 
 func New() Model {
-	return Model{State: StateLoading, Focus: "files", Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second}
+	return Model{State: StateLoading, Focus: "files", Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New()}
 }
 func NewRepository(d git.Discovery) Model { m := New(); m.Discovery = d; return m }
 func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
@@ -149,6 +165,45 @@ func (m Model) openDiff() tea.Cmd {
 	}
 }
 
+func (m Model) loadBranches() tea.Cmd {
+	r := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		entries, err := branches.List(context.Background(), r)
+		return BranchesReadyMsg{Entries: entries, Err: err}
+	}
+}
+
+func (m Model) loadStashes() tea.Cmd {
+	r := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		entries, err := stash.List(context.Background(), r)
+		return StashesReadyMsg{Entries: entries, Err: err}
+	}
+}
+
+func (m Model) navigate(view workspace.View, label string) tea.Cmd {
+	if m.Workspace == nil {
+		m.Workspace = workspace.New()
+	}
+	m.Workspace.Navigate(view, label)
+	switch view {
+	case workspace.Branches:
+		return m.loadBranches()
+	case workspace.Stashes:
+		return m.loadStashes()
+	default:
+		return nil
+	}
+}
+
+func (m Model) currentView() workspace.View {
+	if m.Workspace == nil {
+		return workspace.Status
+	}
+	view, _, _, _ := m.Workspace.Snapshot()
+	return view
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch v := msg.(type) {
 	case tea.KeyPressMsg:
@@ -160,11 +215,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.Modal != "" {
 				m.Modal = ""
 				m.State = StateReady
+			} else if m.currentView() != workspace.Status {
+				m.Workspace.Back()
 			}
+		case "1":
+			m.Workspace.Navigate(workspace.Status, "Status")
+		case "b":
+			return m, m.navigate(workspace.Branches, "Branches")
+		case "s":
+			return m, m.navigate(workspace.Stashes, "Stashes")
 		case "j", "down":
-			m.Files.Move(1, m.Height-8)
+			switch m.currentView() {
+			case workspace.Branches:
+				m.Branches.Move(1)
+			case workspace.Stashes:
+				m.Stashes.Move(1)
+			default:
+				m.Files.Move(1, m.Height-8)
+			}
 		case "k", "up":
-			m.Files.Move(-1, m.Height-8)
+			switch m.currentView() {
+			case workspace.Branches:
+				m.Branches.Move(-1)
+			case workspace.Stashes:
+				m.Stashes.Move(-1)
+			default:
+				m.Files.Move(-1, m.Height-8)
+			}
 		case "space":
 			return m, m.mutate()
 		case "enter", "d":
@@ -244,11 +321,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.Status = v.Err.Error()
 		}
+	case BranchesReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.Branches, m.State = branchview.New(v.Entries), StateReady
+		}
+	case StashesReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.Stashes, m.State = stashview.New(v.Entries), StateReady
+		}
 	}
 	return m, nil
 }
 
 func (m Model) View() tea.View {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes {
+		return m.featureView(view)
+	}
 	name := m.Snapshot.Branch.Name
 	if name == "" {
 		name = "repository"
@@ -283,12 +375,25 @@ func (m Model) View() tea.View {
 		}
 	}
 	if m.Modal == "help" {
-		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     open selected diff", "r              refresh", "Esc            close help", "q              quit"}
+		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     open selected diff", "b              branches", "s              stashes", "1              status", "r              refresh", "Esc            close help", "q              quit"}
 	}
 	lines = append(lines, "──────────────────────────────────────────────────────────────", "[j/k] move  [space] stage/unstage  [enter/d] diff  [r] refresh  [?] help  [q] quit")
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
+	return v
+}
+
+func (m Model) featureView(view workspace.View) tea.View {
+	title, content := "gitwatch", "Loading…"
+	if view == workspace.Branches {
+		title, content = "gitwatch · branches", m.Branches.View()
+	} else if view == workspace.Stashes {
+		title, content = "gitwatch · stashes", m.Stashes.View()
+	}
+	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [esc] back  [q] quit"}
+	v := tea.NewView(strings.Join(lines, "\n"))
+	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v
 }
 func max(a, b int) int {
