@@ -1,5 +1,7 @@
 # gitwatch
 
+![gitwatch logo](assets/gitwatch-logo.png)
+
 An htop-style interactive Git worktree dashboard for the terminal. gitwatch continuously reflects authoritative Git status, shows staged/unstaged state and branch health, and lets you inspect diffs and safely stage or unstage paths without leaving the terminal.
 
 ## Install

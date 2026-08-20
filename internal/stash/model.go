@@ -2,9 +2,12 @@ package stash
 
 import (
 	"context"
+	"errors"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"strings"
 )
+
+var ErrInvalidRef = errors.New("invalid stash reference")
 
 type Entry struct {
 	Ref, OID, Branch, Message string
@@ -45,5 +48,55 @@ func Create(ctx context.Context, r git.Runner, message string) (git.Result, erro
 	return r.Run(ctx, "stash", "push", "-m", message, "--include-untracked", "--")
 }
 func Apply(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
-	return r.Run(ctx, "stash", "apply", "--", ref)
+	if !validRef(ref) {
+		return git.Result{}, ErrInvalidRef
+	}
+	return r.Run(ctx, "stash", "apply", ref)
+}
+
+func Pop(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
+	if !validRef(ref) {
+		return git.Result{}, ErrInvalidRef
+	}
+	return r.Run(ctx, "stash", "pop", ref)
+}
+
+func Drop(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
+	if !validRef(ref) {
+		return git.Result{}, ErrInvalidRef
+	}
+	return r.Run(ctx, "stash", "drop", ref)
+}
+
+func Branch(ctx context.Context, r git.Runner, name, ref string) (git.Result, error) {
+	if !validRef(ref) || !validName(name) {
+		return git.Result{}, ErrInvalidRef
+	}
+	return r.Run(ctx, "stash", "branch", name, ref)
+}
+
+func Show(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
+	if !validRef(ref) {
+		return git.Result{}, ErrInvalidRef
+	}
+	return r.Run(ctx, "stash", "show", "--patch", "--stat", ref)
+}
+
+func RequireClean(ctx context.Context, r git.Runner) error {
+	result, err := r.Run(ctx, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+	if err != nil {
+		return err
+	}
+	if len(result.Stdout) != 0 {
+		return errors.New("working tree is not clean")
+	}
+	return nil
+}
+
+func validRef(ref string) bool {
+	return strings.TrimSpace(ref) != "" && !strings.HasPrefix(strings.TrimSpace(ref), "-") && !strings.ContainsAny(ref, "\r\n\x00")
+}
+
+func validName(name string) bool {
+	return strings.TrimSpace(name) != "" && !strings.HasPrefix(strings.TrimSpace(name), "-") && !strings.ContainsAny(name, "\r\n\x00")
 }
