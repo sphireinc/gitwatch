@@ -34,6 +34,7 @@
 | P then y | Confirm force-with-lease push (in Remotes view) |
 | c | Commit workspace |
 | Ctrl-S | Execute a valid commit |
+| A / N / o / S / @ | Toggle amend / no-edit / signoff / signing / author override (in Commit view) |
 | Tab | Cycle focus/panes |
 | / | Filter |
 | r | Force refresh |

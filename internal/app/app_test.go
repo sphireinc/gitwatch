@@ -239,6 +239,41 @@ func TestCommitWorkspaceEditsDraftAndPreservesItOnFailure(t *testing.T) {
 	}
 }
 
+func TestCommitComposerOptionsAndAmendConfirmation(t *testing.T) {
+	m := New()
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("file.txt"), Staged: true}}
+	updated, _ := m.Update(key("c"))
+	m = updated.(Model)
+	for _, option := range []string{"A", "N", "o", "S"} {
+		updated, _ = m.Update(key(option))
+		m = updated.(Model)
+	}
+	if !m.Composer.Draft.Amend || !m.Composer.Draft.NoEdit || !m.Composer.Draft.Signoff || !m.Composer.Draft.Sign {
+		t.Fatalf("commit options = %#v", m.Composer.Draft)
+	}
+	updated, _ = m.Update(key("@"))
+	m = updated.(Model)
+	for _, ch := range "Ada Lovelace <ada@example.com>" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	if m.Composer.Draft.Author != "Ada Lovelace <ada@example.com>" || !m.CommitAuthorMode {
+		t.Fatalf("author mode/draft = %q/%t", m.Composer.Draft.Author, m.CommitAuthorMode)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	updated, cmd := m.Update(key("ctrl+s"))
+	m = updated.(Model)
+	if cmd != nil || !m.CommitAmendConfirm || m.State == StateOperationPending {
+		t.Fatalf("amend confirmation = cmdnil=%v confirm=%v state=%v view=%q draft=%#v validation=%#v key=%q", cmd == nil, m.CommitAmendConfirm, m.State, m.currentView(), m.Composer.Draft, m.Composer.Draft.Validate(), key("ctrl+s").String())
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if cmd != nil || m.CommitAmendConfirm || m.State == StateOperationPending {
+		t.Fatalf("amend cancellation = cmdnil=%v confirm=%v state=%v", cmd == nil, m.CommitAmendConfirm, m.State)
+	}
+}
+
 func TestBranchCheckoutRejectsRemoteEntries(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Branches, "Branches")

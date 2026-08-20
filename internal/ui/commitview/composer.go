@@ -1,6 +1,8 @@
 package commitview
 
 import (
+	"fmt"
+
 	"github.com/jusanchez/gitwatch/internal/commitmodel"
 	"strings"
 )
@@ -32,7 +34,7 @@ func (c Composer) View() string {
 	} else {
 		bodyMarker = "> "
 	}
-	lines = append(lines, "", subjectMarker+"Subject: "+c.Draft.Subject, "", bodyMarker+c.Draft.Body, "", "────────────────────────────────────────")
+	lines = append(lines, "", subjectMarker+"Subject: "+c.Draft.Subject, "", bodyMarker+c.Draft.Body, "", fmt.Sprintf("Options: [A] amend=%t [N] no-edit=%t [o] signoff=%t [S] sign=%t [@] author=%q", c.Draft.Amend, c.Draft.NoEdit, c.Draft.Signoff, c.Draft.Sign, c.Draft.Author), "────────────────────────────────────────")
 	if len(v.Errors) > 0 {
 		lines = append(lines, "Error: "+strings.Join(v.Errors, "; "))
 	} else if len(v.Warnings) > 0 {

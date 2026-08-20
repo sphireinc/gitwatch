@@ -193,6 +193,8 @@ type Model struct {
 	HistoryRevertInput       string
 	HistoryRevertInvalid     bool
 	Composer                 commitview.Composer
+	CommitAmendConfirm       bool
+	CommitAuthorMode         bool
 	StashPreview             string
 	StashPreviewRef          string
 	StashCreateMode          bool
@@ -824,6 +826,23 @@ func removeLastRune(value string) string {
 }
 
 func (m *Model) updateComposerKey(key string) tea.Cmd {
+	if m.CommitAuthorMode {
+		switch key {
+		case "esc":
+			m.CommitAuthorMode = false
+		case "enter":
+			m.CommitAuthorMode = false
+		case "backspace":
+			m.Composer.Draft.Author = removeLastRune(m.Composer.Draft.Author)
+		case "space":
+			m.Composer.Draft.Author += " "
+		default:
+			if len([]rune(key)) == 1 && key != "\n" && key != "\r" {
+				m.Composer.Draft.Author += key
+			}
+		}
+		return nil
+	}
 	switch key {
 	case "esc":
 		m.Workspace.Back()
@@ -833,9 +852,27 @@ func (m *Model) updateComposerKey(key string) tea.Cmd {
 			m.Status = strings.Join(m.Composer.Draft.Validate().Errors, "; ")
 			return nil
 		}
+		if m.Composer.Draft.Amend {
+			m.CommitAmendConfirm = true
+			m.Status = "amend rewrites the current commit; press y to confirm or n to cancel"
+			return nil
+		}
 		m.State = StateOperationPending
 		m.Status = "committing"
 		return m.commit()
+	case "A":
+		m.Composer.Draft.Amend = !m.Composer.Draft.Amend
+		if !m.Composer.Draft.Amend {
+			m.Composer.Draft.NoEdit = false
+		}
+	case "N":
+		m.Composer.Draft.NoEdit = !m.Composer.Draft.NoEdit
+	case "o":
+		m.Composer.Draft.Signoff = !m.Composer.Draft.Signoff
+	case "S":
+		m.Composer.Draft.Sign = !m.Composer.Draft.Sign
+	case "@":
+		m.CommitAuthorMode = true
 	case "tab":
 		if m.Composer.Focus == "subject" {
 			m.Composer.Focus = "body"
@@ -908,7 +945,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.PaletteMode {
 			return m, m.updatePaletteKey(v.String())
 		}
+		if m.currentView() == workspace.Commit && m.CommitAmendConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.CommitAmendConfirm = false
+				m.State, m.Status = StateOperationPending, "committing amended commit"
+				return m, m.commit()
+			case "n", "N", "esc":
+				m.CommitAmendConfirm = false
+				m.Status = "amend cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Commit {
+			if v.Mod&tea.ModCtrl != 0 && v.String() == "s" {
+				return m, m.updateComposerKey("ctrl+s")
+			}
 			return m, m.updateComposerKey(v.String())
 		}
 		if m.currentView() == workspace.Log && m.HistorySearching {
@@ -1425,6 +1477,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
+			m.CommitAmendConfirm, m.CommitAuthorMode = false, false
 			m.State, m.Status = StateReady, "commit "+v.SHA
 			m.Workspace.Back()
 			return m, m.refresh()
