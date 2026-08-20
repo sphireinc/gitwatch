@@ -13,6 +13,35 @@ var (
 	ErrStrategyRequired = errors.New("pull strategy must be explicitly selected")
 )
 
+type RefMovement struct {
+	Remote, Branch string
+	LocalSHA       string
+	RemoteSHA      string
+}
+
+func PreviewPush(ctx context.Context, runner git.Runner, remote, branch string) (RefMovement, error) {
+	if !validArg(remote) || !validArg(branch) {
+		return RefMovement{}, ErrMissingRemote
+	}
+	local, err := runner.Run(ctx, "rev-parse", "--verify", branch+"^{commit}")
+	if err != nil {
+		return RefMovement{}, err
+	}
+	remoteResult, err := runner.Run(ctx, "ls-remote", "--heads", remote, "refs/heads/"+branch)
+	if err != nil {
+		return RefMovement{}, err
+	}
+	return RefMovement{Remote: remote, Branch: branch, LocalSHA: strings.TrimSpace(string(local.Stdout)), RemoteSHA: parseRemoteSHA(remoteResult.Stdout)}, nil
+}
+
+func parseRemoteSHA(data []byte) string {
+	fields := strings.Fields(string(data))
+	if len(fields) == 0 {
+		return ""
+	}
+	return fields[0]
+}
+
 func Fetch(ctx context.Context, runner git.Runner, remote string) (git.Result, error) {
 	if !validArg(remote) {
 		return git.Result{}, ErrMissingRemote

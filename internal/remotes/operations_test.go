@@ -20,3 +20,12 @@ func TestRemoteOperationsRejectOptionLikeNames(t *testing.T) {
 		t.Fatalf("expected remote validation error, got %v", err)
 	}
 }
+
+func TestParseRemoteSHA(t *testing.T) {
+	if got := parseRemoteSHA([]byte("abc123\trefs/heads/main\n")); got != "abc123" {
+		t.Fatalf("remote SHA = %q", got)
+	}
+	if got := parseRemoteSHA(nil); got != "" {
+		t.Fatalf("empty remote SHA = %q", got)
+	}
+}

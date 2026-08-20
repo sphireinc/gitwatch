@@ -134,6 +134,10 @@ type RemoteOperationFinishedMsg struct {
 	Operation, Remote string
 	Err               error
 }
+type PushPreviewReadyMsg struct {
+	Preview remotes.RefMovement
+	Err     error
+}
 
 type Model struct {
 	State                    State
@@ -192,6 +196,8 @@ type Model struct {
 	WorktreeConfirmAction    string
 	WorktreeConfirmTarget    string
 	RemoteForceConfirm       bool
+	RemotePushConfirm        bool
+	RemotePushPreview        remotes.RefMovement
 }
 
 func New() Model {
@@ -605,6 +611,19 @@ func (m Model) pushSelectedRemote(forceWithLease bool) tea.Cmd {
 	}
 }
 
+func (m Model) previewSelectedRemotePush() tea.Cmd {
+	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) || m.Snapshot.Branch.Name == "" {
+		return nil
+	}
+	remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
+	branch := m.Snapshot.Branch.Name
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		preview, err := remotes.PreviewPush(context.Background(), runner, remote, branch)
+		return PushPreviewReadyMsg{Preview: preview, Err: err}
+	}
+}
+
 func (m *Model) navigate(view workspace.View, label string) tea.Cmd {
 	if m.Workspace == nil {
 		m.Workspace = workspace.New()
@@ -910,6 +929,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Remotes && m.RemotePushConfirm {
+			switch v.String() {
+			case "y":
+				m.RemotePushConfirm, m.State, m.Status = false, StateOperationPending, "pushing"
+				return m, m.pushSelectedRemote(false)
+			case "n", "esc":
+				m.RemotePushConfirm, m.Status = false, "push cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Worktrees && m.WorktreeConfirmAction != "" {
 			switch v.String() {
 			case "y":
@@ -980,8 +1009,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "p":
 			if m.currentView() == workspace.Remotes {
-				m.State, m.Status = StateOperationPending, "pushing"
-				return m, m.pushSelectedRemote(false)
+				m.State, m.Status = StateOperationPending, "preparing push preview"
+				return m, m.previewSelectedRemotePush()
 			}
 			if m.currentView() == workspace.Stashes && m.Stashes.Selected >= 0 && m.Stashes.Selected < len(m.Stashes.Entries) {
 				ref := m.Stashes.Entries[m.Stashes.Selected].Ref
@@ -1304,6 +1333,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.Remotes, m.State = remoteview.New(v.Dashboard), StateReady
 		}
+	case PushPreviewReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.RemotePushPreview, m.RemotePushConfirm, m.State = v.Preview, true, StateReady
+			remoteSHA := v.Preview.RemoteSHA
+			if remoteSHA == "" {
+				remoteSHA = "(new branch)"
+			}
+			m.Status = fmt.Sprintf("push %s/%s: %s -> %s? (y/n)", v.Preview.Remote, v.Preview.Branch, remoteSHA, v.Preview.LocalSHA)
+		}
 	case WorktreesReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -1451,6 +1491,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.RemoteForceConfirm {
 			content += "\n\n" + m.Status
 		}
+		if m.RemotePushConfirm {
+			content += "\n\n" + m.Status
+		}
 	} else if view == workspace.Worktrees {
 		title, content = "gitwatch · worktrees", m.Worktrees.View()
 	}
@@ -1459,7 +1502,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
-		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push  [P] force-with-lease  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push preview  [P] force-with-lease  [esc] back  [q] quit"
 	}
 	if view == workspace.Commit {
 		lines[len(lines)-1] = "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"

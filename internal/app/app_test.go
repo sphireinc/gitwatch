@@ -409,10 +409,21 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	if m.State != StateReady || !contains(m.Status, "pull merge complete") {
 		t.Fatalf("pull completion state/status = %v/%q", m.State, m.Status)
 	}
+	m.Snapshot.Branch.Name = "main"
 	updated, cmd = m.Update(key("p"))
 	m = updated.(Model)
-	if cmd == nil || m.State != StateOperationPending || m.Status != "pushing" {
+	if cmd == nil || m.State != StateOperationPending || m.Status != "preparing push preview" {
 		t.Fatalf("push command/state = %v/%v/%q", cmd == nil, m.State, m.Status)
+	}
+	updated, _ = m.Update(PushPreviewReadyMsg{Preview: remotes.RefMovement{Remote: "origin", Branch: "main", LocalSHA: "local", RemoteSHA: "remote"}})
+	m = updated.(Model)
+	if !m.RemotePushConfirm || !contains(m.Status, "remote -> local") {
+		t.Fatalf("push preview = %v/%q", m.RemotePushConfirm, m.Status)
+	}
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.RemotePushConfirm || m.State != StateOperationPending || m.Status != "pushing" {
+		t.Fatalf("push confirmation = cmdnil=%v confirm=%v state=%v status=%q", cmd == nil, m.RemotePushConfirm, m.State, m.Status)
 	}
 	updated, _ = m.Update(key("P"))
 	m = updated.(Model)
