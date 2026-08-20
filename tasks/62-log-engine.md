@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added bounded NUL/record-delimited log parsing with SHA, parents, author, timestamp, subject, refs, and signature fields, plus skip/limit pagination with a one-record lookahead. The TUI now loads history pages asynchronously and appends additional pages from the History workspace while preserving the graph selection; cancellation and richer loading feedback remain.
+Progress: Added bounded NUL/record-delimited log parsing with SHA, parents, author, timestamp, subject, refs, and signature fields, plus skip/limit pagination with a one-record lookahead. The TUI now loads history pages asynchronously and appends additional pages from the History workspace while preserving the graph selection; leaving History cancels an in-flight page request so stale results do not update the workspace.
 
 ## Objective
 Load commit history incrementally using stable machine-readable formatting. Model SHA, parents, refs, author, timestamp, subject, signature state, and graph topology. Support pagination/lazy loading and cancellation for very large histories.

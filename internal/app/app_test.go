@@ -98,6 +98,20 @@ func TestWorktreeMutationRouting(t *testing.T) {
 	}
 }
 
+func TestHistoryLoadCancelsWhenLeavingView(t *testing.T) {
+	m := New()
+	updated, cmd := m.Update(key("l"))
+	m = updated.(Model)
+	if cmd == nil || m.HistoryCancel == nil || m.currentView() != workspace.Log {
+		t.Fatalf("history load = cmdnil=%v cancel=%v view=%q", cmd == nil, m.HistoryCancel == nil, m.currentView())
+	}
+	updated, _ = m.Update(key("esc"))
+	m = updated.(Model)
+	if m.HistoryCancel != nil || m.currentView() != workspace.Status {
+		t.Fatalf("history cancellation = cancel=%v view=%q", m.HistoryCancel != nil, m.currentView())
+	}
+}
+
 func key(text string) tea.KeyPressMsg {
 	if text == "esc" {
 		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape})

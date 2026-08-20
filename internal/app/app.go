@@ -149,6 +149,7 @@ type Model struct {
 	HistoryCommits        []history.Commit
 	HistorySkip           int
 	HistoryHasMore        bool
+	HistoryCancel         context.CancelFunc
 	HistoryFilter         string
 	HistorySearching      bool
 	HistoryInspector      history.Inspector
@@ -382,14 +383,19 @@ func (m *Model) updateStashCreateKey(key string) tea.Cmd {
 	return nil
 }
 
-func (m Model) loadHistory() tea.Cmd {
+func (m *Model) loadHistory() tea.Cmd {
 	return m.loadHistoryPage(0)
 }
 
-func (m Model) loadHistoryPage(skip int) tea.Cmd {
+func (m *Model) loadHistoryPage(skip int) tea.Cmd {
+	if m.HistoryCancel != nil {
+		m.HistoryCancel()
+	}
+	ctx, cancel := context.WithCancel(m.ctx)
+	m.HistoryCancel = cancel
 	r := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		page, err := history.LoadPage(context.Background(), r, skip, 100)
+		page, err := history.LoadPage(ctx, r, skip, 100)
 		return HistoryReadyMsg{Commits: page.Commits, Skip: skip, HasMore: page.HasMore, Err: err}
 	}
 }
@@ -570,7 +576,7 @@ func (m Model) pushSelectedRemote(forceWithLease bool) tea.Cmd {
 	}
 }
 
-func (m Model) navigate(view workspace.View, label string) tea.Cmd {
+func (m *Model) navigate(view workspace.View, label string) tea.Cmd {
 	if m.Workspace == nil {
 		m.Workspace = workspace.New()
 	}
@@ -848,6 +854,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Modal = ""
 				m.State = StateReady
 			} else if m.currentView() != workspace.Status {
+				if m.currentView() == workspace.Log && m.HistoryCancel != nil {
+					m.HistoryCancel()
+					m.HistoryCancel = nil
+				}
 				m.Workspace.Back()
 			}
 		case "1":
@@ -1129,6 +1139,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.refresh(), m.loadBranches())
 		}
 	case HistoryReadyMsg:
+		m.HistoryCancel = nil
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
