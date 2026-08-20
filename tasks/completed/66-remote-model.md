@@ -1,8 +1,10 @@
 # Task 66: Build remote and tracking model
 
-Status: In progress
+Status: Complete
 
 Progress: Added typed remote discovery, URL redaction, default-remote selection, reachability/error fields, last-fetch reflog timestamps, and tracking-symbol parsing. Branch discovery now requests Git's exact upstream tracking symbols and populates ahead/behind counts; the workspace loads a redacted remote dashboard asynchronously with branch divergence and stale-fetch state.
+
+Completion summary: Remote discovery uses typed Git arguments and preserves redacted fetch/push URLs, reachability errors, default selection, and last-fetch reflog timestamps. Local branch tracking uses Git's `%(upstream:trackshort)` output for exact ahead/behind counts, and the asynchronous Remotes workspace exposes those values with stale-fetch state. Parser, redaction, tracking, dashboard, integration, race, and static-analysis coverage pass. Workflow mutation details remain in Tasks 67–69.
 
 ## Objective
 Discover remotes, fetch/push URLs with credentials redacted, tracking relationships, divergence, last fetch state, and default remote. Never display embedded secrets/tokens. Add remote reachability/error state.
