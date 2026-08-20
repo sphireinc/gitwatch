@@ -22,3 +22,5 @@ Create a cancellable job manager for fetch/pull/push, history loading, GitHub ca
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+**Status:** In progress — bounded cancellable operation engine with per-repository serialization, deduplication, timeout states, and structured results is implemented and tested; Bubble Tea command/message integration remains.
