@@ -76,7 +76,11 @@ func (m Model) Init() tea.Cmd {
 	if m.Discovery.Root == "" {
 		return nil
 	}
-	return m.refresh()
+	return tea.Batch(m.refresh(), m.tick())
+}
+
+func (m Model) tick() tea.Cmd {
+	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg { return TickMsg{At: t} })
 }
 func (m Model) refresh() tea.Cmd {
 	d := m.Discovery
@@ -169,6 +173,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if m.State == StateRefreshing {
 			m.State = StateReady
 		}
+	case TickMsg:
+		return m, tea.Batch(m.refresh(), m.tick())
 	case WatcherStateMsg:
 		if v.Err != nil {
 			m.Status = "watcher fallback: " + v.Err.Error()
