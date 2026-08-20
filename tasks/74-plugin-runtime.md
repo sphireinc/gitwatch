@@ -1,5 +1,9 @@
 # Task 74: Implement secure plugin runtime
 
+Status: In progress
+
+Progress: Added manifest-validated direct-argv plugin execution with context cancellation, bounded stdout/stderr capture, exit-code reporting, and output-limit tests. Streaming RPC, lifecycle supervision, permissions, and restart policy remain.
+
 ## Objective
 Implement discovery, enable/disable, startup handshake, timeouts, crash isolation, capability grants, structured logging, and version mismatch handling. Plugins must be opt-in and unable to execute arbitrary gitwatch internals outside the public contract.
 
