@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added typed remote discovery, URL redaction, default-remote selection, reachability/error fields, last-fetch reflog timestamps, and tracking-symbol parsing. The workspace now loads a redacted remote dashboard asynchronously with branch divergence and stale-fetch state; exact divergence enrichment remains.
+Progress: Added typed remote discovery, URL redaction, default-remote selection, reachability/error fields, last-fetch reflog timestamps, and tracking-symbol parsing. Branch discovery now requests Git's exact upstream tracking symbols and populates ahead/behind counts; the workspace loads a redacted remote dashboard asynchronously with branch divergence and stale-fetch state.
 
 ## Objective
 Discover remotes, fetch/push URLs with credentials redacted, tracking relationships, divergence, last fetch state, and default remote. Never display embedded secrets/tokens. Add remote reachability/error state.

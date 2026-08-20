@@ -27,12 +27,16 @@ func Parse(lines []byte) []Branch {
 		if len(p) < 4 {
 			continue
 		}
-		out = append(out, Branch{Name: p[0], OID: p[1], Upstream: p[2], Current: p[3] == "*", Remote: strings.HasPrefix(p[0], "remotes/")})
+		branch := Branch{Name: p[0], OID: p[1], Upstream: p[2], Current: p[3] == "*", Remote: strings.HasPrefix(p[0], "remotes/")}
+		if len(p) > 4 {
+			branch.Ahead, branch.Behind = ParseTracking(p[4])
+		}
+		out = append(out, branch)
 	}
 	return out
 }
 func List(ctx context.Context, r git.Runner) ([]Branch, error) {
-	res, err := r.Run(ctx, "for-each-ref", "--format=%(refname:short)\x00%(objectname)\x00%(upstream:short)\x00 ", "refs/heads", "refs/remotes")
+	res, err := r.Run(ctx, "for-each-ref", "--format=%(refname:short)\x00%(objectname)\x00%(upstream:short)\x00 %(upstream:trackshort)", "refs/heads", "refs/remotes")
 	if err != nil {
 		return nil, err
 	}
