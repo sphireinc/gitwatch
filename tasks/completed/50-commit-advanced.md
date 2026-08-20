@@ -1,8 +1,8 @@
 # Task 50: Add amend, signoff, signing and author options
 
-Status: In progress
+Status: Complete
 
-Progress: Commit execution supports amend, no-edit, signoff, signing, and author options; repository signing/user configuration inspection, multiline-author rejection, and normalized SHA output are implemented. The composer now exposes toggles, one-line author editing, and amend confirmation.
+Progress: Commit execution supports amend, no-edit, signoff, signing, and author options; repository signing/user configuration inspection, multiline-author rejection, and normalized SHA output are implemented. The composer exposes toggles, one-line author editing, amend confirmation, and asynchronously loaded identity/signing guidance.
 
 ## Objective
 Support --amend, --no-edit where appropriate, Signed-off-by, configured GPG/SSH signing, and explicit author override. Detect repository/user configuration and make dangerous history-rewriting behavior visually distinct with confirmation.
@@ -25,4 +25,11 @@ Support --amend, --no-edit where appropriate, Signed-off-by, configured GPG/SSH 
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- `git.CommitConfig` reads configured user identity, `commit.gpgsign`, and `gpg.format` through the typed runner; the commit workspace loads it asynchronously and sanitizes the displayed summary.
+- `A`, `N`, `o`, `S`, and `@` control amend, no-edit, signoff, signing, and author override. Amend requires explicit `y` confirmation and never discards the draft on failure.
+- Author input rejects newline/control-line injection, commit SHAs are normalized, and all mutation completion paths refresh repository state.
+- Tests cover commit configuration parsing, author validation, composer options, amend confirmation/cancellation, failure preservation, and repository-wide race/vet/build gates.
+
+Deferred follow-up: platform-specific signing-agent prompts remain delegated to Git and are reported through Git's normal command error output.
