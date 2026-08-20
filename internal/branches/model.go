@@ -44,7 +44,7 @@ func Create(ctx context.Context, r git.Runner, name string) (git.Result, error) 
 	if !validName(name) {
 		return git.Result{}, ErrInvalidName
 	}
-	return r.Run(ctx, "switch", "--create", "--", name)
+	return r.Run(ctx, "switch", "--create", name)
 }
 
 func Rename(ctx context.Context, r git.Runner, oldName, newName string) (git.Result, error) {

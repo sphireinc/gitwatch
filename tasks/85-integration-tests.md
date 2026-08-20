@@ -1,5 +1,9 @@
 # Task 85: Build end-to-end post-v1 Git scenario suite
 
+Status: In progress
+
+Progress: Added a real temporary-repository scenario covering initialization, commit, snapshot refresh, stash creation/listing, branch creation, worktree creation/discovery, and occupancy mapping. Partial staging, hooks/conflicts, remotes, multi-repo application transitions, and platform matrix remain.
+
 ## Objective
 Create temporary real repositories covering commits, hooks, partial staging, stashes, conflicts, branches, remotes, worktrees, merge graphs, fetch/pull/push, and multi-repo state. Assert both Git outcomes and application model transitions.
 
