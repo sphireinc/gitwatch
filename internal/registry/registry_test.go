@@ -41,3 +41,27 @@ func TestRegistryRoundTripUsesPrivateFileMode(t *testing.T) {
 		t.Fatalf("registry is not private: %v", err)
 	}
 }
+
+func TestDiscoverSkipsSymlinkedGitMetadata(t *testing.T) {
+	root := t.TempDir()
+	realGit := filepath.Join(root, "real-git")
+	if err := os.MkdirAll(realGit, 0700); err != nil {
+		t.Fatal(err)
+	}
+	repoPath := filepath.Join(root, "linked")
+	if err := os.MkdirAll(repoPath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(realGit, filepath.Join(repoPath, ".git")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	repositories, err := Discover(context.Background(), []string{root}, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, repository := range repositories {
+		if repository.Path == repoPath {
+			t.Fatalf("symlinked .git was discovered: %#v", repositories)
+		}
+	}
+}

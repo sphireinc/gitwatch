@@ -56,6 +56,12 @@ func Discover(ctx context.Context, roots []string, options Options) ([]Repositor
 			if len(repositories) >= options.MaxRepositories {
 				return filepath.SkipAll
 			}
+			if entry.Type()&os.ModeSymlink != 0 {
+				if entry.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
 			if entry.IsDir() && path != root && ignored[entry.Name()] {
 				return filepath.SkipDir
 			}
@@ -96,7 +102,10 @@ func isRepository(path string, entry fs.DirEntry) bool {
 	if !entry.IsDir() {
 		return false
 	}
-	info, err := os.Stat(filepath.Join(path, ".git"))
+	info, err := os.Lstat(filepath.Join(path, ".git"))
+	if err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return false
+	}
 	return err == nil && info != nil
 }
 
