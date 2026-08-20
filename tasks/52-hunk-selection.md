@@ -23,4 +23,4 @@ Represent selectable hunks and lines with stable identities across refreshes. De
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — stable file/hunk/line identities, toggle/select-hunk behavior, selection counts, validity checks, and refresh invalidation are implemented and tested; range selection and UI navigation remain.
+**Status:** In progress — stable file/hunk/line identities, toggle/select-hunk behavior, selection counts, validity checks, refresh invalidation, and selection-aware patch generation are implemented and tested; range selection and UI navigation remain.
