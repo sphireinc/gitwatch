@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added a render-neutral dashboard model with stale-fetch detection, active job filtering, branch divergence fields, and bounded recent activity. The workspace now provides an asynchronous `n` remotes route with selectable remote rows, state rendering, fetch, explicit-strategy pull, push preview/confirmation, and force-with-lease confirmation; completed remote operations now persist bounded success/failure activity across refreshes.
+Progress: Added a render-neutral dashboard model with stale-fetch detection, active job filtering, branch divergence fields, and bounded recent activity. The workspace now provides an asynchronous `n` remotes route with selectable remote rows, state rendering, fetch, explicit-strategy pull, push preview/confirmation, and force-with-lease confirmation; completed remote operations now persist bounded success/failure activity across refreshes. Remote operations now register running jobs, expose active-job state, and support cancellation requests.
 
 ## Objective
 Create an htop-like remote panel showing branch tracking, ahead/behind, stale fetch indicators, in-flight jobs, last success/failure, and concise network activity. Provide fetch/pull/push actions without leaving the dashboard.

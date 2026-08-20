@@ -14,6 +14,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/ui/branchview"
 	"github.com/jusanchez/gitwatch/internal/ui/historyview"
+	"github.com/jusanchez/gitwatch/internal/ui/remoteview"
 	"github.com/jusanchez/gitwatch/internal/ui/stashview"
 	"github.com/jusanchez/gitwatch/internal/ui/worktreeview"
 	"github.com/jusanchez/gitwatch/internal/workspace"
@@ -271,6 +272,22 @@ func TestCommitComposerOptionsAndAmendConfirmation(t *testing.T) {
 	m = updated.(Model)
 	if cmd != nil || m.CommitAmendConfirm || m.State == StateOperationPending {
 		t.Fatalf("amend cancellation = cmdnil=%v confirm=%v state=%v", cmd == nil, m.CommitAmendConfirm, m.State)
+	}
+}
+
+func TestRemoteOperationTracksActiveJobAndCancellation(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Remotes, "Remotes")
+	m.Remotes = remoteview.New(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin"}}})
+	updated, cmd := m.Update(key("f"))
+	m = updated.(Model)
+	if cmd == nil || m.RemoteCancel == nil || len(m.Remotes.Dashboard.ActiveJobs()) != 1 {
+		t.Fatalf("remote job start = cmdnil=%v cancelnil=%v jobs=%#v", cmd == nil, m.RemoteCancel == nil, m.Remotes.Dashboard.Jobs)
+	}
+	updated, cmd = m.Update(key("esc"))
+	m = updated.(Model)
+	if cmd != nil || m.RemoteCancel != nil || m.Status != "remote operation cancellation requested" {
+		t.Fatalf("remote cancellation = cmdnil=%v cancelnil=%v status=%q", cmd == nil, m.RemoteCancel == nil, m.Status)
 	}
 }
 

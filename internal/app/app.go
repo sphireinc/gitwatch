@@ -214,6 +214,8 @@ type Model struct {
 	RemoteForceConfirm       bool
 	RemotePushConfirm        bool
 	RemotePushPreview        remotes.RefMovement
+	RemoteCancel             context.CancelFunc
+	RemoteJobID              string
 	Repositories             repoview.Model
 	RepositoryRoots          []string
 	RepositoryEngine         *registry.Engine
@@ -719,40 +721,55 @@ func (m *Model) updateWorktreeAddKey(key string) tea.Cmd {
 	return nil
 }
 
-func (m Model) fetchSelectedRemote() tea.Cmd {
+func (m *Model) startRemoteJob(operation, remote string) context.Context {
+	base := m.ctx
+	if base == nil {
+		base = context.Background()
+	}
+	ctx, cancel := context.WithCancel(base)
+	m.RemoteCancel = cancel
+	m.RemoteJobID = fmt.Sprintf("remote-%d", time.Now().UnixNano())
+	m.Remotes.Dashboard.Jobs = append(m.Remotes.Dashboard.Jobs, remotes.Job{ID: m.RemoteJobID, Operation: operation, Remote: remote, State: remotes.JobRunning, Started: time.Now()})
+	return ctx
+}
+
+func (m *Model) fetchSelectedRemote() tea.Cmd {
 	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) {
 		return nil
 	}
 	remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
 	runner := git.NewRunner(m.Discovery.Root)
+	ctx := m.startRemoteJob("fetch", remote)
 	return func() tea.Msg {
-		_, err := remotes.Fetch(context.Background(), runner, remote)
+		_, err := remotes.Fetch(ctx, runner, remote)
 		return RemoteOperationFinishedMsg{Operation: "fetch", Remote: remote, Err: err}
 	}
 }
 
-func (m Model) pullSelectedRemote(strategy string) tea.Cmd {
+func (m *Model) pullSelectedRemote(strategy string) tea.Cmd {
 	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) {
 		return nil
 	}
 	remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
 	branch := m.Snapshot.Branch.Name
 	runner := git.NewRunner(m.Discovery.Root)
+	ctx := m.startRemoteJob("pull "+strategy, remote)
 	return func() tea.Msg {
-		_, err := remotes.Pull(context.Background(), runner, remote, branch, strategy)
+		_, err := remotes.Pull(ctx, runner, remote, branch, strategy)
 		return RemoteOperationFinishedMsg{Operation: "pull " + strategy, Remote: remote, Err: err}
 	}
 }
 
-func (m Model) pushSelectedRemote(forceWithLease bool) tea.Cmd {
+func (m *Model) pushSelectedRemote(forceWithLease bool) tea.Cmd {
 	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) {
 		return nil
 	}
 	remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
 	branch := m.Snapshot.Branch.Name
 	runner := git.NewRunner(m.Discovery.Root)
+	ctx := m.startRemoteJob("push", remote)
 	return func() tea.Msg {
-		_, err := remotes.Push(context.Background(), runner, remote, branch, forceWithLease)
+		_, err := remotes.Push(ctx, runner, remote, branch, forceWithLease)
 		return RemoteOperationFinishedMsg{Operation: "push", Remote: remote, Err: err}
 	}
 }
@@ -1160,6 +1177,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.openPalette()
 			return m, nil
 		case "esc":
+			if m.RemoteCancel != nil && m.State == StateOperationPending {
+				m.RemoteCancel()
+				m.RemoteCancel = nil
+				m.Status = "remote operation cancellation requested"
+				return m, nil
+			}
 			if m.Modal != "" {
 				m.Modal = ""
 				m.State = StateReady
@@ -1599,6 +1622,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.refresh(), m.loadWorktrees(), m.loadBranches())
 		}
 	case RemoteOperationFinishedMsg:
+		if m.RemoteJobID != "" {
+			for i := range m.Remotes.Dashboard.Jobs {
+				if m.Remotes.Dashboard.Jobs[i].ID == m.RemoteJobID {
+					job := &m.Remotes.Dashboard.Jobs[i]
+					job.Finished = time.Now()
+					if v.Err != nil {
+						job.State, job.Error = remotes.JobFailed, v.Err.Error()
+					} else {
+						job.State = remotes.JobSuccess
+					}
+				}
+			}
+			m.RemoteCancel, m.RemoteJobID = nil, ""
+		}
 		m.recordRemoteActivity(v.Operation, v.Remote, v.Err == nil)
 		if v.Err != nil {
 			kind := notifications.PushFailure

@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added explicit fetch and pull command primitives with merge, rebase, and fast-forward-only strategy options, rejecting unspecified strategies and option-like targets. The remotes workspace now fetches and pulls the selected remote asynchronously with explicit `m`/`e`/`o` strategies and refreshes status/remote metadata afterward; Git conflict and non-fast-forward failures now produce actionable recovery status. Progress detail and cancellation remain.
+Progress: Added explicit fetch and pull command primitives with merge, rebase, and fast-forward-only strategy options, rejecting unspecified strategies and option-like targets. The remotes workspace now fetches and pulls the selected remote asynchronously with explicit `m`/`e`/`o` strategies and refreshes status/remote metadata afterward; Git conflict and non-fast-forward failures now produce actionable recovery status. Remote commands now use cancellable contexts and report cancellation through the operation lifecycle; progress detail remains.
 
 ## Objective
 Add async fetch and pull with progress/activity feedback, cancellation where feasible, configurable pull strategy awareness, conflict handling, and post-operation refresh. Never silently choose merge vs rebase when Git configuration does not define behavior.
