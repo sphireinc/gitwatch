@@ -1,8 +1,10 @@
 # Task 64: Build commit inspector and historical diff views
 
-Status: In progress
+Status: Complete
 
 Progress: Added parent-relative commit inspection primitives returning changed paths, add/delete/binary stats, full patches, and path-safe filtering, plus commit metadata summary. The History workspace now asynchronously inspects the selected commit and renders metadata, file stats, and a bounded patch preview; `M` cycles merge parents, `f` applies a path filter, `g` resolves and jumps to a typed ref, and `y` requests native OSC52 SHA copy.
+
+Completion summary: The inspector renders commit summary, parents, refs, parent-relative merge diffs, changed-file statistics, and bounded patches. `M` cycles merge parents, `f` applies a path filter, `g` resolves a ref and selects it in loaded history, and `y` requests OSC52 SHA copy. Inspection and ref resolution use asynchronous typed Git commands with option-like input rejection. Unit, application-routing, integration, race, and static-analysis gates pass.
 
 ## Objective
 Selecting a commit should show metadata, parents, refs, changed-file stats, full patch, and parent-relative diff. Add copy-SHA, inspect parent, jump-to-ref, and path filtering. Support merge commits explicitly.

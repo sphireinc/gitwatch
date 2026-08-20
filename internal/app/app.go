@@ -1465,6 +1465,20 @@ func (m Model) featureView(view workspace.View) tea.View {
 
 func inspectorText(inspector history.Inspector) string {
 	lines := []string{"Selected commit: " + platform.SafeText(inspector.Summary()), "Files:"}
+	if len(inspector.Commit.Parents) > 0 {
+		parents := make([]string, len(inspector.Commit.Parents))
+		for i, parent := range inspector.Commit.Parents {
+			parents[i] = platform.SafeText(parent)
+		}
+		lines = append(lines, "Parents: "+strings.Join(parents, ", "))
+	}
+	if len(inspector.Commit.Refs) > 0 {
+		refs := make([]string, len(inspector.Commit.Refs))
+		for i, ref := range inspector.Commit.Refs {
+			refs[i] = platform.SafeText(ref)
+		}
+		lines = append(lines, "Refs: "+strings.Join(refs, ", "))
+	}
 	if inspector.Parent != "" {
 		lines[0] += " (parent " + platform.SafeText(inspector.Parent) + ")"
 	}

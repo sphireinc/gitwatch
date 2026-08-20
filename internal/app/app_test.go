@@ -444,7 +444,7 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 		Stats:  []history.FileStat{{Path: "file.txt", Added: 2, Deleted: 1}}, Diff: "+new",
 	}})
 	m = updated.(Model)
-	if got := m.View().Content; !contains(got, "Selected commit: two") || !contains(got, "file.txt +2 -1") || !contains(got, "+new") {
+	if got := m.View().Content; !contains(got, "Selected commit: two") || !contains(got, "Parents: parent-one, parent-two") || !contains(got, "file.txt +2 -1") || !contains(got, "+new") {
 		t.Fatalf("history inspector missing: %q", got)
 	}
 	updated, cmd = m.Update(key("y"))
