@@ -1,5 +1,9 @@
 # Task 66: Build remote and tracking model
 
+Status: In progress
+
+Progress: Added typed remote discovery, URL redaction, default-remote selection, and reachability/error fields. Tracking divergence, fetch-state persistence, and dashboard integration remain.
+
 ## Objective
 Discover remotes, fetch/push URLs with credentials redacted, tracking relationships, divergence, last fetch state, and default remote. Never display embedded secrets/tokens. Add remote reachability/error state.
 

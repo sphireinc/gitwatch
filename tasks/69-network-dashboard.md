@@ -1,5 +1,9 @@
 # Task 69: Create remote synchronization dashboard
 
+Status: In progress
+
+Progress: Remote state and operation primitives are available for dashboard consumption. The interactive dashboard, job activity, and in-panel actions remain.
+
 ## Objective
 Create an htop-like remote panel showing branch tracking, ahead/behind, stale fetch indicators, in-flight jobs, last success/failure, and concise network activity. Provide fetch/pull/push actions without leaving the dashboard.
 

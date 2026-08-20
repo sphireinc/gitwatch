@@ -1,5 +1,9 @@
 # Task 68: Implement push workflows
 
+Status: In progress
+
+Progress: Added explicit branch push and opt-in force-with-lease command primitives. Ref movement preview, set-upstream/tag workflows, strong confirmation UI, and refresh remain.
+
 ## Objective
 Add push current branch, set-upstream push, tag push where explicitly selected, and force-with-lease behind strong confirmation. Never offer raw --force as the default. Preview local/remote ref movement before destructive/non-fast-forward operations.
 
