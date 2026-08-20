@@ -56,11 +56,11 @@ func Parse(input string) ([]File, error) {
 		switch {
 		case strings.HasPrefix(line, "diff --git "):
 			flush()
-			parts := strings.Fields(line)
-			if len(parts) < 4 {
-				return nil, &ParseError{line, "malformed diff header"}
+			oldPath, newPath, err := diffHeaderPaths(line)
+			if err != nil {
+				return nil, &ParseError{line, err.Error()}
 			}
-			current = &File{OldPath: strings.TrimPrefix(parts[2], "a/"), NewPath: strings.TrimPrefix(parts[3], "b/"), Raw: line + "\n"}
+			current = &File{OldPath: oldPath, NewPath: newPath, Raw: line + "\n"}
 		case current == nil:
 			continue
 		case strings.HasPrefix(line, "Binary files ") || strings.HasPrefix(line, "GIT binary patch"):
@@ -109,6 +109,70 @@ func Parse(input string) ([]File, error) {
 	}
 	flush()
 	return files, nil
+}
+
+func diffHeaderPaths(line string) (string, string, error) {
+	rest := strings.TrimPrefix(line, "diff --git ")
+	if rest == line {
+		return "", "", fmt.Errorf("malformed diff header")
+	}
+	if strings.HasPrefix(rest, "a/") {
+		if separator := strings.Index(rest, " b/"); separator >= 0 {
+			old, newPath := rest[:separator], rest[separator+1:]
+			return strings.TrimPrefix(old, "a/"), strings.TrimPrefix(newPath, "b/"), nil
+		}
+	}
+	old, remainder, err := headerPathToken(rest)
+	if err != nil {
+		return "", "", err
+	}
+	remainder = strings.TrimLeft(remainder, " \t")
+	newPath, remainder, err := headerPathToken(remainder)
+	if err != nil || strings.TrimSpace(remainder) != "" {
+		return "", "", fmt.Errorf("malformed diff header")
+	}
+	if !strings.HasPrefix(old, "a/") || !strings.HasPrefix(newPath, "b/") {
+		return "", "", fmt.Errorf("diff header paths must use a/ and b/ prefixes")
+	}
+	return strings.TrimPrefix(old, "a/"), strings.TrimPrefix(newPath, "b/"), nil
+}
+
+func headerPathToken(input string) (string, string, error) {
+	if input == "" {
+		return "", "", fmt.Errorf("malformed diff header")
+	}
+	if input[0] == '"' {
+		end := 1
+		escaped := false
+		for ; end < len(input); end++ {
+			if input[end] == '"' && !escaped {
+				break
+			}
+			if input[end] == '\\' && !escaped {
+				escaped = true
+			} else {
+				escaped = false
+			}
+		}
+		if end >= len(input) {
+			return "", "", fmt.Errorf("malformed quoted path")
+		}
+		value, err := strconv.Unquote(input[:end+1])
+		if err != nil {
+			return "", "", fmt.Errorf("malformed quoted path")
+		}
+		return value, input[end+1:], nil
+	}
+	if strings.HasPrefix(input, "a/") {
+		if separator := strings.Index(input, " b/"); separator >= 0 {
+			return input[:separator], input[separator+1:], nil
+		}
+	}
+	fields := strings.Fields(input)
+	if len(fields) == 0 {
+		return "", "", fmt.Errorf("malformed diff header")
+	}
+	return fields[0], input[len(fields[0]):], nil
 }
 func header(line string) (int, int, int, int, error) {
 	f := strings.Fields(line)

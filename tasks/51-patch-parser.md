@@ -23,4 +23,4 @@ Create a lossless parser/model for git diff patch output: files, headers, binary
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — lossless patch parser covers file headers, hunks, ranges, context/add/remove lines, binary markers, rename/copy metadata, and no-newline markers with malformed-input tests; fuzz coverage and hunk mutation generation remain.
+**Status:** In progress — path-aware headers now preserve unquoted spaces and Git-quoted paths; parser coverage includes malformed/adversarial fuzz inputs alongside hunks, ranges, binary markers, rename/copy metadata, and no-newline markers. Hunk mutation generation remains.

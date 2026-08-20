@@ -21,3 +21,25 @@ func TestParseBinaryAndMalformed(t *testing.T) {
 		t.Fatal("expected malformed error")
 	}
 }
+
+func TestParseHeaderWithSpaces(t *testing.T) {
+	files, err := Parse("diff --git a/old name.txt b/new name.txt\n@@ -1 +1 @@\n-old\n+new\n")
+	if err != nil || len(files) != 1 || files[0].OldPath != "old name.txt" || files[0].NewPath != "new name.txt" {
+		t.Fatalf("unexpected paths: %#v, %v", files, err)
+	}
+}
+
+func TestParseQuotedHeader(t *testing.T) {
+	files, err := Parse("diff --git \"a/old\\tname.txt\" \"b/new\\tname.txt\"\n")
+	if err != nil || len(files) != 1 || files[0].OldPath != "old\tname.txt" || files[0].NewPath != "new\tname.txt" {
+		t.Fatalf("unexpected quoted paths: %#v, %v", files, err)
+	}
+}
+
+func FuzzParseNeverPanics(f *testing.F) {
+	f.Add("diff --git a/a b/b\n@@ -1 +1 @@\n-a\n+b\n")
+	f.Add("\x00\\\"@@ malformed")
+	f.Fuzz(func(t *testing.T, input string) {
+		_, _ = Parse(input)
+	})
+}
