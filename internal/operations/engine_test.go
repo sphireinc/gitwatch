@@ -39,3 +39,28 @@ func TestEngineTimeout(t *testing.T) {
 		t.Fatal(r)
 	}
 }
+
+func TestCommandsReceiveTheirOwnResultsConcurrently(t *testing.T) {
+	e := New(2)
+	first := e.Command(context.Background(), "first", "repo-a", "first", time.Second, func(context.Context) error {
+		return nil
+	})
+	second := e.Command(context.Background(), "second", "repo-b", "second", time.Second, func(context.Context) error {
+		return nil
+	})
+	results := make(chan ResultMsg, 2)
+	go func() { results <- first() }()
+	go func() { results <- second() }()
+	seen := map[string]bool{}
+	for range 2 {
+		select {
+		case message := <-results:
+			seen[message.Result.ID] = true
+		case <-time.After(time.Second):
+			t.Fatal("command result was not delivered")
+		}
+	}
+	if !seen["first"] || !seen["second"] {
+		t.Fatalf("missing command result: %#v", seen)
+	}
+}

@@ -33,6 +33,7 @@ type Engine struct {
 	limit   chan struct{}
 	repos   map[string]*sync.Mutex
 	active  map[string]context.CancelFunc
+	waiters map[string]chan Result
 	results chan Result
 }
 
@@ -40,17 +41,24 @@ func New(limit int) *Engine {
 	if limit < 1 {
 		limit = 1
 	}
-	return &Engine{limit: make(chan struct{}, limit), repos: make(map[string]*sync.Mutex), active: make(map[string]context.CancelFunc), results: make(chan Result, limit)}
+	return &Engine{limit: make(chan struct{}, limit), repos: make(map[string]*sync.Mutex), active: make(map[string]context.CancelFunc), waiters: make(map[string]chan Result), results: make(chan Result, limit)}
 }
 func (e *Engine) Results() <-chan Result { return e.results }
 func (e *Engine) Submit(parent context.Context, id, repo, name string, timeout time.Duration, work Work) error {
+	_, err := e.submit(parent, id, repo, name, timeout, work)
+	return err
+}
+
+func (e *Engine) submit(parent context.Context, id, repo, name string, timeout time.Duration, work Work) (chan Result, error) {
 	e.mu.Lock()
 	if _, ok := e.active[id]; ok {
 		e.mu.Unlock()
-		return ErrDuplicate
+		return nil, ErrDuplicate
 	}
 	ctx, cancel := context.WithCancel(parent)
 	e.active[id] = cancel
+	waiter := make(chan Result, 1)
+	e.waiters[id] = waiter
 	lock := e.repos[repo]
 	if lock == nil {
 		lock = &sync.Mutex{}
@@ -58,7 +66,7 @@ func (e *Engine) Submit(parent context.Context, id, repo, name string, timeout t
 	}
 	e.mu.Unlock()
 	go e.run(ctx, id, repo, name, timeout, lock, work)
-	return nil
+	return waiter, nil
 }
 func (e *Engine) Cancel(id string) {
 	e.mu.Lock()
@@ -72,15 +80,12 @@ func (e *Engine) Cancel(id string) {
 // The blocking wait happens in the command goroutine, never in Update or View.
 func (e *Engine) Command(ctx context.Context, id, repo, name string, timeout time.Duration, work Work) func() ResultMsg {
 	return func() ResultMsg {
-		if err := e.Submit(ctx, id, repo, name, timeout, work); err != nil {
+		waiter, err := e.submit(ctx, id, repo, name, timeout, work)
+		if err != nil {
 			return ResultMsg{Result: Result{ID: id, Repo: repo, Name: name, State: Failed, Err: err}}
 		}
-		for result := range e.results {
-			if result.ID == id {
-				return ResultMsg{Result: result}
-			}
-		}
-		return ResultMsg{Result: Result{ID: id, Repo: repo, Name: name, State: Failed, Err: context.Canceled}}
+		result := <-waiter
+		return ResultMsg{Result: result}
 	}
 }
 func (e *Engine) run(ctx context.Context, id, repo, name string, timeout time.Duration, repoLock *sync.Mutex, work Work) {
@@ -118,4 +123,19 @@ func (e *Engine) run(ctx context.Context, id, repo, name string, timeout time.Du
 	}
 	e.finish(result)
 }
-func (e *Engine) finish(r Result) { e.mu.Lock(); delete(e.active, r.ID); e.mu.Unlock(); e.results <- r }
+func (e *Engine) finish(r Result) {
+	e.mu.Lock()
+	delete(e.active, r.ID)
+	waiter := e.waiters[r.ID]
+	delete(e.waiters, r.ID)
+	e.mu.Unlock()
+	if waiter != nil {
+		waiter <- r
+	}
+	// Result observers are best-effort; a command-specific waiter above is the
+	// authoritative delivery path and must never be blocked by an idle observer.
+	select {
+	case e.results <- r:
+	default:
+	}
+}
