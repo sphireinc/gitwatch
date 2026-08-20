@@ -16,6 +16,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/notifications"
 	"github.com/jusanchez/gitwatch/internal/platform"
+	"github.com/jusanchez/gitwatch/internal/plugins"
 	"github.com/jusanchez/gitwatch/internal/provider"
 	"github.com/jusanchez/gitwatch/internal/registry"
 	"github.com/jusanchez/gitwatch/internal/remotes"
@@ -27,6 +28,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/ui/historyview"
 	"github.com/jusanchez/gitwatch/internal/ui/layout"
 	uimouse "github.com/jusanchez/gitwatch/internal/ui/mouse"
+	"github.com/jusanchez/gitwatch/internal/ui/pluginview"
 	"github.com/jusanchez/gitwatch/internal/ui/remoteview"
 	"github.com/jusanchez/gitwatch/internal/ui/repoview"
 	"github.com/jusanchez/gitwatch/internal/ui/stashview"
@@ -161,6 +163,10 @@ type GitHubReadyMsg struct {
 	Checks     provider.ChecksSnapshot
 	Err        error
 }
+type PluginsReadyMsg struct {
+	Entries []plugins.Entry
+	Err     error
+}
 
 type Model struct {
 	State                    State
@@ -237,6 +243,9 @@ type Model struct {
 	GitHub                   githubview.Model
 	GitHubEnabled            bool
 	GitHubTokenEnv           string
+	Plugins                  pluginview.Model
+	PluginsEnabled           bool
+	PluginDirectories        []string
 	Repositories             repoview.Model
 	RepositoryRoots          []string
 	RepositoryEngine         *registry.Engine
@@ -249,7 +258,7 @@ type Model struct {
 }
 
 func New() Model {
-	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Keymap: config.DefaultKeymap(), GitHub: githubview.New(), Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
+	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Keymap: config.DefaultKeymap(), GitHub: githubview.New(), Plugins: pluginview.New(nil), Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
 }
 
 func (m Model) paletteActions() []commands.Action {
@@ -260,6 +269,7 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
 		{ID: "remotes", Label: "Open remotes", Shortcut: "n", Enabled: m.Discovery.Root != ""},
 		{ID: "github", Label: "Open GitHub", Shortcut: "G", Enabled: m.GitHubEnabled && m.Discovery.Root != ""},
+		{ID: "plugins", Label: "Open plugins", Shortcut: "E", Enabled: m.PluginsEnabled},
 		{ID: "worktrees", Label: "Open worktrees", Shortcut: "w", Enabled: m.Discovery.Root != ""},
 		{ID: "repositories", Label: "Open repositories", Shortcut: "v", Enabled: len(m.RepositoryRoots) > 0 || m.Discovery.Root != ""},
 		{ID: "refresh", Label: "Refresh repository", Shortcut: "r", Enabled: m.Discovery.Root != ""},
@@ -341,6 +351,8 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		return m.navigate(workspace.Remotes, "Remotes")
 	case "github":
 		return m.navigate(workspace.GitHub, "GitHub")
+	case "plugins":
+		return m.navigate(workspace.Plugins, "Plugins")
 	case "worktrees":
 		return m.navigate(workspace.Worktrees, "Worktrees")
 	case "repositories":
@@ -357,6 +369,7 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.RefreshInterval = c.Interval
 	m.Keymap = mergeKeymap(c.Keymap)
 	m.GitHubEnabled, m.GitHubTokenEnv = c.GitHub.Enabled, c.GitHub.TokenEnv
+	m.PluginsEnabled, m.PluginDirectories = c.Plugins.Enabled, append([]string(nil), c.Plugins.Directories...)
 	switch c.Motion {
 	case "reduced":
 		m.Motion = MotionReduced
@@ -717,6 +730,14 @@ func (m Model) loadGitHub() tea.Cmd {
 	}
 }
 
+func (m Model) loadPlugins() tea.Cmd {
+	directories := append([]string(nil), m.PluginDirectories...)
+	return func() tea.Msg {
+		entries, err := plugins.Discover(context.Background(), directories, 128)
+		return PluginsReadyMsg{Entries: entries, Err: err}
+	}
+}
+
 func (m *Model) recordRemoteActivity(operation, message string, success bool) {
 	activity := append(m.Remotes.Dashboard.Activity, remotes.Activity{At: time.Now(), Operation: operation, Message: message, Success: success})
 	if len(activity) > 50 {
@@ -929,6 +950,8 @@ func (m *Model) navigate(view workspace.View, label string) tea.Cmd {
 		return m.loadRemotes()
 	case workspace.GitHub:
 		return m.loadGitHub()
+	case workspace.Plugins:
+		return m.loadPlugins()
 	case workspace.Worktrees:
 		return m.loadWorktrees()
 	case workspace.Repositories:
@@ -1370,6 +1393,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.GitHubEnabled {
 				return m, m.navigate(workspace.GitHub, "GitHub")
 			}
+		case "E":
+			if m.PluginsEnabled {
+				return m, m.navigate(workspace.Plugins, "Plugins")
+			}
 		case "w":
 			return m, m.navigate(workspace.Worktrees, "Worktrees")
 		case "v":
@@ -1550,6 +1577,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Worktrees.Move(1)
 			case workspace.Repositories:
 				m.Repositories.Move(1)
+			case workspace.Plugins:
+				m.Plugins.Move(1)
 			default:
 				m.Files.Move(1, m.Height-8)
 			}
@@ -1567,6 +1596,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Worktrees.Move(-1)
 			case workspace.Repositories:
 				m.Repositories.Move(-1)
+			case workspace.Plugins:
+				m.Plugins.Move(-1)
 			default:
 				m.Files.Move(-1, m.Height-8)
 			}
@@ -1577,6 +1608,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "?":
 			m.Modal, m.State = "help", StateModal
 		case "r":
+			if m.currentView() == workspace.Plugins {
+				m.State, m.Status = StateOperationPending, "reloading plugins"
+				return m, m.loadPlugins()
+			}
 			return m, m.refresh()
 		}
 	case tea.MouseWheelMsg:
@@ -1730,6 +1765,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.GitHub.SetData(v.Repository, v.Branch, v.Pull, v.Checks)
 			m.State, m.Status = StateReady, "GitHub data loaded"
+		}
+	case PluginsReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.Plugins.SetEntries(v.Entries)
+			m.State, m.Status = StateReady, "plugins loaded"
 		}
 	case BranchOperationFinishedMsg:
 		if v.Err != nil {
@@ -1935,7 +1977,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Worktrees || view == workspace.Repositories {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Worktrees || view == workspace.Repositories {
 		return m.featureView(view)
 	}
 	name := m.Snapshot.Branch.Name
@@ -2043,6 +2085,8 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	} else if view == workspace.GitHub {
 		title, content = "gitwatch · GitHub", m.GitHub.View()
+	} else if view == workspace.Plugins {
+		title, content = "gitwatch · plugins", m.Plugins.View()
 	} else if view == workspace.Worktrees {
 		title, content = "gitwatch · worktrees", m.Worktrees.View()
 	} else if view == workspace.Repositories {
@@ -2057,6 +2101,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.GitHub {
 		lines[len(lines)-1] = "[r] refresh  [esc] back  [q] quit"
+	}
+	if view == workspace.Plugins {
+		lines[len(lines)-1] = "[j/k] move  [r] reload  [esc] back  [q] quit"
 	}
 	if view == workspace.Commit {
 		lines[len(lines)-1] = "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"

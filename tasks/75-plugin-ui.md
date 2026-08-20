@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Plugin manifest and bounded runtime foundations are available for a manager surface. Plugin list/details/settings UI, permission display, enable/disable/reload actions, and extension rendering remain.
+Progress: Added bounded manifest discovery with symlink skipping, immutable enable-state updates, and a visually distinct plugin list/detail view showing health and capabilities. The `E` Plugins workspace loads/reloads discovered manifests asynchronously; permission controls, enable/disable persistence, and extension rendering remain.
 
 ## Objective
 Create plugin list/details/settings UI, permission/capability display, enable/disable/reload actions, error health, and extension points for commands, panels, row decorations, and status widgets. Make third-party UI visually identifiable.
