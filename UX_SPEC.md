@@ -1,0 +1,50 @@
+# UX Specification
+
+## Visual goal
+Think `htop` for a Git repository: dense, legible, interactive, colorful where supported, animated but not distracting, and useful even when the repository is clean.
+
+## Default desktop layout
+```text
+┌ gitwatch · repo-name ─ main ↑2 ↓1 ─ origin/main ─ clean/dirty indicator ─ 12ms ┐
+│ STAGED 3 │ MODIFIED 5 │ UNTRACKED 2 │ CONFLICTS 0 │ +142 -37 │ watcher ●      │
+├ Files ─────────────────────────────────────┬ Selected file ────────────────────┤
+│ S  M  path                       +   -     │ status / old path / mode           │
+│ ●  M  internal/app/app.go       +42  -8   │ staged: yes · unstaged: yes        │
+│    ?  notes.md                             │ compact diff/stat/metadata          │
+│                                           │                                    │
+├ Activity ──────────────────────────────────┴────────────────────────────────────┤
+│ 09:41:03 staged internal/app/app.go · 18ms                                     │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ [space] stage/unstage  [d] diff  [a] stage all  [u] undo  [/] filter  [?] help │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Interaction
+- Arrow keys / j,k move selection.
+- Space toggles staged state for selected path according to current status.
+- Enter opens/expands selected-file details.
+- `a` stages all visible or all repository changes only after the action is clearly described in status/help UI.
+- `U` or a deliberate binding unstages all.
+- `d` opens diff view; allow switching staged/unstaged diff.
+- `/` activates fuzzy filtering.
+- `s` cycles sort modes.
+- `g` then `g` jumps top; `G` jumps bottom.
+- `r` forces refresh.
+- `?` opens full help overlay.
+- `q` quits when no modal is open; Esc closes the active modal/pane first.
+- Mouse click selects a row. Double-click must not perform destructive actions. A click on an explicit stage control may stage/unstage.
+- Mouse wheel scrolls active list/pane.
+
+## Animation
+Use tasteful animation for state changes: spinner during Git work, pulse/flash when status changes, smooth-ish progress indication, transient success/error toast, and optional subtle row transition highlighting. Do not animate every frame unnecessarily. Support `--motion=full|reduced|off`.
+
+## Empty/clean state
+Do not show a dead blank screen. Show branch/upstream information, last refresh, recent activity, repository statistics available cheaply, and a playful clean-worktree message selected from a small tasteful set. Do not let jokes interfere with professional use.
+
+## Accessibility
+- Fully keyboard operable.
+- Do not communicate status by color alone; use symbols/text.
+- Honor `NO_COLOR`.
+- Provide high-contrast-safe semantic theme choices.
+- Reduced motion/off modes.
+- Avoid requiring mouse interaction.
