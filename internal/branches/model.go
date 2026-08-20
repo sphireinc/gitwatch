@@ -15,6 +15,7 @@ var (
 
 type Branch struct {
 	Name, OID, Upstream string
+	OccupiedPath        string
 	Current, Remote     bool
 	Ahead, Behind       int
 }
@@ -36,6 +37,23 @@ func List(ctx context.Context, r git.Runner) ([]Branch, error) {
 		return nil, err
 	}
 	return Parse(res.Stdout), nil
+}
+
+func ListWithOccupancy(ctx context.Context, r git.Runner, occupancy map[string]string) ([]Branch, error) {
+	entries, err := List(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	AttachOccupancy(entries, occupancy)
+	return entries, nil
+}
+
+func AttachOccupancy(entries []Branch, occupancy map[string]string) {
+	for i := range entries {
+		if !entries[i].Remote {
+			entries[i].OccupiedPath = occupancy[entries[i].Name]
+		}
+	}
 }
 func Checkout(ctx context.Context, r git.Runner, name string) (git.Result, error) {
 	return r.Run(ctx, "switch", "--", name)

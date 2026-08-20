@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added porcelain worktree parsing with HEAD, branch, detached, bare, lock, and prunable metadata, typed add/remove/prune commands, path validation, and branch occupancy mapping. The workspace now exposes an asynchronous `w` Worktrees view with selectable path/branch/HEAD and lock/prunable state; `A` adds, `D` confirms removal, and `P` confirms stale metadata pruning. Successful mutations refresh status, worktrees, and branches; worktree occupancy display in branch management remains.
+Progress: Added porcelain worktree parsing with HEAD, branch, detached, bare, lock, and prunable metadata, typed add/remove/prune commands, path validation, and branch occupancy mapping. The workspace now exposes an asynchronous `w` Worktrees view with selectable path/branch/HEAD and lock/prunable state; `A` adds, `D` confirms removal, and `P` confirms stale metadata pruning. Successful mutations refresh status, worktrees, and branches; the Branches view now shows each local branch's linked worktree path.
 
 ## Objective
 Discover worktrees and expose path, branch, HEAD, lock/prunable state. Add create/open/remove/prune workflows with safety checks. Integrate worktree occupancy into branch management and multi-repo navigation.

@@ -33,6 +33,8 @@ In Stashes, `C` creates a stash from an entered message; `u` toggles include-unt
 
 Press `t` in History to load tag names and object IDs from the repository.
 
+Branches show the linked worktree path for locally checked-out branches.
+
 ## Keymap and status symbols
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.

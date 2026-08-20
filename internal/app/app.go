@@ -262,7 +262,11 @@ func (m Model) openDiff() tea.Cmd {
 func (m Model) loadBranches() tea.Cmd {
 	r := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		entries, err := branches.List(context.Background(), r)
+		worktreeEntries, err := worktrees.List(context.Background(), r)
+		if err != nil {
+			return BranchesReadyMsg{Err: err}
+		}
+		entries, err := branches.ListWithOccupancy(context.Background(), r, worktrees.Occupancy(worktreeEntries))
 		return BranchesReadyMsg{Entries: entries, Err: err}
 	}
 }

@@ -3,6 +3,7 @@ package branchview
 import (
 	"fmt"
 	"github.com/jusanchez/gitwatch/internal/branches"
+	"github.com/jusanchez/gitwatch/internal/platform"
 	"strings"
 )
 
@@ -33,6 +34,9 @@ func (m Model) View() string {
 			current = " *"
 		}
 		lines = append(lines, fmt.Sprintf("%s%s%s", p, e.Name, current))
+		if e.OccupiedPath != "" {
+			lines[len(lines)-1] += " · worktree: " + platform.SafeText(e.OccupiedPath)
+		}
 	}
 	return strings.Join(lines, "\n")
 }

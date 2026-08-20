@@ -12,3 +12,10 @@ func TestView(t *testing.T) {
 		t.Fatal(m.View())
 	}
 }
+
+func TestViewShowsWorktreeOccupancy(t *testing.T) {
+	m := New([]branches.Branch{{Name: "feature", OccupiedPath: "/tmp/linked"}})
+	if !strings.Contains(m.View(), "worktree: /tmp/linked") {
+		t.Fatal(m.View())
+	}
+}

@@ -24,3 +24,13 @@ func TestDeleteGuardsCurrentBranchAndExactConfirmation(t *testing.T) {
 		t.Fatalf("expected current branch error, got %v", err)
 	}
 }
+
+func TestListWithOccupancy(t *testing.T) {
+	// The helper preserves branch parsing while attaching only local worktree occupancy.
+	entries := []Branch{{Name: "main"}, {Name: "remotes/origin/main", Remote: true}}
+	occupancy := map[string]string{"main": "/tmp/main"}
+	AttachOccupancy(entries, occupancy)
+	if entries[0].OccupiedPath != "/tmp/main" || entries[1].OccupiedPath != "" {
+		t.Fatalf("occupancy = %#v", entries)
+	}
+}
