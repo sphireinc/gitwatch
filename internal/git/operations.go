@@ -36,6 +36,19 @@ func (r Runner) StageAll(ctx context.Context) (OperationResult, error) {
 	return OperationResult{Name: "stage all", Result: result}, err
 }
 
+func (r Runner) Restore(ctx context.Context, path []byte, staged, worktree bool) (OperationResult, error) {
+	if !worktree {
+		return OperationResult{Name: "restore"}, fmt.Errorf("restore %q: no working-tree content selected", path)
+	}
+	args := []string{"restore"}
+	if staged {
+		args = append(args, "--staged")
+	}
+	args = append(args, "--", string(path))
+	result, err := r.Run(ctx, args...)
+	return OperationResult{Name: "restore", Paths: [][]byte{append([]byte(nil), path...)}, Result: result}, err
+}
+
 func (r Runner) UnstageAll(ctx context.Context) (OperationResult, error) {
 	result, err := r.Run(ctx, "restore", "--staged", ".")
 	if err != nil {
