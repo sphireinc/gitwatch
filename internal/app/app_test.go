@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/branches"
+	"github.com/jusanchez/gitwatch/internal/remotes"
 	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/ui/branchview"
@@ -137,6 +138,16 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	m = updated.(Model)
 	if m.currentView() != workspace.Status {
 		t.Fatalf("status route = %q", m.currentView())
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if m.currentView() != workspace.Remotes || cmd == nil {
+		t.Fatalf("remote route = %q, cmd nil=%v", m.currentView(), cmd == nil)
+	}
+	updated, _ = m.Update(RemotesReadyMsg{Dashboard: remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin", FetchURL: "https://example.test/repo.git", PushURL: "https://example.test/repo.git", Reachable: true}}}})
+	m = updated.(Model)
+	if got := m.View().Content; !contains(got, "origin") || !contains(got, "reachable") {
+		t.Fatalf("remote view missing data: %q", got)
 	}
 }
 
