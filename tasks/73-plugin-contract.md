@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added versioned manifest validation, capability declarations, host capability negotiation, and an out-of-process contract document. RPC transport, lifecycle isolation, permissions, and runtime supervision remain.
+Progress: Added versioned manifest validation, capability declarations, host capability negotiation, an out-of-process contract document, and a newline-delimited handshake request/response schema in the public SDK. Runtime lifecycle isolation, permissions, and supervision remain.
 
 ## Objective
 Define plugin manifest, API version negotiation, capabilities, lifecycle, events, commands, panels, status widgets, configuration schema, and failure isolation. Decide an RPC/out-of-process boundary so third-party plugins cannot corrupt the TUI process. Document compatibility guarantees.

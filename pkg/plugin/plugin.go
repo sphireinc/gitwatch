@@ -39,6 +39,18 @@ type Message struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
+type HandshakeRequest struct {
+	APIVersion   int          `json:"api_version"`
+	Capabilities []Capability `json:"capabilities"`
+}
+
+type HandshakeResponse struct {
+	APIVersion   int          `json:"api_version"`
+	Accepted     bool         `json:"accepted"`
+	Capabilities []Capability `json:"capabilities"`
+	Reason       string       `json:"reason,omitempty"`
+}
+
 func Encode(message Message) ([]byte, error) {
 	data, err := json.Marshal(message)
 	if err != nil {

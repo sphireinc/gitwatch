@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added manifest-validated direct-argv plugin execution with context cancellation, bounded stdout/stderr capture, exit-code reporting, and output-limit tests. Streaming RPC, lifecycle supervision, permissions, and restart policy remain.
+Progress: Added manifest-validated direct-argv plugin execution with context cancellation, bounded stdout/stderr capture, exit-code reporting, output-limit tests, and a bounded capability handshake over the public newline-delimited protocol. Streaming RPC, lifecycle supervision, permissions, and restart policy remain.
 
 ## Objective
 Implement discovery, enable/disable, startup handshake, timeouts, crash isolation, capability grants, structured logging, and version mismatch handling. Plugins must be opt-in and unable to execute arbitrary gitwatch internals outside the public contract.

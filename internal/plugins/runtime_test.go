@@ -20,6 +20,14 @@ func TestLimitedWriterStopsOversizedOutput(t *testing.T) {
 	}
 }
 
+func TestHandshakeRejectsUnsupportedManifestBeforeExecution(t *testing.T) {
+	manifest := Manifest{ID: "plugin", Name: "Plugin", Version: "1", APIVersion: APIVersion + 1, Executable: "missing", Capabilities: []Capability{CapabilityPanel}}
+	result, err := (Runtime{}).Handshake(context.Background(), manifest, nil)
+	if err != nil || result.Accepted {
+		t.Fatalf("handshake negotiation = %#v, %v", result, err)
+	}
+}
+
 type discardWriter struct{}
 
 func (discardWriter) Write(data []byte) (int, error) { return len(data), nil }
