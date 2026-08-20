@@ -1,5 +1,9 @@
 # Task 73: Design versioned plugin system
 
+Status: In progress
+
+Progress: Added versioned manifest validation, capability declarations, host capability negotiation, and an out-of-process contract document. RPC transport, lifecycle isolation, permissions, and runtime supervision remain.
+
 ## Objective
 Define plugin manifest, API version negotiation, capabilities, lifecycle, events, commands, panels, status widgets, configuration schema, and failure isolation. Decide an RPC/out-of-process boundary so third-party plugins cannot corrupt the TUI process. Document compatibility guarantees.
 
