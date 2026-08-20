@@ -20,3 +20,10 @@ func TestFilterMatchesMetadata(t *testing.T) {
 		t.Fatalf("subject filter: %#v", got)
 	}
 }
+
+func TestBuildGraphClassifiesDecorations(t *testing.T) {
+	rows := BuildGraph([]Commit{{SHA: "abc", Refs: []string{"HEAD -> main", "tag: v1.0", "origin/main"}}})
+	if len(rows) != 1 || !rows[0].Head || len(rows[0].Tags) != 1 || len(rows[0].Branches) != 2 {
+		t.Fatalf("unexpected decorations: %#v", rows)
+	}
+}

@@ -26,7 +26,22 @@ func BuildGraph(commits []Commit) []GraphRow {
 			lane = len(lanes)
 			lanes = append(lanes, commit.SHA)
 		}
-		rows = append(rows, GraphRow{Commit: commit, Lane: lane, Lanes: len(lanes), Parents: append([]string(nil), commit.Parents...)})
+		row := GraphRow{Commit: commit, Lane: lane, Lanes: len(lanes), Parents: append([]string(nil), commit.Parents...)}
+		for _, ref := range commit.Refs {
+			ref = strings.TrimSpace(ref)
+			switch {
+			case strings.HasPrefix(ref, "HEAD -> "):
+				row.Head = true
+				row.Branches = append(row.Branches, strings.TrimPrefix(ref, "HEAD -> "))
+			case ref == "HEAD":
+				row.Head = true
+			case strings.HasPrefix(ref, "tag: "):
+				row.Tags = append(row.Tags, strings.TrimPrefix(ref, "tag: "))
+			default:
+				row.Branches = append(row.Branches, ref)
+			}
+		}
+		rows = append(rows, row)
 		lanes = advanceLanes(lanes, lane, commit.Parents)
 	}
 	return rows
