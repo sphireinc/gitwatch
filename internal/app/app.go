@@ -16,6 +16,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/notifications"
 	"github.com/jusanchez/gitwatch/internal/platform"
+	"github.com/jusanchez/gitwatch/internal/registry"
 	"github.com/jusanchez/gitwatch/internal/remotes"
 	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/stash"
@@ -25,6 +26,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/ui/layout"
 	uimouse "github.com/jusanchez/gitwatch/internal/ui/mouse"
 	"github.com/jusanchez/gitwatch/internal/ui/remoteview"
+	"github.com/jusanchez/gitwatch/internal/ui/repoview"
 	"github.com/jusanchez/gitwatch/internal/ui/stashview"
 	"github.com/jusanchez/gitwatch/internal/ui/table"
 	"github.com/jusanchez/gitwatch/internal/ui/theme"
@@ -132,6 +134,10 @@ type WorktreeOperationFinishedMsg struct {
 	Target    string
 	Err       error
 }
+type RepositoriesReadyMsg struct {
+	Rows []registry.Row
+	Err  error
+}
 type RemoteOperationFinishedMsg struct {
 	Operation, Remote string
 	Err               error
@@ -201,6 +207,9 @@ type Model struct {
 	RemoteForceConfirm       bool
 	RemotePushConfirm        bool
 	RemotePushPreview        remotes.RefMovement
+	Repositories             repoview.Model
+	RepositoryRoots          []string
+	RepositoryEngine         *registry.Engine
 	PaletteMode              bool
 	PaletteQuery             string
 	PaletteSelected          int
@@ -219,6 +228,7 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
 		{ID: "remotes", Label: "Open remotes", Shortcut: "n", Enabled: m.Discovery.Root != ""},
 		{ID: "worktrees", Label: "Open worktrees", Shortcut: "w", Enabled: m.Discovery.Root != ""},
+		{ID: "repositories", Label: "Open repositories", Shortcut: "v", Enabled: len(m.RepositoryRoots) > 0 || m.Discovery.Root != ""},
 		{ID: "refresh", Label: "Refresh repository", Shortcut: "r", Enabled: m.Discovery.Root != ""},
 	}
 }
@@ -283,6 +293,8 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		return m.navigate(workspace.Remotes, "Remotes")
 	case "worktrees":
 		return m.navigate(workspace.Worktrees, "Worktrees")
+	case "repositories":
+		return m.navigate(workspace.Repositories, "Repositories")
 	case "refresh":
 		m.State, m.Status = StateRefreshing, "refreshing"
 		return m.refresh()
@@ -294,6 +306,8 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m := NewRepository(d)
 	m.RefreshInterval = c.Interval
 	m.Theme = theme.New(theme.Name(c.Theme), false)
+	m.RepositoryRoots = append([]string(nil), c.Repositories.Roots...)
+	m.RepositoryEngine = registry.NewEngine(c.Remote.Workers)
 	return m
 }
 func (m Model) Init() tea.Cmd {
@@ -609,6 +623,25 @@ func (m Model) loadWorktrees() tea.Cmd {
 	}
 }
 
+func (m Model) loadRepositories() tea.Cmd {
+	roots := append([]string(nil), m.RepositoryRoots...)
+	if len(roots) == 0 && m.Discovery.Root != "" {
+		roots = []string{m.Discovery.Root}
+	}
+	engine := m.RepositoryEngine
+	if engine == nil {
+		engine = registry.NewEngine(2)
+	}
+	return func() tea.Msg {
+		repositories, err := registry.Discover(context.Background(), roots, registry.Options{})
+		if err != nil {
+			return RepositoriesReadyMsg{Err: err}
+		}
+		results := engine.Refresh(context.Background(), repositories, m.Discovery.Root)
+		return RepositoriesReadyMsg{Rows: registry.Rows(results)}
+	}
+}
+
 func (m Model) addWorktree() tea.Cmd {
 	path := strings.TrimSpace(m.WorktreeAddPath)
 	if path == "" {
@@ -735,6 +768,8 @@ func (m *Model) navigate(view workspace.View, label string) tea.Cmd {
 		return m.loadRemotes()
 	case workspace.Worktrees:
 		return m.loadWorktrees()
+	case workspace.Repositories:
+		return m.loadRepositories()
 	default:
 		return nil
 	}
@@ -1079,6 +1114,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.navigate(workspace.Remotes, "Remotes")
 		case "w":
 			return m, m.navigate(workspace.Worktrees, "Worktrees")
+		case "v":
+			return m, m.navigate(workspace.Repositories, "Repositories")
 		case "A":
 			if m.currentView() == workspace.Worktrees {
 				m.WorktreeAddMode, m.WorktreeAddPath = true, ""
@@ -1223,6 +1260,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Remotes.Move(1)
 			case workspace.Worktrees:
 				m.Worktrees.Move(1)
+			case workspace.Repositories:
+				m.Repositories.Move(1)
 			default:
 				m.Files.Move(1, m.Height-8)
 			}
@@ -1238,6 +1277,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Remotes.Move(-1)
 			case workspace.Worktrees:
 				m.Worktrees.Move(-1)
+			case workspace.Repositories:
+				m.Repositories.Move(-1)
 			default:
 				m.Files.Move(-1, m.Height-8)
 			}
@@ -1458,6 +1499,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.State = StateReady
 		}
+	case RepositoriesReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			if len(m.Repositories.Rows) == 0 {
+				m.Repositories = repoview.New(v.Rows)
+			} else {
+				m.Repositories.SetRows(v.Rows)
+			}
+			m.State = StateReady
+		}
 	case WorktreeOperationFinishedMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -1538,7 +1590,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.Worktrees {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.Worktrees || view == workspace.Repositories {
 		return m.featureView(view)
 	}
 	name := m.Snapshot.Branch.Name
@@ -1646,6 +1698,8 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	} else if view == workspace.Worktrees {
 		title, content = "gitwatch · worktrees", m.Worktrees.View()
+	} else if view == workspace.Repositories {
+		title, content = "gitwatch · repositories", m.Repositories.View()
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
 	if view == workspace.Log {
@@ -1668,6 +1722,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.WorktreeConfirmAction != "" {
 			content += "\n\n" + m.Status
 		}
+	}
+	if view == workspace.Repositories {
+		lines[len(lines)-1] = "[j/k] move  [1] status  [v] refresh  [esc] back  [q] quit"
 	}
 	if m.Toast.Text != "" {
 		content += "\n\nNOTICE: " + platform.SafeText(m.Toast.Text)

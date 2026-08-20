@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/branches"
 	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/jusanchez/gitwatch/internal/registry"
 	"github.com/jusanchez/gitwatch/internal/remotes"
 	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/stash"
@@ -165,6 +166,21 @@ func TestOperationNotificationsAndToast(t *testing.T) {
 	}
 	if !contains(m.View().Content, "NOTICE: push: rejected") {
 		t.Fatalf("toast missing from view: %q", m.View().Content)
+	}
+}
+
+func TestRepositoriesRouteLoadsRows(t *testing.T) {
+	m := New()
+	m.Discovery.Root = "/repo"
+	updated, cmd := m.Update(key("v"))
+	m = updated.(Model)
+	if cmd == nil || m.currentView() != workspace.Repositories {
+		t.Fatalf("repository route = view=%q cmdnil=%v", m.currentView(), cmd == nil)
+	}
+	updated, _ = m.Update(RepositoriesReadyMsg{Rows: []registry.Row{{Repository: registry.Repository{Name: "repo", Path: "/repo"}, Branch: "main", State: "ready", Dirty: 1}}})
+	m = updated.(Model)
+	if !contains(m.View().Content, "repo") || !contains(m.View().Content, "dirty:1") {
+		t.Fatalf("repository view missing row: %q", m.View().Content)
 	}
 }
 

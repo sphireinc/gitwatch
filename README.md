@@ -45,6 +45,8 @@ Press `Ctrl-P` from any workspace to search and run available commands; disabled
 
 Completed and failed core operations surface as bounded notices; failures remain dismissible through the notification model.
 
+Press `v` to open the bounded multi-repository dashboard; rows show branch, dirty counts, divergence, and inactive/error state.
+
 ## Keymap and status symbols
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.
