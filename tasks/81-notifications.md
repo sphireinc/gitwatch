@@ -1,5 +1,9 @@
 # Task 81: Add operation notifications and attention model
 
+Status: In progress
+
+Progress: Added bounded, thread-safe notifications with severity/kind metadata, dismissible attention badges, quiet-mode suppression, and newest-first ordering helpers. Bubble Tea toast routing, reduced-motion presentation, and event-source integration remain.
+
 ## Objective
 Create non-intrusive toast/activity notifications for completed jobs, conflicts, failed hooks, failed pushes, stale remote state, and plugin errors. Add attention badges to relevant views. Respect reduced-motion and quiet settings.
 
