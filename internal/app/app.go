@@ -494,6 +494,7 @@ func (m Model) revertSelectedHistory() tea.Cmd {
 func (m Model) loadRemotes() tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
 	branch := m.Snapshot.Branch
+	activity := append([]remotes.Activity(nil), m.Remotes.Dashboard.Activity...)
 	return func() tea.Msg {
 		entries, err := remotes.List(context.Background(), runner)
 		if err != nil {
@@ -501,9 +502,17 @@ func (m Model) loadRemotes() tea.Cmd {
 		}
 		return RemotesReadyMsg{Dashboard: remotes.Dashboard{
 			Remotes: entries, CurrentBranch: branch.Name, Ahead: branch.Ahead,
-			Behind: branch.Behind, Now: time.Now(), StaleAfter: remoteview.DefaultStaleAfter(),
+			Behind: branch.Behind, Activity: activity, Now: time.Now(), StaleAfter: remoteview.DefaultStaleAfter(),
 		}}
 	}
+}
+
+func (m *Model) recordRemoteActivity(operation, message string, success bool) {
+	activity := append(m.Remotes.Dashboard.Activity, remotes.Activity{At: time.Now(), Operation: operation, Message: message, Success: success})
+	if len(activity) > 50 {
+		activity = activity[len(activity)-50:]
+	}
+	m.Remotes.Dashboard.Activity = activity
 }
 
 func (m Model) loadWorktrees() tea.Cmd {
@@ -1363,6 +1372,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.refresh(), m.loadWorktrees(), m.loadBranches())
 		}
 	case RemoteOperationFinishedMsg:
+		m.recordRemoteActivity(v.Operation, v.Remote, v.Err == nil)
 		if v.Err != nil {
 			m.State = StateError
 			if remoteConflict(v.Err) {

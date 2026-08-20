@@ -78,7 +78,11 @@ func (m Model) View() string {
 	if activity := d.RecentActivity(3); len(activity) > 0 {
 		lines = append(lines, "", "Recent activity:")
 		for _, event := range activity {
-			lines = append(lines, "  "+event.Operation+": "+event.Message)
+			marker := "✓"
+			if !event.Success {
+				marker = "!"
+			}
+			lines = append(lines, "  "+marker+" "+event.Operation+": "+event.Message)
 		}
 	}
 	return strings.Join(lines, "\n")
