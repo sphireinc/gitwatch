@@ -394,6 +394,11 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	if m.State != StateError || !contains(m.Status, "network unavailable") {
 		t.Fatalf("fetch failure state/status = %v/%q", m.State, m.Status)
 	}
+	updated, _ = m.Update(RemoteOperationFinishedMsg{Operation: "pull merge", Remote: "origin", Err: errors.New("CONFLICT (content): merge conflict")})
+	m = updated.(Model)
+	if m.State != StateError || !contains(m.Status, "resolve conflicts") {
+		t.Fatalf("conflict status = %v/%q", m.State, m.Status)
+	}
 	updated, cmd = m.Update(key("m"))
 	m = updated.(Model)
 	if cmd == nil || m.State != StateOperationPending || !contains(m.Status, "pulling merge") {

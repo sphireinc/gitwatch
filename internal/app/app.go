@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -1323,13 +1324,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case RemoteOperationFinishedMsg:
 		if v.Err != nil {
-			m.State, m.Status = StateError, v.Err.Error()
+			m.State = StateError
+			if remoteConflict(v.Err) {
+				m.Status = "conflict during " + v.Operation + ": resolve conflicts, then refresh"
+			} else {
+				m.Status = v.Err.Error()
+			}
 		} else {
 			m.State, m.Status = StateReady, v.Operation+" complete: "+v.Remote
 			return m, tea.Batch(m.refresh(), m.loadRemotes())
 		}
 	}
 	return m, nil
+}
+
+func remoteConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	text := strings.ToLower(err.Error())
+	var commandErr *git.CommandError
+	if errors.As(err, &commandErr) {
+		text += " " + strings.ToLower(string(commandErr.Result.Stderr))
+	}
+	return strings.Contains(text, "conflict") || strings.Contains(text, "would be overwritten") || strings.Contains(text, "non-fast-forward")
 }
 
 func (m Model) View() tea.View {

@@ -39,6 +39,8 @@ Leaving the History workspace cancels its in-flight page load.
 
 In the History inspector, `M` switches to the next merge parent, `f` filters the patch by path, `g` jumps to a typed ref, and `y` copies the selected SHA through terminal OSC52 clipboard support when available.
 
+Remote conflict and non-fast-forward failures identify the operation and direct you to resolve conflicts before refreshing.
+
 ## Keymap and status symbols
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.
