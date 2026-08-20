@@ -149,6 +149,16 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	if got := m.View().Content; !contains(got, "origin") || !contains(got, "reachable") {
 		t.Fatalf("remote view missing data: %q", got)
 	}
+	updated, cmd = m.Update(key("f"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending {
+		t.Fatalf("fetch command/state = %v/%v", cmd == nil, m.State)
+	}
+	updated, _ = m.Update(RemoteOperationFinishedMsg{Operation: "fetch", Remote: "origin", Err: errors.New("network unavailable")})
+	m = updated.(Model)
+	if m.State != StateError || !contains(m.Status, "network unavailable") {
+		t.Fatalf("fetch failure state/status = %v/%q", m.State, m.Status)
+	}
 }
 
 func contains(s, want string) bool {

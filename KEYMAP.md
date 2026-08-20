@@ -14,6 +14,7 @@
 | s | Stashes view |
 | l | History view |
 | n | Remotes view |
+| f | Fetch selected remote (in Remotes view) |
 | c | Commit workspace |
 | Ctrl-S | Execute a valid commit |
 | Tab | Cycle focus/panes |

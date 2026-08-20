@@ -95,6 +95,10 @@ type RemotesReadyMsg struct {
 	Dashboard remotes.Dashboard
 	Err       error
 }
+type RemoteOperationFinishedMsg struct {
+	Operation, Remote string
+	Err               error
+}
 
 type Model struct {
 	State                State
@@ -264,6 +268,18 @@ func (m Model) loadRemotes() tea.Cmd {
 	}
 }
 
+func (m Model) fetchSelectedRemote() tea.Cmd {
+	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) {
+		return nil
+	}
+	remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		_, err := remotes.Fetch(context.Background(), runner, remote)
+		return RemoteOperationFinishedMsg{Operation: "fetch", Remote: remote, Err: err}
+	}
+}
+
 func (m Model) navigate(view workspace.View, label string) tea.Cmd {
 	if m.Workspace == nil {
 		m.Workspace = workspace.New()
@@ -405,6 +421,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.navigate(workspace.Log, "History")
 		case "n":
 			return m, m.navigate(workspace.Remotes, "Remotes")
+		case "f":
+			if m.currentView() == workspace.Remotes {
+				m.State, m.Status = StateOperationPending, "fetching"
+				return m, m.fetchSelectedRemote()
+			}
 		case "c":
 			m.beginCommit()
 			return m, nil
@@ -563,6 +584,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.Remotes, m.State = remoteview.New(v.Dashboard), StateReady
 		}
+	case RemoteOperationFinishedMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.State, m.Status = StateReady, v.Operation+" complete: "+v.Remote
+			return m, tea.Batch(m.refresh(), m.loadRemotes())
+		}
 	}
 	return m, nil
 }
@@ -605,7 +633,7 @@ func (m Model) View() tea.View {
 		}
 	}
 	if m.Modal == "help" {
-		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     select/inspect", "b              branches", "s              stashes", "l              history", "n              remotes", "c              commit", "1              status", "r              refresh", "Esc            close help", "q              quit"}
+		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     select/inspect", "b              branches", "s              stashes", "l              history", "n              remotes", "f              fetch selected remote", "c              commit", "1              status", "r              refresh", "Esc            close help", "q              quit"}
 	}
 	lines = append(lines, "──────────────────────────────────────────────────────────────", "[j/k] move  [space] stage/unstage  [enter/d] diff  [r] refresh  [?] help  [q] quit")
 	v := tea.NewView(strings.Join(lines, "\n"))
@@ -631,6 +659,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · remotes", m.Remotes.View()
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
+	if view == workspace.Remotes {
+		lines[len(lines)-1] = "[j/k] move  [f] fetch selected remote  [esc] back  [q] quit"
+	}
 	if view == workspace.Commit {
 		lines[len(lines)-1] = "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"
 	}
