@@ -1,5 +1,9 @@
 # Task 86: Build GitHub provider contract tests
 
+Status: In progress
+
+Progress: Provider parsing, cache behavior, CLI-token failure handling, and secret-redaction tests are present without developer credentials. Recorded error/rate-limit fixtures, offline degradation tests, and full provider contract coverage remain.
+
 ## Objective
 Use recorded/fake provider responses for PR/check/auth/rate-limit/error states. Ensure no test requires a developer token. Add redaction tests and graceful degradation when GitHub is offline or unavailable.
 

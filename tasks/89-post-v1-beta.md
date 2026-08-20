@@ -1,5 +1,9 @@
 # Task 89: Run feature-complete beta hardening
 
+Status: In progress
+
+Progress: Automated repository-wide tests, vetting, benchmarks, release checks, and integration fixtures are active. Cross-platform terminal/operator beta validation, feedback collection, and release-blocker closure remain.
+
 ## Objective
 Cut a beta release containing all post-v1 features. Collect crash/error/performance feedback, test across macOS/Linux/Windows and major terminals, validate Git versions, freeze plugin API candidate, and resolve all release-blocking defects.
 

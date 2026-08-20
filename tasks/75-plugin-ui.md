@@ -1,5 +1,9 @@
 # Task 75: Build plugin manager and extension surfaces
 
+Status: In progress
+
+Progress: Plugin manifest and bounded runtime foundations are available for a manager surface. Plugin list/details/settings UI, permission display, enable/disable/reload actions, and extension rendering remain.
+
 ## Objective
 Create plugin list/details/settings UI, permission/capability display, enable/disable/reload actions, error health, and extension points for commands, panels, row decorations, and status widgets. Make third-party UI visually identifiable.
 
