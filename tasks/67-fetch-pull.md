@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added explicit fetch and pull command primitives with merge, rebase, and fast-forward-only strategy options. Async progress, configured-strategy refusal, conflict UI, and post-operation refresh remain.
+Progress: Added explicit fetch and pull command primitives with merge, rebase, and fast-forward-only strategy options, rejecting unspecified strategies and option-like targets. Async progress, conflict UI, and post-operation refresh remain.
 
 ## Objective
 Add async fetch and pull with progress/activity feedback, cancellation where feasible, configurable pull strategy awareness, conflict handling, and post-operation refresh. Never silently choose merge vs rebase when Git configuration does not define behavior.

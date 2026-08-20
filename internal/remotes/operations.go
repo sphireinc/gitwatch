@@ -8,18 +8,24 @@ import (
 	"github.com/jusanchez/gitwatch/internal/git"
 )
 
-var ErrMissingRemote = errors.New("remote operation requires an explicit remote")
+var (
+	ErrMissingRemote    = errors.New("remote operation requires an explicit remote")
+	ErrStrategyRequired = errors.New("pull strategy must be explicitly selected")
+)
 
 func Fetch(ctx context.Context, runner git.Runner, remote string) (git.Result, error) {
-	if strings.TrimSpace(remote) == "" {
+	if !validArg(remote) {
 		return git.Result{}, ErrMissingRemote
 	}
-	return runner.Run(ctx, "fetch", "--progress", "--", remote)
+	return runner.Run(ctx, "fetch", "--progress", remote)
 }
 
 func Pull(ctx context.Context, runner git.Runner, remote, branch, strategy string) (git.Result, error) {
-	if strings.TrimSpace(remote) == "" || strings.TrimSpace(branch) == "" {
+	if !validArg(remote) || !validArg(branch) {
 		return git.Result{}, ErrMissingRemote
+	}
+	if strategy != "merge" && strategy != "rebase" && strategy != "ff-only" {
+		return git.Result{}, ErrStrategyRequired
 	}
 	args := []string{"pull", "--progress"}
 	if strategy == "merge" {
@@ -31,7 +37,7 @@ func Pull(ctx context.Context, runner git.Runner, remote, branch, strategy strin
 }
 
 func Push(ctx context.Context, runner git.Runner, remote, branch string, forceWithLease bool) (git.Result, error) {
-	if strings.TrimSpace(remote) == "" || strings.TrimSpace(branch) == "" {
+	if !validArg(remote) || !validArg(branch) {
 		return git.Result{}, ErrMissingRemote
 	}
 	args := []string{"push", "--progress"}
@@ -39,4 +45,9 @@ func Push(ctx context.Context, runner git.Runner, remote, branch string, forceWi
 		args = append(args, "--force-with-lease")
 	}
 	return runner.Run(ctx, append(args, remote, branch)...)
+}
+
+func validArg(value string) bool {
+	value = strings.TrimSpace(value)
+	return value != "" && !strings.HasPrefix(value, "-") && !strings.ContainsAny(value, "\r\n\x00")
 }
