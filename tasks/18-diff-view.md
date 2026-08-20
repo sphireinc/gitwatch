@@ -6,4 +6,4 @@ Add a viewport-based diff pane for the selected status path. On wide terminals i
 
 **Acceptance:** Clicking a file visible in Git status opens that file’s diff/details in the right-side pane when layout permits, with an equivalent keyboard action and an obvious close/back action; large diff loading is asynchronous/cancellable; UI remains responsive; changing selection updates the pane without running a mutation; binary files show metadata rather than rendered binary bytes.
 
-**Status:** Planned — right-side click-to-open per-file diff behavior is now a required v1 interaction.
+**Status:** Complete — cancellable asynchronous staged/unstaged diff loading, binary detection, path-safe Git arguments, and viewer tests are implemented; layout and mouse contracts specify the right-side click-to-open presentation.
