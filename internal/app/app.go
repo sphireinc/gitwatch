@@ -81,6 +81,10 @@ type HistoryReadyMsg struct {
 	HasMore bool
 	Err     error
 }
+type HistoryInspectorReadyMsg struct {
+	Inspector history.Inspector
+	Err       error
+}
 type CommitFinishedMsg struct {
 	SHA string
 	Err error
@@ -124,6 +128,7 @@ type Model struct {
 	HistoryHasMore       bool
 	HistoryFilter        string
 	HistorySearching     bool
+	HistoryInspector     history.Inspector
 	Composer             commitview.Composer
 	StashPreview         string
 	StashPreviewRef      string
@@ -261,6 +266,18 @@ func (m Model) loadHistoryPage(skip int) tea.Cmd {
 	return func() tea.Msg {
 		page, err := history.LoadPage(context.Background(), r, skip, 100)
 		return HistoryReadyMsg{Commits: page.Commits, Skip: skip, HasMore: page.HasMore, Err: err}
+	}
+}
+
+func (m Model) inspectSelectedCommit() tea.Cmd {
+	if m.History.Selected < 0 || m.History.Selected >= len(m.History.Rows) {
+		return nil
+	}
+	sha := m.History.Rows[m.History.Selected].Commit.SHA
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		inspector, err := history.Inspect(context.Background(), runner, sha, "")
+		return HistoryInspectorReadyMsg{Inspector: inspector, Err: err}
 	}
 }
 
@@ -514,6 +531,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.State, m.Status = StateOperationPending, "checking out"
 				return m, m.checkoutSelectedBranch()
 			}
+			if m.currentView() == workspace.Log {
+				m.State, m.Status = StateOperationPending, "loading commit details"
+				return m, m.inspectSelectedCommit()
+			}
 		case "j", "down":
 			switch m.currentView() {
 			case workspace.Branches:
@@ -668,6 +689,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.HistorySkip, m.HistoryHasMore, m.State = v.Skip+len(v.Commits), v.HasMore, StateReady
 		}
+	case HistoryInspectorReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.HistoryInspector, m.State, m.Status = v.Inspector, StateReady, ""
+		}
 	case RemotesReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -746,6 +773,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.HistorySearching {
 			content = "Search: " + m.HistoryFilter + "\n\n" + content
 		}
+		if m.HistoryInspector.Commit.SHA != "" {
+			content += "\n\n" + inspectorText(m.HistoryInspector)
+		}
 	} else if view == workspace.Commit {
 		title, content = "gitwatch · commit", m.Composer.View()
 	} else if view == workspace.Remotes {
@@ -764,6 +794,28 @@ func (m Model) featureView(view workspace.View) tea.View {
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v
+}
+
+func inspectorText(inspector history.Inspector) string {
+	lines := []string{"Selected commit: " + inspector.Summary(), "Files:"}
+	for _, stat := range inspector.Stats {
+		if stat.Binary {
+			lines = append(lines, "  "+stat.Path+" [binary]")
+		} else {
+			lines = append(lines, fmt.Sprintf("  %s +%d -%d", stat.Path, stat.Added, stat.Deleted))
+		}
+	}
+	if inspector.Diff != "" {
+		lines = append(lines, "Patch:")
+		for i, line := range strings.Split(inspector.Diff, "\n") {
+			if i >= 80 {
+				lines = append(lines, "  …")
+				break
+			}
+			lines = append(lines, "  "+line)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 func max(a, b int) int {
 	if a > b {
