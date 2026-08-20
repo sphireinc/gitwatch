@@ -40,6 +40,15 @@ func (c GitHubClient) Checks(ctx context.Context, repository Repository, ref str
 	return ParseChecks(response)
 }
 
+func (c GitHubClient) Reviews(ctx context.Context, repository Repository, number int) (ReviewSnapshot, error) {
+	var response json.RawMessage
+	path := "/repos/" + url.PathEscape(repository.Owner) + "/" + url.PathEscape(repository.Name) + "/pulls/" + url.PathEscape(fmt.Sprint(number)) + "/reviews"
+	if err := c.getJSON(ctx, path, &response); err != nil {
+		return ReviewSnapshot{}, err
+	}
+	return ParseReviews(response)
+}
+
 func (c GitHubClient) getJSON(ctx context.Context, path string, target any) error {
 	base := strings.TrimRight(c.BaseURL, "/")
 	if base == "" {

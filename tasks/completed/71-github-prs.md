@@ -1,8 +1,8 @@
 # Task 71: Add GitHub pull request integration
 
-Status: In progress
+Status: Complete
 
-Progress: Added provider-neutral pull-request metadata parsing and a TTL cache keyed by repository/branch. API transport now feeds the opt-in GitHub workspace, which renders PR metadata and provides safe open-in-browser and copy-URL actions; checks/review enrichment and richer PR actions remain.
+Progress: Added provider-neutral pull-request metadata parsing and a TTL cache keyed by repository/branch. API transport feeds the opt-in GitHub workspace, which renders PR metadata, check aggregates, review state, and provides safe open-in-browser and copy-URL actions.
 
 ## Objective
 For the current repository/branch, show associated PR, state, draft status, checks summary, review state, mergeability when available, base/head, URL, and comments/count metadata. Add open-in-browser and copy-URL actions. Cache/rate-limit API reads.
@@ -25,4 +25,9 @@ For the current repository/branch, show associated PR, state, draft status, chec
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- The `G` workspace asynchronously detects the GitHub remote, loads the current-branch PR through a bounded TTL cache, enriches it with check-run and review summaries, and renders sanitized metadata.
+- `o` opens only validated HTTP(S) PR URLs through an OS-specific direct-argv browser command; `y` copies the URL without shell interpolation.
+- Provider failures degrade to a visible error state and never expose response bodies or credentials.
+- Tests cover parsing/cache behavior, review/check transport, API failure redaction, safe browser command construction, and GitHub workspace routing/rendering.

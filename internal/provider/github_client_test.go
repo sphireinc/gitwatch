@@ -43,6 +43,16 @@ func TestGitHubClientUsesTokenAndParsesResponses(t *testing.T) {
 	}
 }
 
+func TestGitHubClientReviews(t *testing.T) {
+	client := GitHubClient{BaseURL: "https://api.github.test", TokenSource: fixedToken("token"), HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`[{"state":"APPROVED"}]`)), Header: make(http.Header)}, nil
+	})}}
+	reviews, err := client.Reviews(context.Background(), Repository{Owner: "o", Name: "r"}, 3)
+	if err != nil || reviews.State() != "approved" {
+		t.Fatalf("reviews = %#v, err=%v", reviews, err)
+	}
+}
+
 func TestGitHubClientDoesNotExposeTokenOnHTTPFailure(t *testing.T) {
 	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("secret-token")), Header: make(http.Header), Request: r}, nil

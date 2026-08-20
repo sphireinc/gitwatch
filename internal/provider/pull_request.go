@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,6 +29,46 @@ type Checks struct {
 	Passing int
 	Failing int
 	Pending int
+}
+
+type ReviewSnapshot struct {
+	Approved  int
+	Changes   int
+	Commented int
+}
+
+func (s ReviewSnapshot) State() string {
+	if s.Changes > 0 {
+		return "changes requested"
+	}
+	if s.Approved > 0 {
+		return "approved"
+	}
+	if s.Commented > 0 {
+		return "commented"
+	}
+	return "pending"
+}
+
+func ParseReviews(data []byte) (ReviewSnapshot, error) {
+	var reviews []struct {
+		State string `json:"state"`
+	}
+	if err := json.Unmarshal(data, &reviews); err != nil {
+		return ReviewSnapshot{}, err
+	}
+	snapshot := ReviewSnapshot{}
+	for _, review := range reviews {
+		switch strings.ToUpper(review.State) {
+		case "APPROVED":
+			snapshot.Approved++
+		case "CHANGES_REQUESTED":
+			snapshot.Changes++
+		case "COMMENTED":
+			snapshot.Commented++
+		}
+	}
+	return snapshot, nil
 }
 
 func ParsePullRequest(data []byte) (PullRequest, error) {

@@ -48,7 +48,7 @@ func (m Model) View() string {
 	if m.Pull.Draft {
 		lines = append(lines, "  Draft")
 	}
-	lines = append(lines, fmt.Sprintf("  %s -> %s  mergeable=%s reviews=%d comments=%d", platform.SafeText(m.Pull.Head), platform.SafeText(m.Pull.Base), platform.SafeText(m.Pull.Mergeable), m.Pull.Reviews, m.Pull.Comments), fmt.Sprintf("Checks: %d passing  %d failing  %d pending", m.Checks.Passing, m.Checks.Failing, m.Checks.Pending))
+	lines = append(lines, fmt.Sprintf("  %s -> %s  mergeable=%s reviews=%d comments=%d", platform.SafeText(m.Pull.Head), platform.SafeText(m.Pull.Base), platform.SafeText(m.Pull.Mergeable), m.Pull.Reviews, m.Pull.Comments), "Review: "+platform.SafeText(m.Pull.ReviewState), fmt.Sprintf("Checks: %d passing  %d failing  %d pending", m.Checks.Passing, m.Checks.Failing, m.Checks.Pending))
 	if m.Pull.URL != "" {
 		lines = append(lines, "URL: "+platform.SafeText(m.Pull.URL))
 	}

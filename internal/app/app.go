@@ -161,6 +161,7 @@ type GitHubReadyMsg struct {
 	Branch     string
 	Pull       provider.PullRequest
 	Checks     provider.ChecksSnapshot
+	Review     provider.ReviewSnapshot
 	Err        error
 }
 type PluginsReadyMsg struct {
@@ -243,6 +244,7 @@ type Model struct {
 	GitHub                   githubview.Model
 	GitHubEnabled            bool
 	GitHubTokenEnv           string
+	GitHubCache              *provider.PullRequestCache
 	Plugins                  pluginview.Model
 	PluginsEnabled           bool
 	PluginDirectories        []string
@@ -258,7 +260,7 @@ type Model struct {
 }
 
 func New() Model {
-	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Keymap: config.DefaultKeymap(), GitHub: githubview.New(), Plugins: pluginview.New(nil), Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
+	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Keymap: config.DefaultKeymap(), GitHub: githubview.New(), GitHubCache: provider.NewPullRequestCache(2 * time.Minute), Plugins: pluginview.New(nil), Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
 }
 
 func (m Model) paletteActions() []commands.Action {
@@ -369,6 +371,7 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.RefreshInterval = c.Interval
 	m.Keymap = mergeKeymap(c.Keymap)
 	m.GitHubEnabled, m.GitHubTokenEnv = c.GitHub.Enabled, c.GitHub.TokenEnv
+	m.GitHubCache = provider.NewPullRequestCache(c.GitHub.CacheTTL)
 	m.PluginsEnabled, m.PluginDirectories = c.Plugins.Enabled, append([]string(nil), c.Plugins.Directories...)
 	switch c.Motion {
 	case "reduced":
@@ -721,12 +724,20 @@ func (m Model) loadGitHub() tea.Cmd {
 			return GitHubReadyMsg{Branch: branch, Err: fmt.Errorf("no GitHub remote detected")}
 		}
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
-		pull, err := client.PullRequest(context.Background(), repository, branch)
+		cache := m.GitHubCache
+		if cache == nil {
+			cache = provider.NewPullRequestCache(2 * time.Minute)
+		}
+		pull, err := cache.Get(context.Background(), client, repository, branch)
 		if err != nil {
 			return GitHubReadyMsg{Repository: repository, Branch: branch, Err: err}
 		}
 		checks, err := client.Checks(context.Background(), repository, branch)
-		return GitHubReadyMsg{Repository: repository, Branch: branch, Pull: pull, Checks: checks, Err: err}
+		if err != nil {
+			return GitHubReadyMsg{Repository: repository, Branch: branch, Pull: pull, Err: err}
+		}
+		review, err := client.Reviews(context.Background(), repository, pull.Number)
+		return GitHubReadyMsg{Repository: repository, Branch: branch, Pull: pull, Checks: checks, Review: review, Err: err}
 	}
 }
 
@@ -1763,6 +1774,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.GitHub.SetError(v.Repository, v.Branch, v.Err)
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
+			v.Pull.Checks = provider.Checks{Total: v.Checks.Passing + v.Checks.Failing + v.Checks.Pending, Passing: v.Checks.Passing, Failing: v.Checks.Failing, Pending: v.Checks.Pending}
+			v.Pull.ReviewState = v.Review.State()
 			m.GitHub.SetData(v.Repository, v.Branch, v.Pull, v.Checks)
 			m.State, m.Status = StateReady, "GitHub data loaded"
 		}

@@ -22,6 +22,13 @@ func TestParsePullRequestAndCache(t *testing.T) {
 	}
 }
 
+func TestParseReviewsPrioritizesRequestedChanges(t *testing.T) {
+	reviews, err := ParseReviews([]byte(`[{"state":"APPROVED"},{"state":"COMMENTED"},{"state":"CHANGES_REQUESTED"}]`))
+	if err != nil || reviews.Approved != 1 || reviews.Commented != 1 || reviews.Changes != 1 || reviews.State() != "changes requested" {
+		t.Fatalf("reviews = %#v, err=%v", reviews, err)
+	}
+}
+
 type fakePRClient struct {
 	value PullRequest
 	calls int
