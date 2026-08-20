@@ -10,6 +10,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/branches"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/jusanchez/gitwatch/internal/remotes"
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/worktrees"
 )
@@ -252,5 +253,53 @@ func TestStashMutationsRealRepositoryScenario(t *testing.T) {
 	contents, err = os.ReadFile(path)
 	if err != nil || string(contents) != "branch\n" {
 		t.Fatalf("branch stash contents = %q, err=%v", contents, err)
+	}
+}
+
+func TestRemotePushPreviewRealRepositoryScenario(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	bare := filepath.Join(t.TempDir(), "origin.git")
+	if _, err := git.NewRunner(root).Run(ctx, "init", "-b", "main", "--", root); err != nil {
+		t.Fatal(err)
+	}
+	runner := git.NewRunner(root)
+	for _, args := range [][]string{{"config", "user.name", "remote-test"}, {"config", "user.email", "remote@example.com"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(bare, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := git.NewRunner(bare).Run(ctx, "init", "--bare"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "remote", "add", "origin", bare); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "remote.txt")
+	if err := os.WriteFile(path, []byte("remote\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("remote.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("remote\n")}); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := remotes.PreviewPush(ctx, runner, "origin", "main")
+	if err != nil || preview.LocalSHA == "" || preview.RemoteSHA != "" {
+		t.Fatalf("initial push preview = %#v, %v", preview, err)
+	}
+	if _, err := remotes.Push(ctx, runner, "origin", "main", false); err != nil {
+		t.Fatal(err)
+	}
+	preview, err = remotes.PreviewPush(ctx, runner, "origin", "main")
+	if err != nil || preview.RemoteSHA != preview.LocalSHA {
+		t.Fatalf("post-push preview = %#v, %v", preview, err)
+	}
+	if _, err := remotes.Fetch(ctx, runner, "origin"); err != nil {
+		t.Fatal(err)
 	}
 }

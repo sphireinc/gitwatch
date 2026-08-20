@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added explicit branch push and opt-in force-with-lease command primitives with validated remote/ref arguments, plus a typed `PreviewPush` operation that resolves local and remote SHAs through Git's structured commands. The remotes workspace now asynchronously pushes the selected remote/current branch and requires explicit `P` then `y` confirmation before force-with-lease; UI preview confirmation and set-upstream/tag workflows remain.
+Progress: Added explicit branch push and opt-in force-with-lease command primitives with validated remote/ref arguments, plus a typed `PreviewPush` operation that resolves local and remote SHAs through Git's structured commands. The remotes workspace now asynchronously previews and confirms normal pushes and requires explicit `P` then `y` confirmation before force-with-lease; set-upstream/tag workflows remain. A real bare-remote integration scenario covers new-ref preview, push, post-push preview, and fetch.
 
 ## Objective
 Add push current branch, set-upstream push, tag push where explicitly selected, and force-with-lease behind strong confirmation. Never offer raw --force as the default. Preview local/remote ref movement before destructive/non-fast-forward operations.
