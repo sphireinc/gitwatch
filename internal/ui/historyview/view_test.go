@@ -23,3 +23,11 @@ func TestSelectionPersistsAcrossRefreshAndFilter(t *testing.T) {
 		t.Fatal("render omitted selected commit")
 	}
 }
+
+func TestViewSanitizesCommitText(t *testing.T) {
+	m := New([]history.Commit{{Short: "abc", Subject: "unsafe\x1b[31m"}})
+	view := m.View()
+	if strings.Contains(view, "\x1b") {
+		t.Fatalf("escape sequence rendered: %q", view)
+	}
+}

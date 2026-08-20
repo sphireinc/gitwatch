@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/jusanchez/gitwatch/internal/platform"
 )
 
 // Model owns the small amount of interaction state needed to render history.
@@ -67,6 +68,9 @@ func (m Model) View() string {
 		}
 		refs := append([]string{}, row.Branches...)
 		refs = append(refs, row.Tags...)
+		for j := range refs {
+			refs[j] = platform.SafeText(refs[j])
+		}
 		decoration := ""
 		if row.Head {
 			decoration = " HEAD"
@@ -74,7 +78,7 @@ func (m Model) View() string {
 		if len(refs) > 0 {
 			decoration += " [" + strings.Join(refs, ", ") + "]"
 		}
-		lines = append(lines, fmt.Sprintf("%s%s %s %s%s", prefix, lane, row.Commit.Short, row.Commit.Subject, decoration))
+		lines = append(lines, fmt.Sprintf("%s%s %s %s%s", prefix, lane, platform.SafeText(row.Commit.Short), platform.SafeText(row.Commit.Subject), decoration))
 	}
 	if len(m.Rows) == 0 {
 		lines = append(lines, "  No commits")
