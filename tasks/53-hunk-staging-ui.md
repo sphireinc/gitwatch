@@ -22,3 +22,5 @@ Add a patch-mode diff view with gutter selection, current hunk emphasis, selecte
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+**Status:** In progress — patch view renders hunk context, line selection markers, selection counters, and keyboard hints; full Bubble Tea viewport/mouse routing remains.

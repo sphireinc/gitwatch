@@ -22,3 +22,5 @@ Allow selected working-tree hunks/lines to be discarded only behind a high-frict
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+**Status:** In progress — partial discard has a typed high-friction confirmation requiring exact path/hunk/line scope and a distinct confirmation word; selected reverse-patch execution and unrelated-line integration tests remain.
