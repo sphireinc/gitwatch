@@ -156,6 +156,7 @@ type Model struct {
 	State                    State
 	Width, Height            int
 	Focus, Modal, Status     string
+	Motion                   Motion
 	Toast                    ToastMsg
 	Notifications            *notifications.Model
 	Snapshot                 repo.Snapshot
@@ -228,7 +229,7 @@ type Model struct {
 }
 
 func New() Model {
-	return Model{State: StateLoading, Focus: "files", Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
+	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
 }
 
 func (m Model) paletteActions() []commands.Action {
@@ -331,6 +332,14 @@ func NewRepository(d git.Discovery) Model { m := New(); m.Discovery = d; return 
 func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m := NewRepository(d)
 	m.RefreshInterval = c.Interval
+	switch c.Motion {
+	case "reduced":
+		m.Motion = MotionReduced
+	case "off":
+		m.Motion = MotionOff
+	default:
+		m.Motion = MotionFull
+	}
 	m.Theme = theme.New(theme.Name(c.Theme), false)
 	m.RepositoryRoots = append([]string(nil), c.Repositories.Roots...)
 	m.RepositoryEngine = registry.NewEngine(c.Remote.Workers)
