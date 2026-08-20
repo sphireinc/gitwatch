@@ -28,3 +28,28 @@ func TestCommitUsesMessageStdin(t *testing.T) {
 		t.Fatal(out.SHA)
 	}
 }
+
+func TestCommitRejectsMultilineAuthor(t *testing.T) {
+	_, err := Runner{Binary: "git", Dir: t.TempDir()}.Commit(context.Background(), CommitOptions{Message: []byte("subject\n"), Author: "Alice\n<alice@example.com>"})
+	if err == nil || !strings.Contains(err.Error(), "author") {
+		t.Fatalf("expected author validation error, got %v", err)
+	}
+}
+
+func TestCommitConfigReadsOptionalSettings(t *testing.T) {
+	dir := t.TempDir()
+	runner := NewRunner(dir)
+	if _, err := runner.Run(context.Background(), "init", "--", dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(context.Background(), "config", "user.name", "Alice"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(context.Background(), "config", "user.email", "alice@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	config := runner.CommitConfig(context.Background())
+	if config.UserName != "Alice" || config.UserEmail != "alice@example.com" {
+		t.Fatalf("unexpected config: %#v", config)
+	}
+}

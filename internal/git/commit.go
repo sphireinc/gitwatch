@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 type CommitOptions struct {
@@ -13,6 +14,30 @@ type CommitOptions struct {
 type CommitResult struct {
 	SHA    string
 	Result Result
+}
+
+type CommitConfig struct {
+	UserName    string
+	UserEmail   string
+	SignEnabled bool
+	SignFormat  string
+}
+
+func (r Runner) CommitConfig(ctx context.Context) CommitConfig {
+	config := CommitConfig{}
+	read := func(key string) string {
+		result, err := r.Run(ctx, "config", "--get", key)
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(result.Stdout))
+	}
+	config.UserName = read("user.name")
+	config.UserEmail = read("user.email")
+	sign := read("commit.gpgsign")
+	config.SignEnabled = strings.EqualFold(sign, "true") || sign == "1"
+	config.SignFormat = read("gpg.format")
+	return config
 }
 
 func (r Runner) Commit(ctx context.Context, opts CommitOptions) (CommitResult, error) {
@@ -35,6 +60,9 @@ func (r Runner) Commit(ctx context.Context, opts CommitOptions) (CommitResult, e
 		args = append(args, "-S")
 	}
 	if opts.Author != "" {
+		if strings.ContainsAny(opts.Author, "\r\n") {
+			return CommitResult{}, fmt.Errorf("author must be one line")
+		}
 		args = append(args, "--author", opts.Author)
 	}
 	result, err := r.RunInput(ctx, opts.Message, args...)
@@ -45,5 +73,5 @@ func (r Runner) Commit(ctx context.Context, opts CommitOptions) (CommitResult, e
 	if err != nil {
 		return CommitResult{Result: result}, err
 	}
-	return CommitResult{SHA: string(sha.Stdout), Result: result}, nil
+	return CommitResult{SHA: strings.TrimSpace(string(sha.Stdout)), Result: result}, nil
 }

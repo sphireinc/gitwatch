@@ -1,5 +1,9 @@
 # Task 50: Add amend, signoff, signing and author options
 
+Status: In progress
+
+Progress: Commit execution supports amend, no-edit, signoff, signing, and author options; repository signing/user configuration inspection, multiline-author rejection, and normalized SHA output are implemented. Confirmation UI and full composer integration remain.
+
 ## Objective
 Support --amend, --no-edit where appropriate, Signed-off-by, configured GPG/SSH signing, and explicit author override. Detect repository/user configuration and make dangerous history-rewriting behavior visually distinct with confirmation.
 
