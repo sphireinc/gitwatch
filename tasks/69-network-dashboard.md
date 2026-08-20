@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Remote state and operation primitives are available for dashboard consumption. The interactive dashboard, job activity, and in-panel actions remain.
+Progress: Added a render-neutral dashboard model with stale-fetch detection, active job filtering, branch divergence fields, and bounded recent activity. Interactive dashboard layout, async routing, and in-panel actions remain.
 
 ## Objective
 Create an htop-like remote panel showing branch tracking, ahead/behind, stale fetch indicators, in-flight jobs, last success/failure, and concise network activity. Provide fetch/pull/push actions without leaving the dashboard.
