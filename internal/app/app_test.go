@@ -218,6 +218,20 @@ func TestStashMutationRoutingAndConfirmation(t *testing.T) {
 	if m.State != StateError || !contains(m.Status, "would clobber") {
 		t.Fatalf("stash conflict = state=%v status=%q", m.State, m.Status)
 	}
+	updated, _ = m.Update(key("B"))
+	m = updated.(Model)
+	if !m.StashBranchMode || m.StashBranchRef != "stash@{0}" {
+		t.Fatalf("stash branch mode = %v/%q", m.StashBranchMode, m.StashBranchRef)
+	}
+	for _, ch := range "from-stash" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, cmd = m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || m.StashBranchMode {
+		t.Fatalf("stash branch execution = cmdnil=%v state=%v mode=%v", cmd == nil, m.State, m.StashBranchMode)
+	}
 }
 
 func TestStashMouseSelectsAndPreviewsRow(t *testing.T) {

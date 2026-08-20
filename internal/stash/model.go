@@ -62,11 +62,27 @@ func Apply(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
 	return r.Run(ctx, "stash", "apply", ref)
 }
 
+// ApplyChecked refuses to merge stash contents into a dirty worktree.
+func ApplyChecked(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
+	if err := RequireClean(ctx, r); err != nil {
+		return git.Result{}, err
+	}
+	return Apply(ctx, r, ref)
+}
+
 func Pop(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
 	if !validRef(ref) {
 		return git.Result{}, ErrInvalidRef
 	}
 	return r.Run(ctx, "stash", "pop", ref)
+}
+
+// PopChecked refuses to pop a stash when the worktree is not clean.
+func PopChecked(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
+	if err := RequireClean(ctx, r); err != nil {
+		return git.Result{}, err
+	}
+	return Pop(ctx, r, ref)
 }
 
 func Drop(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
@@ -81,6 +97,14 @@ func Branch(ctx context.Context, r git.Runner, name, ref string) (git.Result, er
 		return git.Result{}, ErrInvalidRef
 	}
 	return r.Run(ctx, "stash", "branch", name, ref)
+}
+
+// BranchChecked refuses to create and apply a stash branch over local changes.
+func BranchChecked(ctx context.Context, r git.Runner, name, ref string) (git.Result, error) {
+	if err := RequireClean(ctx, r); err != nil {
+		return git.Result{}, err
+	}
+	return Branch(ctx, r, name, ref)
 }
 
 func Show(ctx context.Context, r git.Runner, ref string) (git.Result, error) {

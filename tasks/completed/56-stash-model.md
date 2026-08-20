@@ -23,4 +23,13 @@ Parse stash list with stable refs, timestamps, messages, branch context, and obj
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — typed stash list parsing and safe list/create/apply/pop/drop/branch/show operations are implemented with ref/name validation and dirty-worktree detection. `CreateWithOptions` now makes include-untracked behavior explicit; real-repository create/apply/drop/pop coverage is present, while conflict guards, branch-from-stash refresh integration, and full mutation coverage remain.
+**Status:** Complete
+
+## Completion summary
+
+- Implemented typed stash list/create/apply/pop/drop/branch/show operations with ref and name validation.
+- Added explicit include-untracked creation options and checked apply/pop/branch operations that reject dirty worktrees before mutation.
+- Integrated branch-from-stash UI name entry with status, stash, and branch refresh after success.
+- Added application tests for stash action routing, confirmation, conflict feedback, and branch-from-stash routing.
+- Added real temporary-repository coverage for dirty-state rejection, apply, drop, pop, and branch-from-stash.
+- Verified with `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.

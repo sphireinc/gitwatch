@@ -155,6 +155,10 @@ func TestStashMutationsRealRepositoryScenario(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(root, "stash.txt")
 	if err := os.WriteFile(path, []byte("base\n"), 0600); err != nil {
 		t.Fatal(err)
@@ -175,7 +179,16 @@ func TestStashMutationsRealRepositoryScenario(t *testing.T) {
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("stash list after create = %#v, err=%v", entries, err)
 	}
-	if _, err := stash.Apply(ctx, runner, entries[0].Ref); err != nil {
+	if err := os.WriteFile(path, []byte("dirty\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stash.ApplyChecked(ctx, runner, entries[0].Ref); err == nil {
+		t.Fatal("checked stash apply accepted a dirty worktree")
+	}
+	if _, err := runner.Run(ctx, "restore", "--worktree", "--", "stash.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stash.ApplyChecked(ctx, runner, entries[0].Ref); err != nil {
 		t.Fatal(err)
 	}
 	contents, err := os.ReadFile(path)
@@ -198,7 +211,7 @@ func TestStashMutationsRealRepositoryScenario(t *testing.T) {
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("stash list before pop = %#v, err=%v", entries, err)
 	}
-	if _, err := stash.Pop(ctx, runner, entries[0].Ref); err != nil {
+	if _, err := stash.PopChecked(ctx, runner, entries[0].Ref); err != nil {
 		t.Fatal(err)
 	}
 	contents, err = os.ReadFile(path)
@@ -208,5 +221,26 @@ func TestStashMutationsRealRepositoryScenario(t *testing.T) {
 	entries, err = stash.List(ctx, runner)
 	if err != nil || len(entries) != 0 {
 		t.Fatalf("stash list after pop = %#v, err=%v", entries, err)
+	}
+	if err := os.WriteFile(path, []byte("branch\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stash.Create(ctx, runner, "branch-test"); err != nil {
+		t.Fatal(err)
+	}
+	entries, err = stash.List(ctx, runner)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("stash list before branch = %#v, err=%v", entries, err)
+	}
+	if _, err := stash.BranchChecked(ctx, runner, "from-stash", entries[0].Ref); err != nil {
+		t.Fatal(err)
+	}
+	branchSnapshot, err := git.Snapshot(ctx, discovery, 0)
+	if err != nil || branchSnapshot.Branch.Name != "from-stash" {
+		t.Fatalf("stash branch snapshot = %#v, err=%v", branchSnapshot.Branch, err)
+	}
+	contents, err = os.ReadFile(path)
+	if err != nil || string(contents) != "branch\n" {
+		t.Fatalf("branch stash contents = %q, err=%v", contents, err)
 	}
 }

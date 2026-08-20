@@ -159,6 +159,9 @@ type Model struct {
 	StashIncludeUntracked bool
 	StashConfirmAction    string
 	StashConfirmRef       string
+	StashBranchMode       bool
+	StashBranchRef        string
+	StashBranchName       string
 	Remotes               remoteview.Model
 	RemoteForceConfirm    bool
 }
@@ -307,15 +310,27 @@ func (m Model) executeStashAction() tea.Cmd {
 		var err error
 		switch action {
 		case "apply":
-			_, err = stash.Apply(context.Background(), runner, ref)
+			_, err = stash.ApplyChecked(context.Background(), runner, ref)
 		case "pop":
-			_, err = stash.Pop(context.Background(), runner, ref)
+			_, err = stash.PopChecked(context.Background(), runner, ref)
 		case "drop":
 			_, err = stash.Drop(context.Background(), runner, ref)
 		default:
 			err = fmt.Errorf("unknown stash action: %s", action)
 		}
 		return StashOperationFinishedMsg{Operation: action, Ref: ref, Err: err}
+	}
+}
+
+func (m Model) createStashBranch() tea.Cmd {
+	if strings.TrimSpace(m.StashBranchName) == "" || m.StashBranchRef == "" {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	name, ref := strings.TrimSpace(m.StashBranchName), m.StashBranchRef
+	return func() tea.Msg {
+		_, err := stash.BranchChecked(context.Background(), runner, name, ref)
+		return StashOperationFinishedMsg{Operation: "created branch " + name, Ref: ref, Err: err}
 	}
 }
 
@@ -610,6 +625,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Stashes && m.StashCreateMode {
 			return m, m.updateStashCreateKey(v.String())
 		}
+		if m.currentView() == workspace.Stashes && m.StashBranchMode {
+			switch v.String() {
+			case "esc":
+				m.StashBranchMode, m.StashBranchName, m.StashBranchRef, m.Status = false, "", "", "stash branch cancelled"
+			case "backspace":
+				m.StashBranchName = removeLastRune(m.StashBranchName)
+			case "enter":
+				if strings.TrimSpace(m.StashBranchName) == "" {
+					m.Status = "branch name is required"
+				} else {
+					m.StashBranchMode, m.State, m.Status = false, StateOperationPending, "creating stash branch"
+					return m, m.createStashBranch()
+				}
+			case "space":
+				m.StashBranchName += " "
+			default:
+				if len([]rune(v.String())) == 1 {
+					m.StashBranchName += v.String()
+				}
+			}
+			if m.StashBranchMode {
+				m.Status = "branch from " + m.StashBranchRef + ": " + m.StashBranchName
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Stashes && m.StashConfirmAction != "" {
 			switch v.String() {
 			case "y":
@@ -762,6 +802,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryBranchTarget = m.History.Rows[m.History.Selected].Commit.SHA
 				m.HistoryBranchName, m.HistoryBranchCreating = "", true
 				m.Status = "branch at " + m.HistoryBranchTarget + ": enter name"
+			}
+			if m.currentView() == workspace.Stashes && m.Stashes.Selected >= 0 && m.Stashes.Selected < len(m.Stashes.Entries) {
+				m.StashBranchRef, m.StashBranchName, m.StashBranchMode = m.Stashes.Entries[m.Stashes.Selected].Ref, "", true
+				m.Status = "branch from " + m.StashBranchRef + ": enter name"
 			}
 		case "R":
 			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
@@ -939,7 +983,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			m.State, m.Status = StateReady, v.Operation+" complete"
-			return m, tea.Batch(m.refresh(), m.loadStashes())
+			return m, tea.Batch(m.refresh(), m.loadStashes(), m.loadBranches())
 		}
 	case CommitFinishedMsg:
 		if v.Err != nil {
@@ -1071,6 +1115,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.StashConfirmAction != "" {
 			content += "\n\n" + m.Status
 		}
+		if m.StashBranchMode {
+			content += "\n\nBranch name: " + m.StashBranchName + "\n" + m.Status
+		}
 	} else if view == workspace.Log {
 		title, content = "gitwatch · history", m.History.View()
 		if m.HistorySearching {
@@ -1113,7 +1160,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"
 	}
 	if view == workspace.Stashes {
-		lines[len(lines)-1] = "[j/k] move  [C] create  [a] apply  [p] pop  [D] drop  [enter] preview  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [C] create  [B] branch  [a] apply  [p] pop  [D] drop  [enter] preview  [esc] back  [q] quit"
 	}
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
