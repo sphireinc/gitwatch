@@ -1642,6 +1642,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Files.Move(-1, m.Height-8)
 			}
 		case "space":
+			if m.currentView() == workspace.Plugins && m.Plugins.Selected >= 0 && m.Plugins.Selected < len(m.Plugins.Entries) {
+				entry := m.Plugins.Entries[m.Plugins.Selected]
+				m.Plugins.SetEntries(plugins.SetEnabled(m.Plugins.Entries, entry.Manifest.ID, !entry.Enabled))
+				state := "disabled"
+				if !entry.Enabled {
+					state = "enabled"
+				}
+				m.Status = "plugin " + entry.Manifest.ID + " " + state
+				return m, nil
+			}
 			return m, m.mutate()
 		case "d":
 			return m, m.openDiff()

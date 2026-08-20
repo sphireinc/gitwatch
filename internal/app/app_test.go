@@ -11,6 +11,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/jusanchez/gitwatch/internal/plugins"
 	"github.com/jusanchez/gitwatch/internal/provider"
 	"github.com/jusanchez/gitwatch/internal/registry"
 	"github.com/jusanchez/gitwatch/internal/remotes"
@@ -18,6 +19,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/ui/branchview"
 	"github.com/jusanchez/gitwatch/internal/ui/historyview"
+	"github.com/jusanchez/gitwatch/internal/ui/pluginview"
 	"github.com/jusanchez/gitwatch/internal/ui/remoteview"
 	"github.com/jusanchez/gitwatch/internal/ui/stashview"
 	"github.com/jusanchez/gitwatch/internal/ui/worktreeview"
@@ -377,6 +379,17 @@ func TestGitHubWorkspaceLoadsAsynchronouslyWhenEnabled(t *testing.T) {
 	m = updated.(Model)
 	if !m.GitHub.Ready || m.State != StateReady || !strings.Contains(m.GitHub.View(), "PR #1") {
 		t.Fatalf("GitHub result = ready=%v state=%v view=%s", m.GitHub.Ready, m.State, m.GitHub.View())
+	}
+}
+
+func TestPluginWorkspaceTogglesSelectedEntry(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{}, config.Config{Plugins: config.PluginConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.Plugins, "Plugins")
+	m.Plugins = pluginview.New([]plugins.Entry{{Manifest: plugins.Manifest{ID: "one", Name: "One"}, Enabled: true, Healthy: true}})
+	updated, cmd := m.Update(key("space"))
+	m = updated.(Model)
+	if cmd != nil || m.Plugins.Entries[0].Enabled || m.Status != "plugin one disabled" {
+		t.Fatalf("plugin toggle = cmdnil=%v enabled=%v status=%q", cmd == nil, m.Plugins.Entries[0].Enabled, m.Status)
 	}
 }
 
