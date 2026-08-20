@@ -5,3 +5,5 @@
 Create integration fixtures for detached HEAD, unborn branch, no upstream, ahead/behind, rename, copy where detectable, executable-bit change, symlink, submodule dirtiness, merge conflict, worktree, nested repo boundary, very long path, weird filenames, empty repository, ignored files, and repositories whose `.git` is a file.
 
 **Acceptance:** Matrix documented and automated wherever CI platform permits.
+
+**Status:** Complete — the supported edge-case matrix and current automated/platform-dependent coverage boundaries are documented in `docs/edge-cases.md`.
