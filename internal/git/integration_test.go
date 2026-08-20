@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestStatusMutationRefreshFlow(t *testing.T) {
@@ -44,13 +43,8 @@ func TestStatusMutationRefreshFlow(t *testing.T) {
 	if _, err := r.Unstage(context.Background(), []byte("tracked.txt")); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		s, err = Snapshot(context.Background(), d, 2)
-		if err == nil && len(s.Entries) == 1 && !s.Entries[0].Staged && s.Entries[0].Unstaged {
-			return
-		}
-		time.Sleep(time.Millisecond)
+	s, err = Snapshot(context.Background(), d, 2)
+	if err != nil || len(s.Entries) != 1 || s.Entries[0].Staged || !s.Entries[0].Unstaged {
+		t.Fatalf("post-mutation refresh state not observed: err=%v snapshot=%+v", err, s)
 	}
-	t.Fatal("post-mutation refresh state not observed")
 }
