@@ -22,3 +22,5 @@ Generate/apply patches safely using Git plumbing (`git apply --cached` / reverse
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+**Status:** In progress — typed stdin patch application for cached and reverse operations is implemented; patch generation/applicability validation and CRLF/binary edge handling remain.
