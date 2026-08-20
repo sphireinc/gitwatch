@@ -1,5 +1,7 @@
 # Task 52: Build interactive hunk selection model
 
+Status: Complete
+
 ## Objective
 Represent selectable hunks and lines with stable identities across refreshes. Define selection invalidation when files change underneath the UI. Support select hunk, select individual changed lines, select all, invert selection, and keyboard range selection.
 
@@ -21,6 +23,11 @@ Represent selectable hunks and lines with stable identities across refreshes. De
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- Selection identities are file/hunk/line based and remain independent of rendered text.
+- The pure model supports individual toggles, hunk selection, select-all, invert, anchored same-hunk range selection, clearing, validity checks, and invalidation after refresh.
+- Invalid and negative identities are removed safely; patch generation and TUI integration remain covered by Tasks 53–55.
+- Tests cover all transformations, stale selection invalidation, and selected-patch behavior.
 
 **Status:** In progress — stable file/hunk/line identities, toggle/select-hunk behavior, selection counts, validity checks, refresh invalidation, and selection-aware patch generation are implemented and tested; range selection and UI navigation remain.

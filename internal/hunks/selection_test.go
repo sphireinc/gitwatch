@@ -36,3 +36,26 @@ func TestBuildPatchRetainsContextAndSelectedChanges(t *testing.T) {
 		t.Fatalf("unexpected partial patch: %q", text)
 	}
 }
+
+func TestSelectionAllInvertAndRange(t *testing.T) {
+	files := []patch.File{{Hunks: []patch.Hunk{{Lines: []patch.Line{{Kind: patch.Context}, {Kind: patch.Added}, {Kind: patch.Removed}, {Kind: patch.Context}}}}}}
+	selection := New()
+	selection.SelectAll(files)
+	if selection.Count() != 2 {
+		t.Fatalf("select all count = %d", selection.Count())
+	}
+	selection.Invert(files)
+	if selection.Count() != 0 {
+		t.Fatalf("invert count = %d", selection.Count())
+	}
+	selection.Toggle(ID{File: 0, Hunk: 0, Line: 1})
+	selection.SelectRange(ID{File: 0, Hunk: 0, Line: 2}, files)
+	if selection.Count() != 2 || !selection.Valid(files) {
+		t.Fatalf("range selection = %#v", selection)
+	}
+	selection.Selected[ID{File: -1, Hunk: 0, Line: 0}] = true
+	selection.Invalidate(files)
+	if selection.Selected[ID{File: -1, Hunk: 0, Line: 0}] {
+		t.Fatal("invalid selection survived invalidation")
+	}
+}
