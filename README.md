@@ -43,6 +43,8 @@ Remote conflict and non-fast-forward failures identify the operation and direct 
 
 Press `Ctrl-P` from any workspace to search and run available commands; disabled commands explain why they cannot run.
 
+Completed and failed core operations surface as bounded notices; failures remain dismissible through the notification model.
+
 ## Keymap and status symbols
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.

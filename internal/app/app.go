@@ -14,6 +14,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/jusanchez/gitwatch/internal/notifications"
 	"github.com/jusanchez/gitwatch/internal/platform"
 	"github.com/jusanchez/gitwatch/internal/remotes"
 	"github.com/jusanchez/gitwatch/internal/repo"
@@ -145,6 +146,7 @@ type Model struct {
 	Width, Height            int
 	Focus, Modal, Status     string
 	Toast                    ToastMsg
+	Notifications            *notifications.Model
 	Snapshot                 repo.Snapshot
 	Discovery                git.Discovery
 	Files                    table.Model
@@ -206,7 +208,7 @@ type Model struct {
 }
 
 func New() Model {
-	return Model{State: StateLoading, Focus: "files", Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New()}
+	return Model{State: StateLoading, Focus: "files", Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
 }
 
 func (m Model) paletteActions() []commands.Action {
@@ -1304,9 +1306,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.State = StateError
 			m.Status = v.Err.Error()
+			m.notify(notifications.JobComplete, notifications.Error, v.Name, v.Err.Error(), true)
 		} else {
 			m.State = StateReady
 			m.Status = v.Name + " complete"
+			m.notify(notifications.JobComplete, notifications.Success, m.Status, "", false)
 		}
 	case ToastMsg:
 		m.Toast = v
@@ -1464,6 +1468,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case RemoteOperationFinishedMsg:
 		m.recordRemoteActivity(v.Operation, v.Remote, v.Err == nil)
 		if v.Err != nil {
+			kind := notifications.PushFailure
+			if strings.HasPrefix(v.Operation, "pull") || v.Operation == "fetch" {
+				kind = notifications.HookFailure
+			}
+			m.notify(kind, notifications.Error, v.Operation, v.Err.Error(), true)
 			m.State = StateError
 			if remoteConflict(v.Err) {
 				m.Status = "conflict during " + v.Operation + ": resolve conflicts, then refresh"
@@ -1471,6 +1480,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = v.Err.Error()
 			}
 		} else {
+			m.notify(notifications.JobComplete, notifications.Success, v.Operation, v.Remote, false)
 			m.State, m.Status = StateReady, v.Operation+" complete: "+v.Remote
 			return m, tea.Batch(m.refresh(), m.loadRemotes())
 		}
@@ -1488,6 +1498,18 @@ func remoteConflict(err error) bool {
 		text += " " + strings.ToLower(string(commandErr.Result.Stderr))
 	}
 	return strings.Contains(text, "conflict") || strings.Contains(text, "would be overwritten") || strings.Contains(text, "non-fast-forward")
+}
+
+func (m *Model) notify(kind notifications.Kind, level notifications.Level, title, message string, attention bool) {
+	if m.Notifications != nil {
+		m.Notifications.Add(notifications.Notification{Kind: kind, Level: level, Title: title, Message: message, Attention: attention})
+	}
+	m.Toast = ToastMsg{Text: title + func() string {
+		if message == "" {
+			return ""
+		}
+		return ": " + message
+	}(), Error: level == notifications.Error}
 }
 
 func (m Model) paletteView() tea.View {
@@ -1538,6 +1560,9 @@ func (m Model) View() tea.View {
 	}
 	if len(lines) == 3 {
 		lines = append(lines, "  clean worktree")
+	}
+	if m.Toast.Text != "" {
+		lines = append(lines, "", "NOTICE: "+platform.SafeText(m.Toast.Text))
 	}
 	if m.Width >= 100 && m.DiffPath != "" {
 		lines = append(lines, "", "Selected diff: "+m.DiffPath)
@@ -1643,6 +1668,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.WorktreeConfirmAction != "" {
 			content += "\n\n" + m.Status
 		}
+	}
+	if m.Toast.Text != "" {
+		content += "\n\nNOTICE: " + platform.SafeText(m.Toast.Text)
 	}
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion

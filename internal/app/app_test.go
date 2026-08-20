@@ -156,6 +156,18 @@ func TestCommandPaletteSearchAndExecution(t *testing.T) {
 	}
 }
 
+func TestOperationNotificationsAndToast(t *testing.T) {
+	m := New()
+	updated, _ := m.Update(RemoteOperationFinishedMsg{Operation: "push", Remote: "origin", Err: errors.New("rejected")})
+	m = updated.(Model)
+	if m.Notifications == nil || len(m.Notifications.Items()) != 1 || m.Toast.Text == "" || !m.Toast.Error {
+		t.Fatalf("notification state = model=%v toast=%#v items=%#v", m.Notifications, m.Toast, m.Notifications.Items())
+	}
+	if !contains(m.View().Content, "NOTICE: push: rejected") {
+		t.Fatalf("toast missing from view: %q", m.View().Content)
+	}
+}
+
 func key(text string) tea.KeyPressMsg {
 	if text == "esc" {
 		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape})
