@@ -1,5 +1,9 @@
 # Task 78: Create htop-style repository dashboard
 
+Status: In progress
+
+Progress: Added a render-neutral row model deriving branch, dirty, staged/unstaged/untracked, conflict, ahead/behind, error, and inactive state, with filtering and sorting helpers. Bubble Tea table, navigation, mouse parity, and stash/remote activity columns remain.
+
 ## Objective
 Build a sortable/filterable table of repositories showing branch, dirty counts, staged/unstaged/untracked/conflicts, ahead/behind, stash count, last activity, remote freshness, and operation state. Enter opens the full repository workspace; mouse interaction must have parity.
 
