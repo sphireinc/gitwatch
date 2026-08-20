@@ -11,6 +11,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/ui/branchview"
+	"github.com/jusanchez/gitwatch/internal/ui/historyview"
 	"github.com/jusanchez/gitwatch/internal/workspace"
 )
 
@@ -100,6 +101,31 @@ func TestBranchCheckoutRejectsRemoteEntries(t *testing.T) {
 	finished, ok := msg.(BranchOperationFinishedMsg)
 	if !ok || finished.Err == nil {
 		t.Fatalf("remote checkout result = %#v", msg)
+	}
+}
+
+func TestHistoryBranchCreationUsesExplicitNameAndTarget(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Log, "History")
+	m.History = historyview.New([]history.Commit{{SHA: "abc123", Short: "abc123", Subject: "commit"}})
+	updated, _ := m.Update(key("B"))
+	m = updated.(Model)
+	if !m.HistoryBranchCreating || m.HistoryBranchTarget != "abc123" {
+		t.Fatalf("branch mode = %v target=%q", m.HistoryBranchCreating, m.HistoryBranchTarget)
+	}
+	for _, ch := range "feature" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, cmd := m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || m.HistoryBranchCreating {
+		t.Fatalf("branch command/state = cmdnil=%v state=%v creating=%v", cmd == nil, m.State, m.HistoryBranchCreating)
+	}
+	updated, _ = m.Update(HistoryActionFinishedMsg{Action: "created branch feature", Target: "abc123"})
+	m = updated.(Model)
+	if m.currentView() != workspace.Status || !contains(m.Status, "created branch feature") {
+		t.Fatalf("branch completion = view=%q status=%q", m.currentView(), m.Status)
 	}
 }
 

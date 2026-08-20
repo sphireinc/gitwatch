@@ -25,6 +25,8 @@ In the History workspace, press `Enter` to inspect the selected commit, `/` to s
 
 Press `x` in History to request detached checkout of the selected commit; the exact SHA is shown and `y` is required to confirm.
 
+Press `B` in History to enter a branch name for the selected commit; Enter executes the typed branch creation and Esc cancels.
+
 ## Keymap and status symbols
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.

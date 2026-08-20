@@ -111,35 +111,38 @@ type RemoteOperationFinishedMsg struct {
 }
 
 type Model struct {
-	State                State
-	Width, Height        int
-	Focus, Modal, Status string
-	Toast                ToastMsg
-	Snapshot             repo.Snapshot
-	Discovery            git.Discovery
-	Files                table.Model
-	Theme                theme.Roles
-	ctx                  context.Context
-	RefreshInterval      time.Duration
-	DiffPath, DiffText   string
-	DiffBinary           bool
-	Workspace            *workspace.Model
-	Branches             branchview.Model
-	Stashes              stashview.Model
-	History              historyview.Model
-	HistoryCommits       []history.Commit
-	HistorySkip          int
-	HistoryHasMore       bool
-	HistoryFilter        string
-	HistorySearching     bool
-	HistoryInspector     history.Inspector
-	HistoryActionConfirm bool
-	HistoryActionTarget  string
-	Composer             commitview.Composer
-	StashPreview         string
-	StashPreviewRef      string
-	Remotes              remoteview.Model
-	RemoteForceConfirm   bool
+	State                 State
+	Width, Height         int
+	Focus, Modal, Status  string
+	Toast                 ToastMsg
+	Snapshot              repo.Snapshot
+	Discovery             git.Discovery
+	Files                 table.Model
+	Theme                 theme.Roles
+	ctx                   context.Context
+	RefreshInterval       time.Duration
+	DiffPath, DiffText    string
+	DiffBinary            bool
+	Workspace             *workspace.Model
+	Branches              branchview.Model
+	Stashes               stashview.Model
+	History               historyview.Model
+	HistoryCommits        []history.Commit
+	HistorySkip           int
+	HistoryHasMore        bool
+	HistoryFilter         string
+	HistorySearching      bool
+	HistoryInspector      history.Inspector
+	HistoryActionConfirm  bool
+	HistoryActionTarget   string
+	HistoryBranchCreating bool
+	HistoryBranchTarget   string
+	HistoryBranchName     string
+	Composer              commitview.Composer
+	StashPreview          string
+	StashPreviewRef       string
+	Remotes               remoteview.Model
+	RemoteForceConfirm    bool
 }
 
 func New() Model {
@@ -297,6 +300,18 @@ func (m Model) checkoutSelectedHistory() tea.Cmd {
 	return func() tea.Msg {
 		_, err := history.CheckoutCommit(context.Background(), runner, target)
 		return HistoryActionFinishedMsg{Action: "checkout", Target: target, Err: err}
+	}
+}
+
+func (m Model) createHistoryBranch() tea.Cmd {
+	if m.HistoryBranchTarget == "" || strings.TrimSpace(m.HistoryBranchName) == "" {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	target, name := m.HistoryBranchTarget, strings.TrimSpace(m.HistoryBranchName)
+	return func() tea.Msg {
+		_, err := history.CreateBranchAt(context.Background(), runner, name, target)
+		return HistoryActionFinishedMsg{Action: "created branch " + name, Target: target, Err: err}
 	}
 }
 
@@ -502,6 +517,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Log && m.HistoryBranchCreating {
+			switch v.String() {
+			case "esc":
+				m.HistoryBranchCreating, m.HistoryBranchName, m.HistoryBranchTarget, m.Status = false, "", "", "branch creation cancelled"
+			case "enter":
+				if strings.TrimSpace(m.HistoryBranchName) == "" {
+					m.Status = "branch name is required"
+				} else {
+					m.HistoryBranchCreating, m.State, m.Status = false, StateOperationPending, "creating branch"
+					return m, m.createHistoryBranch()
+				}
+			case "backspace":
+				m.HistoryBranchName = removeLastRune(m.HistoryBranchName)
+			case "space":
+				m.HistoryBranchName += " "
+			default:
+				if len([]rune(v.String())) == 1 {
+					m.HistoryBranchName += v.String()
+				}
+			}
+			m.Status = "branch at " + m.HistoryBranchTarget + ": " + m.HistoryBranchName
+			return m, nil
+		}
 		if m.currentView() == workspace.Stashes && v.String() == "enter" {
 			m.State, m.Status = StateOperationPending, "loading stash preview"
 			return m, m.previewSelectedStash()
@@ -572,6 +610,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryActionTarget = m.History.Rows[m.History.Selected].Commit.SHA
 				m.HistoryActionConfirm = true
 				m.Status = "checkout commit " + m.HistoryActionTarget + "? (y/n)"
+			}
+		case "B":
+			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+				m.HistoryBranchTarget = m.History.Rows[m.History.Selected].Commit.SHA
+				m.HistoryBranchName, m.HistoryBranchCreating = "", true
+				m.Status = "branch at " + m.HistoryBranchTarget + ": enter name"
 			}
 		case "c":
 			m.beginCommit()
@@ -837,6 +881,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.HistoryActionConfirm {
 			content += "\n\n" + m.Status
 		}
+		if m.HistoryBranchCreating {
+			content += "\n\nBranch name: " + m.HistoryBranchName + "\n" + m.Status
+		}
 	} else if view == workspace.Commit {
 		title, content = "gitwatch · commit", m.Composer.View()
 	} else if view == workspace.Remotes {
@@ -847,7 +894,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
 	if view == workspace.Log {
-		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [x] checkout  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [x] checkout  [B] branch at commit  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
 		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push  [P] force-with-lease  [esc] back  [q] quit"
