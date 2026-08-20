@@ -13,6 +13,8 @@
 | b | Branches view |
 | s | Stashes view |
 | l | History view |
+| c | Commit workspace |
+| Ctrl-S | Execute a valid commit |
 | Tab | Cycle focus/panes |
 | / | Filter |
 | r | Force refresh |

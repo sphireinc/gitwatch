@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/branches"
+	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/workspace"
 )
@@ -43,7 +44,41 @@ func key(text string) tea.KeyPressMsg {
 	if text == "esc" {
 		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape})
 	}
+	if text == "tab" {
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyTab})
+	}
+	if text == "ctrl+s" {
+		return tea.KeyPressMsg(tea.Key{Text: "s", Code: 's', Mod: tea.ModCtrl})
+	}
 	return tea.KeyPressMsg(tea.Key{Text: text, Code: []rune(text)[0]})
+}
+
+func TestCommitWorkspaceEditsDraftAndPreservesItOnFailure(t *testing.T) {
+	m := New()
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("file.txt"), Staged: true}}
+	updated, _ := m.Update(key("c"))
+	m = updated.(Model)
+	if m.currentView() != workspace.Commit || m.Composer.Focus != "subject" {
+		t.Fatalf("composer route = %q focus=%q", m.currentView(), m.Composer.Focus)
+	}
+	for _, ch := range "add" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("tab"))
+	m = updated.(Model)
+	for _, ch := range "details" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	if m.Composer.Draft.Subject != "add" || m.Composer.Draft.Body != "details" || !m.Composer.Ready() {
+		t.Fatalf("draft = %#v", m.Composer.Draft)
+	}
+	updated, _ = m.Update(CommitFinishedMsg{Err: errors.New("hook failed")})
+	m = updated.(Model)
+	if m.currentView() != workspace.Commit || m.Composer.Draft.Subject != "add" || m.State != StateError {
+		t.Fatalf("failed commit changed workspace: view=%q draft=%#v state=%v", m.currentView(), m.Composer.Draft, m.State)
+	}
 }
 
 func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {

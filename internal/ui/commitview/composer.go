@@ -26,7 +26,13 @@ func (c Composer) View() string {
 			lines = append(lines, "  ✓ "+f.Path)
 		}
 	}
-	lines = append(lines, "", "Subject: "+c.Draft.Subject, "", c.Draft.Body, "", "────────────────────────────────────────")
+	subjectMarker, bodyMarker := "  ", "  "
+	if c.Focus == "subject" {
+		subjectMarker = "> "
+	} else {
+		bodyMarker = "> "
+	}
+	lines = append(lines, "", subjectMarker+"Subject: "+c.Draft.Subject, "", bodyMarker+c.Draft.Body, "", "────────────────────────────────────────")
 	if len(v.Errors) > 0 {
 		lines = append(lines, "Error: "+strings.Join(v.Errors, "; "))
 	} else if len(v.Warnings) > 0 {

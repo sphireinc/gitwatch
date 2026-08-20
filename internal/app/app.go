@@ -8,12 +8,14 @@ import (
 
 	"charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/branches"
+	"github.com/jusanchez/gitwatch/internal/commitmodel"
 	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/repo"
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/ui/branchview"
+	"github.com/jusanchez/gitwatch/internal/ui/commitview"
 	"github.com/jusanchez/gitwatch/internal/ui/historyview"
 	"github.com/jusanchez/gitwatch/internal/ui/layout"
 	uimouse "github.com/jusanchez/gitwatch/internal/ui/mouse"
@@ -75,6 +77,10 @@ type HistoryReadyMsg struct {
 	Commits []history.Commit
 	Err     error
 }
+type CommitFinishedMsg struct {
+	SHA string
+	Err error
+}
 
 type Model struct {
 	State                State
@@ -93,6 +99,7 @@ type Model struct {
 	Branches             branchview.Model
 	Stashes              stashview.Model
 	History              historyview.Model
+	Composer             commitview.Composer
 }
 
 func New() Model {
@@ -213,6 +220,89 @@ func (m Model) navigate(view workspace.View, label string) tea.Cmd {
 	}
 }
 
+func (m *Model) beginCommit() {
+	files := make([]commitmodel.File, 0, len(m.Snapshot.Entries))
+	for _, entry := range m.Snapshot.Entries {
+		files = append(files, commitmodel.File{Path: string(entry.Path), Staged: entry.Staged})
+	}
+	m.Composer = commitview.New(files)
+	m.Workspace.Navigate(workspace.Commit, "Commit")
+}
+
+func (m Model) commit() tea.Cmd {
+	if !m.Composer.Ready() {
+		return nil
+	}
+	draft := m.Composer.Draft
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		result, err := runner.Commit(context.Background(), git.CommitOptions{
+			Message: []byte(draft.Message()), Amend: draft.Amend, NoEdit: draft.NoEdit,
+			Signoff: draft.Signoff, Sign: draft.Sign, Author: draft.Author,
+		})
+		return CommitFinishedMsg{SHA: result.SHA, Err: err}
+	}
+}
+
+func removeLastRune(value string) string {
+	runes := []rune(value)
+	if len(runes) == 0 {
+		return value
+	}
+	return string(runes[:len(runes)-1])
+}
+
+func (m *Model) updateComposerKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.Workspace.Back()
+		return nil
+	case "ctrl+s":
+		if !m.Composer.Ready() {
+			m.Status = strings.Join(m.Composer.Draft.Validate().Errors, "; ")
+			return nil
+		}
+		m.State = StateOperationPending
+		m.Status = "committing"
+		return m.commit()
+	case "tab":
+		if m.Composer.Focus == "subject" {
+			m.Composer.Focus = "body"
+		} else {
+			m.Composer.Focus = "subject"
+		}
+	case "enter":
+		if m.Composer.Focus == "subject" {
+			m.Composer.Focus = "body"
+		} else {
+			m.Composer.SetBody(m.Composer.Draft.Body + "\n")
+		}
+	case "backspace":
+		if m.Composer.Focus == "subject" {
+			m.Composer.SetSubject(removeLastRune(m.Composer.Draft.Subject))
+		} else {
+			m.Composer.SetBody(removeLastRune(m.Composer.Draft.Body))
+		}
+	default:
+		if len([]rune(key)) != 1 || key == " " {
+			if key == "space" {
+				if m.Composer.Focus == "subject" {
+					m.Composer.SetSubject(m.Composer.Draft.Subject + " ")
+				} else {
+					m.Composer.SetBody(m.Composer.Draft.Body + " ")
+				}
+			}
+			return nil
+		}
+		if m.Composer.Focus == "subject" {
+			m.Composer.SetSubject(m.Composer.Draft.Subject + key)
+		} else {
+			m.Composer.SetBody(m.Composer.Draft.Body + key)
+		}
+	}
+	return nil
+}
+
 func (m Model) currentView() workspace.View {
 	if m.Workspace == nil {
 		return workspace.Status
@@ -224,6 +314,9 @@ func (m Model) currentView() workspace.View {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch v := msg.(type) {
 	case tea.KeyPressMsg:
+		if m.currentView() == workspace.Commit {
+			return m, m.updateComposerKey(v.String())
+		}
 		switch v.String() {
 		case "q", "ctrl+c":
 			m.State = StateShutdown
@@ -243,6 +336,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.navigate(workspace.Stashes, "Stashes")
 		case "l":
 			return m, m.navigate(workspace.Log, "History")
+		case "c":
+			m.beginCommit()
+			return m, nil
 		case "j", "down":
 			switch m.currentView() {
 			case workspace.Branches:
@@ -356,6 +452,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.Stashes, m.State = stashview.New(v.Entries), StateReady
 		}
+	case CommitFinishedMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.State, m.Status = StateReady, "commit "+v.SHA
+			m.Workspace.Back()
+			return m, m.refresh()
+		}
 	case HistoryReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -367,7 +471,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() tea.View {
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit {
 		return m.featureView(view)
 	}
 	name := m.Snapshot.Branch.Name
@@ -421,8 +525,10 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · stashes", m.Stashes.View()
 	} else if view == workspace.Log {
 		title, content = "gitwatch · history", m.History.View()
+	} else if view == workspace.Commit {
+		title, content = "gitwatch · commit", m.Composer.View()
 	}
-	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [esc] back  [q] quit"}
+	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"}
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v
