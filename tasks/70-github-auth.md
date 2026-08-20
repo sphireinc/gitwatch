@@ -1,5 +1,9 @@
 # Task 70: Add optional GitHub authentication/provider layer
 
+Status: In progress
+
+Progress: Added GitHub remote detection and an optional environment-backed token source that never persists or formats token values. GitHub CLI credential reuse, provider API calls, and UI integration remain.
+
 ## Objective
 Detect GitHub remotes and implement an optional provider abstraction. Prefer GitHub CLI credential reuse when available; otherwise support secure token configuration without writing secrets to normal config/logs. Core gitwatch must remain fully functional when GitHub integration is disabled.
 
