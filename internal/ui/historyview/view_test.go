@@ -31,3 +31,13 @@ func TestViewSanitizesCommitText(t *testing.T) {
 		t.Fatalf("escape sequence rendered: %q", view)
 	}
 }
+
+func TestPulseOnlyChangesGraphMarker(t *testing.T) {
+	m := New([]history.Commit{{SHA: "abcdef1", Short: "abcdef1", Subject: "commit"}})
+	base := m.View()
+	m.SetPulse(1)
+	pulsed := m.View()
+	if base == pulsed || !strings.Contains(pulsed, "◉") {
+		t.Fatalf("pulse did not update marker: base=%q pulsed=%q", base, pulsed)
+	}
+}

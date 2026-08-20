@@ -338,6 +338,23 @@ func TestSelectedWorktreeOpensThroughRepositoryDiscovery(t *testing.T) {
 	}
 }
 
+func TestHistoryPulseRespectsMotionPolicy(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Log, "History")
+	m.Motion = MotionOff
+	updated, _ := m.Update(TickMsg{})
+	m = updated.(Model)
+	if m.HistoryPulse != 0 {
+		t.Fatalf("motion-off pulse = %d", m.HistoryPulse)
+	}
+	m.Motion = MotionFull
+	updated, _ = m.Update(TickMsg{})
+	m = updated.(Model)
+	if m.HistoryPulse != 1 {
+		t.Fatalf("motion-full pulse = %d", m.HistoryPulse)
+	}
+}
+
 func TestBranchCheckoutRejectsRemoteEntries(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Branches, "Branches")

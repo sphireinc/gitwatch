@@ -14,6 +14,7 @@ type Model struct {
 	Rows     []history.GraphRow
 	Selected int
 	Filter   string
+	Pulse    uint8
 }
 
 func New(commits []history.Commit) Model { return Model{Rows: history.BuildGraph(commits)} }
@@ -37,6 +38,8 @@ func (m *Model) SetFilter(filter string, commits []history.Commit) {
 	m.Filter = filter
 	m.SetCommits(commits)
 }
+
+func (m *Model) SetPulse(pulse uint8) { m.Pulse = pulse }
 
 func (m *Model) Move(delta int) {
 	if len(m.Rows) == 0 {
@@ -65,6 +68,9 @@ func (m Model) View() string {
 		lane := "│"
 		if row.Lane == 0 {
 			lane = "●"
+		}
+		if i == m.Selected && m.Pulse%2 == 1 {
+			lane = "◉"
 		}
 		refs := append([]string{}, row.Branches...)
 		refs = append(refs, row.Tags...)

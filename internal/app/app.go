@@ -176,6 +176,7 @@ type Model struct {
 	HistorySkip              int
 	HistoryHasMore           bool
 	HistoryCancel            context.CancelFunc
+	HistoryPulse             uint8
 	HistoryFilter            string
 	HistorySearching         bool
 	HistoryInspector         history.Inspector
@@ -1476,6 +1477,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State = StateReady
 		}
 	case TickMsg:
+		if m.currentView() == workspace.Log && m.Motion.Ticks() {
+			m.HistoryPulse++
+			m.History.SetPulse(m.HistoryPulse)
+		}
 		return m, tea.Batch(m.refresh(), m.tick())
 	case WatcherStateMsg:
 		if v.Err != nil {

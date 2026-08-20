@@ -1,8 +1,8 @@
 # Task 63: Render animated Git log graph
 
-Status: In progress
+Status: Complete
 
-Progress: Added a deterministic render-neutral lane graph, merge-parent lanes, ref decoration classification (HEAD/branches/tags), and case-insensitive history filtering. Bubble Tea now renders selectable graph rows, appends paginated data, supports interactive `/` search, and preserves selection across refresh/filter changes; history text is sanitized before terminal rendering. Selected-commit details remain in Task 64; global full/reduced/off motion policy is already available for the remaining animation integration.
+Progress: Added a deterministic render-neutral lane graph, merge-parent lanes, ref decoration classification (HEAD/branches/tags), and case-insensitive history filtering. Bubble Tea renders selectable graph rows, appends paginated data, supports interactive `/` search, and preserves selection across refresh/filter changes; history text is sanitized before terminal rendering. Selected-commit details are covered by Task 64, and full/reduced/off motion now drives a non-blocking selected-lane pulse that never changes graph layout or hides patch content.
 
 ## Objective
 Create a high-quality terminal commit graph with lanes, merges, branches/tags/HEAD decorations, scrolling, filtering, search, selected-commit details, and adaptive layout. Graph correctness takes priority over animation.
@@ -25,4 +25,8 @@ Create a high-quality terminal commit graph with lanes, merges, branches/tags/HE
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- Graph lanes and decorations remain deterministic and render-neutral; animation is limited to an alternate selected commit marker.
+- The pulse is advanced from the existing non-blocking tick path and is disabled for `motion=off`; reduced motion uses the same bounded single-marker update without changing content geometry.
+- Tests cover graph correctness, filtering, sanitization, selection preservation, and pulse rendering.
