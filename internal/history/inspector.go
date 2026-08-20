@@ -2,10 +2,25 @@ package history
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/jusanchez/gitwatch/internal/git"
 )
+
+var ErrInvalidRef = errors.New("invalid history ref")
+
+func ResolveRef(ctx context.Context, runner git.Runner, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" || strings.HasPrefix(ref, "-") || strings.ContainsAny(ref, "\r\n\x00") {
+		return "", ErrInvalidRef
+	}
+	result, err := runner.Run(ctx, "rev-parse", "--verify", ref+"^{commit}")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(result.Stdout)), nil
+}
 
 type Inspector struct {
 	Commit  Commit

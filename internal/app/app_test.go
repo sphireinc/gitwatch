@@ -112,6 +112,31 @@ func TestHistoryLoadCancelsWhenLeavingView(t *testing.T) {
 	}
 }
 
+func TestHistoryRefJumpRouting(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Log, "History")
+	m.History = historyview.New([]history.Commit{{SHA: "abc", Short: "abc", Subject: "target"}})
+	updated, cmd := m.Update(key("g"))
+	m = updated.(Model)
+	if cmd != nil || !m.HistoryRefMode {
+		t.Fatalf("ref mode = cmdnil=%v mode=%v", cmd == nil, m.HistoryRefMode)
+	}
+	for _, r := range "main" {
+		updated, _ = m.Update(key(string(r)))
+		m = updated.(Model)
+	}
+	updated, cmd = m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.HistoryRefMode || m.State != StateOperationPending {
+		t.Fatalf("ref resolve = cmdnil=%v mode=%v state=%v", cmd == nil, m.HistoryRefMode, m.State)
+	}
+	updated, _ = m.Update(HistoryRefReadyMsg{Ref: "main", SHA: "abc"})
+	m = updated.(Model)
+	if m.History.Selected != 0 || !contains(m.Status, "jumped to main") {
+		t.Fatalf("ref result = selected=%d status=%q", m.History.Selected, m.Status)
+	}
+}
+
 func key(text string) tea.KeyPressMsg {
 	if text == "esc" {
 		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape})

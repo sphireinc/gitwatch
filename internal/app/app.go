@@ -88,6 +88,10 @@ type HistoryInspectorReadyMsg struct {
 	Inspector history.Inspector
 	Err       error
 }
+type HistoryRefReadyMsg struct {
+	Ref, SHA string
+	Err      error
+}
 type HistoryTagsReadyMsg struct {
 	Tags []history.Ref
 	Err  error
@@ -157,6 +161,8 @@ type Model struct {
 	HistoryInspectorParent   string
 	HistoryInspectorPathMode bool
 	HistoryInspectorPath     string
+	HistoryRefMode           bool
+	HistoryRefInput          string
 	HistoryTags              []history.Ref
 	HistoryActionConfirm     bool
 	HistoryActionTarget      string
@@ -427,6 +433,18 @@ func (m Model) loadHistoryTags() tea.Cmd {
 	return func() tea.Msg {
 		tags, err := history.ListTags(context.Background(), runner)
 		return HistoryTagsReadyMsg{Tags: tags, Err: err}
+	}
+}
+
+func (m Model) resolveHistoryRef() tea.Cmd {
+	ref := strings.TrimSpace(m.HistoryRefInput)
+	if ref == "" {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		sha, err := history.ResolveRef(context.Background(), runner, ref)
+		return HistoryRefReadyMsg{Ref: ref, SHA: sha, Err: err}
 	}
 }
 
@@ -749,6 +767,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Log && m.HistoryRefMode {
+			switch v.String() {
+			case "esc":
+				m.HistoryRefMode, m.HistoryRefInput = false, ""
+				m.Status = "ref jump cancelled"
+			case "backspace":
+				m.HistoryRefInput = removeLastRune(m.HistoryRefInput)
+			case "space":
+				m.HistoryRefInput += " "
+			case "enter":
+				if strings.TrimSpace(m.HistoryRefInput) == "" {
+					m.Status = "ref is required"
+				} else {
+					m.HistoryRefMode, m.State, m.Status = false, StateOperationPending, "resolving ref"
+					return m, m.resolveHistoryRef()
+				}
+			default:
+				if len([]rune(v.String())) == 1 {
+					m.HistoryRefInput += v.String()
+				}
+			}
+			if m.HistoryRefMode {
+				m.Status = "jump to ref: " + m.HistoryRefInput
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Stashes && m.StashCreateMode {
 			return m, m.updateStashCreateKey(v.String())
 		}
@@ -997,6 +1041,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryInspectorParent, m.State, m.Status = parent, StateOperationPending, "loading parent-relative details"
 				return m, m.inspectSelectedCommit()
 			}
+		case "g":
+			if m.currentView() == workspace.Log {
+				m.HistoryRefMode, m.HistoryRefInput = true, ""
+				m.Status = "jump to ref: "
+			}
 		case "y":
 			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" {
 				m.Status = "copied " + m.HistoryInspector.Commit.SHA
@@ -1216,6 +1265,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.HistoryInspector, m.State, m.Status = v.Inspector, StateReady, ""
 		}
+	case HistoryRefReadyMsg:
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			found := false
+			for i, row := range m.History.Rows {
+				if row.Commit.SHA == v.SHA {
+					m.History.Selected, found = i, true
+					break
+				}
+			}
+			m.State = StateReady
+			if found {
+				m.Status = "jumped to " + v.Ref
+			} else {
+				m.Status = "ref resolved outside loaded history: " + v.Ref
+			}
+		}
 	case HistoryTagsReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -1341,6 +1408,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.HistoryInspectorPathMode {
 			content += "\n\n" + m.Status
 		}
+		if m.HistoryRefMode {
+			content += "\n\n" + m.Status
+		}
 		if m.HistoryActionConfirm {
 			content += "\n\n" + m.Status
 		}
@@ -1368,7 +1438,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
 	if view == workspace.Log {
-		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [t] tags  [x] checkout  [B] branch  [R] revert (exact SHA)  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
 		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push  [P] force-with-lease  [esc] back  [q] quit"

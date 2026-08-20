@@ -20,7 +20,7 @@
 | B | Create a named branch at selected commit (in History view) |
 | R | Revert selected commit after typing its exact SHA (in History view) |
 | t | Load tag refs (in History view) |
-| M / f / y | Inspect next parent / filter inspected path / copy SHA (in History view) |
+| M / f / g / y | Inspect next parent / filter inspected path / jump to ref / copy SHA (in History view) |
 | n | Remotes view |
 | w | Worktrees view |
 | A / D / P | Add / remove / prune worktrees (in Worktrees view) |
