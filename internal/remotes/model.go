@@ -9,12 +9,13 @@ import (
 )
 
 type Remote struct {
-	Name      string
-	FetchURL  string
-	PushURL   string
-	Reachable bool
-	LastError string
-	Default   bool
+	Name          string
+	FetchURL      string
+	PushURL       string
+	Reachable     bool
+	LastError     string
+	Default       bool
+	LastFetchUnix int64
 }
 
 func List(ctx context.Context, runner git.Runner) ([]Remote, error) {
@@ -35,12 +36,25 @@ func List(ctx context.Context, runner git.Runner) ([]Remote, error) {
 		if pushErr == nil {
 			remote.PushURL = Redact(string(push.Stdout))
 		}
+		if fetched, fetchStateErr := runner.Run(ctx, "reflog", "show", "-1", "--format=%ct", "refs/remotes/"+name+"/HEAD"); fetchStateErr == nil {
+			remote.LastFetchUnix = parseUnix(fetched.Stdout)
+		}
 		remotes = append(remotes, remote)
 	}
 	if len(remotes) > 0 {
 		remotes[0].Default = true
 	}
 	return remotes, nil
+}
+
+func parseUnix(data []byte) int64 {
+	var value int64
+	for _, char := range strings.TrimSpace(string(data)) {
+		if char >= '0' && char <= '9' {
+			value = value*10 + int64(char-'0')
+		}
+	}
+	return value
 }
 
 func Redact(raw string) string {
