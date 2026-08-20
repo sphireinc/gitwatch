@@ -23,6 +23,8 @@ Run `gitwatch` inside any normal Git worktree, including a nested directory. Sel
 
 See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M` modified, `?` untracked, `!` conflict, `D` deleted, and `R` renamed. Symbols remain meaningful with `NO_COLOR=1`.
 
+Advanced workflow notes are in [docs/advanced-workflows.md](docs/advanced-workflows.md), including history, patch, remote, GitHub, plugin, and multi-repository safety semantics.
+
 ## Configuration and watch modes
 
 Configuration is JSON at `$XDG_CONFIG_HOME/gitwatch/config.json` or the platform fallback. `GITWATCH_CONFIG`, `GITWATCH_THEME`, `GITWATCH_MOTION`, `GITWATCH_WATCH`, and `GITWATCH_INTERVAL` provide explicit environment overrides; CLI flags take precedence. Watch modes are `auto`, `fs`, and `poll`. Motion is `full`, `reduced`, or `off`.

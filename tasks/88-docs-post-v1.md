@@ -1,5 +1,9 @@
 # Task 88: Write advanced user documentation
 
+Status: In progress
+
+Progress: Added advanced workflow documentation covering history/patches, stash/branch/worktree safety, remotes/GitHub, plugins, multi-repository behavior, v2 configuration, and security commands. Final UI recordings, complete keymap/config reference, migration guide, and operator troubleshooting remain.
+
 ## Objective
 Document commit composer, patch staging, stash/branch/worktree/history/remotes, GitHub, plugins, multi-repo dashboards, safety semantics, keymaps, configuration, troubleshooting, and migration from v1. Include terminal recordings/screenshots where useful.
 
