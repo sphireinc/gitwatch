@@ -13,6 +13,14 @@ func TestRuntimeRejectsInvalidManifest(t *testing.T) {
 	}
 }
 
+func TestRuntimeRejectsUngrantCapabilityBeforeExecution(t *testing.T) {
+	manifest := Manifest{ID: "plugin", Name: "Plugin", Version: "1", APIVersion: APIVersion, Executable: "missing", Capabilities: []Capability{CapabilityPanel}}
+	_, err := (Runtime{}).RunWithCapabilities(context.Background(), manifest, nil, nil)
+	if !errors.Is(err, ErrCapabilityDenied) {
+		t.Fatalf("capability denial = %v", err)
+	}
+}
+
 func TestLimitedWriterStopsOversizedOutput(t *testing.T) {
 	writer := &limitedWriter{writer: discardWriter{}, limit: 3}
 	if _, err := writer.Write([]byte("1234")); !errors.Is(err, ErrOutputLimit) {

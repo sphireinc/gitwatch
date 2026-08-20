@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
+	"time"
 
 	publicplugin "github.com/jusanchez/gitwatch/pkg/plugin"
 )
@@ -14,9 +16,15 @@ import (
 const MaxOutputBytes = 1 << 20
 
 var ErrOutputLimit = errors.New("plugin output exceeded limit")
+var ErrCapabilityDenied = errors.New("plugin capability was not granted")
 
 type Runtime struct {
 	OutputLimit int64
+}
+
+type Supervision struct {
+	MaxRestarts int
+	Backoff     time.Duration
 }
 
 type Result struct {
@@ -42,7 +50,7 @@ func (r Runtime) Handshake(ctx context.Context, manifest Manifest, supported []C
 	if err != nil {
 		return Negotiation{}, err
 	}
-	result, err := r.Run(ctx, manifest, message)
+	result, err := r.RunWithCapabilities(ctx, manifest, message, negotiation.Capabilities)
 	if err != nil {
 		return Negotiation{}, err
 	}
@@ -65,8 +73,21 @@ func (r Runtime) Handshake(ctx context.Context, manifest Manifest, supported []C
 }
 
 func (r Runtime) Run(ctx context.Context, manifest Manifest, input []byte) (Result, error) {
+	return r.RunWithCapabilities(ctx, manifest, input, manifest.Capabilities)
+}
+
+func (r Runtime) RunWithCapabilities(ctx context.Context, manifest Manifest, input []byte, grants []Capability) (Result, error) {
 	if err := manifest.Validate(); err != nil {
 		return Result{}, err
+	}
+	allowed := make(map[Capability]bool, len(grants))
+	for _, grant := range grants {
+		allowed[grant] = true
+	}
+	for _, capability := range manifest.Capabilities {
+		if !allowed[capability] {
+			return Result{}, fmt.Errorf("%w: %s", ErrCapabilityDenied, capability)
+		}
 	}
 	limit := r.OutputLimit
 	if limit <= 0 {
@@ -86,6 +107,32 @@ func (r Runtime) Run(ctx context.Context, manifest Manifest, input []byte) (Resu
 		return result, err
 	}
 	return result, nil
+}
+
+func (r Runtime) Supervise(ctx context.Context, manifest Manifest, input []byte, grants []Capability, policy Supervision) (Result, error) {
+	if policy.MaxRestarts < 0 {
+		policy.MaxRestarts = 0
+	}
+	if policy.Backoff < 0 {
+		policy.Backoff = 0
+	}
+	for attempt := 0; ; attempt++ {
+		result, err := r.RunWithCapabilities(ctx, manifest, input, grants)
+		if err == nil || attempt >= policy.MaxRestarts || ctx.Err() != nil {
+			return result, err
+		}
+		if policy.Backoff > 0 {
+			timer := time.NewTimer(policy.Backoff)
+			select {
+			case <-ctx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return result, ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
 }
 
 type limitedWriter struct {
