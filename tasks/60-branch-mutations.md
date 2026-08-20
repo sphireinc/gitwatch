@@ -22,3 +22,5 @@ Support create, switch, rename, set/unset upstream, delete merged branch, and fo
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+**Status:** In progress — branch delete confirmation requires typing the exact branch name and distinguishes force deletion; delete/rename execution and refresh integration remain.

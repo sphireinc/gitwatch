@@ -1,0 +1,41 @@
+package stashview
+
+import (
+	"fmt"
+	"github.com/jusanchez/gitwatch/internal/stash"
+	"strings"
+)
+
+type Model struct {
+	Entries  []stash.Entry
+	Selected int
+	Filter   string
+}
+
+func New(e []stash.Entry) Model { return Model{Entries: e} }
+func (m *Model) Move(d int) {
+	m.Selected += d
+	if m.Selected < 0 {
+		m.Selected = 0
+	}
+	if m.Selected >= len(m.Entries) {
+		m.Selected = len(m.Entries) - 1
+	}
+}
+func (m Model) View() string {
+	lines := []string{"Stashes"}
+	for i, e := range m.Entries {
+		if m.Filter != "" && !strings.Contains(strings.ToLower(e.Message), strings.ToLower(m.Filter)) {
+			continue
+		}
+		p := "  "
+		if i == m.Selected {
+			p = "> "
+		}
+		lines = append(lines, fmt.Sprintf("%s%s · %s", p, e.Ref, e.Message))
+	}
+	if len(lines) == 1 {
+		lines = append(lines, "  No stashes")
+	}
+	return strings.Join(lines, "\n")
+}
