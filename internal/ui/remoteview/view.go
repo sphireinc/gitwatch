@@ -74,6 +74,9 @@ func (m Model) View() string {
 	}
 	if jobs := d.ActiveJobs(); len(jobs) > 0 {
 		lines = append(lines, "", fmt.Sprintf("Active jobs: %d", len(jobs)))
+		for _, job := range jobs {
+			lines = append(lines, fmt.Sprintf("  %s %s (%s)", job.Operation, job.Remote, job.State))
+		}
 	}
 	if activity := d.RecentActivity(3); len(activity) > 0 {
 		lines = append(lines, "", "Recent activity:")

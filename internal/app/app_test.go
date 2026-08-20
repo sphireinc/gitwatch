@@ -392,6 +392,17 @@ func TestRemoteSetUpstreamAndTagPushControls(t *testing.T) {
 	}
 }
 
+func TestRemoteDashboardMouseSelectsRemote(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Remotes, "Remotes")
+	m.Remotes = remoteview.New(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin"}, {Name: "backup"}}})
+	updated, cmd := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 2, Y: 7})
+	m = updated.(Model)
+	if cmd != nil || m.Remotes.Selected != 1 {
+		t.Fatalf("remote mouse selection = cmdnil=%v selected=%d", cmd == nil, m.Remotes.Selected)
+	}
+}
+
 func TestBranchCheckoutRejectsRemoteEntries(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Branches, "Branches")

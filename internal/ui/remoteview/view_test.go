@@ -26,3 +26,13 @@ func TestViewRendersRedactedRemoteStateAndPreservesSelection(t *testing.T) {
 		}
 	}
 }
+
+func TestViewRendersActiveJobDetails(t *testing.T) {
+	m := New(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin"}}, Jobs: []remotes.Job{{Operation: "fetch", Remote: "origin", State: remotes.JobRunning}}})
+	view := m.View()
+	for _, want := range []string{"Active jobs: 1", "fetch origin (running)"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("view missing %q: %s", want, view)
+		}
+	}
+}

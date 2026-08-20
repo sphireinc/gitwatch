@@ -1497,6 +1497,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
+			if m.currentView() == workspace.Remotes {
+				row := (v.Y - 4) / 3
+				if v.Y >= 4 && row >= 0 && row < len(m.Remotes.Dashboard.Remotes) {
+					m.Remotes.Selected = row
+				}
+				return m, nil
+			}
 			if m.currentView() == workspace.Stashes {
 				row := v.Y - 3 // feature title, blank line, and "Stashes" header
 				if row >= 0 && row < len(m.Stashes.Entries) {

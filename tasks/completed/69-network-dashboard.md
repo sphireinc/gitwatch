@@ -1,6 +1,6 @@
 # Task 69: Create remote synchronization dashboard
 
-Status: In progress
+Status: Complete
 
 Progress: Added a render-neutral dashboard model with stale-fetch detection, active job filtering, branch divergence fields, and bounded recent activity. The workspace now provides an asynchronous `n` remotes route with selectable remote rows, state rendering, fetch, explicit-strategy pull, push preview/confirmation, and force-with-lease confirmation; completed remote operations now persist bounded success/failure activity across refreshes. Remote operations now register running jobs, expose active-job state, and support cancellation requests.
 
@@ -25,4 +25,9 @@ Create an htop-like remote panel showing branch tracking, ahead/behind, stale fe
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- The remotes workspace is a render-neutral dashboard with stale-fetch detection, branch divergence, bounded activity, and active job details.
+- Fetch, explicit-strategy pull, normal push, set-upstream push, tag push, and force-with-lease push remain on asynchronous typed command paths; jobs carry cancellation and terminal state.
+- Mouse selection is supported alongside keyboard navigation, and failures produce sanitized notifications plus actionable conflict status.
+- Tests cover dashboard projection/rendering, stale and active state, mouse selection, cancellation, push confirmations, real bare-remote behavior, race safety, vetting, and formatting.
