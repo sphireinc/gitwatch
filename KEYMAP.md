@@ -14,6 +14,7 @@
 | s | Stashes view |
 | l | History view |
 | ] | Load more history (in History view) |
+| / | Search history (in History view) |
 | n | Remotes view |
 | f | Fetch selected remote (in Remotes view) |
 | m / e / o | Pull with merge / rebase / fast-forward-only strategy |

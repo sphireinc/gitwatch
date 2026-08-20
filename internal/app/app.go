@@ -122,6 +122,8 @@ type Model struct {
 	HistoryCommits       []history.Commit
 	HistorySkip          int
 	HistoryHasMore       bool
+	HistoryFilter        string
+	HistorySearching     bool
 	Composer             commitview.Composer
 	StashPreview         string
 	StashPreviewRef      string
@@ -417,6 +419,26 @@ func (m *Model) updateComposerKey(key string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) updateHistorySearch(key string) tea.Cmd {
+	if key == "esc" || key == "enter" {
+		m.HistorySearching = false
+		m.Status = ""
+		return nil
+	}
+	if key == "backspace" {
+		m.HistoryFilter = removeLastRune(m.HistoryFilter)
+	} else if key == "space" {
+		m.HistoryFilter += " "
+	} else if len([]rune(key)) == 1 {
+		m.HistoryFilter += key
+	} else {
+		return nil
+	}
+	m.History.SetFilter(m.HistoryFilter, m.HistoryCommits)
+	m.Status = "filter: " + m.HistoryFilter
+	return nil
+}
+
 func (m Model) currentView() workspace.View {
 	if m.Workspace == nil {
 		return workspace.Status
@@ -430,6 +452,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		if m.currentView() == workspace.Commit {
 			return m, m.updateComposerKey(v.String())
+		}
+		if m.currentView() == workspace.Log && m.HistorySearching {
+			return m, m.updateHistorySearch(v.String())
 		}
 		if m.currentView() == workspace.Stashes && v.String() == "enter" {
 			m.State, m.Status = StateOperationPending, "loading stash preview"
@@ -476,6 +501,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Log && m.HistoryHasMore {
 				m.State, m.Status = StateOperationPending, "loading more history"
 				return m, m.loadHistoryPage(m.HistorySkip)
+			}
+		case "/":
+			if m.currentView() == workspace.Log {
+				m.HistorySearching, m.Status = true, "filter: "
 			}
 		case "c":
 			m.beginCommit()
@@ -714,6 +743,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	} else if view == workspace.Log {
 		title, content = "gitwatch · history", m.History.View()
+		if m.HistorySearching {
+			content = "Search: " + m.HistoryFilter + "\n\n" + content
+		}
 	} else if view == workspace.Commit {
 		title, content = "gitwatch · commit", m.Composer.View()
 	} else if view == workspace.Remotes {
@@ -721,7 +753,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
 	if view == workspace.Log {
-		lines[len(lines)-1] = "[j/k] move  [] load more  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] search  [] load more  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
 		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push  [esc] back  [q] quit"

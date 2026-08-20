@@ -195,6 +195,23 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	if m.HistoryHasMore || len(m.History.Rows) != 2 {
 		t.Fatalf("history append state = more=%v rows=%d", m.HistoryHasMore, len(m.History.Rows))
 	}
+	updated, _ = m.Update(key("/"))
+	m = updated.(Model)
+	if !m.HistorySearching {
+		t.Fatal("history search did not start")
+	}
+	for _, ch := range "second" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	if m.History.Filter != "second" || len(m.History.Rows) != 1 || m.History.Rows[0].Commit.SHA != "two" {
+		t.Fatalf("history filter = %q rows=%#v", m.History.Filter, m.History.Rows)
+	}
+	updated, _ = m.Update(key("esc"))
+	m = updated.(Model)
+	if m.HistorySearching || m.currentView() != workspace.Log {
+		t.Fatalf("history search escape state = searching=%v view=%q", m.HistorySearching, m.currentView())
+	}
 }
 
 func contains(s, want string) bool {
