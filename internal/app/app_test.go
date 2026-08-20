@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/jusanchez/gitwatch/internal/branches"
 	"github.com/jusanchez/gitwatch/internal/commands"
+	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/registry"
@@ -352,6 +353,15 @@ func TestHistoryPulseRespectsMotionPolicy(t *testing.T) {
 	m = updated.(Model)
 	if m.HistoryPulse != 1 {
 		t.Fatalf("motion-full pulse = %d", m.HistoryPulse)
+	}
+}
+
+func TestConfiguredKeymapDispatchesCanonicalActions(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{}, config.Config{Keymap: map[string]string{"quit": "x", "help": "h"}})
+	updated, cmd := m.Update(key("x"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateShutdown {
+		t.Fatalf("remapped quit = cmdnil=%v state=%v", cmd == nil, m.State)
 	}
 }
 

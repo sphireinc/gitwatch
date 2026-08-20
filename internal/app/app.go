@@ -158,6 +158,7 @@ type Model struct {
 	Width, Height            int
 	Focus, Modal, Status     string
 	Motion                   Motion
+	Keymap                   map[string]string
 	Toast                    ToastMsg
 	Notifications            *notifications.Model
 	Snapshot                 repo.Snapshot
@@ -236,7 +237,7 @@ type Model struct {
 }
 
 func New() Model {
-	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
+	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Keymap: config.DefaultKeymap(), Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
 }
 
 func (m Model) paletteActions() []commands.Action {
@@ -339,6 +340,7 @@ func NewRepository(d git.Discovery) Model { m := New(); m.Discovery = d; return 
 func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m := NewRepository(d)
 	m.RefreshInterval = c.Interval
+	m.Keymap = mergeKeymap(c.Keymap)
 	switch c.Motion {
 	case "reduced":
 		m.Motion = MotionReduced
@@ -351,6 +353,24 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.RepositoryRoots = append([]string(nil), c.Repositories.Roots...)
 	m.RepositoryEngine = registry.NewEngine(c.Remote.Workers)
 	return m
+}
+
+func mergeKeymap(values map[string]string) map[string]string {
+	merged := config.DefaultKeymap()
+	for action, binding := range values {
+		merged[action] = binding
+	}
+	return merged
+}
+
+func (m Model) normalizeKey(input string) string {
+	canonical := config.DefaultKeymap()
+	for action, binding := range m.Keymap {
+		if input == binding && canonical[action] != input {
+			return canonical[action]
+		}
+	}
+	return input
 }
 func (m Model) Init() tea.Cmd {
 	if m.Discovery.Root == "" {
@@ -1020,6 +1040,9 @@ func (m Model) currentView() workspace.View {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch v := msg.(type) {
 	case tea.KeyPressMsg:
+		if normalized := m.normalizeKey(v.String()); normalized != v.String() && len([]rune(normalized)) > 0 {
+			v = tea.KeyPressMsg(tea.Key{Text: normalized, Code: []rune(normalized)[0]})
+		}
 		if m.PaletteMode {
 			return m, m.updatePaletteKey(v.String())
 		}

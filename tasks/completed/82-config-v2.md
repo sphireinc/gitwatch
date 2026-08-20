@@ -1,8 +1,8 @@
 # Task 82: Extend configuration and keybinding system
 
-Status: In progress
+Status: Complete
 
-Progress: Added versioned v2 module configuration for repositories, remotes, GitHub, plugins, and keymaps; defaults, limit/duration validation, binding collision detection, and `--config-check` are implemented. Loading now migrates unversioned/v1 files in memory and rejects future versions; the complete schema and migration behavior are documented. Full runtime CLI keymap wiring remains.
+Progress: Added versioned v2 module configuration for repositories, remotes, GitHub, plugins, and keymaps; defaults, limit/duration validation, binding collision detection, and `--config-check` are implemented. Loading now migrates unversioned/v1 files in memory and rejects future versions; the complete schema and migration behavior are documented. Configured quit/help/navigation bindings now dispatch through the runtime app keymap.
 
 ## Objective
 Add structured config for new modules, remote behavior, GitHub, plugins, repo roots/groups, refresh budgets, animation, and keymaps. Provide schema validation, migrations, `gitwatch config check`, and collision detection for bindings.
@@ -25,4 +25,9 @@ Add structured config for new modules, remote behavior, GitHub, plugins, repo ro
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- Configuration remains versioned at v2 with in-memory migration for unversioned/v1 files and rejection of future versions.
+- Repository, remote, GitHub, plugin, motion, and keymap settings are validated before use; duplicate bindings are rejected.
+- Runtime keymap bindings merge with canonical defaults and dispatch through the existing Bubble Tea action paths, including navigation, refresh, help, and quit.
+- `--config-check`, configuration documentation, migration tests, collision tests, and remapped runtime dispatch tests are included.

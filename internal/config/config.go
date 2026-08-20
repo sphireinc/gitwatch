@@ -54,7 +54,11 @@ type PluginConfig struct {
 }
 
 func Defaults() Config {
-	return Config{Version: 2, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Keymap: map[string]string{"quit": "q", "help": "?"}}
+	return Config{Version: 2, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Keymap: DefaultKeymap()}
+}
+
+func DefaultKeymap() map[string]string {
+	return map[string]string{"quit": "q", "help": "?", "status": "1", "branches": "b", "stashes": "s", "history": "l", "remotes": "n", "worktrees": "w", "repositories": "v", "commit": "c", "refresh": "r"}
 }
 func Path() (string, error) {
 	if p := os.Getenv("GITWATCH_CONFIG"); p != "" {
