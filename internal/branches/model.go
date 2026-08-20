@@ -78,11 +78,11 @@ func Delete(ctx context.Context, r git.Runner, branch Branch, confirmation Confi
 	if confirmation.Name != branch.Name || !confirmation.Accept(input) {
 		return git.Result{}, ErrConfirmation
 	}
-	flag := "--delete"
+	args := []string{"branch", "--delete"}
 	if confirmation.Force {
-		flag = "--delete-force"
+		args = append(args, "--force")
 	}
-	return r.Run(ctx, "branch", flag, branch.Name)
+	return r.Run(ctx, append(args, branch.Name)...)
 }
 
 func validName(name string) bool {
