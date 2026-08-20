@@ -10,6 +10,8 @@ import (
 	"github.com/jusanchez/gitwatch/internal/branches"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/jusanchez/gitwatch/internal/hunks"
+	"github.com/jusanchez/gitwatch/internal/patch"
 	"github.com/jusanchez/gitwatch/internal/remotes"
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/worktrees"
@@ -80,6 +82,74 @@ func TestRepositoryWorkbenchScenario(t *testing.T) {
 	}
 	if _, err := worktrees.Prune(ctx, runner, true); err != nil {
 		t.Fatalf("worktree prune dry run failed: %v", err)
+	}
+}
+
+func TestPartialStageAndDiscardRealRepositoryScenario(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "partial-test"}, {"config", "user.email", "partial@example.com"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := filepath.Join(root, "partial.txt")
+	base := "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n"
+	if err := os.WriteFile(path, []byte(base), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("partial.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("base\n")}); err != nil {
+		t.Fatal(err)
+	}
+	changed := "ONE\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nTEN\n"
+	if err := os.WriteFile(path, []byte(changed), 0600); err != nil {
+		t.Fatal(err)
+	}
+	diff, err := runner.Run(ctx, "diff", "--", "partial.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := patch.Parse(string(diff.Stdout))
+	if err != nil || len(files) != 1 || len(files[0].Hunks) < 2 {
+		t.Fatalf("separated patch = files=%#v err=%v", files, err)
+	}
+	selection := hunks.New()
+	selection.SelectHunk(0, 0, files[0].Hunks[0])
+	partial, err := selection.BuildPatch(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.ApplyCachedPatch(ctx, git.PartialPatch{Patch: partial}); err != nil {
+		t.Fatal(err)
+	}
+	status, err := runner.Run(ctx, "status", "--porcelain=v1", "--", "partial.txt")
+	if err != nil || !strings.HasPrefix(string(status.Stdout), "MM ") {
+		t.Fatalf("partial stage status = %q err=%v", status.Stdout, err)
+	}
+	remaining, err := runner.Run(ctx, "diff", "--", "partial.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	remainingFiles, err := patch.Parse(string(remaining.Stdout))
+	if err != nil || len(remainingFiles) != 1 {
+		t.Fatalf("remaining patch = %#v err=%v", remainingFiles, err)
+	}
+	remainingSelection := hunks.New()
+	remainingSelection.SelectAll(remainingFiles)
+	discardPatch, err := remainingSelection.BuildPatch(remainingFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.ApplyReversePatch(ctx, git.PartialPatch{Patch: discardPatch}); err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil || string(contents) != "ONE\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n" {
+		t.Fatalf("partial discard contents = %q err=%v", contents, err)
 	}
 }
 

@@ -3,7 +3,7 @@
 ## Objective
 Generate/apply patches safely using Git plumbing (`git apply --cached` / reverse operations as appropriate). Never hand-edit the index. Validate patch applicability before mutation, handle CRLF/binary/rename edge cases, refresh after success, and preserve selection on recoverable failure.
 
-Progress: Typed partial patch operations now perform `git apply --check` before applying, with cached stage, cached reverse unstage, and working-tree reverse discard paths wired to the Hunk workspace. CRLF/binary/rename integration coverage remains.
+Progress: Typed partial patch operations now perform `git apply --check` before applying, with cached stage, cached reverse unstage, and working-tree reverse discard paths wired to the Hunk workspace. A real temporary-repository scenario verifies separated-hunk staging and preserves the remaining unstaged hunk; CRLF/binary/rename integration coverage remains.
 
 ## Required implementation
 - Produce production-quality implementation, not a prototype.

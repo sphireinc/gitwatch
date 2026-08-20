@@ -3,7 +3,7 @@
 ## Objective
 Allow selected working-tree hunks/lines to be discarded only behind a high-friction confirmation showing file and hunk scope. Prefer Git-supported patch application semantics. Add tests proving unrelated lines are untouched.
 
-Progress: Selected working-tree hunks now require the literal `discard` confirmation and use Git reverse patch application after check validation; failure preserves the selection and success refreshes authoritative status. Real unrelated-line integration coverage remains.
+Progress: Selected working-tree hunks now require the literal `discard` confirmation and use Git reverse patch application after check validation; failure preserves the selection and success refreshes authoritative status. A real scenario verifies discarding only the remaining hunk while preserving the staged change and unrelated lines.
 
 ## Required implementation
 - Produce production-quality implementation, not a prototype.
