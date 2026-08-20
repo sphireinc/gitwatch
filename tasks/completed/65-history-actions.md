@@ -1,8 +1,16 @@
 # Task 65: Add history navigation actions
 
-Status: In progress
+Status: Complete
 
-Progress: Added explicit-target checkout, branch-at-commit, tag listing, SHA-confirmed revert primitives, and option-like target rejection. The History workspace now requires explicit `x` then `y` confirmation naming the selected commit before detached checkout, provides `B` branch-name entry for creating a branch at the selected commit, requires typing the exact SHA after `R` before revert, and loads tag refs with `t`; successful mutations refresh status. End-to-end mutation coverage remains.
+Progress: Added explicit-target checkout, branch-at-commit, tag listing, SHA-confirmed revert primitives, and option-like target rejection. The History workspace requires explicit `x` then `y` confirmation naming the selected commit before detached checkout, provides `B` branch-name entry for creating a branch at the selected commit, requires typing the exact SHA after `R` before revert, and loads tag refs with `t`; successful mutations refresh status. A real temporary-repository integration scenario covers tag discovery, branch-at-commit, detached checkout, branch restoration, and exact-SHA revert.
+
+## Completion summary
+
+- Added keyboard-confirmed checkout, branch-at-commit name entry, exact-SHA revert entry, and asynchronous tag loading to the History workspace.
+- All history mutations use typed Git argv and explicit targets; no reset, rebase, cherry-pick, or raw force-style operation was introduced.
+- Added application tests for confirmation, cancellation, target entry, and operation routing.
+- Added `TestHistoryActionsRealRepositoryScenario` covering the real Git mutation sequence.
+- Verified with `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
 
 ## Objective
 Implement checkout/switch from refs, create branch at commit, tag navigation, and guarded revert. Keep reset/rebase/cherry-pick out unless separately implemented with explicit workflows. All history mutations must identify target SHA/ref before confirmation.

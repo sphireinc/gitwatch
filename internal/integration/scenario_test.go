@@ -4,10 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jusanchez/gitwatch/internal/branches"
 	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/worktrees"
 )
@@ -67,5 +69,79 @@ func TestRepositoryWorkbenchScenario(t *testing.T) {
 	canonicalWorktreePath, _ := filepath.EvalSymlinks(worktreePath)
 	if worktrees.Occupancy(entries)["scenario-worktree"] != canonicalWorktreePath {
 		t.Fatalf("worktree occupancy missing: %#v", worktrees.Occupancy(entries))
+	}
+}
+
+func TestHistoryActionsRealRepositoryScenario(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "history-test"}, {"config", "user.email", "history@example.com"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := filepath.Join(root, "history.txt")
+	if err := os.WriteFile(path, []byte("one\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("history.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("one\n")}); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mainBranch := discovery.Root
+	snapshot, err := git.Snapshot(ctx, discovery, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mainBranch = snapshot.Branch.Name
+	firstSHA := snapshot.Branch.OID
+	if err := os.WriteFile(path, []byte("two\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("history.txt")); err != nil {
+		t.Fatal(err)
+	}
+	second, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("two\n")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondSHA := second.SHA
+	if _, err := runner.Run(ctx, "tag", "v-history"); err != nil {
+		t.Fatal(err)
+	}
+	tags, err := history.ListTags(ctx, runner)
+	if err != nil || len(tags) != 1 || tags[0].Name != "v-history" {
+		t.Fatalf("tags = %#v, err=%v", tags, err)
+	}
+	if _, err := history.CreateBranchAt(ctx, runner, "from-first", firstSHA); err != nil {
+		t.Fatal(err)
+	}
+	branchSHA, err := runner.Run(ctx, "rev-parse", "from-first")
+	if err != nil || strings.TrimSpace(string(branchSHA.Stdout)) != firstSHA {
+		t.Fatalf("branch target = %q, err=%v", branchSHA.Stdout, err)
+	}
+	if _, err := history.CheckoutCommit(ctx, runner, firstSHA); err != nil {
+		t.Fatal(err)
+	}
+	head, err := runner.Run(ctx, "rev-parse", "HEAD")
+	if err != nil || strings.TrimSpace(string(head.Stdout)) != firstSHA {
+		t.Fatalf("detached head = %q, err=%v", head.Stdout, err)
+	}
+	if _, err := branches.Checkout(ctx, runner, mainBranch); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := history.Revert(ctx, runner, history.RevertConfirmation{SHA: secondSHA}, secondSHA); err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil || string(contents) != "one\n" {
+		t.Fatalf("reverted file = %q, err=%v", contents, err)
 	}
 }

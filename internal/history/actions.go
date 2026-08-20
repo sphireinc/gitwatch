@@ -45,7 +45,7 @@ func CreateBranchAt(ctx context.Context, runner git.Runner, name, sha string) (g
 }
 
 func ListTags(ctx context.Context, runner git.Runner) ([]Ref, error) {
-	result, err := runner.Run(ctx, "for-each-ref", "--format=%(refname:short)\x00%(objectname)", "refs/tags")
+	result, err := runner.Run(ctx, "for-each-ref", "--format=%(refname:short)%00%(objectname)", "refs/tags")
 	if err != nil {
 		return nil, err
 	}
