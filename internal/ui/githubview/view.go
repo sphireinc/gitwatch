@@ -49,6 +49,21 @@ func (m Model) View() string {
 		lines = append(lines, "  Draft")
 	}
 	lines = append(lines, fmt.Sprintf("  %s -> %s  mergeable=%s reviews=%d comments=%d", platform.SafeText(m.Pull.Head), platform.SafeText(m.Pull.Base), platform.SafeText(m.Pull.Mergeable), m.Pull.Reviews, m.Pull.Comments), "Review: "+platform.SafeText(m.Pull.ReviewState), fmt.Sprintf("Checks: %d passing  %d failing  %d pending", m.Checks.Passing, m.Checks.Failing, m.Checks.Pending))
+	for _, run := range m.Checks.Runs {
+		marker := "✓"
+		if run.Status != "completed" {
+			marker = "…"
+		} else if run.Conclusion != "success" && run.Conclusion != "neutral" && run.Conclusion != "skipped" {
+			marker = "!"
+		}
+		lines = append(lines, fmt.Sprintf("  %s check %s [%s]", marker, platform.SafeText(run.Name), platform.SafeText(run.Conclusion)))
+		if run.Failure != "" {
+			lines = append(lines, "    "+platform.SafeText(run.Failure))
+		}
+		if run.URL != "" {
+			lines = append(lines, "    "+platform.SafeText(run.URL))
+		}
+	}
 	if m.Pull.URL != "" {
 		lines = append(lines, "URL: "+platform.SafeText(m.Pull.URL))
 	}

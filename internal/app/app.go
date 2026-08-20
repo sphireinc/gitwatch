@@ -245,6 +245,8 @@ type Model struct {
 	GitHubEnabled            bool
 	GitHubTokenEnv           string
 	GitHubCache              *provider.PullRequestCache
+	GitHubChecksCache        *provider.Cache[provider.ChecksSnapshot]
+	GitHubReviewsCache       *provider.Cache[provider.ReviewSnapshot]
 	Plugins                  pluginview.Model
 	PluginsEnabled           bool
 	PluginDirectories        []string
@@ -260,7 +262,7 @@ type Model struct {
 }
 
 func New() Model {
-	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Keymap: config.DefaultKeymap(), GitHub: githubview.New(), GitHubCache: provider.NewPullRequestCache(2 * time.Minute), Plugins: pluginview.New(nil), Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
+	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Keymap: config.DefaultKeymap(), GitHub: githubview.New(), GitHubCache: provider.NewPullRequestCache(2 * time.Minute), GitHubChecksCache: provider.NewCache[provider.ChecksSnapshot](2 * time.Minute), GitHubReviewsCache: provider.NewCache[provider.ReviewSnapshot](2 * time.Minute), Plugins: pluginview.New(nil), Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
 }
 
 func (m Model) paletteActions() []commands.Action {
@@ -372,6 +374,8 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.Keymap = mergeKeymap(c.Keymap)
 	m.GitHubEnabled, m.GitHubTokenEnv = c.GitHub.Enabled, c.GitHub.TokenEnv
 	m.GitHubCache = provider.NewPullRequestCache(c.GitHub.CacheTTL)
+	m.GitHubChecksCache = provider.NewCache[provider.ChecksSnapshot](c.GitHub.CacheTTL)
+	m.GitHubReviewsCache = provider.NewCache[provider.ReviewSnapshot](c.GitHub.CacheTTL)
 	m.PluginsEnabled, m.PluginDirectories = c.Plugins.Enabled, append([]string(nil), c.Plugins.Directories...)
 	switch c.Motion {
 	case "reduced":
@@ -732,11 +736,23 @@ func (m Model) loadGitHub() tea.Cmd {
 		if err != nil {
 			return GitHubReadyMsg{Repository: repository, Branch: branch, Err: err}
 		}
-		checks, err := client.Checks(context.Background(), repository, branch)
+		checksCache := m.GitHubChecksCache
+		if checksCache == nil {
+			checksCache = provider.NewCache[provider.ChecksSnapshot](2 * time.Minute)
+		}
+		checks, err := checksCache.Get(context.Background(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"@"+branch, func(ctx context.Context) (provider.ChecksSnapshot, error) {
+			return client.Checks(ctx, repository, branch)
+		})
 		if err != nil {
 			return GitHubReadyMsg{Repository: repository, Branch: branch, Pull: pull, Err: err}
 		}
-		review, err := client.Reviews(context.Background(), repository, pull.Number)
+		reviewsCache := m.GitHubReviewsCache
+		if reviewsCache == nil {
+			reviewsCache = provider.NewCache[provider.ReviewSnapshot](2 * time.Minute)
+		}
+		review, err := reviewsCache.Get(context.Background(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"#"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.ReviewSnapshot, error) {
+			return client.Reviews(ctx, repository, pull.Number)
+		})
 		return GitHubReadyMsg{Repository: repository, Branch: branch, Pull: pull, Checks: checks, Review: review, Err: err}
 	}
 }
@@ -1556,6 +1572,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "confirm " + action + " " + ref + "? (y/n)"
 			}
 		case "c":
+			if m.currentView() == workspace.GitHub {
+				for _, run := range m.GitHub.Checks.Runs {
+					if run.URL == "" {
+						continue
+					}
+					if command, err := platform.OpenURLCommand(run.URL); err == nil {
+						m.Status = "opening check " + run.Name
+						return m, tea.ExecProcess(command, nil)
+					}
+				}
+				m.Status = "no check URL available"
+				return m, nil
+			}
 			return m, m.beginCommit()
 		case "enter":
 			if m.currentView() == workspace.Repositories {

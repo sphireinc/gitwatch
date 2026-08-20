@@ -1,8 +1,8 @@
 # Task 72: Add GitHub Actions/checks visibility
 
-Status: In progress
+Status: Complete
 
-Progress: Added provider-neutral check-run parsing with pass/fail/pending counts, URLs, failure summaries, timestamps, and duration calculation. API transport and GitHub workspace presentation now show aggregate check state; per-check caching, links, and richer external-open actions remain.
+Progress: Added provider-neutral check-run parsing with pass/fail/pending counts, URLs, failure summaries, timestamps, and duration calculation. API transport and GitHub workspace presentation show aggregate and per-check state; check/review reads use bounded TTL caches, and `c` opens a validated check URL.
 
 ## Objective
 Show recent workflow/check runs relevant to HEAD/branch/PR with state, duration, conclusion, and failure summary. Allow opening the run externally. Do not turn gitwatch into a full CI log client in this phase.
@@ -25,4 +25,9 @@ Show recent workflow/check runs relevant to HEAD/branch/PR with state, duration,
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Implementation notes:
+
+- Check runs are loaded asynchronously through the provider client and cached by repository/ref; review snapshots use a separate bounded cache keyed by repository/PR.
+- The GitHub workspace renders every check's status, conclusion, failure summary, and URL in addition to aggregate counts.
+- `c` opens the first available check URL through a validated OS-specific direct-argv browser command; no shell interpolation is used.
+- Tests cover check parsing, transport, caching, failure redaction, sanitized rendering, and action routing across full repository gates.
