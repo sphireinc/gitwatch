@@ -27,6 +27,7 @@ type Result struct {
 	Started, Finished time.Time
 }
 type Work func(context.Context) error
+type ResultMsg struct{ Result Result }
 type Engine struct {
 	mu      sync.Mutex
 	limit   chan struct{}
@@ -65,6 +66,22 @@ func (e *Engine) Cancel(id string) {
 		c()
 	}
 	e.mu.Unlock()
+}
+
+// Command adapts one operation result to a Bubble Tea-compatible command.
+// The blocking wait happens in the command goroutine, never in Update or View.
+func (e *Engine) Command(ctx context.Context, id, repo, name string, timeout time.Duration, work Work) func() ResultMsg {
+	return func() ResultMsg {
+		if err := e.Submit(ctx, id, repo, name, timeout, work); err != nil {
+			return ResultMsg{Result: Result{ID: id, Repo: repo, Name: name, State: Failed, Err: err}}
+		}
+		for result := range e.results {
+			if result.ID == id {
+				return ResultMsg{Result: result}
+			}
+		}
+		return ResultMsg{Result: Result{ID: id, Repo: repo, Name: name, State: Failed, Err: context.Canceled}}
+	}
 }
 func (e *Engine) run(ctx context.Context, id, repo, name string, timeout time.Duration, repoLock *sync.Mutex, work Work) {
 	started := time.Now()
