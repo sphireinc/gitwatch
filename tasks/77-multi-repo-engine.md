@@ -1,5 +1,9 @@
 # Task 77: Build bounded multi-repository status engine
 
+Status: In progress
+
+Progress: Added a bounded worker-pool status engine with context cancellation, cached inactive-repository refreshes, injectable discovery/snapshot functions, and concurrency tests. Adaptive budgets, stash summaries, UI routing, and richer refresh policy remain.
+
 ## Objective
 Collect branch/dirty/ahead-behind/conflict/stash summaries across many repositories with bounded worker pools, adaptive refresh, inactive-repo throttling, and resource budgets. Do not instantiate the full single-repo watcher stack for every repository.
 
