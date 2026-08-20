@@ -1,0 +1,6 @@
+/gitwatch
+/dist/
+/coverage.out
+/.idea/
+*.swp
+*.tmp
