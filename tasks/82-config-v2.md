@@ -1,5 +1,9 @@
 # Task 82: Extend configuration and keybinding system
 
+Status: In progress
+
+Progress: Added versioned v2 module configuration for repositories, remotes, GitHub, plugins, and keymaps; defaults, limit/duration validation, binding collision detection, and `--config-check` are implemented. Migration handling, full CLI keymap wiring, and user-facing schema documentation remain.
+
 ## Objective
 Add structured config for new modules, remote behavior, GitHub, plugins, repo roots/groups, refresh budgets, animation, and keymaps. Provide schema validation, migrations, `gitwatch config check`, and collision detection for bindings.
 

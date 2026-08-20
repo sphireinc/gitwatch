@@ -5,24 +5,56 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"time"
 )
 
 type Config struct {
-	Theme          string        `json:"theme"`
-	Motion         string        `json:"motion"`
-	Watch          string        `json:"watch"`
-	Interval       time.Duration `json:"interval"`
-	Reconciliation time.Duration `json:"reconciliation"`
-	ShowUntracked  bool          `json:"show_untracked"`
-	ShowIgnored    bool          `json:"show_ignored"`
-	Mouse          bool          `json:"mouse"`
-	Debounce       time.Duration `json:"debounce"`
+	Version        int               `json:"version"`
+	Theme          string            `json:"theme"`
+	Motion         string            `json:"motion"`
+	Watch          string            `json:"watch"`
+	Interval       time.Duration     `json:"interval"`
+	Reconciliation time.Duration     `json:"reconciliation"`
+	ShowUntracked  bool              `json:"show_untracked"`
+	ShowIgnored    bool              `json:"show_ignored"`
+	Mouse          bool              `json:"mouse"`
+	Debounce       time.Duration     `json:"debounce"`
+	Repositories   RepositoryConfig  `json:"repositories"`
+	Remote         RemoteConfig      `json:"remote"`
+	GitHub         GitHubConfig      `json:"github"`
+	Plugins        PluginConfig      `json:"plugins"`
+	Keymap         map[string]string `json:"keymap"`
+}
+
+type RepositoryConfig struct {
+	Roots           []string            `json:"roots"`
+	Groups          map[string][]string `json:"groups"`
+	MaxDepth        int                 `json:"max_depth"`
+	MaxRepositories int                 `json:"max_repositories"`
+}
+
+type RemoteConfig struct {
+	PullStrategy string        `json:"pull_strategy"`
+	StaleAfter   time.Duration `json:"stale_after"`
+	Workers      int           `json:"workers"`
+}
+
+type GitHubConfig struct {
+	Enabled  bool          `json:"enabled"`
+	TokenEnv string        `json:"token_env"`
+	CacheTTL time.Duration `json:"cache_ttl"`
+}
+
+type PluginConfig struct {
+	Enabled     bool     `json:"enabled"`
+	Directories []string `json:"directories"`
+	MaxOutput   int64    `json:"max_output"`
 }
 
 func Defaults() Config {
-	return Config{Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond}
+	return Config{Version: 2, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Keymap: map[string]string{"quit": "q", "help": "?"}}
 }
 func Path() (string, error) {
 	if p := os.Getenv("GITWATCH_CONFIG"); p != "" {
@@ -89,7 +121,35 @@ func Validate(c Config) error {
 	if c.Interval <= 0 || c.Debounce < 0 {
 		return fmt.Errorf("interval must be positive and debounce non-negative")
 	}
+	if c.Version != 2 {
+		return fmt.Errorf("unsupported config version %d", c.Version)
+	}
+	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 {
+		return fmt.Errorf("config limits cannot be negative")
+	}
+	if c.Remote.PullStrategy != "merge" && c.Remote.PullStrategy != "rebase" && c.Remote.PullStrategy != "ff-only" {
+		return fmt.Errorf("invalid pull strategy %q", c.Remote.PullStrategy)
+	}
+	if c.Remote.StaleAfter < 0 || c.GitHub.CacheTTL < 0 {
+		return fmt.Errorf("config durations cannot be negative")
+	}
+	if collisions := BindingCollisions(c.Keymap); len(collisions) > 0 {
+		return fmt.Errorf("key binding collision: %s", collisions[0])
+	}
 	return nil
+}
+
+func BindingCollisions(bindings map[string]string) []string {
+	owners := make(map[string]string)
+	var collisions []string
+	for action, key := range bindings {
+		if previous, ok := owners[key]; ok && previous != action {
+			collisions = append(collisions, key+" ("+previous+", "+action+")")
+		}
+		owners[key] = action
+	}
+	sort.Strings(collisions)
+	return collisions
 }
 func Inspect(c Config) ([]byte, error) { return json.MarshalIndent(c, "", "  ") }
 func applyEnv(c Config) Config {

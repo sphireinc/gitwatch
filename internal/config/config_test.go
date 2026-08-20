@@ -23,3 +23,14 @@ func TestConfigPrecedenceAndValidation(t *testing.T) {
 		t.Fatal(c)
 	}
 }
+
+func TestV2DefaultsAndBindingCollisionValidation(t *testing.T) {
+	c := Defaults()
+	if c.Version != 2 || c.Remote.PullStrategy != "ff-only" {
+		t.Fatalf("unexpected defaults: %#v", c)
+	}
+	c.Keymap = map[string]string{"one": "x", "two": "x"}
+	if Validate(c) == nil || len(BindingCollisions(c.Keymap)) != 1 {
+		t.Fatal("binding collision was not rejected")
+	}
+}

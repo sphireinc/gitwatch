@@ -22,6 +22,7 @@ func main() {
 	watchFlag := flag.String("watch", "", "watch mode: auto, fs, or poll")
 	intervalFlag := flag.Duration("interval", 0, "poll/reconciliation interval")
 	configInspect := flag.Bool("config-inspect", false, "print effective configuration and exit")
+	configCheck := flag.Bool("config-check", false, "validate configuration and exit")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "gitwatch — interactive Git worktree dashboard\n\nUsage: gitwatch [options]\n\nOptions:\n")
 		flag.PrintDefaults()
@@ -52,6 +53,10 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println(string(data))
+		return
+	}
+	if *configCheck {
+		fmt.Println("configuration valid")
 		return
 	}
 
