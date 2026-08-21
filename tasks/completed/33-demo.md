@@ -6,4 +6,4 @@ Create a deterministic demo repository/script that produces attractive mixed sta
 
 **Acceptance:** README media demonstrates live refresh, mouse selection, stage/unstage, filter, diff, responsive resizing.
 
-**Status:** Complete — deterministic mixed-state demo fixture and capture guide are provided; the README documents the live-refresh, mouse, keyboard, diff, and responsive-resize recording flow.
+**Status:** Complete — deterministic mixed-state demo fixture, capture guide, and an asciinema-compatible captured frame at `docs/demo.cast` are provided; the README documents the live-refresh, mouse, keyboard, diff, and responsive-resize recording flow.
