@@ -1,8 +1,10 @@
 # Task 67: Implement fetch and pull workflows
 
-Status: In progress
+Status: Complete
 
-Progress: Added explicit fetch and pull command primitives with merge, rebase, and fast-forward-only strategy options, rejecting unspecified strategies and option-like targets. The remotes workspace now fetches and pulls the selected remote asynchronously with explicit `m`/`e`/`o` strategies and refreshes status/remote metadata afterward; Git conflict and non-fast-forward failures now produce actionable recovery status. Remote commands now use cancellable contexts and report cancellation through the operation lifecycle; progress detail remains.
+Progress: Added explicit fetch and pull command primitives with merge, rebase, and fast-forward-only strategy options, rejecting unspecified strategies and option-like targets. The remotes workspace now fetches and pulls the selected remote asynchronously with explicit `m`/`e`/`o` strategies and refreshes status/remote metadata afterward; Git conflict and non-fast-forward failures now produce actionable recovery status. Remote commands now use cancellable contexts and report cancellation through the operation lifecycle. Active remote jobs now expose structured phases (`fetching remote refs`, `integrating <strategy>`, `sending refs`, and `sending tag`) plus elapsed time; completion distinguishes success, failure, and cancellation. Git progress remains captured by the typed runner rather than streamed byte-for-byte, so the UI reports operation phases instead of fabricated percentages.
+
+Completion summary: Added phase-aware remote job state, elapsed-time rendering, and explicit cancellation classification in the Bubble Tea update path. Existing typed, argument-array Git execution and post-operation refresh behavior remain unchanged. Keyboard workflows are documented in the existing remotes help/keymap. Focused remote, app, and remote-view tests plus the full test, race, vet, formatting, and diff-check gates pass. Deferred follow-up: byte-level Git progress streaming would require extending the runner with a non-buffering progress channel.
 
 ## Objective
 Add async fetch and pull with progress/activity feedback, cancellation where feasible, configurable pull strategy awareness, conflict handling, and post-operation refresh. Never silently choose merge vs rebase when Git configuration does not define behavior.

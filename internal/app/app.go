@@ -1028,7 +1028,8 @@ func (m *Model) startRemoteJob(operation, remote string) context.Context {
 	ctx, cancel := context.WithCancel(base)
 	m.RemoteCancel = cancel
 	m.RemoteJobID = fmt.Sprintf("remote-%d", time.Now().UnixNano())
-	m.Remotes.Dashboard.Jobs = append(m.Remotes.Dashboard.Jobs, remotes.Job{ID: m.RemoteJobID, Operation: operation, Remote: remote, State: remotes.JobRunning, Started: time.Now()})
+	now := time.Now()
+	m.Remotes.Dashboard.Jobs = append(m.Remotes.Dashboard.Jobs, remotes.Job{ID: m.RemoteJobID, Operation: operation, Remote: remote, State: remotes.JobRunning, Progress: "starting", Started: now, Updated: now})
 	return ctx
 }
 
@@ -1039,6 +1040,7 @@ func (m *Model) fetchSelectedRemote() tea.Cmd {
 	remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx := m.startRemoteJob("fetch", remote)
+	m.Remotes.Dashboard.Jobs[len(m.Remotes.Dashboard.Jobs)-1].Progress = "fetching remote refs"
 	return func() tea.Msg {
 		_, err := remotes.Fetch(ctx, runner, remote)
 		return RemoteOperationFinishedMsg{Operation: "fetch", Remote: remote, Err: err}
@@ -1053,6 +1055,7 @@ func (m *Model) pullSelectedRemote(strategy string) tea.Cmd {
 	branch := m.Snapshot.Branch.Name
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx := m.startRemoteJob("pull "+strategy, remote)
+	m.Remotes.Dashboard.Jobs[len(m.Remotes.Dashboard.Jobs)-1].Progress = "integrating " + strategy
 	return func() tea.Msg {
 		_, err := remotes.Pull(ctx, runner, remote, branch, strategy)
 		return RemoteOperationFinishedMsg{Operation: "pull " + strategy, Remote: remote, Err: err}
@@ -1067,6 +1070,7 @@ func (m *Model) pushSelectedRemote(forceWithLease bool) tea.Cmd {
 	branch := m.Snapshot.Branch.Name
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx := m.startRemoteJob("push", remote)
+	m.Remotes.Dashboard.Jobs[len(m.Remotes.Dashboard.Jobs)-1].Progress = "sending refs"
 	setUpstream := m.RemoteSetUpstream
 	return func() tea.Msg {
 		_, err := remotes.PushWithOptions(ctx, runner, remote, branch, remotes.PushOptions{ForceWithLease: forceWithLease, SetUpstream: setUpstream})
@@ -1081,6 +1085,7 @@ func (m *Model) pushSelectedTag() tea.Cmd {
 	remote, tag := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name, strings.TrimSpace(m.RemoteTag)
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx := m.startRemoteJob("push tag", remote)
+	m.Remotes.Dashboard.Jobs[len(m.Remotes.Dashboard.Jobs)-1].Progress = "sending tag"
 	return func() tea.Msg {
 		_, err := remotes.PushTag(ctx, runner, remote, tag)
 		return RemoteOperationFinishedMsg{Operation: "push tag " + tag, Remote: remote, Err: err}
@@ -2256,10 +2261,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					job := &m.Remotes.Dashboard.Jobs[i]
 					job.Finished = time.Now()
 					if v.Err != nil {
-						job.State, job.Error = remotes.JobFailed, v.Err.Error()
+						job.State, job.Error, job.Progress = remotes.JobFailed, v.Err.Error(), "failed"
+						if errors.Is(v.Err, git.ErrCancelled) {
+							job.State, job.Progress = remotes.JobCanceled, "cancelled"
+						}
 					} else {
-						job.State = remotes.JobSuccess
+						job.State, job.Progress = remotes.JobSuccess, "complete"
 					}
+					job.Updated = job.Finished
 				}
 			}
 			m.RemoteCancel, m.RemoteJobID = nil, ""

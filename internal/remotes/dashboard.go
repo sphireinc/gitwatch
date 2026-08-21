@@ -15,7 +15,9 @@ const (
 type Job struct {
 	ID, Operation, Remote string
 	State                 JobState
+	Progress              string
 	Started, Finished     time.Time
+	Updated               time.Time
 	Error                 string
 }
 

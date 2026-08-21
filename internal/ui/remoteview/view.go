@@ -75,7 +75,16 @@ func (m Model) View() string {
 	if jobs := d.ActiveJobs(); len(jobs) > 0 {
 		lines = append(lines, "", fmt.Sprintf("Active jobs: %d", len(jobs)))
 		for _, job := range jobs {
-			lines = append(lines, fmt.Sprintf("  %s %s (%s)", job.Operation, job.Remote, job.State))
+			progress := job.Progress
+			if progress == "" {
+				progress = string(job.State)
+			}
+			line := fmt.Sprintf("  %s %s (%s, %s)", job.Operation, job.Remote, job.State, progress)
+			if !job.Started.IsZero() {
+				elapsed := time.Since(job.Started).Round(time.Second)
+				line = fmt.Sprintf("%s, %s elapsed", line, elapsed)
+			}
+			lines = append(lines, line)
 		}
 	}
 	if activity := d.RecentActivity(3); len(activity) > 0 {
