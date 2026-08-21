@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -38,8 +39,11 @@ func TestRegistryRoundTripUsesPrivateFileMode(t *testing.T) {
 		t.Fatalf("unexpected registry: %#v, %v", got, err)
 	}
 	info, err := os.Stat(path)
-	if err != nil || info.Mode().Perm() != 0600 {
-		t.Fatalf("registry is not private: %v", err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Fatalf("registry mode = %v", info.Mode().Perm())
 	}
 }
 

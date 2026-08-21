@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -38,8 +39,11 @@ func TestPluginStateRoundTripIsPrivateAndImmutable(t *testing.T) {
 		t.Fatalf("state = %#v err=%v", state, err)
 	}
 	info, err := os.Stat(path)
-	if err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("state mode = %v err=%v", info.Mode().Perm(), err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Fatalf("state mode = %v", info.Mode().Perm())
 	}
 	updated := ApplyState([]Entry{{Manifest: Manifest{ID: "one"}, Enabled: true}}, state)
 	if updated[0].Enabled {

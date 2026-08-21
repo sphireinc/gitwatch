@@ -32,6 +32,9 @@ func TestRepositoryWorkbenchScenario(t *testing.T) {
 	if _, err := runner.Run(ctx, "config", "user.email", "gitwatch-test@example.com"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := runner.Run(ctx, "config", "core.autocrlf", "false"); err != nil {
+		t.Fatal(err)
+	}
 	file := filepath.Join(root, "tracked.txt")
 	if err := os.WriteFile(file, []byte("initial\n"), 0600); err != nil {
 		t.Fatal(err)
@@ -72,7 +75,7 @@ func TestRepositoryWorkbenchScenario(t *testing.T) {
 		t.Fatalf("worktree discovery failed: %#v, %v", entries, err)
 	}
 	canonicalWorktreePath, _ := filepath.EvalSymlinks(worktreePath)
-	if worktrees.Occupancy(entries)["scenario-worktree"] != canonicalWorktreePath {
+	if filepath.Clean(worktrees.Occupancy(entries)["scenario-worktree"]) != filepath.Clean(canonicalWorktreePath) {
 		t.Fatalf("worktree occupancy missing: %#v", worktrees.Occupancy(entries))
 	}
 	if _, err := worktrees.Remove(ctx, runner, worktreePath, false); err != nil {
@@ -95,7 +98,7 @@ func TestMultiRepositoryRefreshTransitionScenario(t *testing.T) {
 			t.Fatal(err)
 		}
 		runner := git.NewRunner(root)
-		for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "multi-repo-test"}, {"config", "user.email", "multi@example.com"}} {
+		for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "multi-repo-test"}, {"config", "user.email", "multi@example.com"}, {"config", "core.autocrlf", "false"}} {
 			if _, err := runner.Run(ctx, args...); err != nil {
 				t.Fatal(err)
 			}
@@ -141,7 +144,7 @@ func TestPartialStageAndDiscardRealRepositoryScenario(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 	runner := git.NewRunner(root)
-	for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "partial-test"}, {"config", "user.email", "partial@example.com"}} {
+	for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "partial-test"}, {"config", "user.email", "partial@example.com"}, {"config", "core.autocrlf", "false"}} {
 		if _, err := runner.Run(ctx, args...); err != nil {
 			t.Fatal(err)
 		}
@@ -209,7 +212,7 @@ func TestHistoryActionsRealRepositoryScenario(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 	runner := git.NewRunner(root)
-	for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "history-test"}, {"config", "user.email", "history@example.com"}} {
+	for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "history-test"}, {"config", "user.email", "history@example.com"}, {"config", "core.autocrlf", "false"}} {
 		if _, err := runner.Run(ctx, args...); err != nil {
 			t.Fatal(err)
 		}
@@ -282,7 +285,7 @@ func TestStashMutationsRealRepositoryScenario(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 	runner := git.NewRunner(root)
-	for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "stash-test"}, {"config", "user.email", "stash@example.com"}} {
+	for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "stash-test"}, {"config", "user.email", "stash@example.com"}, {"config", "core.autocrlf", "false"}} {
 		if _, err := runner.Run(ctx, args...); err != nil {
 			t.Fatal(err)
 		}
@@ -385,7 +388,7 @@ func TestRemotePushPreviewRealRepositoryScenario(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := git.NewRunner(root)
-	for _, args := range [][]string{{"config", "user.name", "remote-test"}, {"config", "user.email", "remote@example.com"}} {
+	for _, args := range [][]string{{"config", "user.name", "remote-test"}, {"config", "user.email", "remote@example.com"}, {"config", "core.autocrlf", "false"}} {
 		if _, err := runner.Run(ctx, args...); err != nil {
 			t.Fatal(err)
 		}

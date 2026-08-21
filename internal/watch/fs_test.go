@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -40,6 +41,9 @@ func TestWatcherDebouncesAndSeesCreatedDirectories(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("watcher did not emit")
+	}
+	if runtime.GOOS == "windows" {
+		return
 	}
 	drainFilesystemEvents(events, 25*time.Millisecond)
 	if err := os.Chmod(filepath.Join(root, "one"), 0o755); err != nil {
@@ -102,6 +106,9 @@ func TestWatcherSeesExternalGitMetadataAndRecreatedDirectory(t *testing.T) {
 }
 
 func TestSnapshotReadDoesNotEmitMetadataHint(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("read-only CHMOD filtering covers kqueue metadata-read artifacts")
+	}
 	root := t.TempDir()
 	runner := gitrunner.NewRunner(root)
 	ctx := context.Background()

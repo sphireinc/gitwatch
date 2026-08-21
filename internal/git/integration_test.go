@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -103,12 +104,17 @@ func TestUnusualFilenamesAndRenamePreservePaths(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	r := NewRunner(dir)
-	for _, args := range [][]string{{"init", "--", dir}, {"config", "user.name", "gitwatch"}, {"config", "user.email", "gitwatch@example.com"}} {
+	for _, args := range [][]string{{"init", "--", dir}, {"config", "user.name", "gitwatch"}, {"config", "user.email", "gitwatch@example.com"}, {"config", "core.autocrlf", "false"}} {
 		if _, err := r.Run(ctx, args...); err != nil {
 			t.Fatal(err)
 		}
 	}
-	names := []string{"space name.txt", "café.txt", "quote\"name.txt", "-leading.txt"}
+	names := []string{"space name.txt", "café.txt", "-leading.txt"}
+	if runtime.GOOS != "windows" {
+		// Quotes and tabs are valid Unix filename bytes but prohibited by the
+		// Windows filesystem API. Exercise them wherever the platform permits.
+		names = append(names, "quote\"name.txt", "tab\tname.txt")
+	}
 	for i, name := range names {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(fmt.Sprintf("file %d\n", i)), 0o644); err != nil {
 			t.Fatal(err)
@@ -120,7 +126,10 @@ func TestUnusualFilenamesAndRenamePreservePaths(t *testing.T) {
 	if _, err := r.Commit(ctx, CommitOptions{Message: []byte("unusual names\n")}); err != nil {
 		t.Fatal(err)
 	}
-	renamed := "renamed \"café\".txt"
+	renamed := "renamed café.txt"
+	if runtime.GOOS != "windows" {
+		renamed = "renamed \"café\".txt"
+	}
 	if _, err := r.Run(ctx, "mv", "--", names[1], renamed); err != nil {
 		t.Fatal(err)
 	}

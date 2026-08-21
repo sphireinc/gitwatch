@@ -61,6 +61,9 @@ func TestRestoreStagedAndWorkingTreeContent(t *testing.T) {
 	if _, err := runner.Run(ctx, "config", "user.email", "gitwatch-test@example.com"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := runner.Run(ctx, "config", "core.autocrlf", "false"); err != nil {
+		t.Fatal(err)
+	}
 	path := []byte("tracked file.txt")
 	full := filepath.Join(dir, string(path))
 	if err := os.WriteFile(full, []byte("original\n"), 0o644); err != nil {
