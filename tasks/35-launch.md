@@ -6,4 +6,4 @@ Run `RELEASE_CRITERIA.md` line-by-line. Update changelog, version, release notes
 
 **Acceptance:** v1 artifacts install, launch, detect a repo, refresh live, stage/unstage safely, show diff/help, and exit cleanly on all supported platforms.
 
-**Status:** In progress — source version is prepared as `1.0.0-dev`, release notes and five-target checksummed archives are prepared, launch smoke checks pass, user-visible missing-Git/non-repository behavior is observed and tested, unusual filenames/renames are covered against real Git, and partial macOS keyboard/diff evidence is recorded; final cross-platform/manual acceptance, signed tagging, and publication remain.
+**Status:** In progress — source version is prepared as `1.0.0-dev`, release notes and five-target checksummed archives are prepared, isolated source-install/version/help/config checks pass, user-visible missing-Git/non-repository behavior is observed and tested, unusual filenames/renames are covered against real Git, and partial macOS keyboard/diff evidence is recorded; final cross-platform/manual acceptance, signed tagging, and publication remain.

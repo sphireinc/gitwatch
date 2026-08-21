@@ -11,6 +11,7 @@ go test -race ./...
 go vet ./...
 ./scripts/performance-check.sh
 ./scripts/security-check.sh
+./scripts/install-check.sh
 go build ./cmd/gitwatch
 smoke_binary=$(mktemp "${TMPDIR:-/tmp}/gitwatch-release-smoke.XXXXXX")
 trap 'rm -rf "$demo_dir" "$smoke_binary"' EXIT

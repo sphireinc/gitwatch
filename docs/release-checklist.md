@@ -1,6 +1,6 @@
 # Release checklist
 
-`./scripts/release-check.sh` is the repeatable local gate for evidence that can run on the current host. It covers the Go test suite, race detector, vet, build, help/version/config inspection, a real disposable Git demo repository, and release archive checksum verification.
+`./scripts/release-check.sh` is the repeatable local gate for evidence that can run on the current host. It covers the Go test suite, race detector, vet, build, help/version/config inspection, an isolated temporary `go install`, a real disposable Git demo repository, and release archive checksum/extraction verification.
 
 Tagged pushes matching `v*.*.*` run `.github/workflows/release.yml`. That
 workflow cross-builds the five supported archives (`darwin/amd64`,
