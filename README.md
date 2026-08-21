@@ -21,6 +21,11 @@ An htop-style interactive Git worktree dashboard for the terminal. gitwatch cont
 
 ![gitwatch status dashboard](docs/demo.svg)
 
+[Replay the complete terminal recording](docs/demo.cast), including live
+refresh, mouse and keyboard diff opening, filtering, stage/unstage, and the
+narrow-terminal overlay. See the [recording guide](docs/demo.md) for capture
+provenance and local playback instructions.
+
 ## Features
 
 - Live, authoritative porcelain-v2 status with filesystem watching and polling fallback.
