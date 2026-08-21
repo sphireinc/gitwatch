@@ -23,4 +23,6 @@ Model staged files, unstaged files, selected hunks, commit message subject/body,
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — pure commit draft, staged-file, metadata, message, validation, and clear/preserve rules are implemented and tested. The application now constructs the draft from the authoritative staged snapshot and preserves it on execution failure; amend/signing metadata controls and final workflow coverage remain.
+**Status:** Complete
+
+Completion summary: The pure draft model covers staged scope, subject/body, amend, no-edit, signoff, signing, author override, validation, and clear-on-success/preserve-on-failure rules. The application constructs drafts from the authoritative staged snapshot, exposes metadata controls, requires confirmation for amend, executes asynchronously, surfaces hook failures, and preserves draft text after failure. Commit-model, composer, app workflow, and repository-wide quality gates pass.
