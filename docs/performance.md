@@ -17,3 +17,10 @@ interactive work are: no Git or filesystem process in `View`, bounded repository
 workers, bounded plugin output, and visible-list rendering proportional to the viewport
 rather than total history/repository size. Record benchmark output with
 `go test -bench . -benchmem` before changing those budgets.
+
+CI and the release check enforce allocation budgets for these representative
+workloads: fewer than 1,000 allocations for the 10,000-line patch parser,
+300,000 for parsing 100,000 history records, 200,000 for building the 100,000
+node graph, and 100 allocations for producing 1,000 repository rows. These
+are structural allocation guards rather than wall-clock limits, so they remain
+portable across supported CPUs and operating systems.
