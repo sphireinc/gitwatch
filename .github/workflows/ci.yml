@@ -47,7 +47,7 @@ jobs:
           & $binary --config-check
           $demo = Join-Path $env:RUNNER_TEMP 'gitwatch-smoke'
           New-Item -ItemType Directory -Force $demo | Out-Null
-          git -C $demo init --quiet --
+          git -C $demo init --quiet
           git -C $demo config user.name gitwatch-ci
           git -C $demo config user.email gitwatch-ci@example.com
           'initial' | Set-Content (Join-Path $demo 'tracked.txt')

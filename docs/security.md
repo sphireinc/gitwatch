@@ -24,5 +24,6 @@ responses, terminal text, and plugin input/output as untrusted data.
 - Binary, rename, and copy diffs are refused by line-oriented partial patch
   operations; whole-file Git operations remain the supported path.
 
-The remaining security work is maintained in Task 83 and covers expanded
-plugin hostile-process fixtures and release/operator review.
+Automated coverage includes hostile-process fixtures. Release-owner follow-up
+review is tracked in the release sign-off record and covers the supported
+platforms and operator release procedure.
