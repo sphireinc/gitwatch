@@ -36,3 +36,16 @@ func TestHunkViewNavigationAndMouseLineSelection(t *testing.T) {
 		t.Fatalf("context line selection = %#v", m.Selection)
 	}
 }
+
+func TestHunkViewViewportKeepsCurrentLineVisible(t *testing.T) {
+	files, err := patch.Parse("diff --git a/a b/a\n@@ -1,5 +1,5 @@\n-a\n+b\n-c\n+d\n-e\n+f\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := New(files)
+	m.SetHeight(2)
+	m.Move(5)
+	if m.Offset != 4 || m.LineAt(0) != 4 || !strings.Contains(m.View(), "+ f") {
+		t.Fatalf("viewport = offset %d line %d view %q", m.Offset, m.Line, m.View())
+	}
+}

@@ -3,7 +3,7 @@
 ## Objective
 Add a patch-mode diff view with gutter selection, current hunk emphasis, selected-line indicators, hunk counters, context expansion, mouse selection, keyboard navigation, help hints, and animation that never obscures patch content.
 
-Progress: The app now exposes an asynchronous Hunk workspace from the loaded diff with selected-line markers, hunk counters, keyboard selection/all/invert controls, partial stage/unstage actions, guarded discard, mouse changed-line selection, and keyboard file/hunk navigation. Context expansion reloads the authoritative Git diff asynchronously at 3, 8, or 20 lines. A dedicated viewport/scroll treatment and final animation polish remain.
+Progress: The app now exposes an asynchronous Hunk workspace from the loaded diff with selected-line markers, hunk counters, keyboard selection/all/invert controls, partial stage/unstage actions, guarded discard, mouse changed-line selection, keyboard file/hunk navigation, and a bounded viewport that keeps the active line visible. Context expansion reloads the authoritative Git diff asynchronously at 3, 8, or 20 lines. Final animation polish remains.
 
 ## Required implementation
 - Produce production-quality implementation, not a prototype.

@@ -1807,7 +1807,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Button == tea.MouseLeft {
 			if m.currentView() == workspace.Hunks {
 				// The hunk header occupies the first content row; patch lines start at y=3.
-				m.Hunks.SelectLine(v.Y - 3)
+				m.Hunks.SelectLine(m.Hunks.LineAt(v.Y - 3))
 				return m, nil
 			}
 			if m.currentView() == workspace.Remotes {
@@ -1839,6 +1839,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.Width, m.Height = v.Width, v.Height
+		m.Hunks.SetHeight(max(1, v.Height-8))
 	case SnapshotMsg:
 		m.Snapshot = v.Snapshot
 		m.Files.SetEntries(v.Snapshot.Entries)

@@ -11,6 +11,7 @@ import (
 type Model struct {
 	Files            []patch.File
 	File, Hunk, Line int
+	Height, Offset   int
 	Selection        hunks.Selection
 }
 
@@ -33,6 +34,7 @@ func (m *Model) Move(delta int) {
 	if m.Line >= len(p.Hunks[m.Hunk].Lines) {
 		m.Line = len(p.Hunks[m.Hunk].Lines) - 1
 	}
+	m.ensureVisible()
 }
 func (m *Model) MoveHunk(delta int) {
 	if len(m.Files) == 0 || delta == 0 {
@@ -57,7 +59,7 @@ func (m *Model) MoveHunk(delta int) {
 			hunk = 0
 		}
 		if file < len(m.Files) && len(m.Files[file].Hunks) > 0 {
-			m.File, m.Hunk, m.Line = file, hunk, 0
+			m.File, m.Hunk, m.Line, m.Offset = file, hunk, 0, 0
 			return
 		}
 	}
@@ -70,7 +72,7 @@ func (m *Model) MoveFile(delta int) {
 	for i := 0; i < len(m.Files); i++ {
 		file = (file + delta + len(m.Files)) % len(m.Files)
 		if len(m.Files[file].Hunks) > 0 {
-			m.File, m.Hunk, m.Line = file, 0, 0
+			m.File, m.Hunk, m.Line, m.Offset = file, 0, 0, 0
 			return
 		}
 	}
@@ -83,6 +85,7 @@ func (m *Model) SelectLine(line int) bool {
 		return false
 	}
 	m.Line = line
+	m.ensureVisible()
 	if kind := m.Files[m.File].Hunks[m.Hunk].Lines[line].Kind; kind != patch.Added && kind != patch.Removed {
 		return false
 	}
@@ -90,6 +93,32 @@ func (m *Model) SelectLine(line int) bool {
 	return true
 }
 func (m *Model) Toggle() { m.SelectLine(m.Line) }
+
+func (m *Model) SetHeight(height int) {
+	if height < 0 {
+		height = 0
+	}
+	m.Height = height
+	m.ensureVisible()
+}
+
+func (m Model) LineAt(row int) int { return m.Offset + row }
+
+func (m *Model) ensureVisible() {
+	if m.Height <= 0 {
+		m.Offset = 0
+		return
+	}
+	if m.Line < m.Offset {
+		m.Offset = m.Line
+	}
+	if m.Line >= m.Offset+m.Height {
+		m.Offset = m.Line - m.Height + 1
+	}
+	if m.Offset < 0 {
+		m.Offset = 0
+	}
+}
 func (m Model) View() string {
 	if len(m.Files) == 0 {
 		return "No patch"
@@ -99,7 +128,19 @@ func (m Model) View() string {
 		return "No selectable hunks"
 	}
 	lines := []string{fmt.Sprintf("%s · hunk %d/%d · selected %d", f.NewPath, m.Hunk+1, len(f.Hunks), m.Selection.Count())}
-	for i, l := range f.Hunks[m.Hunk].Lines {
+	start, end := 0, len(f.Hunks[m.Hunk].Lines)
+	if m.Height > 0 {
+		start = m.Offset
+		if start > end {
+			start = end
+		}
+		end = start + m.Height
+		if end > len(f.Hunks[m.Hunk].Lines) {
+			end = len(f.Hunks[m.Hunk].Lines)
+		}
+	}
+	for i, l := range f.Hunks[m.Hunk].Lines[start:end] {
+		i += start
 		mark := " "
 		if m.Selection.Selected[hunks.ID{File: m.File, Hunk: m.Hunk, Line: i}] {
 			mark = "✓"
