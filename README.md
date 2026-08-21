@@ -43,6 +43,8 @@ Remote conflict and non-fast-forward failures identify the operation and direct 
 
 Press `Ctrl-P` from any workspace to search and run available commands; disabled commands explain why they cannot run.
 
+Use `gitwatch --group work` to launch the repository dashboard filtered to a configured repository group.
+
 Completed and failed core operations surface as bounded notices; failures remain dismissible through the notification model.
 
 Press `v` to open the bounded multi-repository dashboard; rows show branch, dirty counts, divergence, and inactive/error state.

@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added pure group discovery/filtering, favorite updates, duplicate-safe group assignment, and deterministic favorite/last-opened/name ordering over registry records. CLI launch, pinned persistence, and per-group refresh policies remain.
+Progress: Added pure group discovery/filtering, favorite updates, duplicate-safe group assignment, deterministic favorite/last-opened/name ordering over registry records, private pinned/favorite persistence through the repository registry, and `--group` CLI launch filtering. Per-group refresh policies remain.
 
 ## Objective
 Allow named groups/workspaces such as work, OSS, monorepos, or client projects. Support favorites, pinned ordering, per-group refresh policy, and CLI launch directly into a group.

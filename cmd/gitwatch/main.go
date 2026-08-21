@@ -21,6 +21,7 @@ func main() {
 	motionFlag := flag.String("motion", "", "motion: full, reduced, or off")
 	watchFlag := flag.String("watch", "", "watch mode: auto, fs, or poll")
 	intervalFlag := flag.Duration("interval", 0, "poll/reconciliation interval")
+	groupFlag := flag.String("group", "", "open the repository dashboard filtered to a configured group")
 	configInspect := flag.Bool("config-inspect", false, "print effective configuration and exit")
 	configCheck := flag.Bool("config-check", false, "validate configuration and exit")
 	flag.Usage = func() {
@@ -65,7 +66,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "gitwatch: %v\n", err)
 		os.Exit(1)
 	}
-	if _, err := tea.NewProgram(app.NewRepositoryWithConfig(discovery, c)).Run(); err != nil {
+	model := app.NewRepositoryWithConfig(discovery, c)
+	model.RepositoryGroup = *groupFlag
+	if _, err := tea.NewProgram(model).Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "gitwatch: %v\n", err)
 		os.Exit(1)
 	}

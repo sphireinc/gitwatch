@@ -268,6 +268,7 @@ type Model struct {
 	Repositories             repoview.Model
 	RepositoryRoots          []string
 	RepositoryGroups         map[string][]string
+	RepositoryGroup          string
 	RepositoryRegistry       []registry.Repository
 	RepositoryRegistryPath   string
 	RepositoryEngine         *registry.Engine
@@ -894,6 +895,9 @@ func (m Model) loadRepositories() tea.Cmd {
 			}
 		}
 		repositories = registry.Merge(repositories, stored, groups)
+		if m.RepositoryGroup != "" {
+			repositories = registry.InGroup(repositories, m.RepositoryGroup)
+		}
 		if statePath != "" {
 			if err := registry.Save(statePath, repositories); err != nil {
 				return RepositoriesReadyMsg{Err: err}
