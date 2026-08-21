@@ -11,9 +11,9 @@ accepted.
 | Real repository refresh | pending | pending | pending | clean, modified, staged, untracked |
 | File selection and diff pane | partial* | pending | pending | keyboard and mouse recording |
 | Stage/unstage and refresh | partial* | pending | pending | before/after status output |
-| Filesystem watch and polling | pending | pending | pending | external edit refresh output |
+| Filesystem watch and polling | partial* | pending | pending | external edit refresh output |
 | Resize and terminal capability | pending | pending | pending | supported-size recording |
-| Git missing / non-repository error | pending | pending | pending | exit status and message |
+| Git missing / non-repository error | observed* | pending | pending | exit status and message |
 | Large repository workload | automated | automated | automated | performance-check output |
 
 Use `./scripts/demo-repo.sh` to create the disposable fixture. Record the

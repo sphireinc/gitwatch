@@ -17,7 +17,9 @@ Observed results:
   rendered the ready status screen.
 - From an empty directory, the binary exited with status 1 and a concise
   `not a git repository` diagnostic.
+- From a real repository with an empty `PATH`, the binary exited with status 1
+  and a concise `git executable not found` diagnostic.
 
 This is partial operator evidence only. Mouse selection, resize,
-filesystem-watch event delivery, clean-machine installation, Git-missing
-behavior, Linux, and Windows remain pending in the [beta validation matrix](beta-validation-matrix.md).
+filesystem-watch event delivery, clean-machine installation, Linux, and
+Windows remain pending in the [beta validation matrix](beta-validation-matrix.md).
