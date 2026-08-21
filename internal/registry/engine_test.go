@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -64,5 +65,23 @@ func TestEngineUsesRepositoryRefreshPolicy(t *testing.T) {
 	results := engine.Refresh(context.Background(), entries, "active")
 	if !results[0].Skipped || results[1].Skipped {
 		t.Fatalf("refresh policy results = %#v", results)
+	}
+}
+
+func TestEngineBudgetCancelsSlowStatusSource(t *testing.T) {
+	engine := NewEngine(1)
+	engine.Budget = 10 * time.Millisecond
+	engine.Stashes, engine.Remotes = nil, nil
+	engine.Discover = func(ctx context.Context, _ string) (git.Discovery, error) {
+		select {
+		case <-time.After(100 * time.Millisecond):
+			return git.Discovery{}, nil
+		case <-ctx.Done():
+			return git.Discovery{}, ctx.Err()
+		}
+	}
+	result := engine.Refresh(context.Background(), []Repository{{Path: "slow"}}, "active")
+	if len(result) != 1 || !errors.Is(result[0].Error, context.DeadlineExceeded) {
+		t.Fatalf("slow source result = %#v", result)
 	}
 }
