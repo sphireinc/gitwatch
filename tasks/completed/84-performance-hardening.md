@@ -1,8 +1,8 @@
 # Task 84: Benchmark history, multi-repo and patch workflows
 
-Status: In progress
+Status: Complete
 
-Progress: Added repeatable 100k-history parse/graph, 1k-repository row, and 10k-line patch benchmarks, injected slow-source refresh and plugin capability-overhead benchmarks, documented bounded-render/worker/plugin-output budgets, removed quadratic raw-patch accumulation (10k-line benchmark dropped from about 2 GB to about 6 MB allocations), and added portable allocation-budget tests wired into the release check. Live slow-disk/network/plugin process benchmarks remain deliberately replaced by deterministic injected boundaries.
+Progress: Added repeatable 100k-history parse/graph, 1k-repository row, and 10k-line patch benchmarks, deterministic context-aware slow-source and network-latency refresh workloads, plugin capability-overhead benchmarks, documented bounded-render/worker/plugin-output budgets, removed quadratic raw-patch accumulation (10k-line benchmark dropped from about 2 GB to about 6 MB allocations), and added portable allocation-budget tests wired into the release check. Live disk/network/plugin process timing is intentionally represented by injected boundaries because hardware and external services are not reproducible release gates.
 
 ## Objective
 Add repeatable benchmarks for huge diffs, 100k+ commit histories, wide merge graphs, hundreds/thousands of repositories, slow disks, network latency, and plugin overhead. Define CPU/memory/UI-latency budgets and enforce regression thresholds where practical.
@@ -26,3 +26,9 @@ Add repeatable benchmarks for huge diffs, 100k+ commit histories, wide merge gra
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+## Completion summary
+- Implementation: large patch, history, graph, repository-row, delayed refresh, network-latency, and plugin-negotiation benchmarks; bounded render/worker/plugin-output guidance; allocation budgets for the portable workloads.
+- Commands: `./scripts/performance-check.sh` runs allocation tests and one-iteration benchmark smoke tests; `./scripts/release-check.sh` invokes it.
+- Tests: `go test ./...`, `go test -race ./...`, `go vet ./...`, formatter/diff checks, and the performance check pass in the supported development environment.
+- Deferred follow-up: record machine-specific wall-clock baselines during platform release QA; deterministic injected boundaries remain the automated gate.

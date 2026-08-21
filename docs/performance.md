@@ -13,9 +13,11 @@ The acceptance target is that 10,000 changed paths remain navigable and filterin
 
 Additional workload benchmarks cover `BenchmarkParseLog100K`, `BenchmarkBuildGraph100K`,
 `BenchmarkRows1000Repositories`, `BenchmarkParseLargePatch`,
-`BenchmarkRefreshInjectedSlowSources`, and `BenchmarkCapabilityNegotiation`.
-The refresh benchmark uses injected slow-source boundaries rather than a live network or
-filesystem. Practical budgets for
+`BenchmarkRefreshInjectedSlowSources`, `BenchmarkRefreshInjectedNetworkLatency`, and
+`BenchmarkCapabilityNegotiation`. The refresh benchmarks use context-aware injected
+delays at the discovery/snapshot boundaries rather than a live network or filesystem;
+this makes the workload deterministic while still exercising the worker pool, timeout,
+and cancellation path. Practical budgets for
 interactive work are: no Git or filesystem process in `View`, bounded repository refresh
 workers, bounded plugin output, and visible-list rendering proportional to the viewport
 rather than total history/repository size. Record benchmark output with

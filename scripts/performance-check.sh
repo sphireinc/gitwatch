@@ -9,5 +9,5 @@ export GOSUMDB="${GOSUMDB:-off}"
 go test ./internal/patch ./internal/history ./internal/registry \
   -run 'Test(LargePatchAllocationBudget|LargeHistoryAllocationBudgets|RepositoryRowsAllocationBudget)$'
 go test ./internal/patch ./internal/history ./internal/registry \
-  -run '^$' -bench 'Benchmark(ParseLargePatch|ParseLog100K|BuildGraph100K|Rows1000Repositories)$' \
-  -benchmem -benchtime=1x
+	-run '^$' -bench 'Benchmark(ParseLargePatch|ParseLog100K|BuildGraph100K|Rows1000Repositories|RefreshInjected(SlowSources|NetworkLatency))$' \
+	-benchmem -benchtime=1x
