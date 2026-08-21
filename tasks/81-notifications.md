@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added bounded, thread-safe notifications with severity/kind metadata, dismissible attention badges, quiet-mode suppression, and newest-first ordering helpers. Bubble Tea now routes core operation and remote success/failure events into notifications and renders sanitized toast notices; configured full/reduced/off motion is now carried into the app model for presentation policy, while broader event-source integration remains.
+Progress: Added bounded, thread-safe notifications with severity/kind metadata, dismissible attention badges, quiet-mode suppression, and newest-first ordering helpers. Bubble Tea now routes core operation, conflict snapshot, commit-hook failure, stale-remote, plugin-state failure, and remote success/failure events into notifications and renders sanitized toast notices; configured full/reduced/off motion is carried into the app model for presentation policy.
 
 ## Objective
 Create non-intrusive toast/activity notifications for completed jobs, conflicts, failed hooks, failed pushes, stale remote state, and plugin errors. Add attention badges to relevant views. Respect reduced-motion and quiet settings.

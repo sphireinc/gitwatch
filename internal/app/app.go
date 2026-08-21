@@ -1920,6 +1920,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SnapshotMsg:
 		m.Snapshot = v.Snapshot
 		m.Files.SetEntries(v.Snapshot.Entries)
+		if v.Snapshot.Counts.Conflicted > 0 {
+			m.notify(notifications.Conflict, notifications.Error, "repository conflicts", fmt.Sprintf("%d conflicted file(s)", v.Snapshot.Counts.Conflicted), true)
+		}
 		m.State = StateReady
 	case RefreshStartedMsg:
 		m.State = StateRefreshing
@@ -2014,6 +2017,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case CommitFinishedMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
+			m.notify(notifications.HookFailure, notifications.Error, "commit hook failed", v.Err.Error(), true)
 		} else {
 			m.CommitAmendConfirm, m.CommitAuthorMode = false, false
 			m.State, m.Status = StateReady, "commit "+v.SHA
@@ -2054,6 +2058,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case PluginStateSavedMsg:
 		if v.Err != nil {
 			m.Status = "plugin state: " + v.Err.Error()
+			m.notify(notifications.PluginFailure, notifications.Error, "plugin state", v.Err.Error(), true)
 		}
 	case BranchOperationFinishedMsg:
 		if v.Err != nil {
@@ -2122,6 +2127,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			m.Remotes, m.State = remoteview.New(v.Dashboard), StateReady
+			for _, remote := range v.Dashboard.Remotes {
+				if v.Dashboard.Stale(remote) {
+					m.notify(notifications.RemoteStale, notifications.Warning, "stale remote", remote.Name, true)
+				}
+			}
 		}
 	case PushPreviewReadyMsg:
 		if v.Err != nil {

@@ -12,6 +12,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/config"
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/jusanchez/gitwatch/internal/notifications"
 	"github.com/jusanchez/gitwatch/internal/patch"
 	"github.com/jusanchez/gitwatch/internal/plugins"
 	"github.com/jusanchez/gitwatch/internal/provider"
@@ -178,6 +179,22 @@ func TestOperationNotificationsAndToast(t *testing.T) {
 	}
 	if !contains(m.View().Content, "NOTICE: push: rejected") {
 		t.Fatalf("toast missing from view: %q", m.View().Content)
+	}
+}
+
+func TestNotificationsClassifyConflictAndHookFailures(t *testing.T) {
+	m := New()
+	updated, _ := m.Update(SnapshotMsg{Snapshot: repo.Snapshot{Counts: repo.Counts{Conflicted: 2}}})
+	m = updated.(Model)
+	items := m.Notifications.Items()
+	if len(items) != 1 || items[0].Kind != notifications.Conflict {
+		t.Fatalf("conflict notification = %#v", items)
+	}
+	updated, _ = m.Update(CommitFinishedMsg{Err: errors.New("pre-commit failed")})
+	m = updated.(Model)
+	items = m.Notifications.Items()
+	if len(items) != 2 || items[1].Kind != notifications.HookFailure {
+		t.Fatalf("hook notification = %#v", items)
 	}
 }
 
