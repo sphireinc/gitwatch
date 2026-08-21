@@ -266,6 +266,7 @@ type Model struct {
 	PluginDirectories        []string
 	PluginStatePath          string
 	Repositories             repoview.Model
+	RepositorySearching      bool
 	RepositoryRoots          []string
 	RepositoryGroups         map[string][]string
 	RepositoryGroup          string
@@ -1343,6 +1344,27 @@ func (m *Model) updateHistorySearch(key string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) updateRepositorySearch(key string) tea.Cmd {
+	if key == "esc" || key == "enter" {
+		m.RepositorySearching = false
+		m.Status = ""
+		return nil
+	}
+	switch key {
+	case "backspace":
+		m.Repositories.SetFilter(removeLastRune(m.Repositories.Query))
+	case "space":
+		m.Repositories.SetFilter(m.Repositories.Query + " ")
+	default:
+		if len([]rune(key)) != 1 {
+			return nil
+		}
+		m.Repositories.SetFilter(m.Repositories.Query + key)
+	}
+	m.Status = "repository filter: " + m.Repositories.Query
+	return nil
+}
+
 func (m Model) currentView() workspace.View {
 	if m.Workspace == nil {
 		return workspace.Status
@@ -1383,6 +1405,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.currentView() == workspace.Log && m.HistorySearching {
 			return m, m.updateHistorySearch(v.String())
+		}
+		if m.currentView() == workspace.Repositories && m.RepositorySearching {
+			return m, m.updateRepositorySearch(v.String())
 		}
 		if m.currentView() == workspace.Log && m.HistoryInspectorPathMode {
 			switch v.String() {
@@ -1628,6 +1653,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "b":
 			return m, m.navigate(workspace.Branches, "Branches")
 		case "s":
+			if m.currentView() == workspace.Repositories {
+				m.Status = "repository sort: " + string(m.Repositories.CycleSort())
+				return m, nil
+			}
 			return m, m.navigate(workspace.Stashes, "Stashes")
 		case "l":
 			return m, m.navigate(workspace.Log, "History")
@@ -1719,6 +1748,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "/":
 			if m.currentView() == workspace.Log {
 				m.HistorySearching, m.Status = true, "filter: "
+			}
+			if m.currentView() == workspace.Repositories {
+				m.RepositorySearching, m.Status = true, "repository filter: "
 			}
 		case "x":
 			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
@@ -2462,7 +2494,10 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Repositories {
-		lines[len(lines)-1] = "[j/k] move  [1] status  [v] refresh  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [v] refresh  [enter] open  [esc] back  [q] quit"
+		if m.RepositorySearching {
+			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Repositories.Query) + "  [enter] apply  [esc] cancel"
+		}
 	}
 	if m.Notifications != nil && m.Notifications.Attention() > 0 {
 		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())

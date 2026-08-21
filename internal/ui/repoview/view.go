@@ -10,17 +10,26 @@ import (
 
 type Model struct {
 	Rows     []registry.Row
+	AllRows  []registry.Row
 	Selected int
+	Query    string
+	Sort     registry.SortKey
+	Desc     bool
 }
 
-func New(rows []registry.Row) Model { return Model{Rows: append([]registry.Row(nil), rows...)} }
+func New(rows []registry.Row) Model {
+	m := Model{AllRows: append([]registry.Row(nil), rows...), Sort: registry.SortName}
+	m.apply()
+	return m
+}
 
 func (m *Model) SetRows(rows []registry.Row) {
 	selected := ""
 	if m.Selected >= 0 && m.Selected < len(m.Rows) {
 		selected = m.Rows[m.Selected].Repository.Path
 	}
-	m.Rows = append([]registry.Row(nil), rows...)
+	m.AllRows = append([]registry.Row(nil), rows...)
+	m.apply()
 	m.Selected = 0
 	for i, row := range m.Rows {
 		if row.Repository.Path == selected {
@@ -28,6 +37,40 @@ func (m *Model) SetRows(rows []registry.Row) {
 			break
 		}
 	}
+}
+
+func (m *Model) SetFilter(query string) {
+	m.Query = query
+	m.apply()
+	m.Selected = 0
+}
+
+func (m *Model) CycleSort() registry.SortKey {
+	keys := []registry.SortKey{registry.SortName, registry.SortDirty, registry.SortAhead, registry.SortBehind}
+	index := 0
+	for i, key := range keys {
+		if key == m.Sort {
+			index = i
+			break
+		}
+	}
+	if index == len(keys)-1 {
+		m.Desc = !m.Desc
+		if !m.Desc {
+			index = 0
+		}
+	} else {
+		index++
+	}
+	m.Sort = keys[index]
+	m.apply()
+	m.Selected = 0
+	return m.Sort
+}
+
+func (m *Model) apply() {
+	filtered := registry.FilterRows(m.AllRows, m.Query)
+	m.Rows = registry.SortRows(filtered, m.Sort, m.Desc)
 }
 
 func (m *Model) Move(delta int) {
@@ -45,7 +88,12 @@ func (m *Model) Move(delta int) {
 }
 
 func (m Model) View() string {
-	lines := []string{"Repositories"}
+	header := "Repositories"
+	if m.Query != "" {
+		header += " · filter: " + platform.SafeText(m.Query)
+	}
+	header += fmt.Sprintf(" · sort: %s", m.Sort)
+	lines := []string{header}
 	for i, row := range m.Rows {
 		prefix := "  "
 		if i == m.Selected {

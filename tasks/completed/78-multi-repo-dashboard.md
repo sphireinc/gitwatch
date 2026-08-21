@@ -1,8 +1,8 @@
 # Task 78: Create htop-style repository dashboard
 
-Status: In progress
+Status: Complete
 
-Progress: Added a render-neutral row model deriving branch, dirty, staged/unstaged/untracked, conflict, ahead/behind, error, inactive state, stash count, and remote count, with filtering and sorting helpers. Bubble Tea now exposes a selectable asynchronous `v` dashboard with keyboard navigation, mouse row selection, Enter-to-open, bounded state rendering, and stash/remote activity columns.
+Progress: Added a render-neutral row model deriving branch, dirty, staged/unstaged/untracked, conflict, ahead/behind, error, inactive state, stash count, and remote count, with filtering and sorting helpers. Bubble Tea now exposes a selectable asynchronous `v` dashboard with keyboard navigation, mouse row selection, interactive `/` filtering, `s` sorting, Enter-to-open, bounded state rendering, and stash/remote activity columns.
 
 ## Objective
 Build a sortable/filterable table of repositories showing branch, dirty counts, staged/unstaged/untracked/conflicts, ahead/behind, stash count, last activity, remote freshness, and operation state. Enter opens the full repository workspace; mouse interaction must have parity.
@@ -26,3 +26,10 @@ Build a sortable/filterable table of repositories showing branch, dirty counts, 
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+## Completion summary
+
+- Dashboard rows expose branch, dirty/staged/unstaged/untracked/conflict state, ahead/behind, inactive/error state, stash count, and remote count.
+- `/` filters repositories by name/path/branch and `s` cycles deterministic name/dirty/ahead/behind sorting.
+- Mouse row selection, keyboard navigation, Enter-to-open, bounded asynchronous refresh, and selection preservation are covered by app/view/engine tests.
+- Full repository test, race, vet, and diff gates pass.

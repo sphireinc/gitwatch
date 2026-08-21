@@ -15,3 +15,15 @@ func TestViewPreservesSelectionAndRendersState(t *testing.T) {
 		t.Fatalf("repository view = selected=%d text=%q", m.Selected, m.View())
 	}
 }
+
+func TestFilterAndSortDashboardRows(t *testing.T) {
+	m := New([]registry.Row{{Repository: registry.Repository{Name: "zeta", Path: "/z"}, Dirty: 1}, {Repository: registry.Repository{Name: "alpha", Path: "/a"}, Dirty: 4}})
+	m.SetFilter("alpha")
+	if len(m.Rows) != 1 || m.Rows[0].Repository.Name != "alpha" {
+		t.Fatalf("filtered rows = %#v", m.Rows)
+	}
+	m.SetFilter("")
+	if got := m.CycleSort(); got != registry.SortDirty || m.Rows[0].Repository.Name != "zeta" {
+		t.Fatalf("sorted rows = key=%q rows=%#v", got, m.Rows)
+	}
+}

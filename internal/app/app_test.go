@@ -694,6 +694,31 @@ func TestRepositoryMouseSelectsRow(t *testing.T) {
 	}
 }
 
+func TestRepositoryDashboardFiltersAndSortsFromKeyboard(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Repositories, "Repositories")
+	m.Repositories = repoview.New([]registry.Row{
+		{Repository: registry.Repository{Name: "one", Path: "/one"}, Dirty: 1},
+		{Repository: registry.Repository{Name: "two", Path: "/two"}, Dirty: 3},
+	})
+	updated, _ := m.Update(key("/"))
+	m = updated.(Model)
+	for _, character := range "two" {
+		updated, _ = m.Update(key(string(character)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if m.RepositorySearching || len(m.Repositories.Rows) != 1 || m.Repositories.Rows[0].Repository.Name != "two" {
+		t.Fatalf("repository filter = searching=%v rows=%#v", m.RepositorySearching, m.Repositories.Rows)
+	}
+	updated, _ = m.Update(key("s"))
+	m = updated.(Model)
+	if m.Repositories.Sort != registry.SortDirty {
+		t.Fatalf("repository sort = %q", m.Repositories.Sort)
+	}
+}
+
 func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	m := New()
 	updated, cmd := m.Update(key("b"))
