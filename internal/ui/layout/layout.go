@@ -28,7 +28,7 @@ func Compute(width, height int) Layout {
 	l.Metrics = Rect{X: 0, Y: 1, Width: width, Height: 1}
 	l.Footer = Rect{X: 0, Y: height - 1, Width: width, Height: 1}
 	l.Activity = Rect{X: 0, Y: height - 4, Width: width, Height: 3}
-	contentTop, contentHeight := 2, height-6
+	contentTop, contentHeight := 3, height-7
 	if width >= 140 {
 		split := width * 3 / 5
 		l.Files = Rect{X: 0, Y: contentTop, Width: split, Height: contentHeight}

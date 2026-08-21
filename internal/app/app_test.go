@@ -1,10 +1,13 @@
 package app
 
 import (
+	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/sphireinc/git-watch/internal/branches"
@@ -28,6 +31,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/repoview"
 	"github.com/sphireinc/git-watch/internal/ui/stashview"
 	"github.com/sphireinc/git-watch/internal/ui/worktreeview"
+	"github.com/sphireinc/git-watch/internal/watch"
 	"github.com/sphireinc/git-watch/internal/workspace"
 	"github.com/sphireinc/git-watch/internal/worktrees"
 )
@@ -230,6 +234,121 @@ func TestViewSanitizesHostileRepositoryText(t *testing.T) {
 	if strings.Contains(view, "\x1b") || strings.Contains(view, "secret") || !strings.Contains(view, "�") {
 		t.Fatalf("hostile text reached view: %q", view)
 	}
+}
+
+func TestStatusDiffUsesWideRightPaneAndNarrowOverlay(t *testing.T) {
+	m := New()
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("notes.txt"), Unstaged: true}}
+	m.Files.SetEntries(m.Snapshot.Entries)
+	m.DiffPath, m.DiffText, m.DiffAdded, m.DiffDeleted = "notes.txt", "diff --git a/notes.txt b/notes.txt\n-old\n+new", 1, 1
+	m.Width, m.Height = 160, 20
+	wide := strings.Split(m.View().Content, "\n")
+	if len(wide) != m.Height || !strings.Contains(wide[3], "│Diff (unstaged) · notes.txt") {
+		t.Fatalf("wide diff is not right-aligned: %#v", wide)
+	}
+	m.Width = 80
+	narrow := m.View().Content
+	if strings.Contains(narrow, "clean worktree") || !strings.Contains(narrow, "Diff (unstaged) · notes.txt") || !strings.Contains(narrow, "[esc] close") {
+		t.Fatalf("narrow diff overlay = %q", narrow)
+	}
+}
+
+func TestDiffStatIgnoresPatchHeaders(t *testing.T) {
+	added, deleted := diffStat("diff --git a/a b/a\n--- a/a\n+++ b/a\n context\n-old\n+new\n++literal\n--literal\n")
+	if added != 2 || deleted != 2 {
+		t.Fatalf("diffstat = +%d -%d", added, deleted)
+	}
+}
+
+func TestStatusEnterOpensDiffAndEscapeCancelsIt(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("notes.txt"), Unstaged: true}}
+	m.Files.SetEntries(m.Snapshot.Entries)
+	updated, command := m.Update(key("enter"))
+	m = updated.(Model)
+	if command == nil || !m.DiffLoading || m.DiffPath != "notes.txt" || m.DiffCancel == nil {
+		t.Fatalf("open diff = commandnil=%v loading=%v path=%q", command == nil, m.DiffLoading, m.DiffPath)
+	}
+	request := m.DiffRequest
+	updated, command = m.Update(key("esc"))
+	m = updated.(Model)
+	if command != nil || m.DiffPath != "" || m.DiffLoading || m.DiffRequest <= request {
+		t.Fatalf("close diff = commandnil=%v loading=%v path=%q request=%d", command == nil, m.DiffLoading, m.DiffPath, m.DiffRequest)
+	}
+	updated, _ = m.Update(DiffReadyMsg{Path: "notes.txt", Text: "stale", Request: request})
+	m = updated.(Model)
+	if m.DiffPath != "" || m.DiffText != "" {
+		t.Fatal("cancelled diff result was applied")
+	}
+}
+
+func TestStatusMouseClickOpensSelectedFileDiff(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	t.Cleanup(func() { _ = m.Close() })
+	m.Width, m.Height = 160, 20
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("first.txt"), Unstaged: true}, {Path: repo.Path("second.txt"), Unstaged: true}}
+	m.Files.SetEntries(m.Snapshot.Entries)
+	updated, command := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 10, Y: 4})
+	m = updated.(Model)
+	if command == nil || m.Files.Selected != 1 || m.DiffPath != "second.txt" || !m.DiffLoading {
+		t.Fatalf("mouse diff = commandnil=%v selected=%d path=%q loading=%v", command == nil, m.Files.Selected, m.DiffPath, m.DiffLoading)
+	}
+}
+
+func TestStatusFilterSortConflictAndDetailsActivity(t *testing.T) {
+	m := New()
+	m.Width, m.Height = 160, 20
+	m.Snapshot = repo.Snapshot{ObservedAt: time.Now(), Entries: []repo.Entry{
+		{Path: repo.Path("zeta.txt"), Unstaged: true},
+		{Path: repo.Path("beta.txt"), Staged: true, Conflicted: true},
+	}}
+	m.Files.SetEntries(m.Snapshot.Entries)
+	updated, _ := m.Update(key("/"))
+	m = updated.(Model)
+	for _, character := range "bt" {
+		updated, _ = m.Update(key(string(character)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if m.FileFilterMode || len(m.Files.Visible) != 1 || m.Files.SelectedPath() != "beta.txt" {
+		t.Fatalf("filter = mode=%v visible=%v selected=%q", m.FileFilterMode, m.Files.Visible, m.Files.SelectedPath())
+	}
+	updated, _ = m.Update(key("S"))
+	m = updated.(Model)
+	if m.Files.Sort == 0 {
+		t.Fatal("status sort did not advance")
+	}
+	updated, _ = m.Update(key("!"))
+	m = updated.(Model)
+	if !m.FileConflictOnly || len(m.Files.Visible) != 1 || m.Files.SelectedPath() != "beta.txt" {
+		t.Fatalf("conflict filter = enabled=%v visible=%v", m.FileConflictOnly, m.Files.Visible)
+	}
+	m.recordActivity(history.OperationSuccess, "beta.txt", "stage complete")
+	view := m.View().Content
+	for _, expected := range []string{"Selected file details", "Path: beta.txt", "activity: operation success", "stage complete"} {
+		if !strings.Contains(view, expected) {
+			t.Fatalf("status details missing %q: %q", expected, view)
+		}
+	}
+}
+
+func TestOpenDiffFollowsKeyboardSelection(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("a.txt"), Unstaged: true}, {Path: repo.Path("b.txt"), Unstaged: true}}
+	m.Files.SetEntries(m.Snapshot.Entries)
+	updated, first := m.Update(key("d"))
+	m = updated.(Model)
+	if first == nil || m.DiffPath != "a.txt" {
+		t.Fatalf("first diff = commandnil=%v path=%q", first == nil, m.DiffPath)
+	}
+	firstRequest := m.DiffRequest
+	updated, second := m.Update(key("j"))
+	m = updated.(Model)
+	if second == nil || m.Files.Selected != 1 || m.DiffPath != "b.txt" || m.DiffRequest <= firstRequest {
+		t.Fatalf("selection diff = commandnil=%v selected=%d path=%q request=%d", second == nil, m.Files.Selected, m.DiffPath, m.DiffRequest)
+	}
+	m.closeDiff()
 }
 
 func TestRepositoriesRouteLoadsRows(t *testing.T) {
@@ -453,6 +572,133 @@ func TestConfiguredKeymapDispatchesCanonicalActions(t *testing.T) {
 	m = updated.(Model)
 	if cmd == nil || m.State != StateShutdown {
 		t.Fatalf("remapped quit = cmdnil=%v state=%v", cmd == nil, m.State)
+	}
+}
+
+func TestRefreshCoordinatorFeedsAuthoritativeSnapshotToModel(t *testing.T) {
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	if _, err := runner.Run(context.Background(), "init", "--", root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "untracked.txt"), []byte("change\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := git.Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepositoryWithConfig(discovery, config.Defaults())
+	t.Cleanup(func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	wait := waitForRefresh(m.RefreshCoordinator)
+	updated, _ := m.Update(m.refresh()())
+	m = updated.(Model)
+	if m.State != StateRefreshing {
+		t.Fatalf("state = %v", m.State)
+	}
+	updated, next := m.Update(wait())
+	m = updated.(Model)
+	if next == nil || m.State != StateReady || m.Snapshot.Generation != 1 || len(m.Snapshot.Entries) != 1 {
+		t.Fatalf("state=%v generation=%d entries=%#v", m.State, m.Snapshot.Generation, m.Snapshot.Entries)
+	}
+}
+
+func TestRefreshRequestCannotFinishBeforeRefreshingState(t *testing.T) {
+	started := make(chan struct{})
+	coordinator := git.NewRefreshCoordinator(func(context.Context, uint64) (repo.Snapshot, error) {
+		close(started)
+		return repo.Snapshot{}, nil
+	})
+	t.Cleanup(coordinator.Close)
+	m := New()
+	t.Cleanup(func() { _ = m.Close() })
+	m.RefreshCoordinator = coordinator
+	request := m.refresh()()
+	select {
+	case <-started:
+		t.Fatal("refresh started before Bubble Tea applied the refreshing state")
+	default:
+	}
+	updated, _ := m.Update(request)
+	m = updated.(Model)
+	if m.State != StateRefreshing {
+		t.Fatalf("state = %v", m.State)
+	}
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("refresh did not start after request was applied")
+	}
+}
+
+func TestMutationCompletionAlwaysRequestsAuthoritativeRefresh(t *testing.T) {
+	tests := []tea.Msg{
+		OperationFinishedMsg{Name: "stage", Err: errors.New("failed")},
+		PartialOperationFinishedMsg{Name: "partial stage", Err: errors.New("failed")},
+		StashOperationFinishedMsg{Operation: "pop", Err: errors.New("failed")},
+		BranchOperationFinishedMsg{Operation: "checkout", Err: errors.New("failed")},
+		WorktreeOperationFinishedMsg{Operation: "remove", Err: errors.New("failed")},
+		RemoteOperationFinishedMsg{Operation: "pull merge", Err: errors.New("failed")},
+	}
+	for _, message := range tests {
+		m := New()
+		updated, command := m.Update(message)
+		m = updated.(Model)
+		if command == nil || m.State != StateError {
+			t.Errorf("%T: commandnil=%v state=%v", message, command == nil, m.State)
+		}
+		_ = m.Close()
+	}
+}
+
+func TestStaleRepositoryMutationCompletionIsIgnored(t *testing.T) {
+	m := New()
+	m.repositoryGeneration = 2
+	m.State, m.Status = StateReady, "current repository"
+	updated, command := m.Update(OperationFinishedMsg{Name: "stage", Repository: 1, Err: errors.New("stale failure")})
+	m = updated.(Model)
+	if command != nil || m.State != StateReady || m.Status != "current repository" {
+		t.Fatalf("stale mutation changed model: commandnil=%v state=%v status=%q", command == nil, m.State, m.Status)
+	}
+	_ = m.Close()
+}
+
+func TestFilesystemWatcherIsConnectedToModel(t *testing.T) {
+	root := t.TempDir()
+	settings := config.Defaults()
+	settings.Interval = time.Hour
+	settings.Reconciliation = time.Hour
+	settings.Debounce = 5 * time.Millisecond
+	m := NewRepositoryWithConfig(git.Discovery{Root: root}, settings)
+	started, ok := m.startWatcher()().(watcherStartedMsg)
+	if !ok || started.Manager == nil || started.Warning != nil || started.Generation != m.repositoryGeneration {
+		t.Fatalf("watcher start = %#v", started)
+	}
+	t.Cleanup(func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	updated, wait := m.Update(started)
+	m = updated.(Model)
+	if wait == nil || m.WatchMode != watch.ModeFS || !contains(m.View().Content, "watch:fs") {
+		t.Fatalf("mode=%s waitnil=%v view=%q", m.WatchMode, wait == nil, m.View().Content)
+	}
+	if err := os.WriteFile(filepath.Join(root, "changed.txt"), []byte("change\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	event, ok := wait().(watcherEventMsg)
+	if !ok || !event.Open || event.Event.Mode != watch.ModeFS {
+		t.Fatalf("watcher event = %#v", event)
+	}
+	updated, command := m.Update(event)
+	m = updated.(Model)
+	if command == nil {
+		t.Fatal("watcher event did not request refresh and resubscription")
 	}
 }
 

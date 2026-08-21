@@ -5,12 +5,10 @@ type Confirmation struct {
 	Action, Path, Scope, Prompt string
 }
 
-func RestoreConfirmation(path string, staged, unstaged bool) Confirmation {
+func RestoreConfirmation(path string, staged, _ bool) Confirmation {
 	scope := "working-tree content"
-	if staged && unstaged {
+	if staged {
 		scope = "staged and working-tree content"
-	} else if staged {
-		scope = "staged content"
 	}
 	return Confirmation{Open: true, Action: "restore", Path: path, Scope: scope, Prompt: "Restore " + path + " and discard " + scope + "?"}
 }

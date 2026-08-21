@@ -6,7 +6,6 @@
 | Detached HEAD/unborn/no upstream | discovery and snapshot branch fields |
 | Linked worktree and `.git` file | common-dir/git-dir discovery and watcher metadata paths |
 | Rename/copy, deletion, mode change | porcelain v2 entry fields and operation argv tests |
-| Symlinked discovery metadata | Registry discovery skips symlinked entries and `.git` metadata |
 | Untracked/ignored/unusual names | NUL parser and leading-hyphen/path tests |
 | Merge conflict | unmerged record, conflict type/filter, stage guard |
 | Symlinked discovery metadata | registry and plugin discovery reject symlinked metadata/entries |

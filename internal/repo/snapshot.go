@@ -22,6 +22,7 @@ type Entry struct {
 	ModeHead   string
 	ModeIndex  string
 	ModeWork   string
+	Submodule  string
 }
 
 func (e Entry) ConflictType() string {

@@ -48,3 +48,42 @@ func TestRefreshCoordinatorCoalesces(t *testing.T) {
 		t.Fatalf("active=%d calls=%d", maxActive, calls)
 	}
 }
+
+func TestRefreshCoordinatorCloseStopsNewWork(t *testing.T) {
+	called := make(chan struct{}, 1)
+	c := NewRefreshCoordinator(func(context.Context, uint64) (repo.Snapshot, error) {
+		called <- struct{}{}
+		return repo.Snapshot{}, nil
+	})
+	c.Close()
+	c.Request(context.Background())
+	select {
+	case <-called:
+		t.Fatal("closed coordinator started refresh work")
+	case <-time.After(20 * time.Millisecond):
+	}
+	select {
+	case <-c.Done():
+	default:
+		t.Fatal("coordinator did not close its done channel")
+	}
+}
+
+func TestRefreshCoordinatorCloseCancelsAndWaitsForActiveWork(t *testing.T) {
+	started := make(chan struct{})
+	finished := make(chan struct{})
+	c := NewRefreshCoordinator(func(ctx context.Context, _ uint64) (repo.Snapshot, error) {
+		close(started)
+		<-ctx.Done()
+		close(finished)
+		return repo.Snapshot{}, ctx.Err()
+	})
+	c.Request(context.Background())
+	<-started
+	c.Close()
+	select {
+	case <-finished:
+	default:
+		t.Fatal("close returned before active refresh exited")
+	}
+}

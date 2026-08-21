@@ -26,6 +26,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
 	"github.com/sphireinc/git-watch/internal/ui/commitview"
+	"github.com/sphireinc/git-watch/internal/ui/details"
 	"github.com/sphireinc/git-watch/internal/ui/githubview"
 	"github.com/sphireinc/git-watch/internal/ui/historyview"
 	"github.com/sphireinc/git-watch/internal/ui/hunkview"
@@ -38,6 +39,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/table"
 	"github.com/sphireinc/git-watch/internal/ui/theme"
 	"github.com/sphireinc/git-watch/internal/ui/worktreeview"
+	"github.com/sphireinc/git-watch/internal/watch"
 	"github.com/sphireinc/git-watch/internal/workspace"
 	"github.com/sphireinc/git-watch/internal/worktrees"
 )
@@ -61,10 +63,30 @@ type WatcherStateMsg struct {
 	Mode string
 	Err  error
 }
+type watcherStartedMsg struct {
+	Generation uint64
+	Manager    *watch.Manager
+	Warning    error
+}
+type watcherEventMsg struct {
+	Manager *watch.Manager
+	Event   watch.Event
+	Open    bool
+}
+type refreshResultMsg struct {
+	Coordinator *git.RefreshCoordinator
+	Result      git.RefreshResult
+	Open        bool
+}
+type refreshRequestedMsg struct {
+	Coordinator *git.RefreshCoordinator
+	Context     context.Context
+}
 type OperationStartedMsg struct{ Name string }
 type OperationFinishedMsg struct {
-	Name string
-	Err  error
+	Name       string
+	Repository uint64
+	Err        error
 }
 type TickMsg struct{ At time.Time }
 type ToastMsg struct {
@@ -81,11 +103,15 @@ type DiffReadyMsg struct {
 	Path, Text string
 	Staged     bool
 	Binary     bool
+	Added      int
+	Deleted    int
+	Request    uint64
 	Err        error
 }
 type PartialOperationFinishedMsg struct {
-	Name string
-	Err  error
+	Name       string
+	Repository uint64
+	Err        error
 }
 type BranchesReadyMsg struct {
 	Entries []branches.Branch
@@ -115,18 +141,21 @@ type HistoryTagsReadyMsg struct {
 }
 type HistoryActionFinishedMsg struct {
 	Action, Target string
+	Repository     uint64
 	Err            error
 }
 type CommitFinishedMsg struct {
 	SHA        string
 	HookOutput string
+	Repository uint64
 	Err        error
 }
 type CommitConfigReadyMsg struct{ Config git.CommitConfig }
 type BranchOperationFinishedMsg struct {
-	Operation string
-	Name      string
-	Err       error
+	Operation  string
+	Name       string
+	Repository uint64
+	Err        error
 }
 type StashPreviewReadyMsg struct {
 	Ref, Text string
@@ -134,6 +163,7 @@ type StashPreviewReadyMsg struct {
 }
 type StashOperationFinishedMsg struct {
 	Operation, Ref string
+	Repository     uint64
 	Err            error
 }
 type RemotesReadyMsg struct {
@@ -145,9 +175,10 @@ type WorktreesReadyMsg struct {
 	Err     error
 }
 type WorktreeOperationFinishedMsg struct {
-	Operation string
-	Target    string
-	Err       error
+	Operation  string
+	Target     string
+	Repository uint64
+	Err        error
 }
 type RepositoriesReadyMsg struct {
 	Rows         []registry.Row
@@ -162,6 +193,7 @@ type RepositoryOpenedMsg struct {
 }
 type RemoteOperationFinishedMsg struct {
 	Operation, Remote string
+	Repository        uint64
 	Err               error
 }
 type PushPreviewReadyMsg struct {
@@ -193,12 +225,36 @@ type Model struct {
 	Snapshot                 repo.Snapshot
 	Discovery                git.Discovery
 	Files                    table.Model
+	FileFilterMode           bool
+	FileFilterInput          string
+	FileConflictOnly         bool
 	Theme                    theme.Roles
+	DetailsCache             *details.Cache
+	ActivityLog              *history.Log
 	ctx                      context.Context
+	cancel                   context.CancelFunc
+	repositoryCtx            context.Context
+	repositoryCancel         context.CancelFunc
 	RefreshInterval          time.Duration
+	ReconciliationInterval   time.Duration
+	WatchDebounce            time.Duration
+	WatchRequested           watch.RequestedMode
+	WatchMode                watch.Mode
+	WatchManager             *watch.Manager
+	RefreshCoordinator       *git.RefreshCoordinator
+	repositoryGeneration     uint64
 	DiffPath, DiffText       string
 	DiffBinary               bool
 	DiffStaged               bool
+	DiffLoading              bool
+	DiffErr                  error
+	DiffOffset               int
+	DiffAdded                int
+	DiffDeleted              int
+	DiffRequest              uint64
+	DiffCancel               context.CancelFunc
+	Restore                  Confirmation
+	RestoreInput             string
 	HunkContext              int
 	Workspace                *workspace.Model
 	Branches                 branchview.Model
@@ -218,6 +274,7 @@ type Model struct {
 	HistoryHasMore           bool
 	HistoryCancel            context.CancelFunc
 	HistoryPulse             uint8
+	WatchPulse               uint8
 	HistoryFilter            string
 	HistorySearching         bool
 	HistoryInspector         history.Inspector
@@ -296,7 +353,20 @@ type Model struct {
 }
 
 func New() Model {
-	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Keymap: config.DefaultKeymap(), GitHub: githubview.New(), GitHubCache: provider.NewPullRequestCache(2 * time.Minute), GitHubChecksCache: provider.NewCache[provider.ChecksSnapshot](2 * time.Minute), GitHubReviewsCache: provider.NewCache[provider.ReviewSnapshot](2 * time.Minute), Plugins: pluginview.New(nil), Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false), OperationEngine: operations.New(4)}
+	ctx, cancel := context.WithCancel(context.Background())
+	return Model{
+		State: StateLoading, Focus: "files", Motion: MotionFull,
+		Keymap: config.DefaultKeymap(), GitHub: githubview.New(),
+		GitHubCache:        provider.NewPullRequestCache(2 * time.Minute),
+		GitHubChecksCache:  provider.NewCache[provider.ChecksSnapshot](2 * time.Minute),
+		GitHubReviewsCache: provider.NewCache[provider.ReviewSnapshot](2 * time.Minute),
+		Plugins:            pluginview.New(nil), Theme: theme.New(theme.Auto, false),
+		DetailsCache: details.NewCache(), ActivityLog: history.New(100),
+		ctx: ctx, cancel: cancel, RefreshInterval: 2 * time.Second,
+		ReconciliationInterval: 30 * time.Second, WatchDebounce: 75 * time.Millisecond,
+		WatchRequested: watch.RequestedAuto, Workspace: workspace.New(),
+		Notifications: notifications.New(100, false), OperationEngine: operations.New(4),
+	}
 }
 
 func (m Model) paletteActions() []commands.Action {
@@ -401,11 +471,22 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 	}
 	return nil
 }
-func NewRepository(d git.Discovery) Model { m := New(); m.Discovery = d; return m }
+func NewRepository(d git.Discovery) Model {
+	m := New()
+	if err := m.setRepository(d); err != nil {
+		m.Status = err.Error()
+	}
+	return m
+}
 func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m := NewRepository(d)
 	m.Notifications = notifications.New(100, c.Notifications.Quiet)
 	m.RefreshInterval = c.Interval
+	m.ReconciliationInterval = c.Reconciliation
+	m.WatchDebounce = c.Debounce
+	if requested, ok := watch.ParseMode(c.Watch); ok {
+		m.WatchRequested = requested
+	}
 	m.Keymap = mergeKeymap(c.Keymap)
 	m.GitHubEnabled, m.GitHubTokenEnv = c.GitHub.Enabled, c.GitHub.TokenEnv
 	m.GitHubCache = provider.NewPullRequestCache(c.GitHub.CacheTTL)
@@ -441,6 +522,76 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 		return interval
 	}
 	return m
+}
+
+func (m *Model) setRepository(discovery git.Discovery) error {
+	var closeErr error
+	m.closeDiff()
+	m.repositoryGeneration++
+	if m.repositoryCancel != nil {
+		m.repositoryCancel()
+		m.repositoryCancel = nil
+	}
+	if m.HistoryCancel != nil {
+		m.HistoryCancel()
+		m.HistoryCancel = nil
+	}
+	if m.RemoteCancel != nil {
+		m.RemoteCancel()
+		m.RemoteCancel = nil
+	}
+	if m.WatchManager != nil {
+		closeErr = m.WatchManager.Close()
+		m.WatchManager = nil
+		m.WatchMode = ""
+	}
+	if m.RefreshCoordinator != nil {
+		m.RefreshCoordinator.Close()
+	}
+	m.Discovery = discovery
+	if discovery.Root != "" {
+		m.repositoryCtx, m.repositoryCancel = context.WithCancel(m.ctx)
+		m.RefreshCoordinator = git.NewRefreshCoordinator(func(ctx context.Context, generation uint64) (repo.Snapshot, error) {
+			return git.Snapshot(ctx, discovery, generation)
+		})
+	} else {
+		m.repositoryCtx = nil
+		m.RefreshCoordinator = nil
+	}
+	return closeErr
+}
+
+func (m Model) commandContext() context.Context {
+	if m.repositoryCtx != nil {
+		return m.repositoryCtx
+	}
+	if m.ctx != nil {
+		return m.ctx
+	}
+	return context.Background()
+}
+
+func (m Model) acceptsRepository(generation uint64) bool {
+	return generation == 0 || generation == m.repositoryGeneration
+}
+
+func (m *Model) applySnapshot(snapshot repo.Snapshot) {
+	if m.ActivityLog != nil && !m.Snapshot.ObservedAt.IsZero() {
+		for _, event := range history.Diff(m.Snapshot, snapshot) {
+			m.ActivityLog.Add(event)
+		}
+	}
+	m.Snapshot = snapshot
+	m.Files.SetEntries(snapshot.Entries)
+	if snapshot.Counts.Conflicted > 0 {
+		m.notify(notifications.Conflict, notifications.Error, "repository conflicts", fmt.Sprintf("%d conflicted file(s)", snapshot.Counts.Conflicted), true)
+	}
+}
+
+func (m *Model) recordActivity(kind history.Kind, path, message string) {
+	if m.ActivityLog != nil {
+		m.ActivityLog.Add(history.Event{At: time.Now(), Kind: kind, Path: path, Message: message})
+	}
 }
 
 func cloneGroups(groups map[string][]string) map[string][]string {
@@ -480,10 +631,17 @@ func (m Model) Init() tea.Cmd {
 	if m.Discovery.Root == "" {
 		return nil
 	}
-	return tea.Batch(m.refresh(), m.tick())
+	commands := []tea.Cmd{m.refresh(), m.tick(), m.startWatcher()}
+	if m.RefreshCoordinator != nil {
+		commands = append(commands, waitForRefresh(m.RefreshCoordinator))
+	}
+	return tea.Batch(commands...)
 }
 
 func (m Model) tick() tea.Cmd {
+	if !m.Motion.Ticks() {
+		return nil
+	}
 	interval := m.RefreshInterval
 	if interval <= 0 {
 		interval = 2 * time.Second
@@ -491,13 +649,59 @@ func (m Model) tick() tea.Cmd {
 	return tea.Tick(interval, func(t time.Time) tea.Msg { return TickMsg{At: t} })
 }
 func (m Model) refresh() tea.Cmd {
-	d := m.Discovery
+	coordinator, ctx := m.RefreshCoordinator, m.repositoryCtx
+	if ctx == nil {
+		ctx = m.ctx
+	}
+	if coordinator != nil {
+		return func() tea.Msg {
+			return refreshRequestedMsg{Coordinator: coordinator, Context: ctx}
+		}
+	}
+	discovery := m.Discovery
 	return func() tea.Msg {
-		s, err := git.Snapshot(context.Background(), d, 0)
+		snapshot, err := git.Snapshot(ctx, discovery, 0)
 		if err != nil {
 			return RefreshFinishedMsg{Err: err}
 		}
-		return SnapshotMsg{Snapshot: s}
+		return SnapshotMsg{Snapshot: snapshot}
+	}
+}
+
+func waitForRefresh(coordinator *git.RefreshCoordinator) tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case result := <-coordinator.Results():
+			return refreshResultMsg{Coordinator: coordinator, Result: result, Open: true}
+		case <-coordinator.Done():
+			return refreshResultMsg{Coordinator: coordinator}
+		}
+	}
+}
+
+func (m Model) startWatcher() tea.Cmd {
+	root, ctx, generation := m.Discovery.Root, m.repositoryCtx, m.repositoryGeneration
+	if ctx == nil {
+		ctx = m.ctx
+	}
+	requested := m.WatchRequested
+	interval, reconciliation, debounce := m.RefreshInterval, m.ReconciliationInterval, m.WatchDebounce
+	metadata := []string{m.Discovery.GitDir, m.Discovery.CommonDir}
+	return func() tea.Msg {
+		manager, warning := watch.StartWithMetadata(ctx, root, metadata, requested, interval, reconciliation, debounce)
+		if manager == nil {
+			var fallbackErr error
+			manager, fallbackErr = watch.StartWithMetadata(ctx, root, metadata, watch.RequestedPoll, interval, reconciliation, debounce)
+			warning = errors.Join(warning, fallbackErr)
+		}
+		return watcherStartedMsg{Generation: generation, Manager: manager, Warning: warning}
+	}
+}
+
+func waitForWatcher(manager *watch.Manager) tea.Cmd {
+	return func() tea.Msg {
+		event, open := <-manager.Events()
+		return watcherEventMsg{Manager: manager, Event: event, Open: open}
 	}
 }
 
@@ -506,45 +710,180 @@ func (m Model) mutate() tea.Cmd {
 		return nil
 	}
 	e := m.Files.Entries[m.Files.Visible[m.Files.Selected]]
+	generation := m.repositoryGeneration
 	if e.Conflicted {
 		return func() tea.Msg {
-			return OperationFinishedMsg{Name: "stage", Err: fmt.Errorf("conflicted path requires external resolution")}
+			return OperationFinishedMsg{Name: "stage", Repository: generation, Err: fmt.Errorf("conflicted path requires external resolution")}
 		}
 	}
-	r, path := git.NewRunner(m.Discovery.Root), append([]byte(nil), e.Path...)
+	r, path, ctx := git.NewRunner(m.Discovery.Root), append([]byte(nil), e.Path...), m.commandContext()
 	return func() tea.Msg {
 		var err error
 		if e.Staged && !e.Unstaged {
-			_, err = r.Unstage(context.Background(), path)
+			_, err = r.Unstage(ctx, path)
 		} else {
-			_, err = r.Stage(context.Background(), path)
+			_, err = r.Stage(ctx, path)
 		}
 		if err != nil {
-			return OperationFinishedMsg{Name: "path operation", Err: err}
+			return OperationFinishedMsg{Name: "path operation", Repository: generation, Err: err}
 		}
-		s, err := git.Snapshot(context.Background(), m.Discovery, 0)
-		if err != nil {
-			return RefreshFinishedMsg{Err: err}
-		}
-		return SnapshotMsg{Snapshot: s}
+		return OperationFinishedMsg{Name: "path operation", Repository: generation}
 	}
 }
 
-func (m Model) openDiff() tea.Cmd {
+func (m Model) mutateAll(stage bool) tea.Cmd {
+	runner, ctx, generation := git.NewRunner(m.Discovery.Root), m.commandContext(), m.repositoryGeneration
+	return func() tea.Msg {
+		var err error
+		name := "stage all (tracked, untracked, and deletions)"
+		if stage {
+			_, err = runner.StageAll(ctx)
+		} else {
+			name = "unstage all (working-tree changes preserved)"
+			_, err = runner.UnstageAll(ctx)
+		}
+		return OperationFinishedMsg{Name: name, Repository: generation, Err: err}
+	}
+}
+
+func (m *Model) beginRestore() {
+	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
+		return
+	}
+	entry := m.Files.Entries[m.Files.Visible[m.Files.Selected]]
+	if entry.Untracked {
+		m.Status = "untracked deletion is intentionally unavailable"
+		return
+	}
+	if entry.Conflicted {
+		m.Status = "resolve conflicted paths externally, then stage them"
+		return
+	}
+	m.Restore = RestoreConfirmation(string(entry.Path), entry.Staged, entry.Unstaged)
+	m.RestoreInput = ""
+	m.Status = m.Restore.Prompt + " Type yes to confirm."
+}
+
+func (m Model) restoreSelected() tea.Cmd {
+	confirmation, ctx, generation := m.Restore, m.commandContext(), m.repositoryGeneration
+	if !confirmation.Accept(m.RestoreInput) {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		_, err := runner.Restore(ctx, []byte(confirmation.Path), strings.Contains(confirmation.Scope, "staged"), true)
+		return OperationFinishedMsg{Name: "restore " + confirmation.Path, Repository: generation, Err: err}
+	}
+}
+
+func (m *Model) updateRestoreKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.Restore, m.RestoreInput, m.Status = Confirmation{}, "", "restore cancelled"
+	case "backspace":
+		m.RestoreInput = removeLastRune(m.RestoreInput)
+	case "enter":
+		if !m.Restore.Accept(m.RestoreInput) {
+			m.Status = "type yes to confirm restore of " + m.Restore.Path
+			return nil
+		}
+		command := m.restoreSelected()
+		m.Restore, m.RestoreInput = Confirmation{}, ""
+		m.State, m.Status = StateOperationPending, "restoring selected path"
+		return command
+	default:
+		if len([]rune(key)) == 1 {
+			m.RestoreInput += key
+		}
+	}
+	if m.Restore.Open {
+		m.Status = m.Restore.Prompt + " Type yes: " + m.RestoreInput
+	}
+	return nil
+}
+
+func (m *Model) updateFileFilterKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.FileFilterMode, m.FileFilterInput, m.FileConflictOnly = false, "", false
+		m.Files.SetFilter("")
+		m.Status = "file filter cleared"
+		return nil
+	case "enter":
+		m.FileFilterMode = false
+		m.Status = "file filter: " + m.FileFilterInput
+		if m.DiffPath != "" {
+			return m.openDiff()
+		}
+		return nil
+	case "backspace":
+		m.FileFilterInput = removeLastRune(m.FileFilterInput)
+	case "space":
+		m.FileFilterInput += " "
+	default:
+		if len([]rune(key)) != 1 {
+			return nil
+		}
+		m.FileFilterInput += key
+	}
+	m.FileConflictOnly = false
+	m.Files.SetFilter(m.FileFilterInput)
+	m.Status = "file filter: " + m.FileFilterInput
+	return nil
+}
+
+func (m *Model) openDiff() tea.Cmd {
 	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
 		return nil
 	}
 	e := m.Files.Entries[m.Files.Visible[m.Files.Selected]]
 	path := append([]byte(nil), e.Path...)
 	r := git.NewRunner(m.Discovery.Root)
+	if m.DiffCancel != nil {
+		m.DiffCancel()
+	}
+	base := m.repositoryCtx
+	if base == nil {
+		base = m.ctx
+	}
+	loadCtx, cancel := context.WithCancel(base)
+	m.DiffCancel = cancel
+	m.DiffRequest++
+	request := m.DiffRequest
+	m.DiffPath, m.DiffText = string(path), ""
+	m.DiffBinary, m.DiffStaged, m.DiffLoading, m.DiffErr, m.DiffOffset, m.DiffAdded, m.DiffDeleted = false, e.Staged && !e.Unstaged, true, nil, 0, 0, 0
+	m.Status = "loading diff for " + string(path)
 	contextLines := m.HunkContext
 	if contextLines <= 0 {
 		contextLines = 3
 	}
 	return func() tea.Msg {
-		d, err := r.DiffWithContext(context.Background(), path, e.Staged && !e.Unstaged, contextLines)
-		return DiffReadyMsg{Path: string(path), Text: string(d.Text), Staged: d.Staged, Binary: d.Binary, Err: err}
+		d, err := r.DiffWithContext(loadCtx, path, e.Staged && !e.Unstaged, contextLines)
+		added, deleted := diffStat(string(d.Text))
+		return DiffReadyMsg{Path: string(path), Text: string(d.Text), Staged: d.Staged, Binary: d.Binary, Added: added, Deleted: deleted, Request: request, Err: err}
 	}
+}
+
+func diffStat(text string) (added, deleted int) {
+	for _, line := range strings.Split(text, "\n") {
+		switch {
+		case strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):
+			added++
+		case strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---"):
+			deleted++
+		}
+	}
+	return added, deleted
+}
+
+func (m *Model) closeDiff() {
+	if m.DiffCancel != nil {
+		m.DiffCancel()
+		m.DiffCancel = nil
+	}
+	m.DiffRequest++
+	m.DiffPath, m.DiffText = "", ""
+	m.DiffBinary, m.DiffStaged, m.DiffLoading, m.DiffErr, m.DiffOffset, m.DiffAdded, m.DiffDeleted = false, false, false, nil, 0, 0, 0
 }
 
 func (m *Model) beginHunks() {
@@ -559,36 +898,39 @@ func (m *Model) beginHunks() {
 }
 
 func (m Model) applySelectedHunks(discard bool) tea.Cmd {
+	generation := m.repositoryGeneration
 	if len(m.Hunks.Files) == 0 || m.Hunks.Selection.Count() == 0 {
 		return nil
 	}
 	data, err := m.Hunks.Selection.BuildPatch(m.Hunks.Files)
 	if err != nil {
-		return func() tea.Msg { return PartialOperationFinishedMsg{Name: "partial patch", Err: err} }
+		return func() tea.Msg {
+			return PartialOperationFinishedMsg{Name: "partial patch", Repository: generation, Err: err}
+		}
 	}
 	runner := git.NewRunner(m.Discovery.Root)
-	staged := m.DiffStaged
+	staged, ctx := m.DiffStaged, m.commandContext()
 	return func() tea.Msg {
 		var operationErr error
 		if discard {
-			_, operationErr = runner.ApplyReversePatch(context.Background(), git.PartialPatch{Patch: data})
+			_, operationErr = runner.ApplyReversePatch(ctx, git.PartialPatch{Patch: data})
 		} else if staged {
-			_, operationErr = runner.ApplyReverseCachedPatch(context.Background(), git.PartialPatch{Patch: data})
+			_, operationErr = runner.ApplyReverseCachedPatch(ctx, git.PartialPatch{Patch: data})
 		} else {
-			_, operationErr = runner.ApplyCachedPatch(context.Background(), git.PartialPatch{Patch: data})
+			_, operationErr = runner.ApplyCachedPatch(ctx, git.PartialPatch{Patch: data})
 		}
-		return PartialOperationFinishedMsg{Name: map[bool]string{true: "discard", false: "partial stage"}[discard], Err: operationErr}
+		return PartialOperationFinishedMsg{Name: map[bool]string{true: "discard", false: "partial stage"}[discard], Repository: generation, Err: operationErr}
 	}
 }
 
 func (m Model) loadBranches() tea.Cmd {
 	r := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		worktreeEntries, err := worktrees.List(context.Background(), r)
+		worktreeEntries, err := worktrees.List(m.commandContext(), r)
 		if err != nil {
 			return BranchesReadyMsg{Err: err}
 		}
-		entries, err := branches.ListWithOccupancy(context.Background(), r, worktrees.Occupancy(worktreeEntries))
+		entries, err := branches.ListWithOccupancy(m.commandContext(), r, worktrees.Occupancy(worktreeEntries))
 		return BranchesReadyMsg{Entries: entries, Err: err}
 	}
 }
@@ -598,56 +940,58 @@ func (m Model) checkoutSelectedBranch() tea.Cmd {
 		return nil
 	}
 	branch := m.Branches.Entries[m.Branches.Selected]
+	generation := m.repositoryGeneration
 	if branch.Remote {
 		return func() tea.Msg {
-			return BranchOperationFinishedMsg{Name: branch.Name, Err: fmt.Errorf("remote branch cannot be checked out directly: %s", branch.Name)}
+			return BranchOperationFinishedMsg{Name: branch.Name, Repository: generation, Err: fmt.Errorf("remote branch cannot be checked out directly: %s", branch.Name)}
 		}
 	}
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		_, err := branches.Checkout(context.Background(), runner, branch.Name)
-		return BranchOperationFinishedMsg{Operation: "checked out", Name: branch.Name, Err: err}
+		_, err := branches.Checkout(m.commandContext(), runner, branch.Name)
+		return BranchOperationFinishedMsg{Operation: "checked out", Name: branch.Name, Repository: generation, Err: err}
 	}
 }
 
-func (m Model) branchMutation(operation, name string, work func(git.Runner) error) tea.Cmd {
+func (m Model) branchMutation(operation, name string, work func(context.Context, git.Runner) error) tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
-		return BranchOperationFinishedMsg{Operation: operation, Name: name, Err: work(runner)}
+		return BranchOperationFinishedMsg{Operation: operation, Name: name, Repository: generation, Err: work(ctx, runner)}
 	}
 }
 
 func (m Model) createBranch(name string) tea.Cmd {
-	return m.branchMutation("created", name, func(r git.Runner) error {
-		_, err := branches.Create(context.Background(), r, name)
+	return m.branchMutation("created", name, func(ctx context.Context, r git.Runner) error {
+		_, err := branches.Create(ctx, r, name)
 		return err
 	})
 }
 
 func (m Model) renameBranch(oldName, newName string) tea.Cmd {
-	return m.branchMutation("renamed", newName, func(r git.Runner) error {
-		_, err := branches.Rename(context.Background(), r, oldName, newName)
+	return m.branchMutation("renamed", newName, func(ctx context.Context, r git.Runner) error {
+		_, err := branches.Rename(ctx, r, oldName, newName)
 		return err
 	})
 }
 
 func (m Model) setBranchUpstream(local, upstream string) tea.Cmd {
-	return m.branchMutation("set upstream", local, func(r git.Runner) error {
-		_, err := branches.SetUpstream(context.Background(), r, local, upstream)
+	return m.branchMutation("set upstream", local, func(ctx context.Context, r git.Runner) error {
+		_, err := branches.SetUpstream(ctx, r, local, upstream)
 		return err
 	})
 }
 
 func (m Model) unsetBranchUpstream(local string) tea.Cmd {
-	return m.branchMutation("unset upstream", local, func(r git.Runner) error {
-		_, err := branches.UnsetUpstream(context.Background(), r, local)
+	return m.branchMutation("unset upstream", local, func(ctx context.Context, r git.Runner) error {
+		_, err := branches.UnsetUpstream(ctx, r, local)
 		return err
 	})
 }
 
 func (m Model) deleteBranch(branch branches.Branch, force bool, input string) tea.Cmd {
-	return m.branchMutation("deleted", branch.Name, func(r git.Runner) error {
-		_, err := branches.Delete(context.Background(), r, branch, branches.DeletePrompt(branch.Name, force), input)
+	return m.branchMutation("deleted", branch.Name, func(ctx context.Context, r git.Runner) error {
+		_, err := branches.Delete(ctx, r, branch, branches.DeletePrompt(branch.Name, force), input)
 		return err
 	})
 }
@@ -712,7 +1056,7 @@ func (m *Model) updateBranchMutationKey(key string) tea.Cmd {
 func (m Model) loadStashes() tea.Cmd {
 	r := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		entries, err := stash.List(context.Background(), r)
+		entries, err := stash.List(m.commandContext(), r)
 		return StashesReadyMsg{Entries: entries, Err: err}
 	}
 }
@@ -724,7 +1068,7 @@ func (m Model) previewSelectedStash() tea.Cmd {
 	ref := m.Stashes.Entries[m.Stashes.Selected].Ref
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		result, err := stash.Show(context.Background(), runner, ref)
+		result, err := stash.Show(m.commandContext(), runner, ref)
 		return StashPreviewReadyMsg{Ref: ref, Text: string(result.Stdout), Err: err}
 	}
 }
@@ -735,9 +1079,10 @@ func (m Model) createStash() tea.Cmd {
 		return nil
 	}
 	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
-		_, err := stash.CreateWithOptions(context.Background(), runner, message, m.StashIncludeUntracked)
-		return StashOperationFinishedMsg{Operation: "created stash", Ref: message, Err: err}
+		_, err := stash.CreateWithOptions(ctx, runner, message, m.StashIncludeUntracked)
+		return StashOperationFinishedMsg{Operation: "created stash", Ref: message, Repository: generation, Err: err}
 	}
 }
 
@@ -747,19 +1092,20 @@ func (m Model) executeStashAction() tea.Cmd {
 	}
 	runner := git.NewRunner(m.Discovery.Root)
 	action, ref := m.StashConfirmAction, m.StashConfirmRef
+	ctx, generation := m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
 		var err error
 		switch action {
 		case "apply":
-			_, err = stash.ApplyChecked(context.Background(), runner, ref)
+			_, err = stash.ApplyChecked(ctx, runner, ref)
 		case "pop":
-			_, err = stash.PopChecked(context.Background(), runner, ref)
+			_, err = stash.PopChecked(ctx, runner, ref)
 		case "drop":
-			_, err = stash.Drop(context.Background(), runner, ref)
+			_, err = stash.Drop(ctx, runner, ref)
 		default:
 			err = fmt.Errorf("unknown stash action: %s", action)
 		}
-		return StashOperationFinishedMsg{Operation: action, Ref: ref, Err: err}
+		return StashOperationFinishedMsg{Operation: action, Ref: ref, Repository: generation, Err: err}
 	}
 }
 
@@ -769,9 +1115,10 @@ func (m Model) createStashBranch() tea.Cmd {
 	}
 	runner := git.NewRunner(m.Discovery.Root)
 	name, ref := strings.TrimSpace(m.StashBranchName), m.StashBranchRef
+	ctx, generation := m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
-		_, err := stash.BranchChecked(context.Background(), runner, name, ref)
-		return StashOperationFinishedMsg{Operation: "created branch " + name, Ref: ref, Err: err}
+		_, err := stash.BranchChecked(ctx, runner, name, ref)
+		return StashOperationFinishedMsg{Operation: "created branch " + name, Ref: ref, Repository: generation, Err: err}
 	}
 }
 
@@ -811,7 +1158,7 @@ func (m *Model) loadHistoryPage(skip int) tea.Cmd {
 	if m.HistoryCancel != nil {
 		m.HistoryCancel()
 	}
-	ctx, cancel := context.WithCancel(m.ctx)
+	ctx, cancel := context.WithCancel(m.commandContext())
 	m.HistoryCancel = cancel
 	r := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
@@ -832,7 +1179,7 @@ func (m Model) inspectCommit(commit history.Commit, parent, path string) tea.Cmd
 	sha := commit.SHA
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		inspector, err := history.InspectPath(context.Background(), runner, sha, parent, path)
+		inspector, err := history.InspectPath(m.commandContext(), runner, sha, parent, path)
 		inspector.Commit = commit
 		return HistoryInspectorReadyMsg{Inspector: inspector, Err: err}
 	}
@@ -841,7 +1188,7 @@ func (m Model) inspectCommit(commit history.Commit, parent, path string) tea.Cmd
 func (m Model) loadHistoryTags() tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		tags, err := history.ListTags(context.Background(), runner)
+		tags, err := history.ListTags(m.commandContext(), runner)
 		return HistoryTagsReadyMsg{Tags: tags, Err: err}
 	}
 }
@@ -853,7 +1200,7 @@ func (m Model) resolveHistoryRef() tea.Cmd {
 	}
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		sha, err := history.ResolveRef(context.Background(), runner, ref)
+		sha, err := history.ResolveRef(m.commandContext(), runner, ref)
 		return HistoryRefReadyMsg{Ref: ref, SHA: sha, Err: err}
 	}
 }
@@ -863,10 +1210,10 @@ func (m Model) checkoutSelectedHistory() tea.Cmd {
 		return nil
 	}
 	runner := git.NewRunner(m.Discovery.Root)
-	target := m.HistoryActionTarget
+	target, ctx, generation := m.HistoryActionTarget, m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
-		_, err := history.CheckoutCommit(context.Background(), runner, target)
-		return HistoryActionFinishedMsg{Action: "checkout", Target: target, Err: err}
+		_, err := history.CheckoutCommit(ctx, runner, target)
+		return HistoryActionFinishedMsg{Action: "checkout", Target: target, Repository: generation, Err: err}
 	}
 }
 
@@ -876,9 +1223,10 @@ func (m Model) createHistoryBranch() tea.Cmd {
 	}
 	runner := git.NewRunner(m.Discovery.Root)
 	target, name := m.HistoryBranchTarget, strings.TrimSpace(m.HistoryBranchName)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
-		_, err := history.CreateBranchAt(context.Background(), runner, name, target)
-		return HistoryActionFinishedMsg{Action: "created branch " + name, Target: target, Err: err}
+		_, err := history.CreateBranchAt(ctx, runner, name, target)
+		return HistoryActionFinishedMsg{Action: "created branch " + name, Target: target, Repository: generation, Err: err}
 	}
 }
 
@@ -888,9 +1236,10 @@ func (m Model) revertSelectedHistory() tea.Cmd {
 	}
 	runner := git.NewRunner(m.Discovery.Root)
 	confirmation := history.RevertConfirmation{SHA: m.HistoryRevertTarget}
+	target, input, ctx, generation := m.HistoryRevertTarget, m.HistoryRevertInput, m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
-		_, err := history.Revert(context.Background(), runner, confirmation, m.HistoryRevertInput)
-		return HistoryActionFinishedMsg{Action: "reverted", Target: m.HistoryRevertTarget, Err: err}
+		_, err := history.Revert(ctx, runner, confirmation, input)
+		return HistoryActionFinishedMsg{Action: "reverted", Target: target, Repository: generation, Err: err}
 	}
 }
 
@@ -899,7 +1248,7 @@ func (m Model) loadRemotes() tea.Cmd {
 	branch := m.Snapshot.Branch
 	activity := append([]remotes.Activity(nil), m.Remotes.Dashboard.Activity...)
 	return func() tea.Msg {
-		entries, err := remotes.List(context.Background(), runner)
+		entries, err := remotes.List(m.commandContext(), runner)
 		if err != nil {
 			return RemotesReadyMsg{Err: err}
 		}
@@ -918,7 +1267,7 @@ func (m Model) loadGitHub() tea.Cmd {
 		tokenEnv = "GITHUB_TOKEN"
 	}
 	return func() tea.Msg {
-		entries, err := remotes.List(context.Background(), runner)
+		entries, err := remotes.List(m.commandContext(), runner)
 		if err != nil {
 			return GitHubReadyMsg{Branch: branch, Err: err}
 		}
@@ -937,7 +1286,7 @@ func (m Model) loadGitHub() tea.Cmd {
 		if cache == nil {
 			cache = provider.NewPullRequestCache(2 * time.Minute)
 		}
-		pull, err := cache.Get(context.Background(), client, repository, branch)
+		pull, err := cache.Get(m.commandContext(), client, repository, branch)
 		if err != nil {
 			return GitHubReadyMsg{Repository: repository, Branch: branch, Err: err}
 		}
@@ -945,7 +1294,7 @@ func (m Model) loadGitHub() tea.Cmd {
 		if checksCache == nil {
 			checksCache = provider.NewCache[provider.ChecksSnapshot](2 * time.Minute)
 		}
-		checks, err := checksCache.Get(context.Background(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"@"+branch, func(ctx context.Context) (provider.ChecksSnapshot, error) {
+		checks, err := checksCache.Get(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"@"+branch, func(ctx context.Context) (provider.ChecksSnapshot, error) {
 			return client.Checks(ctx, repository, branch)
 		})
 		if err != nil {
@@ -955,7 +1304,7 @@ func (m Model) loadGitHub() tea.Cmd {
 		if reviewsCache == nil {
 			reviewsCache = provider.NewCache[provider.ReviewSnapshot](2 * time.Minute)
 		}
-		review, err := reviewsCache.Get(context.Background(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"#"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.ReviewSnapshot, error) {
+		review, err := reviewsCache.Get(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"#"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.ReviewSnapshot, error) {
 			return client.Reviews(ctx, repository, pull.Number)
 		})
 		return GitHubReadyMsg{Repository: repository, Branch: branch, Pull: pull, Checks: checks, Review: review, Err: err}
@@ -966,7 +1315,7 @@ func (m Model) loadPlugins() tea.Cmd {
 	directories := append([]string(nil), m.PluginDirectories...)
 	statePath := m.PluginStatePath
 	return func() tea.Msg {
-		entries, err := plugins.Discover(context.Background(), directories, 128)
+		entries, err := plugins.Discover(m.commandContext(), directories, 128)
 		if err == nil && statePath != "" {
 			state, stateErr := plugins.LoadState(statePath)
 			if stateErr != nil {
@@ -999,7 +1348,7 @@ func (m *Model) recordRemoteActivity(operation, message string, success bool) {
 func (m Model) loadWorktrees() tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		entries, err := worktrees.List(context.Background(), runner)
+		entries, err := worktrees.List(m.commandContext(), runner)
 		return WorktreesReadyMsg{Entries: entries, Err: err}
 	}
 }
@@ -1016,7 +1365,7 @@ func (m Model) loadRepositories() tea.Cmd {
 	statePath := m.RepositoryRegistryPath
 	groups := cloneGroups(m.RepositoryGroups)
 	return func() tea.Msg {
-		repositories, err := registry.Discover(context.Background(), roots, registry.Options{})
+		repositories, err := registry.Discover(m.commandContext(), roots, registry.Options{})
 		if err != nil {
 			return RepositoriesReadyMsg{Err: err}
 		}
@@ -1036,7 +1385,7 @@ func (m Model) loadRepositories() tea.Cmd {
 				return RepositoriesReadyMsg{Err: err}
 			}
 		}
-		results := engine.Refresh(context.Background(), repositories, m.Discovery.Root)
+		results := engine.Refresh(m.commandContext(), repositories, m.Discovery.Root)
 		return RepositoriesReadyMsg{Rows: registry.Rows(results), Repositories: repositories}
 	}
 }
@@ -1049,7 +1398,7 @@ func (m Model) openSelectedRepository() tea.Cmd {
 	registryEntries := append([]registry.Repository(nil), m.RepositoryRegistry...)
 	registryPath := m.RepositoryRegistryPath
 	return func() tea.Msg {
-		discovery, err := git.Discover(context.Background(), path)
+		discovery, err := git.Discover(m.commandContext(), path)
 		var persistenceErr error
 		if err == nil && registryPath != "" {
 			now := time.Now()
@@ -1070,7 +1419,7 @@ func (m Model) openSelectedWorktree() tea.Cmd {
 	}
 	path := m.Worktrees.Entries[m.Worktrees.Selected].Path
 	return func() tea.Msg {
-		discovery, err := git.Discover(context.Background(), path)
+		discovery, err := git.Discover(m.commandContext(), path)
 		return RepositoryOpenedMsg{Path: path, Discovery: discovery, Err: err}
 	}
 }
@@ -1081,9 +1430,10 @@ func (m Model) addWorktree() tea.Cmd {
 		return nil
 	}
 	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
-		_, err := worktrees.Add(context.Background(), runner, path, "")
-		return WorktreeOperationFinishedMsg{Operation: "added worktree", Target: path, Err: err}
+		_, err := worktrees.Add(ctx, runner, path, "")
+		return WorktreeOperationFinishedMsg{Operation: "added worktree", Target: path, Repository: generation, Err: err}
 	}
 }
 
@@ -1094,17 +1444,18 @@ func (m Model) executeWorktreeAction() tea.Cmd {
 	}
 	runner := git.NewRunner(m.Discovery.Root)
 	action := m.WorktreeConfirmAction
+	ctx, generation := m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
 		var err error
 		switch action {
 		case "remove":
-			_, err = worktrees.Remove(context.Background(), runner, target, false)
+			_, err = worktrees.Remove(ctx, runner, target, false)
 		case "prune":
-			_, err = worktrees.Prune(context.Background(), runner, false)
+			_, err = worktrees.Prune(ctx, runner, false)
 		default:
 			err = fmt.Errorf("unknown worktree action: %s", action)
 		}
-		return WorktreeOperationFinishedMsg{Operation: action, Target: target, Err: err}
+		return WorktreeOperationFinishedMsg{Operation: action, Target: target, Repository: generation, Err: err}
 	}
 }
 
@@ -1135,9 +1486,9 @@ func (m *Model) updateWorktreeAddKey(key string) tea.Cmd {
 }
 
 func (m *Model) startRemoteJob(operation, remote string) context.Context {
-	base := m.ctx
+	base := m.repositoryCtx
 	if base == nil {
-		base = context.Background()
+		base = m.commandContext()
 	}
 	ctx, cancel := context.WithCancel(base)
 	m.RemoteCancel = cancel
@@ -1151,11 +1502,11 @@ func (m *Model) remoteCommand(ctx context.Context, operation, remote string, wor
 	if m.OperationEngine == nil {
 		m.OperationEngine = operations.New(4)
 	}
-	id, repoRoot := m.RemoteJobID, m.Discovery.Root
+	id, repoRoot, generation := m.RemoteJobID, m.Discovery.Root, m.repositoryGeneration
 	command := m.OperationEngine.Command(ctx, id, repoRoot, operation, 5*time.Minute, work)
 	return func() tea.Msg {
 		result := command()
-		return RemoteOperationFinishedMsg{Operation: operation, Remote: remote, Err: result.Result.Err}
+		return RemoteOperationFinishedMsg{Operation: operation, Remote: remote, Repository: generation, Err: result.Result.Err}
 	}
 }
 
@@ -1226,7 +1577,7 @@ func (m Model) previewSelectedRemotePush() tea.Cmd {
 	branch := m.Snapshot.Branch.Name
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
-		preview, err := remotes.PreviewPush(context.Background(), runner, remote, branch)
+		preview, err := remotes.PreviewPush(m.commandContext(), runner, remote, branch)
 		return PushPreviewReadyMsg{Preview: preview, Err: err}
 	}
 }
@@ -1267,7 +1618,7 @@ func (m *Model) beginCommit() tea.Cmd {
 	m.CommitConfig, m.CommitConfigReady = git.CommitConfig{}, false
 	m.Workspace.Navigate(workspace.Commit, "Commit")
 	runner := git.NewRunner(m.Discovery.Root)
-	return func() tea.Msg { return CommitConfigReadyMsg{Config: runner.CommitConfig(context.Background())} }
+	return func() tea.Msg { return CommitConfigReadyMsg{Config: runner.CommitConfig(m.commandContext())} }
 }
 
 func (m Model) commit() tea.Cmd {
@@ -1276,12 +1627,13 @@ func (m Model) commit() tea.Cmd {
 	}
 	draft := m.Composer.Draft
 	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
-		result, err := runner.Commit(context.Background(), git.CommitOptions{
+		result, err := runner.Commit(ctx, git.CommitOptions{
 			Message: []byte(draft.Message()), Amend: draft.Amend, NoEdit: draft.NoEdit,
 			Signoff: draft.Signoff, Sign: draft.Sign, Author: draft.Author,
 		})
-		return CommitFinishedMsg{SHA: result.SHA, HookOutput: platform.SafeText(string(append(result.Result.Stdout, result.Result.Stderr...))), Err: err}
+		return CommitFinishedMsg{SHA: result.SHA, HookOutput: platform.SafeText(string(append(result.Result.Stdout, result.Result.Stderr...))), Repository: generation, Err: err}
 	}
 }
 
@@ -1534,6 +1886,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.PaletteMode {
 			return m, m.updatePaletteKey(v.String())
 		}
+		if m.currentView() == workspace.Status && m.Restore.Open {
+			return m, m.updateRestoreKey(v.String())
+		}
+		if m.currentView() == workspace.Status && m.FileFilterMode {
+			return m, m.updateFileFilterKey(v.String())
+		}
 		if m.currentView() == workspace.Hunks {
 			return m, m.updateHunkKey(v.String())
 		}
@@ -1785,6 +2143,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch v.String() {
 		case "q", "ctrl+c":
 			m.State = StateShutdown
+			if err := m.shutdown(); err != nil {
+				m.Status = "shutdown: " + err.Error()
+			}
 			return m, tea.Quit
 		case "ctrl+p":
 			m.openPalette()
@@ -1799,6 +2160,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.Modal != "" {
 				m.Modal = ""
 				m.State = StateReady
+			} else if m.currentView() == workspace.Status && m.DiffPath != "" {
+				m.closeDiff()
+				m.Status = "diff closed"
 			} else if m.currentView() != workspace.Status {
 				if m.currentView() == workspace.Log && m.HistoryCancel != nil {
 					m.HistoryCancel()
@@ -1841,6 +2205,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Worktrees {
 				m.WorktreeAddMode, m.WorktreeAddPath = true, ""
 				m.Status = "worktree path: "
+			}
+		case "U":
+			if m.currentView() == workspace.Status {
+				m.State, m.Status = StateOperationPending, "unstaging all changes; working-tree content will be preserved"
+				return m, m.mutateAll(false)
+			}
+		case "S":
+			if m.currentView() == workspace.Status {
+				m.Files.CycleSort()
+				m.Status = "file sort mode changed"
+			}
+		case "!":
+			if m.currentView() == workspace.Status {
+				m.FileConflictOnly = !m.FileConflictOnly
+				if m.FileConflictOnly {
+					m.Files.SetConflictFilter(true)
+					m.Status = "showing conflicted files only"
+				} else {
+					m.Files.SetFilter(m.FileFilterInput)
+					m.Status = "conflict filter cleared"
+				}
 			}
 		case "D":
 			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
@@ -1954,6 +2339,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Branches {
 				m.BranchSearching, m.Status = true, "branch filter: "
 			}
+			if m.currentView() == workspace.Status {
+				m.FileFilterMode, m.FileConflictOnly = true, false
+				m.Files.SetFilter(m.FileFilterInput)
+				m.Status = "file filter: " + m.FileFilterInput
+			}
 		case "x":
 			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
 				m.HistoryActionTarget = m.History.Rows[m.History.Selected].Commit.SHA
@@ -1993,6 +2383,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryRevertTarget = m.History.Rows[m.History.Selected].Commit.SHA
 				m.HistoryRevertInput, m.HistoryRevertConfirm, m.HistoryRevertInvalid = "", true, false
 				m.Status = "type SHA " + m.HistoryRevertTarget + ": "
+			} else if m.currentView() == workspace.Status {
+				m.beginRestore()
 			}
 		case "M":
 			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" && len(m.HistoryInspector.Commit.Parents) > 0 {
@@ -2039,6 +2431,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				action := map[string]string{"a": "apply", "D": "drop"}[v.String()]
 				m.StashConfirmAction, m.StashConfirmRef = action, ref
 				m.Status = "confirm " + action + " " + ref + "? (y/n)"
+			} else if m.currentView() == workspace.Status {
+				m.State, m.Status = StateOperationPending, "staging all tracked, untracked, and deleted paths"
+				return m, m.mutateAll(true)
 			}
 		case "c":
 			if m.currentView() == workspace.Branches {
@@ -2077,6 +2472,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.State, m.Status = StateOperationPending, "loading commit details"
 				return m, m.inspectSelectedCommit()
 			}
+			return m, m.openDiff()
 		case "j", "down":
 			switch m.currentView() {
 			case workspace.Branches:
@@ -2094,7 +2490,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case workspace.Plugins:
 				m.Plugins.Move(1)
 			default:
-				m.Files.Move(1, m.Height-8)
+				m.Files.Move(1, m.statusRowCount())
+				if m.DiffPath != "" {
+					return m, m.openDiff()
+				}
 			}
 		case "k", "up":
 			switch m.currentView() {
@@ -2113,8 +2512,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case workspace.Plugins:
 				m.Plugins.Move(-1)
 			default:
-				m.Files.Move(-1, m.Height-8)
+				m.Files.Move(-1, m.statusRowCount())
+				if m.DiffPath != "" {
+					return m, m.openDiff()
+				}
 			}
+		case "pgup":
+			m.scrollDiff(-m.statusRowCount())
+		case "pgdown":
+			m.scrollDiff(m.statusRowCount())
 		case "space":
 			if m.currentView() == workspace.Plugins && m.Plugins.Selected >= 0 && m.Plugins.Selected < len(m.Plugins.Entries) {
 				entry := m.Plugins.Entries[m.Plugins.Selected]
@@ -2143,11 +2549,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.refresh()
 		}
 	case tea.MouseWheelMsg:
+		statusLayout := m.statusLayout()
+		if m.DiffPath != "" && (statusLayout.Mode != layout.Wide || statusLayout.Details.Contains(v.X, v.Y)) {
+			switch v.Button {
+			case tea.MouseWheelUp:
+				m.scrollDiff(-3)
+			case tea.MouseWheelDown:
+				m.scrollDiff(3)
+			}
+			return m, nil
+		}
 		switch v.Button {
 		case tea.MouseWheelUp:
-			m.Files.Move(-1, m.Height-8)
+			m.Files.Move(-1, m.statusRowCount())
 		case tea.MouseWheelDown:
-			m.Files.Move(1, m.Height-8)
+			m.Files.Move(1, m.statusRowCount())
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
@@ -2204,7 +2620,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
-			hit := uimouse.HitMap{Files: layout.Rect{X: 0, Y: 3, Width: m.Width, Height: max(1, m.Height-8)}, RowTop: 3, RowHeight: 1, StageX: 0, StageWidth: 3, RowCount: len(m.Files.Visible)}
+			statusLayout := m.statusLayout()
+			if statusLayout.Mode != layout.Wide && m.DiffPath != "" {
+				return m, nil
+			}
+			files := statusLayout.Files
+			if statusLayout.Mode == layout.Wide {
+				files.Width = max(1, files.Width-1)
+			}
+			hit := uimouse.HitMap{Files: files, RowTop: files.Y, RowHeight: 1, Offset: m.Files.Offset, StageX: files.X, StageWidth: 3, RowCount: len(m.Files.Visible)}
 			action, row, ok := hit.Hit(v.X, v.Y, 0)
 			if ok {
 				m.Files.Selected = row
@@ -2219,12 +2643,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width, m.Height = v.Width, v.Height
 		m.Hunks.SetHeight(max(1, v.Height-8))
-	case SnapshotMsg:
-		m.Snapshot = v.Snapshot
-		m.Files.SetEntries(v.Snapshot.Entries)
-		if v.Snapshot.Counts.Conflicted > 0 {
-			m.notify(notifications.Conflict, notifications.Error, "repository conflicts", fmt.Sprintf("%d conflicted file(s)", v.Snapshot.Counts.Conflicted), true)
+	case refreshResultMsg:
+		if v.Coordinator != m.RefreshCoordinator {
+			return m, nil
 		}
+		if !v.Open {
+			return m, nil
+		}
+		if v.Result.Err != nil {
+			m.State, m.Status = StateError, v.Result.Err.Error()
+			m.recordActivity(history.RefreshError, "", v.Result.Err.Error())
+		} else {
+			m.applySnapshot(v.Result.Snapshot)
+			m.State = StateReady
+		}
+		return m, waitForRefresh(v.Coordinator)
+	case refreshRequestedMsg:
+		if v.Coordinator != m.RefreshCoordinator {
+			return m, nil
+		}
+		m.State = StateRefreshing
+		v.Coordinator.Request(v.Context)
+	case SnapshotMsg:
+		m.applySnapshot(v.Snapshot)
 		m.State = StateReady
 	case RefreshStartedMsg:
 		m.State = StateRefreshing
@@ -2232,16 +2673,71 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.State = StateError
 			m.Status = v.Err.Error()
+			m.recordActivity(history.RefreshError, "", v.Err.Error())
 		} else if m.State == StateRefreshing {
 			m.State = StateReady
 		}
 	case TickMsg:
-		if m.currentView() == workspace.Log && m.Motion.Ticks() {
+		if !m.Motion.Ticks() {
+			return m, nil
+		}
+		m.WatchPulse++
+		if m.currentView() == workspace.Log {
 			m.HistoryPulse++
 			m.History.SetPulse(m.HistoryPulse)
 		}
-		return m, tea.Batch(m.refresh(), m.tick())
+		return m, m.tick()
+	case watcherStartedMsg:
+		if v.Generation != m.repositoryGeneration {
+			if v.Manager != nil {
+				if err := v.Manager.Close(); err != nil {
+					m.Status = "stale watcher did not close cleanly: " + err.Error()
+				}
+			}
+			return m, nil
+		}
+		if m.WatchManager != nil && m.WatchManager != v.Manager {
+			if err := m.WatchManager.Close(); err != nil {
+				m.Status = "superseded watcher did not close cleanly: " + err.Error()
+			}
+		}
+		m.WatchManager = v.Manager
+		if v.Manager == nil {
+			m.WatchMode = ""
+			m.Status = "watcher unavailable"
+			if v.Warning != nil {
+				m.Status += ": " + v.Warning.Error()
+			}
+			return m, nil
+		}
+		m.WatchMode = v.Manager.Mode()
+		if v.Warning != nil {
+			m.Status = "watcher fallback: " + v.Warning.Error()
+			m.recordActivity(history.WatchFallback, "", v.Warning.Error())
+		}
+		return m, waitForWatcher(v.Manager)
+	case watcherEventMsg:
+		if v.Manager != m.WatchManager {
+			return m, nil
+		}
+		if !v.Open {
+			m.Status = "watcher stopped; restarting with polling"
+			m.WatchRequested = watch.RequestedPoll
+			m.WatchManager = nil
+			return m, m.startWatcher()
+		}
+		if v.Event.Mode != "" {
+			m.WatchMode = v.Event.Mode
+		}
+		if v.Event.Err != nil {
+			m.Status = "watcher fallback: " + v.Event.Err.Error()
+			m.recordActivity(history.WatchFallback, v.Event.Path, v.Event.Err.Error())
+		}
+		return m, tea.Batch(m.refresh(), waitForWatcher(v.Manager))
 	case WatcherStateMsg:
+		if mode, ok := watch.ParseMode(v.Mode); ok && mode != watch.RequestedAuto {
+			m.WatchMode = watch.Mode(mode)
+		}
 		if v.Err != nil {
 			m.Status = "watcher fallback: " + v.Err.Error()
 		}
@@ -2249,23 +2745,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.State = StateOperationPending
 		m.Status = v.Name
 	case OperationFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
 		if v.Err != nil {
 			m.State = StateError
 			m.Status = v.Err.Error()
 			m.notify(notifications.JobComplete, notifications.Error, v.Name, v.Err.Error(), true)
+			m.recordActivity(history.OperationFailure, "", v.Name+": "+v.Err.Error())
 		} else {
 			m.State = StateReady
 			m.Status = v.Name + " complete"
 			m.notify(notifications.JobComplete, notifications.Success, m.Status, "", false)
+			m.recordActivity(history.OperationSuccess, "", m.Status)
 		}
+		return m, m.refresh()
 	case PartialOperationFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 			m.notify(notifications.JobComplete, notifications.Error, v.Name, v.Err.Error(), true)
+			m.recordActivity(history.OperationFailure, "", v.Name+": "+v.Err.Error())
 		} else {
 			m.State, m.Status = StateReady, v.Name+" complete"
-			return m, m.refresh()
+			m.recordActivity(history.OperationSuccess, "", m.Status)
 		}
+		return m, m.refresh()
 	case ToastMsg:
 		m.Toast = v
 	case ModalMsg:
@@ -2279,8 +2786,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Focus = v.Pane
 	case ShutdownMsg:
 		m.State = StateShutdown
+		if err := m.shutdown(); err != nil {
+			m.Status = "shutdown: " + err.Error()
+		}
 	case DiffReadyMsg:
-		m.DiffPath, m.DiffText, m.DiffStaged, m.DiffBinary, m.Status = v.Path, v.Text, v.Staged, v.Binary, ""
+		if v.Request != m.DiffRequest {
+			return m, nil
+		}
+		m.DiffCancel, m.DiffLoading = nil, false
+		m.DiffPath, m.DiffText, m.DiffStaged, m.DiffBinary, m.DiffAdded, m.DiffDeleted, m.DiffErr, m.Status = v.Path, v.Text, v.Staged, v.Binary, v.Added, v.Deleted, v.Err, ""
 		if v.Err != nil {
 			m.Status = v.Err.Error()
 		} else if m.currentView() == workspace.Hunks {
@@ -2315,25 +2829,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.StashPreview, m.StashPreviewRef, m.State, m.Status = v.Text, v.Ref, StateReady, ""
 		}
 	case StashOperationFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
+			m.recordActivity(history.OperationFailure, v.Ref, v.Operation+": "+v.Err.Error())
 		} else {
 			m.State, m.Status = StateReady, v.Operation+" complete"
-			return m, tea.Batch(m.refresh(), m.loadStashes(), m.loadBranches())
+			m.recordActivity(history.OperationSuccess, v.Ref, m.Status)
 		}
+		return m, tea.Batch(m.refresh(), m.loadStashes(), m.loadBranches())
 	case CommitFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 			if strings.TrimSpace(v.HookOutput) != "" {
 				m.Status += "\nhook output:\n" + v.HookOutput
 			}
 			m.notify(notifications.HookFailure, notifications.Error, "commit hook failed", v.Err.Error(), true)
+			m.recordActivity(history.OperationFailure, "", "commit: "+v.Err.Error())
 		} else {
 			m.CommitAmendConfirm, m.CommitAuthorMode = false, false
 			m.State, m.Status = StateReady, "commit "+v.SHA
 			m.Workspace.Back()
-			return m, m.refresh()
+			m.recordActivity(history.OperationSuccess, "", m.Status)
 		}
+		return m, m.refresh()
 	case CommitConfigReadyMsg:
 		m.CommitConfig, m.CommitConfigReady = v.Config, true
 		identity := strings.TrimSpace(strings.TrimSpace(v.Config.UserName) + " <" + strings.TrimSpace(v.Config.UserEmail) + ">")
@@ -2371,16 +2895,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.notify(notifications.PluginFailure, notifications.Error, "plugin state", v.Err.Error(), true)
 		}
 	case BranchOperationFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
+			m.recordActivity(history.OperationFailure, v.Name, v.Operation+": "+v.Err.Error())
 		} else {
 			operation := v.Operation
 			if operation == "" {
 				operation = "completed"
 			}
 			m.State, m.Status = StateReady, operation+" "+v.Name
-			return m, tea.Batch(m.refresh(), m.loadBranches())
+			m.recordActivity(history.OperationSuccess, v.Name, m.Status)
 		}
+		return m, tea.Batch(m.refresh(), m.loadBranches())
 	case HistoryReadyMsg:
 		m.HistoryCancel = nil
 		if v.Err != nil {
@@ -2429,13 +2958,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.HistoryTags, m.State, m.Status = v.Tags, StateReady, ""
 		}
 	case HistoryActionFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
+			m.recordActivity(history.OperationFailure, v.Target, v.Action+": "+v.Err.Error())
 		} else {
 			m.State, m.Status = StateReady, v.Action+" "+v.Target
 			m.Workspace.Back()
-			return m, m.refresh()
+			m.recordActivity(history.OperationSuccess, v.Target, m.Status)
 		}
+		return m, m.refresh()
 	case RemotesReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -2493,18 +3027,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.RepositoryRegistry[i].LastOpened = time.Now()
 				}
 			}
-			m.Discovery, m.State, m.Status = v.Discovery, StateReady, "opened "+v.Path
+			if err := m.setRepository(v.Discovery); err != nil {
+				m.Toast = ToastMsg{Text: "previous repository watcher did not close cleanly: " + err.Error(), Error: true}
+			}
+			m.State, m.Status = StateReady, "opened "+v.Path
 			m.Workspace.Navigate(workspace.Status, "Status")
-			return m, m.refresh()
+			return m, tea.Batch(m.refresh(), waitForRefresh(m.RefreshCoordinator), m.startWatcher())
 		}
 	case WorktreeOperationFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
+			m.recordActivity(history.OperationFailure, v.Target, v.Operation+": "+v.Err.Error())
 		} else {
 			m.State, m.Status = StateReady, v.Operation+" complete"
-			return m, tea.Batch(m.refresh(), m.loadWorktrees(), m.loadBranches())
+			m.recordActivity(history.OperationSuccess, v.Target, m.Status)
 		}
+		return m, tea.Batch(m.refresh(), m.loadWorktrees(), m.loadBranches())
 	case RemoteOperationFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
 		m.RemoteSetUpstream, m.RemoteTag = false, ""
 		if m.RemoteJobID != "" {
 			for i := range m.Remotes.Dashboard.Jobs {
@@ -2537,11 +3082,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.Status = v.Err.Error()
 			}
+			m.recordActivity(history.OperationFailure, v.Remote, v.Operation+": "+v.Err.Error())
 		} else {
 			m.notify(notifications.JobComplete, notifications.Success, v.Operation, v.Remote, false)
 			m.State, m.Status = StateReady, v.Operation+" complete: "+v.Remote
-			return m, tea.Batch(m.refresh(), m.loadRemotes())
+			m.recordActivity(history.OperationSuccess, v.Remote, m.Status)
 		}
+		return m, tea.Batch(m.refresh(), m.loadRemotes())
 	}
 	return m, nil
 }
@@ -2557,6 +3104,37 @@ func remoteConflict(err error) bool {
 	}
 	return strings.Contains(text, "conflict") || strings.Contains(text, "would be overwritten") || strings.Contains(text, "non-fast-forward")
 }
+
+func (m *Model) shutdown() error {
+	m.closeDiff()
+	if m.cancel != nil {
+		m.cancel()
+	}
+	if m.HistoryCancel != nil {
+		m.HistoryCancel()
+		m.HistoryCancel = nil
+	}
+	if m.RemoteCancel != nil {
+		m.RemoteCancel()
+		m.RemoteCancel = nil
+	}
+	if m.repositoryCancel != nil {
+		m.repositoryCancel()
+		m.repositoryCancel = nil
+	}
+	if m.RefreshCoordinator != nil {
+		m.RefreshCoordinator.Close()
+	}
+	if m.WatchManager != nil {
+		err := m.WatchManager.Close()
+		m.WatchManager = nil
+		return err
+	}
+	return nil
+}
+
+// Close stops repository watchers and in-flight context-aware work.
+func (m *Model) Close() error { return m.shutdown() }
 
 func (m *Model) notify(kind notifications.Kind, level notifications.Level, title, message string, attention bool) {
 	if m.Notifications != nil {
@@ -2599,50 +3177,14 @@ func (m Model) View() tea.View {
 	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories {
 		return m.featureView(view)
 	}
-	name := m.Snapshot.Branch.Name
-	if name == "" {
-		name = "repository"
-	}
-	lines := []string{fmt.Sprintf("gitwatch · %s · %s", name, stateName(m.State)), fmt.Sprintf("STAGED %d  MODIFIED %d  UNTRACKED %d  CONFLICTS %d", m.Snapshot.Counts.Staged, m.Snapshot.Counts.Unstaged, m.Snapshot.Counts.Untracked, m.Snapshot.Counts.Conflicted), "──────────────────────────────────────────────────────────────"}
-	rows := m.Height - 8
-	if rows < 1 {
-		rows = 1
-	}
-	for i := m.Files.Offset; i < len(m.Files.Visible) && i < m.Files.Offset+rows; i++ {
-		e := m.Files.Entries[m.Files.Visible[i]]
-		prefix := "  "
-		if i == m.Files.Selected {
-			prefix = "> "
-		}
-		lines = append(lines, fmt.Sprintf("%s%s %s", prefix, theme.Symbol(repo.StatusLabel(e)), string(e.Path)))
-	}
-	if len(lines) == 3 {
-		lines = append(lines, "  clean worktree")
-	}
-	if m.Toast.Text != "" {
-		lines = append(lines, "", "NOTICE: "+platform.SafeText(m.Toast.Text))
-	}
-	if m.Width >= 100 && m.DiffPath != "" {
-		lines = append(lines, "", "Selected diff: "+m.DiffPath)
-		if m.DiffBinary {
-			lines = append(lines, "  [binary file]")
-		} else {
-			for i, line := range strings.Split(m.DiffText, "\n") {
-				if i >= max(1, m.Height-10) {
-					break
-				}
-				lines = append(lines, "  "+line)
-			}
-		}
-	}
 	if m.Modal == "help" {
-		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     select/inspect", "b              branches", "s              stashes", "l              history", "n              remotes", "w              worktrees", "f              fetch", "m/e/o          pull merge/rebase/ff-only", "p              push", "c              commit", "1              status", "r              refresh", "Esc            close help", "q              quit"}
+		lines := append([]string{"gitwatch help", ""}, HelpLines()...)
+		lines = append(lines, "", "Mouse: click a file row to open its diff; click [ ]/[S] to stage or unstage.")
+		v := tea.NewView(strings.Join(safeRenderLines(lines), "\n"))
+		v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
+		return v
 	}
-	lines = append(lines, "──────────────────────────────────────────────────────────────", "[j/k] move  [space] stage/unstage  [enter/d] diff  [r] refresh  [?] help  [q] quit")
-	if m.Notifications != nil && m.Notifications.Attention() > 0 {
-		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
-	}
-	v := tea.NewView(strings.Join(safeRenderLines(lines), "\n"))
+	v := tea.NewView(m.statusView())
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
 	return v
@@ -2720,6 +3262,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 	case workspace.Repositories:
 		title, content = "gitwatch · repositories", m.Repositories.View()
 	}
+	title += " · watch:" + watchModeName(m.WatchMode)
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
 	if m.Notifications != nil && m.Notifications.Attention() > 0 {
 		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
@@ -2849,4 +3392,11 @@ func stateName(s State) string {
 	default:
 		return "unknown"
 	}
+}
+
+func watchModeName(mode watch.Mode) string {
+	if mode == "" {
+		return "starting"
+	}
+	return string(mode)
 }

@@ -43,6 +43,9 @@ func (r Runner) Restore(ctx context.Context, path []byte, staged, worktree bool)
 	args := []string{"restore"}
 	if staged {
 		args = append(args, "--staged")
+		if worktree {
+			args = append(args, "--worktree")
+		}
 	}
 	args = append(args, "--", string(path))
 	result, err := r.Run(ctx, args...)

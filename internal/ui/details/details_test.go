@@ -23,3 +23,10 @@ func TestDetailsAndGenerationCache(t *testing.T) {
 		t.Fatal("cache did not invalidate")
 	}
 }
+
+func TestDetailsExposeSubmoduleState(t *testing.T) {
+	view := Build(repo.Snapshot{}, repo.Entry{Path: repo.Path("module"), Submodule: "SC.M", ModeWork: "160000"})
+	if !view.Submodule || view.SubmoduleState != "SC.M" || view.Mode != "160000" {
+		t.Fatalf("view = %#v", view)
+	}
+}

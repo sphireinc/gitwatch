@@ -5,9 +5,14 @@
 | ↑/↓, j/k | Move selection |
 | PgUp/PgDn | Page |
 | gg / G | Top / bottom |
+| Enter | Open the selected path's diff/details (in Status view) |
+| Left click a file row | Select the path and open its diff/details (in Status view) |
 | Space | Stage or unstage selected path |
-| a | Stage all |
-| U | Unstage all |
+| a | Stage all tracked, untracked, and deleted paths (in Status view) |
+| U | Unstage all while preserving working-tree content (in Status view) |
+| S | Cycle status-file sort mode (in Status view) |
+| ! | Toggle conflict-only status filter (in Status view) |
+| R then type `yes` | Restore the selected tracked path after exact-scope confirmation (in Status view) |
 | d | Open diff |
 | 1 | Status view |
 | b | Branches view |
@@ -47,7 +52,7 @@
 | Ctrl-S | Execute a valid commit |
 | A / N / o / S / @ | Toggle amend / no-edit / signoff / signing / author override (in Commit view) |
 | Tab | Cycle focus/panes |
-| / | Filter |
+| / | Filter status files |
 | r | Force refresh |
 | ? | Help |
 | Ctrl-P | Open command palette |

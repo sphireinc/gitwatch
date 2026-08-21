@@ -6,4 +6,4 @@ Add optional v1 restore/discard action only with a confirmation modal that names
 
 **Acceptance:** No destructive command can execute from one accidental keypress/click.
 
-**Status:** Complete — restore requires an explicit confirmation object naming the exact path and content scope; only `git restore` is exposed, with no reset-hard or clean shortcut and no untracked deletion operation.
+**Status:** Complete — status-view `R` requires typing exact `yes` after a prompt naming the path and staged/worktree scope; only path-scoped `git restore` is exposed, its index/worktree result is integration-tested, and there is no reset-hard, clean, conflicted-path discard, or untracked deletion shortcut.

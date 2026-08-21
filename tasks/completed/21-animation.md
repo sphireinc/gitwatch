@@ -6,4 +6,4 @@ Add spinner/progress feedback, short-lived row-change highlight, count transitio
 
 **Acceptance:** Animation never schedules runaway ticks, never changes semantic state, and reduced/off modes are covered by tests.
 
-**Status:** Complete — centralized full/reduced/off motion policy defines tick eligibility and bounded highlights with tests; semantic state is independent of animation.
+**Status:** Complete — centralized full/reduced/off motion policy defines tick eligibility, bounded highlights, history pulse, and a subtle watcher heartbeat with tests; off mode schedules no nonessential animation tick and semantic state is independent of animation.

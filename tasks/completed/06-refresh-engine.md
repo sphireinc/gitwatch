@@ -6,4 +6,4 @@ Build snapshot acquisition around the Git runner. Enforce at most one active sta
 
 **Acceptance:** Concurrency tests show no overlapping status subprocesses and no missed final refresh after a burst.
 
-**Status:** Complete — snapshot acquisition and a single-flight dirty-bit coordinator with generation tracking and concurrency/coalescing tests are implemented.
+**Status:** Complete — snapshot acquisition and the production TUI use a single-flight dirty-bit coordinator with generation tracking, cancellation-aware shutdown, and concurrency/coalescing tests.

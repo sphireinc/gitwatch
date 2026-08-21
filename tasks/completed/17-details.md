@@ -6,4 +6,4 @@ Show path, previous path for rename, index/worktree status, conflict stage when 
 
 **Acceptance:** Details never block main render and update correctly as selection/status changes.
 
-**Status:** Complete — pure selected-entry detail construction and generation-scoped caching expose path/rename/status/mode/staged/unstaged/conflict data and operation hints without render-time I/O.
+**Status:** Complete — pure selected-entry detail construction and generation-scoped caching expose path/rename/status/mode/staged/unstaged/conflict/submodule data, observed time, and operation hints without render-time I/O; the asynchronously loaded selected-file diff reports its addition/deletion diffstat in the same details pane.

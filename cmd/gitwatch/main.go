@@ -70,8 +70,20 @@ func main() {
 	}
 	model := app.NewRepositoryWithConfig(discovery, c)
 	model.RepositoryGroup = *groupFlag
-	if _, err := tea.NewProgram(model).Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "gitwatch: %v\n", err)
+	finalModel, runErr := tea.NewProgram(model).Run()
+	var closeErr error
+	switch final := finalModel.(type) {
+	case app.Model:
+		closeErr = final.Close()
+	case *app.Model:
+		closeErr = final.Close()
+	}
+	if runErr != nil {
+		fmt.Fprintf(os.Stderr, "gitwatch: %v\n", runErr)
+		os.Exit(1)
+	}
+	if closeErr != nil {
+		fmt.Fprintf(os.Stderr, "gitwatch: shutdown: %v\n", closeErr)
 		os.Exit(1)
 	}
 }

@@ -43,6 +43,20 @@ func TestPollerEmitsAfterChange(t *testing.T) {
 	}
 }
 
+func TestPollerReconcilesWithoutAChangedBoundedSignature(t *testing.T) {
+	p := NewPoller(t.TempDir(), 5*time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	select {
+	case event := <-p.Events(ctx):
+		if event.Err != nil || event.Mode != ModePoll {
+			t.Fatalf("unexpected reconciliation event: %#v", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("poller did not emit an unconditional reconciliation hint")
+	}
+}
+
 func TestPollerReportsTraversalErrors(t *testing.T) {
 	p := NewPoller(filepath.Join(t.TempDir(), "missing"), time.Millisecond)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -54,5 +68,61 @@ func TestPollerReportsTraversalErrors(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("poller did not report traversal error")
+	}
+}
+
+func TestPollerSignatureSeesExternalGitMetadata(t *testing.T) {
+	root := t.TempDir()
+	metadata := t.TempDir()
+	p := NewPollerWithMetadata(root, []string{metadata}, time.Second)
+	before, err := p.signature()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(metadata, "HEAD"), []byte("ref: refs/heads/main\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	after, err := p.signature()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after == before {
+		t.Fatal("metadata change did not change polling signature")
+	}
+}
+
+func TestPollerSkipsGitObjectTraversal(t *testing.T) {
+	root := t.TempDir()
+	gitDir := filepath.Join(root, ".git")
+	if err := os.MkdirAll(filepath.Join(gitDir, "objects"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(gitDir, "objects", "ignored"), []byte("one"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p := NewPollerWithMetadata(root, []string{gitDir}, time.Second)
+	before, err := p.signature()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(gitDir, "objects", "ignored"), []byte("two"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	afterObject, err := p.signature()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterObject != before {
+		t.Fatal("object payload changed bounded status signature")
+	}
+	if err := os.WriteFile(filepath.Join(gitDir, "index"), []byte("index"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	afterIndex, err := p.signature()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterIndex == afterObject {
+		t.Fatal("index change did not change status signature")
 	}
 }

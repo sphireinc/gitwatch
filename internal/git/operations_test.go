@@ -47,3 +47,52 @@ func TestStageAllAndUnstageAll(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRestoreStagedAndWorkingTreeContent(t *testing.T) {
+	dir := t.TempDir()
+	runner := NewRunner(dir)
+	ctx := context.Background()
+	if _, err := runner.Run(ctx, "init", "--", dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "config", "user.name", "gitwatch test"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "config", "user.email", "gitwatch-test@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	path := []byte("tracked file.txt")
+	full := filepath.Join(dir, string(path))
+	if err := os.WriteFile(full, []byte("original\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "commit", "-m", "baseline"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte("discard me\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Restore(ctx, path, true, true); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "original\n" {
+		t.Fatalf("restored content = %q", content)
+	}
+	status, err := runner.Run(ctx, "status", "--porcelain=v1", "-z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(status.Stdout) != 0 {
+		t.Fatalf("worktree remains dirty: %q", status.Stdout)
+	}
+}

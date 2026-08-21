@@ -8,9 +8,9 @@ import (
 )
 
 type View struct {
-	Path, PreviousPath, Status, Mode, Hint string
-	Staged, Unstaged, Conflict, Submodule  bool
-	ObservedAt                             time.Time
+	Path, PreviousPath, Status, Mode, Hint, SubmoduleState string
+	Staged, Unstaged, Conflict, Submodule                  bool
+	ObservedAt                                             time.Time
 }
 
 type Cache struct {
@@ -43,7 +43,8 @@ func (c *Cache) For(snapshot repo.Snapshot, entry repo.Entry) View {
 }
 
 func Build(snapshot repo.Snapshot, entry repo.Entry) View {
-	v := View{Path: string(entry.Path), PreviousPath: string(entry.Original), Status: repo.StatusLabel(entry), Staged: entry.Staged, Unstaged: entry.Unstaged, Conflict: entry.Conflicted, Mode: entry.ModeWork, ObservedAt: snapshot.ObservedAt}
+	v := View{Path: string(entry.Path), PreviousPath: string(entry.Original), Status: repo.StatusLabel(entry), Staged: entry.Staged, Unstaged: entry.Unstaged, Conflict: entry.Conflicted, Mode: entry.ModeWork, SubmoduleState: entry.Submodule, ObservedAt: snapshot.ObservedAt}
+	v.Submodule = entry.Submodule != "" && entry.Submodule != "N..."
 	if entry.Conflicted {
 		v.Hint = "Resolve externally, then stage the resolved path"
 	} else if entry.Untracked {
