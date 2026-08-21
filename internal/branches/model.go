@@ -3,8 +3,10 @@ package branches
 import (
 	"context"
 	"errors"
-	"github.com/jusanchez/gitwatch/internal/git"
+	"fmt"
 	"strings"
+
+	"github.com/jusanchez/gitwatch/internal/git"
 )
 
 var (
@@ -40,7 +42,31 @@ func List(ctx context.Context, r git.Runner) ([]Branch, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Parse(res.Stdout), nil
+	entries := Parse(res.Stdout)
+	for i := range entries {
+		if entries[i].Upstream == "" || entries[i].Remote {
+			continue
+		}
+		behind, ahead, err := Divergence(ctx, r, entries[i].Upstream, entries[i].Name)
+		if err != nil {
+			return nil, err
+		}
+		entries[i].Ahead, entries[i].Behind = ahead, behind
+	}
+	return entries, nil
+}
+
+// Divergence returns the number of commits unique to upstream and local.
+// rev-list emits the left (upstream-only) and right (local-only) counts.
+func Divergence(ctx context.Context, r git.Runner, upstream, local string) (behind, ahead int, err error) {
+	if strings.TrimSpace(upstream) == "" || strings.TrimSpace(local) == "" {
+		return 0, 0, nil
+	}
+	result, err := r.Run(ctx, "rev-list", "--left-right", "--count", fmt.Sprintf("%s...%s", upstream, local))
+	if err != nil {
+		return 0, 0, err
+	}
+	return ParseDivergence(result.Stdout)
 }
 
 func ListWithOccupancy(ctx context.Context, r git.Runner, occupancy map[string]string) ([]Branch, error) {

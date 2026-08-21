@@ -10,3 +10,13 @@ func TestParseTracking(t *testing.T) {
 		}
 	}
 }
+
+func TestParseDivergence(t *testing.T) {
+	behind, ahead, err := ParseDivergence([]byte("12\t7\n"))
+	if err != nil || behind != 12 || ahead != 7 {
+		t.Fatalf("divergence = %d/%d err=%v", behind, ahead, err)
+	}
+	if _, _, err := ParseDivergence([]byte("not counts")); err == nil {
+		t.Fatal("invalid divergence was accepted")
+	}
+}

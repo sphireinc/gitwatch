@@ -37,6 +37,9 @@ func (m Model) View() string {
 		if e.OccupiedPath != "" {
 			lines[len(lines)-1] += " · worktree: " + platform.SafeText(e.OccupiedPath)
 		}
+		if e.Upstream != "" {
+			lines[len(lines)-1] += fmt.Sprintf(" · ahead %d/behind %d", e.Ahead, e.Behind)
+		}
 	}
 	return strings.Join(lines, "\n")
 }
