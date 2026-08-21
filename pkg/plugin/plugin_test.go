@@ -28,3 +28,21 @@ func TestDecodeRejectsHostileMessageSizes(t *testing.T) {
 		t.Fatal("oversized message was accepted")
 	}
 }
+
+func TestManifestAndNegotiationDefineStableContract(t *testing.T) {
+	manifest := Manifest{ID: "demo", Name: "Demo", Version: "1.0.0", APIVersion: APIVersion, Capabilities: []Capability{Panel, StatusWidget}}
+	if err := manifest.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	response := Negotiate(APIVersion, manifest.Capabilities, []Capability{Panel, StatusWidget})
+	if !response.Accepted || len(response.Capabilities) != 2 {
+		t.Fatalf("negotiation = %#v", response)
+	}
+	if Negotiate(APIVersion, []Capability{Command}, nil).Accepted {
+		t.Fatal("unsupported capability was accepted")
+	}
+	unknown := Manifest{ID: "demo", Name: "Demo", Version: "1", APIVersion: APIVersion, Capabilities: []Capability{Capability("unknown")}}
+	if unknown.Validate() == nil {
+		t.Fatal("unknown capability was accepted")
+	}
+}

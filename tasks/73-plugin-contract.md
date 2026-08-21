@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added versioned manifest validation, capability declarations, host capability negotiation, an out-of-process contract document, and a newline-delimited handshake request/response schema in the public SDK. The runtime contract now includes explicit capability grants and bounded restart supervision; manager UI and complete lifecycle policy remain.
+Progress: Added versioned manifest validation, capability declarations, host capability negotiation, an out-of-process contract document, newline-delimited handshake request/response schema, stable lifecycle/event/command/panel/status-widget/configuration types, and additive compatibility guarantees in the public SDK. The runtime contract includes explicit capability grants and bounded restart supervision; manager UI remains in Task 75.
 
 ## Objective
 Define plugin manifest, API version negotiation, capabilities, lifecycle, events, commands, panels, status widgets, configuration schema, and failure isolation. Decide an RPC/out-of-process boundary so third-party plugins cannot corrupt the TUI process. Document compatibility guarantees.
@@ -25,4 +25,6 @@ Define plugin manifest, API version negotiation, capabilities, lifecycle, events
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Status: Complete
+
+Completion summary: The v1 plugin contract is versioned at API 1, validates identifiers/capabilities/config-schema bounds, negotiates exact host grants, and defines newline-delimited messages plus lifecycle, event, command, panel, widget, and configuration schema types. Plugins remain out-of-process and cannot mutate the TUI directly. Public SDK wire/validation/negotiation tests and documentation pass the repository-wide quality gates. Runtime supervision is implemented in Task 74 and manager presentation remains Task 75.
