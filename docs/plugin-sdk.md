@@ -4,6 +4,15 @@ Third-party plugins should import `github.com/jusanchez/gitwatch/pkg/plugin`
 only. The package contains the versioned manifest and newline-delimited JSON
 message contract; it has no dependency on gitwatch internals.
 
+## Compatibility fixtures
+
+API version 1 has checked-in request, response, and status-widget fixtures in
+`pkg/plugin/testdata/v1/`. `TestV1WireFixturesRemainDecodable` loads every
+fixture, decodes it through the public SDK, and validates handshake API
+versions. The v1 compatibility matrix is API-1 hosts and API-1 plugins using
+the documented message types. A future API version must add a new fixture
+directory and an explicit negotiation test before it is considered compatible.
+
 Plugins run as separate processes and communicate through stdin/stdout. They
 must treat all host payloads as untrusted and must not assume that a message
 will be followed by another message after a failure.

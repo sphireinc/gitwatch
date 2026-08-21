@@ -1,8 +1,8 @@
 # Task 87: Publish plugin SDK, examples and compatibility tests
 
-Status: In progress
+Status: Complete
 
-Progress: Added dependency-free public `pkg/plugin` manifest/message SDK, wire compatibility tests, buildable status/command/panel/widget examples with API-1 manifests, and SDK documentation. Generated protocol fixtures and a cross-version runtime matrix remain future compatibility work.
+Progress: Added dependency-free public `pkg/plugin` manifest/message SDK, checked-in API-1 wire fixtures with fixture-driven compatibility tests, buildable status/command/panel/widget examples with API-1 manifests, and SDK documentation. The v1 compatibility matrix is explicitly API-1 host/plugin interoperability; future API versions must add a new fixture directory and negotiation tests.
 
 ## Objective
 Create a minimal SDK/protocol package, example status widget, example command, example panel, manifest documentation, capability guide, and compatibility test harness. Plugins should be buildable without importing gitwatch internal packages.
@@ -26,3 +26,9 @@ Create a minimal SDK/protocol package, example status widget, example command, e
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+## Completion summary
+- Implementation: stable dependency-free manifest, message, capability, lifecycle, and handshake contract in `pkg/plugin`; command, panel, widget, and status examples.
+- Compatibility: API-1 handshake request/response and status-widget fixtures under `pkg/plugin/testdata/v1/`, validated through the public decoder.
+- Documentation: `docs/plugin-sdk.md` records build commands, capabilities, manifest fields, wire messages, and the supported matrix.
+- Deferred follow-up: a future API version will require its own fixture directory and negotiation tests; no cross-version contract exists in v1.
