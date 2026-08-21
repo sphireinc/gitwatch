@@ -6,4 +6,4 @@ Tag `v0.9.0`, distribute binaries, test in real repositories including monorepos
 
 **Acceptance:** Zero open blocker/critical issues and no known data-loss issue.
 
-**Status:** In progress — repository discovery, status rendering, reversible stage/unstage and diff flows, strict five-target artifact verification, repeatable release checks, missing-Git classification, and real-repository coverage for spaces, Unicode, quotes, leading dashes, and renames are present; the operator matrix in `docs/beta-validation-matrix.md` still requires full macOS, Linux, and native Windows beta evidence.
+**Status:** In progress — repository discovery, status rendering, reversible stage/unstage and diff flows, explicit polling startup, non-repository diagnostics, strict five-target artifact verification, repeatable release checks, missing-Git classification, and real-repository coverage for spaces, Unicode, quotes, leading dashes, and renames are present; the operator matrix in `docs/beta-validation-matrix.md` still requires full macOS, Linux, and native Windows beta evidence.

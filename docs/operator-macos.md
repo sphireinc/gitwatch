@@ -13,7 +13,11 @@ Observed results:
 - The selected row accepted Space to stage and showed `STAGED 1`/`S`; a second
   Space restored `STAGED 0`/`M`, confirming the reversible stage/unstage path.
 - `q` exited the session cleanly.
+- With `GITWATCH_WATCH=poll`, the same disposable repository launched and
+  rendered the ready status screen.
+- From an empty directory, the binary exited with status 1 and a concise
+  `not a git repository` diagnostic.
 
-This is partial operator evidence only. Mouse selection, stage/unstage, resize,
-filesystem-watch versus polling, clean-machine installation, Git-missing
+This is partial operator evidence only. Mouse selection, resize,
+filesystem-watch event delivery, clean-machine installation, Git-missing
 behavior, Linux, and Windows remain pending in the [beta validation matrix](beta-validation-matrix.md).
