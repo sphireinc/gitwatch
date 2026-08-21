@@ -17,3 +17,9 @@ The following acceptance evidence remains platform/operator-owned and must be re
 - signed tag/GitHub Release publication and package-manager updates.
 
 This distinction prevents automated local gates from being presented as human acceptance on platforms not available to the operator.
+
+The CI matrix also runs an OS-specific runtime smoke check: it launches the
+built binary for version/help/config validation, creates a real disposable Git
+repository, commits a file, modifies it, and requires non-empty porcelain
+status output. This proves process startup and basic Git discovery on each CI
+OS; it does not replace terminal mouse/resize/watch-mode recordings.

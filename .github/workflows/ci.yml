@@ -22,6 +22,40 @@ jobs:
       - run: go test ./...
       - run: go vet ./...
       - run: go build ./cmd/gitwatch
+      - name: Runtime smoke on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -eu
+          binary="$RUNNER_TEMP/gitwatch"
+          go build -o "$binary" ./cmd/gitwatch
+          test -n "$("$binary" --version)"
+          test -n "$("$binary" --help 2>&1)"
+          "$binary" --config-check
+          demo="$RUNNER_TEMP/gitwatch-smoke"
+          ./scripts/demo-repo.sh "$demo" >/dev/null
+          test -n "$(git -C "$demo" status --porcelain=v2 -z --branch)"
+      - name: Runtime smoke on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $binary = Join-Path $env:RUNNER_TEMP 'gitwatch.exe'
+          go build -o $binary ./cmd/gitwatch
+          if (-not (& $binary --version)) { throw 'version output was empty' }
+          if (-not (& $binary --help 2>&1)) { throw 'help output was empty' }
+          & $binary --config-check
+          $demo = Join-Path $env:RUNNER_TEMP 'gitwatch-smoke'
+          New-Item -ItemType Directory -Force $demo | Out-Null
+          git -C $demo init --quiet --
+          git -C $demo config user.name gitwatch-ci
+          git -C $demo config user.email gitwatch-ci@example.com
+          'initial' | Set-Content (Join-Path $demo 'tracked.txt')
+          git -C $demo add --all --
+          git -C $demo commit --quiet -m initial
+          'changed' | Set-Content (Join-Path $demo 'tracked.txt')
+          $status = git -C $demo status --porcelain=v2 --branch
+          if (-not $status) { throw 'status output was empty' }
       - if: runner.os != 'Windows'
         run: go test -race ./...
       - if: runner.os == 'Linux'

@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Repository-wide tests, race tests, vetting, benchmarks, release checks, strict five-target artifact verification, and real-repository integration fixtures pass; the plugin API-1 compatibility fixtures, beta validation matrix, feedback template, and release sign-off record are documented. Cross-platform terminal/operator beta validation, feedback collection, and release-blocker closure remain.
+Progress: Repository-wide tests, race tests, vetting, benchmarks, release checks, strict five-target artifact verification, OS-specific CI runtime smoke checks, and real-repository integration fixtures pass; the plugin API-1 compatibility fixtures, beta validation matrix, feedback template, and release sign-off record are documented. Cross-platform terminal/operator beta validation, feedback collection, and release-blocker closure remain.
 
 ## Objective
 Cut a beta release containing all post-v1 features. Collect crash/error/performance feedback, test across macOS/Linux/Windows and major terminals, validate Git versions, freeze plugin API candidate, and resolve all release-blocking defects.
