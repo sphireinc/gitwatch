@@ -11,6 +11,10 @@
 | d | Open diff |
 | 1 | Status view |
 | b | Branches view |
+| / / s | Filter / sort branches (in Branches view) |
+| c / R | Create / rename branch (in Branches view) |
+| u / N | Set / unset branch upstream (in Branches view) |
+| D / X | Confirm normal / force branch deletion (in Branches view) |
 | s | Stashes view |
 | l | History view |
 | ] | Load more history (in History view) |
@@ -46,6 +50,7 @@
 | r | Force refresh |
 | ? | Help |
 | Ctrl-P | Open command palette |
+| Ctrl-N | Dismiss newest notification attention |
 | Esc | Close overlay / cancel |
 | q | Quit |
 

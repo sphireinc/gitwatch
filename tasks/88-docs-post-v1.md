@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added advanced workflow documentation covering history/patches, stash/branch/worktree safety, remotes/GitHub, plugins, multi-repository behavior, v2 configuration, and security commands. Final UI recordings, complete keymap/config reference, migration guide, and operator troubleshooting remain.
+Progress: Added advanced workflow documentation covering history/patches, stash/branch/worktree safety, remotes/GitHub, plugins, multi-repository behavior, v2 configuration, security commands, a v1 migration guide, operator troubleshooting, and updated branch/notification keymaps. Final UI recordings and platform-specific operator evidence remain.
 
 ## Objective
 Document commit composer, patch staging, stash/branch/worktree/history/remotes, GitHub, plugins, multi-repo dashboards, safety semantics, keymaps, configuration, troubleshooting, and migration from v1. Include terminal recordings/screenshots where useful.

@@ -55,6 +55,8 @@ See [KEYMAP.md](KEYMAP.md) for the complete default keymap. `S` means staged, `M
 
 Advanced workflow notes are in [docs/advanced-workflows.md](docs/advanced-workflows.md), including history, patch, remote, GitHub, plugin, and multi-repository safety semantics.
 
+See [docs/migration-v1.md](docs/migration-v1.md) for configuration and keymap migration and [docs/troubleshooting.md](docs/troubleshooting.md) for watch, provider, plugin, and release diagnostics.
+
 ## Configuration and watch modes
 
 Configuration is JSON at `$XDG_CONFIG_HOME/gitwatch/config.json` or the platform fallback. `GITWATCH_CONFIG`, `GITWATCH_THEME`, `GITWATCH_MOTION`, `GITWATCH_WATCH`, and `GITWATCH_INTERVAL` provide explicit environment overrides; CLI flags take precedence. Watch modes are `auto`, `fs`, and `poll`. Motion is `full`, `reduced`, or `off`.
