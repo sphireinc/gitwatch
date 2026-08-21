@@ -32,3 +32,7 @@ gitwatch --config-check --config /path/to/config.json
 
 Environment variables override matching scalar settings, and CLI flags take
 precedence over both file and environment values.
+
+The machine-readable v2 schema is available at
+[`docs/configuration.schema.json`](configuration.schema.json). Duration values
+use the same JSON nanosecond representation as the Go configuration type.

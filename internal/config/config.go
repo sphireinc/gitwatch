@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+// CurrentVersion is the configuration contract consumed by the v2 loader.
+// Older unversioned and v1 files migrate in memory; newer versions are
+// rejected until this contract is intentionally advanced.
+const CurrentVersion = 2
+
 type Config struct {
 	Version        int                `json:"version"`
 	Theme          string             `json:"theme"`
@@ -61,7 +66,7 @@ type NotificationConfig struct {
 }
 
 func Defaults() Config {
-	return Config{Version: 2, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Keymap: DefaultKeymap()}
+	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Keymap: DefaultKeymap()}
 }
 
 func DefaultKeymap() map[string]string {
@@ -109,7 +114,7 @@ func Load(path string) (Config, error) {
 	}
 	// Version 1 and files without a version used the same scalar settings;
 	// unmarshal over v2 defaults supplies the newly introduced module defaults.
-	c.Version = 2
+	c.Version = CurrentVersion
 	c = applyEnv(c)
 	if err := Validate(c); err != nil {
 		return c, err
@@ -144,7 +149,7 @@ func Validate(c Config) error {
 	if c.Interval <= 0 || c.Debounce < 0 {
 		return fmt.Errorf("interval must be positive and debounce non-negative")
 	}
-	if c.Version != 2 {
+	if c.Version != CurrentVersion {
 		return fmt.Errorf("unsupported config version %d", c.Version)
 	}
 	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 {

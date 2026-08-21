@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitwatch.dev/schema/configuration-v2.json",
+  "title": "gitwatch configuration v2",
+  "type": "object",
+  "properties": {
+    "version": { "const": 2 },
+    "theme": { "enum": ["auto", "dark", "light", "high-contrast"] },
+    "motion": { "enum": ["full", "reduced", "off"] },
+    "watch": { "enum": ["auto", "fs", "poll"] },
+    "interval": { "type": "integer", "minimum": 1 },
+    "reconciliation": { "type": "integer", "minimum": 0 },
+    "show_untracked": { "type": "boolean" },
+    "show_ignored": { "type": "boolean" },
+    "mouse": { "type": "boolean" },
+    "debounce": { "type": "integer", "minimum": 0 },
+    "repositories": {
+      "type": "object",
+      "properties": {
+        "roots": { "type": "array", "items": { "type": "string" } },
+        "groups": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
+        "group_refresh": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "max_repositories": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "remote": {
+      "type": "object",
+      "properties": {
+        "pull_strategy": { "enum": ["merge", "rebase", "ff-only"] },
+        "stale_after": { "type": "integer", "minimum": 0 },
+        "workers": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "github": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "token_env": { "type": "string" },
+        "cache_ttl": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "plugins": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "directories": { "type": "array", "items": { "type": "string" } },
+        "max_output": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "notifications": { "type": "object", "properties": { "quiet": { "type": "boolean" } } },
+    "keymap": { "type": "object", "additionalProperties": { "type": "string" } }
+  }
+}

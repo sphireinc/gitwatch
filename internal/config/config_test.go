@@ -50,7 +50,7 @@ func TestGroupRefreshPolicyValidation(t *testing.T) {
 
 func TestV2DefaultsAndBindingCollisionValidation(t *testing.T) {
 	c := Defaults()
-	if c.Version != 2 || c.Remote.PullStrategy != "ff-only" {
+	if c.Version != CurrentVersion || c.Remote.PullStrategy != "ff-only" {
 		t.Fatalf("unexpected defaults: %#v", c)
 	}
 	c.Keymap = map[string]string{"one": "x", "two": "x"}
@@ -67,7 +67,7 @@ func TestLoadMigratesUnversionedAndV1Configuration(t *testing.T) {
 			t.Fatal(err)
 		}
 		loaded, err := Load(path)
-		if err != nil || loaded.Version != 2 {
+		if err != nil || loaded.Version != CurrentVersion {
 			t.Fatalf("migration for %s = %#v, %v", data, loaded, err)
 		}
 	}
