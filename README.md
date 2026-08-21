@@ -78,6 +78,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Security reports belong in [SECURITY.md]
 ## Demo recording
 
 Run `./scripts/demo-repo.sh /tmp/gitwatch-demo` and follow [docs/demo.md](docs/demo.md) for a deterministic mixed-status recording fixture.
+An asciinema-compatible captured frame is available at [docs/demo.cast](docs/demo.cast).
 
 ## Product
 `gitwatch` is an htop-style interactive Git worktree dashboard for the terminal. It continuously reflects repository state, makes Git status understandable at a glance, and lets the user perform safe day-to-day Git actions directly from a rich TUI.

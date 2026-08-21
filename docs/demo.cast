@@ -1,0 +1,2 @@
+{"version":2,"width":120,"height":35,"timestamp":1787328000,"env":{"TERM":"xterm-256color","SHELL":"/bin/sh"}}
+[0.0,"o","gitwatch · main · ready\r\nSTAGED 0  MODIFIED 2  UNTRACKED 1  CONFLICTS 0\r\n──────────────────────────────────────────────────────────────\r\n> M docs/notes.md\r\n  M internal/app/demo.go\r\n  ? untracked-notes.txt\r\n──────────────────────────────────────────────────────────────\r\n[j/k] move  [space] stage/unstage  [enter/d] diff  [r] refresh  [?] help  [q] quit\r\n"]
