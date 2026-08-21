@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-version=${VERSION:-0.1.0}
+version=${VERSION:-1.0.0}
 out=${OUT_DIR:-dist}
 rm -rf "$out"
 mkdir -p "$out"

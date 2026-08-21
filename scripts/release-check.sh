@@ -16,7 +16,7 @@ smoke_binary=$(mktemp "${TMPDIR:-/tmp}/gitwatch-release-smoke.XXXXXX")
 trap 'rm -rf "$demo_dir" "$smoke_binary"' EXIT
 go build -o "$smoke_binary" ./cmd/gitwatch
 test -n "$("$smoke_binary" --help 2>&1)"
-test "$("$smoke_binary" --version | cut -d' ' -f1)" = "0.1.0-dev"
+test "$("$smoke_binary" --version | cut -d' ' -f1)" = "1.0.0-dev"
 config_output=$("$smoke_binary" --config-inspect)
 echo "$config_output" | grep -q '"watch"'
 
@@ -26,6 +26,6 @@ status=$(git -C "$demo_dir" status --porcelain=v2 -z --branch)
 test -n "$status"
 
 release_dir=$(mktemp -d "${TMPDIR:-/tmp}/gitwatch-release-artifacts.XXXXXX")
-VERSION=0.1.0 OUT_DIR="$release_dir" ./scripts/release.sh
-VERSION=0.1.0 ./scripts/verify-release-artifacts.sh "$release_dir"
+VERSION=1.0.0 OUT_DIR="$release_dir" ./scripts/release.sh
+VERSION=1.0.0 ./scripts/verify-release-artifacts.sh "$release_dir"
 echo "release checks passed"

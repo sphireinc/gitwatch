@@ -6,4 +6,4 @@ Run `RELEASE_CRITERIA.md` line-by-line. Update changelog, version, release notes
 
 **Acceptance:** v1 artifacts install, launch, detect a repo, refresh live, stage/unstage safely, show diff/help, and exit cleanly on all supported platforms.
 
-**Status:** In progress — launch detects repositories, refreshes status, stages/unstages, shows diffs/help, and produces checksummed archives; final cross-platform/manual acceptance and publication remain.
+**Status:** In progress — source version is prepared as `1.0.0-dev`, release notes and five-target checksummed archives are prepared, and launch smoke checks pass; final cross-platform/manual acceptance, signed tagging, and publication remain.

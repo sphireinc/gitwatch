@@ -13,7 +13,7 @@ go install github.com/jusanchez/gitwatch/cmd/gitwatch@latest
 gitwatch --help
 ```
 
-Release archives and SHA256SUMS are produced by `make release VERSION=0.1.0`. The binary reports its build identity with `gitwatch --version`.
+Release archives and SHA256SUMS are produced by `make release VERSION=1.0.0`. The development binary reports `1.0.0-dev`; release binaries report their tagged version with `gitwatch --version`.
 
 ## Quick start
 
