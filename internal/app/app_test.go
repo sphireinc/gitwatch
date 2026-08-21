@@ -198,6 +198,19 @@ func TestNotificationsClassifyConflictAndHookFailures(t *testing.T) {
 	}
 }
 
+func TestNotificationAttentionBadgeAndDismissal(t *testing.T) {
+	m := New()
+	m.notify(notifications.Conflict, notifications.Error, "conflict", "resolve", true)
+	if !contains(m.View().Content, "[!] 1 attention") {
+		t.Fatalf("attention badge missing: %q", m.View().Content)
+	}
+	updated, _ := m.Update(key("ctrl+n"))
+	m = updated.(Model)
+	if m.Notifications.Attention() != 0 || !contains(m.Status, "dismissed notification") {
+		t.Fatalf("notification dismissal = attention=%d status=%q", m.Notifications.Attention(), m.Status)
+	}
+}
+
 func TestRepositoriesRouteLoadsRows(t *testing.T) {
 	m := New()
 	m.Discovery.Root = "/repo"

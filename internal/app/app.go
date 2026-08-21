@@ -1707,6 +1707,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryActionConfirm = true
 				m.Status = "checkout commit " + m.HistoryActionTarget + "? (y/n)"
 			}
+		case "ctrl+n":
+			if m.Notifications != nil {
+				active := m.Notifications.Active()
+				if len(active) > 0 {
+					latest := active[len(active)-1]
+					if m.Notifications.Dismiss(latest.ID) {
+						m.Status = "dismissed notification"
+					}
+				}
+			}
 		case "B":
 			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
 				m.HistoryBranchTarget = m.History.Rows[m.History.Selected].Commit.SHA
@@ -2318,6 +2328,9 @@ func (m Model) View() tea.View {
 		lines = []string{"gitwatch help", "", "↑/↓ or j/k   move selection", "click row     select and open diff", "Space          stage or unstage", "Enter or d     select/inspect", "b              branches", "s              stashes", "l              history", "n              remotes", "w              worktrees", "f              fetch", "m/e/o          pull merge/rebase/ff-only", "p              push", "c              commit", "1              status", "r              refresh", "Esc            close help", "q              quit"}
 	}
 	lines = append(lines, "──────────────────────────────────────────────────────────────", "[j/k] move  [space] stage/unstage  [enter/d] diff  [r] refresh  [?] help  [q] quit")
+	if m.Notifications != nil && m.Notifications.Attention() > 0 {
+		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
+	}
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
@@ -2396,6 +2409,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · repositories", m.Repositories.View()
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
+	if m.Notifications != nil && m.Notifications.Attention() > 0 {
+		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
+	}
 	if view == workspace.Log {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
 	}
@@ -2428,6 +2444,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Repositories {
 		lines[len(lines)-1] = "[j/k] move  [1] status  [v] refresh  [esc] back  [q] quit"
+	}
+	if m.Notifications != nil && m.Notifications.Attention() > 0 {
+		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
 	}
 	if m.Toast.Text != "" {
 		content += "\n\nNOTICE: " + platform.SafeText(m.Toast.Text)
