@@ -193,6 +193,7 @@ type Model struct {
 	DiffPath, DiffText       string
 	DiffBinary               bool
 	DiffStaged               bool
+	HunkContext              int
 	Workspace                *workspace.Model
 	Branches                 branchview.Model
 	Stashes                  stashview.Model
@@ -480,8 +481,12 @@ func (m Model) openDiff() tea.Cmd {
 	e := m.Files.Entries[m.Files.Visible[m.Files.Selected]]
 	path := append([]byte(nil), e.Path...)
 	r := git.NewRunner(m.Discovery.Root)
+	contextLines := m.HunkContext
+	if contextLines <= 0 {
+		contextLines = 3
+	}
 	return func() tea.Msg {
-		d, err := r.Diff(context.Background(), path, e.Staged && !e.Unstaged)
+		d, err := r.DiffWithContext(context.Background(), path, e.Staged && !e.Unstaged, contextLines)
 		return DiffReadyMsg{Path: string(path), Text: string(d.Text), Staged: d.Staged, Binary: d.Binary, Err: err}
 	}
 }
@@ -1193,6 +1198,17 @@ func (m *Model) updateHunkKey(key string) tea.Cmd {
 		m.Hunks.MoveFile(1)
 	case "P":
 		m.Hunks.MoveFile(-1)
+	case "c":
+		switch m.HunkContext {
+		case 0, 3:
+			m.HunkContext = 8
+		case 8:
+			m.HunkContext = 20
+		default:
+			m.HunkContext = 3
+		}
+		m.Status = fmt.Sprintf("loading %d context lines", m.HunkContext)
+		return m.openDiff()
 	case "space":
 		m.Hunks.Toggle()
 	case "a":
@@ -1884,6 +1900,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.DiffPath, m.DiffText, m.DiffStaged, m.DiffBinary, m.Status = v.Path, v.Text, v.Staged, v.Binary, ""
 		if v.Err != nil {
 			m.Status = v.Err.Error()
+		} else if m.currentView() == workspace.Hunks {
+			m.beginHunks()
 		}
 	case BranchesReadyMsg:
 		if v.Err != nil {
@@ -2293,7 +2311,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [r] reload  [esc] back  [q] quit"
 	}
 	if view == workspace.Hunks {
-		lines[len(lines)-1] = "[j/k] move  [n/p] hunk  [N/P] file  [space] select  [a/A/i] hunk/all/invert  [s] stage  [d] discard  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [n/p] hunk  [N/P] file  [c] context  [space] select  [a/A/i] hunk/all/invert  [s] stage  [d] discard  [esc] back  [q] quit"
 	}
 	if view == workspace.Commit {
 		lines[len(lines)-1] = "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"

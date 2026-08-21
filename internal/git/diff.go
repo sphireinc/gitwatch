@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"context"
+	"strconv"
 )
 
 type Diff struct {
@@ -14,9 +15,17 @@ type Diff struct {
 }
 
 func (r Runner) Diff(ctx context.Context, path []byte, staged bool) (Diff, error) {
+	return r.DiffWithContext(ctx, path, staged, 3)
+}
+
+// DiffWithContext returns a unified diff with the requested number of context lines.
+func (r Runner) DiffWithContext(ctx context.Context, path []byte, staged bool, contextLines int) (Diff, error) {
 	args := []string{"diff"}
 	if staged {
 		args = append(args, "--cached")
+	}
+	if contextLines > 0 {
+		args = append(args, "--unified="+strconv.Itoa(contextLines))
 	}
 	args = append(args, "--", string(path))
 	result, err := r.Run(ctx, args...)
