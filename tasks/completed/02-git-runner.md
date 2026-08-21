@@ -6,4 +6,7 @@ Create a context-aware `internal/git.Runner` that executes the system Git binary
 
 **Acceptance:** Unit/integration tests prove filenames/args are not shell-interpreted and cancellation terminates child processes.
 
-**Status:** Complete — context-aware argv runner, structured command errors, captured output/timing, and injection/cancellation tests added.
+**Status:** Complete — context-aware argv runner, structured command errors,
+captured output/timing, and injection/cancellation tests added. Cancellation is
+verified portably against Git's blocking `cat-file --batch` protocol without a
+shell-dependent command fixture.

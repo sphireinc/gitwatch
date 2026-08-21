@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 )
@@ -39,12 +38,22 @@ func TestRunnerClassifiesMissingGit(t *testing.T) {
 }
 
 func TestRunnerCancellation(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("portable long-running Git cancellation fixture is Unix-specific")
+	runner := NewRunner(t.TempDir())
+	if _, err := runner.Run(context.Background(), "init", "--quiet"); err != nil {
+		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = reader.Close()
+		_ = writer.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	_, err := NewRunner(t.TempDir()).Run(ctx, "-c", "alias.version=!sleep 10", "version")
+	_, err = runner.run(ctx, reader, "cat-file", "--batch")
 	if !errors.Is(err, ErrCancelled) {
 		t.Fatalf("expected cancellation, got %v", err)
 	}
