@@ -47,6 +47,7 @@ func (e *CommandError) Unwrap() error { return e.Kind }
 type Runner struct {
 	Binary string
 	Dir    string
+	Env    []string
 }
 
 func NewRunner(dir string) Runner { return Runner{Binary: "git", Dir: dir} }
@@ -67,6 +68,9 @@ func (r Runner) run(ctx context.Context, input io.Reader, args ...string) (Resul
 	start := time.Now()
 	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Dir = r.Dir
+	if len(r.Env) > 0 {
+		cmd.Env = append(os.Environ(), r.Env...)
+	}
 	cmd.Stdin = input
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

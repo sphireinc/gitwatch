@@ -16,5 +16,6 @@ All notable user-visible changes to gitwatch are documented here. The project fo
 - Canonical module and installation path is `github.com/sphireinc/git-watch`.
 - Public documentation, contributor policy, CI, release packaging, and repository hygiene were prepared for the first FOSS release.
 - The production TUI now drives status through the coalescing refresh coordinator and observes both worktree files and linked-worktree Git metadata, with visible polling fallback and clean cancellation during repository switches and shutdown.
+- Filesystem watching ignores read-only Git-metadata events that macOS kqueue reports as mode changes, preventing status-refresh feedback loops while preserving real worktree and metadata changes.
 
 The first public release will move these entries into a dated `1.0.0` section after the cross-platform operator and publication gates in the release checklist are complete.

@@ -19,10 +19,11 @@ const (
 )
 
 type Event struct {
-	At   time.Time
-	Path string
-	Mode Mode
-	Err  error
+	At        time.Time
+	Path      string
+	Mode      Mode
+	Operation string
+	Err       error
 }
 
 type Watcher struct {
@@ -139,6 +140,16 @@ func (w *Watcher) shouldWatchTree(path string) bool {
 	return metadata || !w.skip(path)
 }
 
+func (w *Watcher) isMetadataPath(path string) bool {
+	clean := filepath.Clean(path)
+	for directory := range w.metadata {
+		if clean == directory || strings.HasPrefix(clean, directory+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
+}
+
 func (w *Watcher) Events(ctx context.Context) <-chan Event {
 	out := make(chan Event, 8)
 	go func() {
@@ -149,14 +160,14 @@ func (w *Watcher) Events(ctx context.Context) <-chan Event {
 			<-timer.C
 		}
 		pending := false
-		var last string
+		var last, lastOperation string
 		flush := func() {
 			if !pending {
 				return
 			}
 			pending = false
 			select {
-			case out <- Event{At: time.Now(), Path: last, Mode: ModeFS}:
+			case out <- Event{At: time.Now(), Path: last, Mode: ModeFS, Operation: lastOperation}:
 			case <-ctx.Done():
 			}
 		}
@@ -170,7 +181,17 @@ func (w *Watcher) Events(ctx context.Context) <-chan Event {
 				if !ok {
 					return
 				}
+				// On kqueue platforms, opening Git metadata such as the index can
+				// surface as a CHMOD event even when no mode or content changed. A
+				// status refresh necessarily reads that metadata, so forwarding the
+				// read artifact would create an endless watcher/refresh loop. Real
+				// metadata writes include WRITE/CREATE/REMOVE/RENAME and worktree
+				// CHMOD events remain authoritative mode-change hints.
+				if event.Op == fsnotify.Chmod && w.isMetadataPath(event.Name) {
+					continue
+				}
 				last = event.Name
+				lastOperation = event.Op.String()
 				pending = true
 				if event.Op&(fsnotify.Remove|fsnotify.Rename) != 0 {
 					w.removeWatchedTree(event.Name)
@@ -179,7 +200,7 @@ func (w *Watcher) Events(ctx context.Context) <-chan Event {
 					if info, err := os.Stat(event.Name); err == nil && info.IsDir() && w.shouldWatchTree(event.Name) {
 						if err := w.addTree(event.Name); err != nil {
 							select {
-							case out <- Event{At: time.Now(), Path: event.Name, Mode: ModeFS, Err: err}:
+							case out <- Event{At: time.Now(), Path: event.Name, Mode: ModeFS, Operation: event.Op.String(), Err: err}:
 							case <-ctx.Done():
 								return
 							}

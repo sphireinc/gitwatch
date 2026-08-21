@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestStatusMutationRefreshFlow(t *testing.T) {
@@ -47,6 +48,54 @@ func TestStatusMutationRefreshFlow(t *testing.T) {
 	s, err = Snapshot(context.Background(), d, 2)
 	if err != nil || len(s.Entries) != 1 || s.Entries[0].Staged || !s.Entries[0].Unstaged {
 		t.Fatalf("post-mutation refresh state not observed: err=%v snapshot=%+v", err, s)
+	}
+}
+
+func TestSnapshotDoesNotRewriteIndexStatCache(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := NewRunner(dir)
+	for _, args := range [][]string{
+		{"init", "--", dir},
+		{"config", "user.name", "gitwatch"},
+		{"config", "user.email", "gitwatch@example.com"},
+	} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tracked := filepath.Join(dir, "tracked.txt")
+	if err := os.WriteFile(tracked, []byte("unchanged\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("tracked.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "commit", "-m", "baseline"); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	indexPath := filepath.Join(discovery.GitDir, "index")
+	indexBefore, err := os.Stat(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changedTime := time.Now().Add(2 * time.Second)
+	if err := os.Chtimes(tracked, changedTime, changedTime); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Snapshot(ctx, discovery, 1); err != nil {
+		t.Fatal(err)
+	}
+	indexAfter, err := os.Stat(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !indexAfter.ModTime().Equal(indexBefore.ModTime()) || indexAfter.Size() != indexBefore.Size() {
+		t.Fatalf("read-only snapshot rewrote index: before=%v/%d after=%v/%d", indexBefore.ModTime(), indexBefore.Size(), indexAfter.ModTime(), indexAfter.Size())
 	}
 }
 

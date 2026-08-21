@@ -7,3 +7,6 @@ Use `fsnotify` to watch the worktree and relevant Git metadata. Dynamically add 
 **Acceptance:** Editing, creating, deleting, renaming, staging, committing in another terminal, branch switch, checkout, merge-state changes all cause refresh on macOS/Linux/Windows test matrix where feasible.
 
 **Status:** Complete — the production TUI runs the fsnotify watcher with recursive and dynamic directory registration, linked-worktree Git metadata paths, remove/recreate recovery, debounce, cancellation, and authoritative refresh integration. Worktree and external-metadata changes are tested.
+Read-only metadata `CHMOD` artifacts emitted by kqueue are filtered to prevent
+watcher/status feedback loops while real metadata writes and worktree mode
+changes continue to trigger refreshes.

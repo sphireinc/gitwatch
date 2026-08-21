@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	gitrunner "github.com/sphireinc/git-watch/internal/git"
 )
 
 func TestWatcherDebouncesAndSeesCreatedDirectories(t *testing.T) {
@@ -39,6 +41,11 @@ func TestWatcherDebouncesAndSeesCreatedDirectories(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("watcher did not emit")
 	}
+	drainFilesystemEvents(events, 25*time.Millisecond)
+	if err := os.Chmod(filepath.Join(root, "one"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	awaitFilesystemEvent(t, events)
 }
 
 func TestWatcherSeesExternalGitMetadataAndRecreatedDirectory(t *testing.T) {
@@ -91,6 +98,51 @@ func TestWatcherSeesExternalGitMetadataAndRecreatedDirectory(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("watcher did not restore nested metadata watches")
+	}
+}
+
+func TestSnapshotReadDoesNotEmitMetadataHint(t *testing.T) {
+	root := t.TempDir()
+	runner := gitrunner.NewRunner(root)
+	ctx := context.Background()
+	for _, args := range [][]string{
+		{"init", "--", root},
+		{"config", "user.name", "gitwatch"},
+		{"config", "user.email", "gitwatch@example.com"},
+	} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tracked := filepath.Join(root, "tracked.txt")
+	if err := os.WriteFile(tracked, []byte("baseline\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "add", "--", "tracked.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "commit", "-m", "baseline"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tracked, []byte("modified\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitDir := filepath.Join(root, ".git")
+	watcher, err := NewWithMetadata(root, []string{gitDir}, 5*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = watcher.Close() })
+	watchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	events := watcher.Events(watchCtx)
+	if _, err := gitrunner.Snapshot(ctx, gitrunner.Discovery{Root: root, GitDir: gitDir, CommonDir: gitDir}, 1); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case event := <-events:
+		t.Fatalf("read-only snapshot emitted watcher hint: %#v", event)
+	case <-time.After(150 * time.Millisecond):
 	}
 }
 

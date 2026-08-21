@@ -9,7 +9,12 @@ import (
 
 func Snapshot(ctx context.Context, d Discovery, generation uint64) (repo.Snapshot, error) {
 	start := time.Now()
-	result, err := NewRunner(d.Root).Run(ctx, "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all")
+	// Prevent the read-only status refresh from opportunistically rewriting the
+	// index stat cache. Such a write is harmless to Git but becomes a watcher
+	// event and can otherwise create a status-refresh feedback loop.
+	runner := NewRunner(d.Root)
+	runner.Env = []string{"GIT_OPTIONAL_LOCKS=0"}
+	result, err := runner.Run(ctx, "--no-optional-locks", "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all")
 	if err != nil {
 		return repo.Snapshot{}, err
 	}
