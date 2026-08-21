@@ -1,0 +1,21 @@
+# Beta validation matrix
+
+This file is the evidence sheet for Tasks 34 and 89. Automated checks are
+run by CI and `./scripts/release-check.sh`; operator-owned rows must be filled
+with the command output or recording link before a public release is called
+accepted.
+
+| Area | macOS | Linux | Windows | Evidence required |
+| --- | --- | --- | --- | --- |
+| Build and launch | pending | pending | pending | version and help output |
+| Real repository refresh | pending | pending | pending | clean, modified, staged, untracked |
+| File selection and diff pane | pending | pending | pending | keyboard and mouse recording |
+| Stage/unstage and refresh | pending | pending | pending | before/after status output |
+| Filesystem watch and polling | pending | pending | pending | external edit refresh output |
+| Resize and terminal capability | pending | pending | pending | supported-size recording |
+| Git missing / non-repository error | pending | pending | pending | exit status and message |
+| Large repository workload | automated | automated | automated | performance-check output |
+
+Use `./scripts/demo-repo.sh` to create the disposable fixture. Record the
+terminal, OS version, terminal emulator, Git version, commit under test, and
+whether every row passed. A `pending` row is not a release sign-off.

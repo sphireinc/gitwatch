@@ -23,8 +23,9 @@ jobs:
           OUT_DIR: dist
         run: ./scripts/release.sh
       - name: Verify checksums
-        working-directory: dist
-        run: shasum -a 256 -c SHA256SUMS
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: VERSION="$VERSION" ./scripts/verify-release-artifacts.sh dist
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
