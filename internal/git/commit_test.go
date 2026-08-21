@@ -11,8 +11,14 @@ import (
 func TestCommitUsesMessageStdin(t *testing.T) {
 	dir := t.TempDir()
 	r := NewRunner(dir)
-	if _, e := r.Run(context.Background(), "init", "--", dir); e != nil {
-		t.Fatal(e)
+	for _, args := range [][]string{
+		{"init", "--", dir},
+		{"config", "user.name", "gitwatch test"},
+		{"config", "user.email", "gitwatch-test@example.com"},
+	} {
+		if _, err := r.Run(context.Background(), args...); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if e := os.WriteFile(filepath.Join(dir, "a"), []byte("a"), 0644); e != nil {
 		t.Fatal(e)
