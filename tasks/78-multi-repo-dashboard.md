@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added a render-neutral row model deriving branch, dirty, staged/unstaged/untracked, conflict, ahead/behind, error, and inactive state, with filtering and sorting helpers. Bubble Tea now exposes a selectable asynchronous `v` dashboard with keyboard navigation, mouse row selection, Enter-to-open, and bounded state rendering; stash/remote activity columns remain.
+Progress: Added a render-neutral row model deriving branch, dirty, staged/unstaged/untracked, conflict, ahead/behind, error, inactive state, stash count, and remote count, with filtering and sorting helpers. Bubble Tea now exposes a selectable asynchronous `v` dashboard with keyboard navigation, mouse row selection, Enter-to-open, bounded state rendering, and stash/remote activity columns.
 
 ## Objective
 Build a sortable/filterable table of repositories showing branch, dirty counts, staged/unstaged/untracked/conflicts, ahead/behind, stash count, last activity, remote freshness, and operation state. Enter opens the full repository workspace; mouse interaction must have parity.

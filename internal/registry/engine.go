@@ -14,6 +14,7 @@ type StatusResult struct {
 	Repository Repository
 	Snapshot   repo.Snapshot
 	Stashes    int
+	Remotes    int
 	Error      error
 	Skipped    bool
 }
@@ -25,6 +26,7 @@ type Engine struct {
 	Discover      func(context.Context, string) (git.Discovery, error)
 	Snapshot      func(context.Context, git.Discovery, uint64) (repo.Snapshot, error)
 	Stashes       func(context.Context, git.Discovery) (int, error)
+	Remotes       func(context.Context, git.Discovery) (int, error)
 	mu            sync.Mutex
 	cache         map[string]StatusResult
 }
@@ -33,7 +35,7 @@ func NewEngine(workers int) *Engine {
 	if workers < 1 {
 		workers = 1
 	}
-	return &Engine{Workers: workers, InactiveAfter: 5 * time.Minute, Budget: 15 * time.Second, Discover: git.Discover, Snapshot: git.Snapshot, Stashes: stashCount, cache: make(map[string]StatusResult)}
+	return &Engine{Workers: workers, InactiveAfter: 5 * time.Minute, Budget: 15 * time.Second, Discover: git.Discover, Snapshot: git.Snapshot, Stashes: stashCount, Remotes: remoteCount, cache: make(map[string]StatusResult)}
 }
 
 func (e *Engine) Refresh(ctx context.Context, repositories []Repository, activePath string) []StatusResult {
@@ -92,6 +94,9 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 		if err == nil && e.Stashes != nil {
 			result.Stashes, _ = e.Stashes(ctx, discovery)
 		}
+		if err == nil && e.Remotes != nil {
+			result.Remotes, _ = e.Remotes(ctx, discovery)
+		}
 	}
 	result.Error = err
 	e.mu.Lock()
@@ -102,6 +107,17 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 
 func stashCount(ctx context.Context, discovery git.Discovery) (int, error) {
 	result, err := git.NewRunner(discovery.Root).Run(ctx, "stash", "list", "--format=%H")
+	if err != nil {
+		return 0, err
+	}
+	if len(strings.TrimSpace(string(result.Stdout))) == 0 {
+		return 0, nil
+	}
+	return len(strings.Split(strings.TrimSpace(string(result.Stdout)), "\n")), nil
+}
+
+func remoteCount(ctx context.Context, discovery git.Discovery) (int, error) {
+	result, err := git.NewRunner(discovery.Root).Run(ctx, "remote")
 	if err != nil {
 		return 0, err
 	}

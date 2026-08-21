@@ -52,7 +52,7 @@ func (m Model) View() string {
 			prefix = "> "
 		}
 		state := row.State
-		lines = append(lines, fmt.Sprintf("%s%s · %s [%s] dirty:%d +%d/-%d stashes:%d", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), state, row.Dirty, row.Ahead, row.Behind, row.Stashes))
+		lines = append(lines, fmt.Sprintf("%s%s · %s [%s] dirty:%d +%d/-%d stashes:%d remotes:%d", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), state, row.Dirty, row.Ahead, row.Behind, row.Stashes, row.Remotes))
 		lines = append(lines, "    "+platform.SafeText(row.Repository.Path))
 	}
 	if len(m.Rows) == 0 {
