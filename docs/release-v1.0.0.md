@@ -10,7 +10,7 @@ gitwatch is an interactive terminal workbench for Git repositories. The first st
 - Destructive and history-changing actions require exact confirmation.
 - Repository, provider, and plugin text is sanitized before terminal display.
 - Plugin output, provider responses, history pages, activity, and repository concurrency are bounded.
-- Successful mutations trigger an authoritative Git refresh.
+- Every completed mutation attempt triggers an authoritative Git refresh, including failures and conflict results that may have partially changed repository state.
 - Git remains an external runtime dependency; no telemetry is collected.
 
 Release targets are macOS amd64/arm64, Linux amd64/arm64, and Windows amd64.

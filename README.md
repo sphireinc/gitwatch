@@ -33,7 +33,7 @@ An htop-style interactive Git worktree dashboard for the terminal. gitwatch cont
 
 ## Install
 
-gitwatch requires Git on `PATH`. Source installation requires Go 1.25 or newer:
+gitwatch requires Git on `PATH`. Source installation and contributor checks are validated with Go 1.25.10 (the module language-version floor is Go 1.25.0):
 
 ```sh
 go install github.com/sphireinc/git-watch/cmd/gitwatch@latest

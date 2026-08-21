@@ -11,7 +11,14 @@ Thank you for helping improve gitwatch. Bug reports, documentation fixes, tests,
 
 ## Development setup
 
-Install Go 1.25 or newer, Git, and golangci-lint v2. The canonical module is `github.com/sphireinc/git-watch`.
+Use Go 1.25.10 and Git for the documented contributor gate. `make check` invokes the pinned golangci-lint v2.12.0 module through `go run`, so an unversioned global linter cannot silently change the result. The `go 1.25.0` directive in `go.mod` is the module's language-version floor; `.go-version` is the contributor-toolchain pin. The canonical module is `github.com/sphireinc/git-watch`.
+
+Confirm the active tools before running the gate:
+
+```sh
+go version                  # must report go1.25.10
+cat .golangci-lint-version # must report v2.12.0
+```
 
 ```sh
 git clone git@github.com:sphireinc/git-watch.git
@@ -20,7 +27,7 @@ make install-hooks
 make check
 ```
 
-The checked-in pre-commit hook runs formatting/diff hygiene and a staged secret scan. See `scripts/install-hooks.sh` for setup and `scripts/secret-scan.sh --history` for a full-history scan.
+The checked-in pre-commit hook runs formatting/diff hygiene, a staged secret scan, and a full-history scan. It uses Gitleaks from `PATH` when present or runs the pinned v8.30.1 module through Go. See `scripts/install-hooks.sh` for setup; the same full-history gate runs in public CI.
 
 ## Implementation expectations
 
@@ -31,7 +38,7 @@ The checked-in pre-commit hook runs formatting/diff hygiene and a staged secret 
 - Preserve unusual paths and test spaces, tabs, Unicode, quotes, leading hyphens, renames, and conflicts where relevant.
 - Keep filesystem, Git, network, provider, history, and plugin work outside the render path and context-cancellable.
 - Require explicit confirmation for destructive or history-changing actions.
-- Trigger an authoritative refresh after every successful mutation.
+- Trigger an authoritative refresh after every mutation attempt completes, including failure or conflict results that may have changed the worktree or index.
 - Preserve keyboard/mouse parity, `NO_COLOR`, high-contrast-safe semantics, and reduced/off motion.
 - Document new user-visible behavior and update the keymap/configuration contract when applicable.
 
