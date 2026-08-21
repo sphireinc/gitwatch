@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added real temporary-repository scenarios covering initialization, commit, snapshot refresh, stash creation/listing, branch creation, worktree creation/discovery/removal, occupancy mapping, and a bare-remote push-preview/push/fetch flow. Partial staging, hooks/conflicts, multi-repo application transitions, and platform matrix remain.
+Progress: Added real temporary-repository scenarios covering initialization, commit, snapshot refresh, stash creation/listing, branch creation, worktree creation/discovery/removal, occupancy mapping, bare-remote push-preview/push/fetch, partial staging/discard, pre-commit hook failure/output, and divergent merge conflict snapshots. Multi-repo application transitions and platform matrix remain.
 
 ## Objective
 Create temporary real repositories covering commits, hooks, partial staging, stashes, conflicts, branches, remotes, worktrees, merge graphs, fetch/pull/push, and multi-repo state. Assert both Git outcomes and application model transitions.

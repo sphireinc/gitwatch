@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -370,6 +371,90 @@ func TestRemotePushPreviewRealRepositoryScenario(t *testing.T) {
 		t.Fatalf("post-push preview = %#v, %v", preview, err)
 	}
 	if _, err := remotes.Fetch(ctx, runner, "origin"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHooksAndConflictsRealRepositoryScenario(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("portable hook fixture uses a POSIX script")
+	}
+	ctx := context.Background()
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	for _, args := range [][]string{{"init", "-b", "main", "--", root}, {"config", "user.name", "scenario-test"}, {"config", "user.email", "scenario@example.com"}, {"config", "core.hooksPath", ".git/hooks"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := filepath.Join(root, "conflict.txt")
+	if err := os.WriteFile(path, []byte("base\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("conflict.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("base\n")}); err != nil {
+		t.Fatal(err)
+	}
+	hook := filepath.Join(root, ".git", "hooks", "pre-commit")
+	if err := os.WriteFile(hook, []byte("#!/bin/sh\nprintf 'hook rejected\\n' >&2\nexit 1\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("hooked\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("conflict.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("must fail\n")}); err == nil {
+		t.Fatal("failing pre-commit hook was ignored")
+	}
+	if err := os.Remove(hook); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("main change\n")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := branches.Create(ctx, runner, "side"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := branches.Checkout(ctx, runner, "side"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("side change\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("conflict.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("side change\n")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := branches.Checkout(ctx, runner, "main"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("main divergent\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("conflict.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("main divergent\n")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "merge", "side"); err == nil {
+		t.Fatal("divergent merge unexpectedly succeeded")
+	}
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := git.Snapshot(ctx, discovery, 0)
+	if err != nil || snapshot.Counts.Conflicted == 0 {
+		t.Fatalf("conflict snapshot = %#v err=%v", snapshot, err)
+	}
+	if _, err := runner.Run(ctx, "merge", "--abort"); err != nil {
 		t.Fatal(err)
 	}
 }
