@@ -12,6 +12,26 @@ import (
 )
 
 var ErrProviderUnavailable = errors.New("GitHub provider unavailable")
+var ErrRateLimited = errors.New("GitHub API rate limited")
+
+type HTTPError struct {
+	Status     int
+	RetryAfter string
+}
+
+func (e *HTTPError) Error() string {
+	if e.RetryAfter == "" {
+		return fmt.Sprintf("GitHub HTTP %d", e.Status)
+	}
+	return fmt.Sprintf("GitHub HTTP %d; retry after %s", e.Status, e.RetryAfter)
+}
+
+func (e *HTTPError) Unwrap() error {
+	if e.Status == http.StatusForbidden || e.Status == http.StatusTooManyRequests {
+		return ErrRateLimited
+	}
+	return ErrProviderUnavailable
+}
 
 type GitHubClient struct {
 	BaseURL     string
@@ -77,12 +97,15 @@ func (c GitHubClient) getJSON(ctx context.Context, path string, target any) erro
 	}
 	response, err := client.Do(request)
 	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return ErrProviderUnavailable
 	}
 	defer response.Body.Close()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
-		return fmt.Errorf("%w: GitHub HTTP %d", ErrProviderUnavailable, response.StatusCode)
+		return &HTTPError{Status: response.StatusCode, RetryAfter: response.Header.Get("Retry-After")}
 	}
 	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(target); err != nil {
 		return fmt.Errorf("%w: invalid response", ErrProviderUnavailable)

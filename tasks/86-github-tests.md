@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Provider parsing, cache behavior, CLI-token failure handling, and secret-redaction tests are present without developer credentials. Recorded error/rate-limit fixtures, offline degradation tests, and full provider contract coverage remain.
+Progress: Provider parsing, cache behavior, CLI-token failure handling, secret-redaction tests, recorded success/error/rate-limit fixtures, offline degradation, and context-cancellation classification are present without developer credentials. Full provider contract coverage remains limited to the current read-only PR/check/review surface.
 
 ## Objective
 Use recorded/fake provider responses for PR/check/auth/rate-limit/error states. Ensure no test requires a developer token. Add redaction tests and graceful degradation when GitHub is offline or unavailable.

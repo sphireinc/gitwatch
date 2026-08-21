@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -60,5 +61,30 @@ func TestGitHubClientDoesNotExposeTokenOnHTTPFailure(t *testing.T) {
 	_, err := (GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("secret-token"), HTTPClient: &http.Client{Transport: transport}}).PullRequest(context.Background(), Repository{Owner: "o", Name: "r"}, "main")
 	if err == nil || strings.Contains(err.Error(), "secret-token") {
 		t.Fatalf("unsafe provider error: %v", err)
+	}
+}
+
+func TestGitHubClientClassifiesRateLimitAndPreservesRetryHint(t *testing.T) {
+	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		response := &http.Response{StatusCode: http.StatusTooManyRequests, Body: io.NopCloser(strings.NewReader(`{"message":"rate limit"}`)), Header: make(http.Header), Request: r}
+		response.Header.Set("Retry-After", "60")
+		return response, nil
+	})}}
+	_, err := client.Checks(context.Background(), Repository{Owner: "o", Name: "r"}, "main")
+	var httpErr *HTTPError
+	if !errors.Is(err, ErrRateLimited) || !errors.As(err, &httpErr) || httpErr.RetryAfter != "60" {
+		t.Fatalf("rate limit error = %v (%T)", err, err)
+	}
+}
+
+func TestGitHubClientPreservesCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	client := GitHubClient{BaseURL: "https://api.test", HTTPClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, context.Canceled
+	})}}
+	_, err := client.Checks(ctx, Repository{Owner: "o", Name: "r"}, "main")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation error = %v", err)
 	}
 }
