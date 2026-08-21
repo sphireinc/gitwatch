@@ -9,6 +9,8 @@ Observed results:
   staged/modified/untracked counts, and three status rows.
 - The selected `docs/notes.md` row accepted `d` and rendered its unified diff
   in the selected-diff pane without a mutation.
+- The selected row accepted Space to stage and showed `STAGED 1`/`S`; a second
+  Space restored `STAGED 0`/`M`, confirming the reversible stage/unstage path.
 - `q` exited the session cleanly.
 
 This is partial operator evidence only. Mouse selection, stage/unstage, resize,
