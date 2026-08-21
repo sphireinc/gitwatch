@@ -327,6 +327,23 @@ func TestCommitConfigIsShownInComposer(t *testing.T) {
 	}
 }
 
+func TestCommitComposerMouseSelectsEditor(t *testing.T) {
+	m := New()
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("file.txt"), Staged: true}}
+	updated, _ := m.Update(key("c"))
+	m = updated.(Model)
+	updated, _ = m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, Y: 7})
+	m = updated.(Model)
+	if m.Composer.Focus != "subject" {
+		t.Fatalf("subject click focus = %q", m.Composer.Focus)
+	}
+	updated, _ = m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, Y: 9})
+	m = updated.(Model)
+	if m.Composer.Focus != "body" {
+		t.Fatalf("body click focus = %q", m.Composer.Focus)
+	}
+}
+
 func TestRemoteOperationTracksActiveJobAndCancellation(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Remotes, "Remotes")

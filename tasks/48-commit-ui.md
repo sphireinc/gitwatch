@@ -23,4 +23,6 @@ Build a polished commit workspace with staged-change summary, diff preview, subj
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — composer view model renders staged scope, draft subject/body, validation warnings/errors, and readiness state. Bubble Tea now provides a full-screen route with subject/body editing, focus switching, readiness feedback, and keyboard escape; metadata toggles and mouse editing remain.
+**Status:** Complete
+
+Completion summary: The full-screen commit workspace renders staged scope, draft subject/body, validation warnings/errors, readiness state, commit identity/signing configuration, and amend/signoff/signing/author controls. Bubble Tea provides subject/body editing, keyboard focus switching, mouse hit regions for both editors, readiness feedback, and escape navigation. Composer and app tests cover readiness, options, config display, failure preservation, amend confirmation, and mouse editing; repository-wide quality gates pass.

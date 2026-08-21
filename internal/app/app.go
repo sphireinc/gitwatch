@@ -1954,6 +1954,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
+			if m.currentView() == workspace.Commit {
+				staged := 0
+				for _, file := range m.Composer.Draft.Files {
+					if file.Staged {
+						staged++
+					}
+				}
+				// Feature title/blank lines precede the composer. The subject and
+				// body rows follow the staged-file list and its separating blank row.
+				subjectY, bodyY := 6+staged, 8+staged
+				switch v.Y {
+				case subjectY:
+					m.Composer.Focus = "subject"
+				case bodyY:
+					m.Composer.Focus = "body"
+				}
+				return m, nil
+			}
 			if m.currentView() == workspace.Hunks {
 				// The hunk header occupies the first content row; patch lines start at y=3.
 				m.Hunks.SelectLine(m.Hunks.LineAt(v.Y - 3))
