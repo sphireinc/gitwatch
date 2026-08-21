@@ -30,4 +30,4 @@ Implementation notes:
 - Fuzz coverage asserts malformed/adversarial input never panics, and parser benchmarks cover large patches.
 - Partial application and interactive hunk integration remain covered by Tasks 52–55.
 
-**Status:** In progress — path-aware headers now preserve unquoted spaces and Git-quoted paths; parser coverage includes malformed/adversarial fuzz inputs alongside hunks, ranges, binary markers, rename/copy metadata, and no-newline markers. Hunk mutation generation remains.
+**Status:** Complete — path-aware headers preserve unquoted spaces and Git-quoted paths; parser coverage includes malformed/adversarial fuzz inputs alongside hunks, ranges, binary markers, rename/copy metadata, and no-newline markers. Hunk mutation is implemented and covered by the follow-on hunk tasks.

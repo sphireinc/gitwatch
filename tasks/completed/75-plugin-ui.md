@@ -1,6 +1,6 @@
 # Task 75: Build plugin manager and extension surfaces
 
-Status: In progress
+Status: Complete
 
 Progress: Added bounded manifest discovery with symlink skipping, immutable enable-state updates, and a visually distinct plugin list/detail view showing health, capabilities, explicit permission state, and declared command/panel/status-widget extension counts. The `E` Plugins workspace loads/reloads discovered manifests asynchronously, Space toggles the selected plugin with explicit status feedback, and enable state persists in a private atomic JSON file asynchronously.
 

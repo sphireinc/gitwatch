@@ -1,6 +1,6 @@
 # Task 77: Build bounded multi-repository status engine
 
-Status: In progress
+Status: Complete
 
 Progress: Added a bounded worker-pool status engine with context cancellation, cached inactive-repository refreshes, injectable discovery/snapshot/stash functions, a 15-second per-repository resource budget, adaptive group-aware refresh intervals, and concurrency tests. The engine now feeds the asynchronous `v` repository dashboard with stash/remote counts, structured inactive-skip reasons, refresh duration/timestamps, and auxiliary warning summaries.
 

@@ -1,6 +1,6 @@
 # Task 74: Implement secure plugin runtime
 
-Status: In progress
+Status: Complete
 
 Progress: Added manifest-validated direct-argv plugin execution with context cancellation, bounded stdout/stderr capture, exit-code/duration reporting, output-limit tests, a bounded capability handshake over the public newline-delimited protocol, strict response-capability subset validation, and bounded restart supervision tests. Runtime execution now classifies timeout/cancellation failures; byte-stream RPC and manager lifecycle controls remain outside this task’s current buffered command boundary and in Task 75 where UI lifecycle is presented.
 

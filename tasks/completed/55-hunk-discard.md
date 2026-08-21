@@ -31,4 +31,4 @@ Implementation notes:
 - Reverse application is checked with Git before mutation; successful operations trigger the authoritative status refresh and failures preserve selection/state.
 - Real temporary-repository coverage verifies separated hunk discard and preservation of staged/unrelated content. Binary and rename patches are intentionally not discardable through the line-selection UI.
 
-**Status:** In progress — partial discard has a typed high-friction confirmation requiring exact path/hunk/line scope and a distinct confirmation word; selected reverse-patch execution and unrelated-line integration tests remain.
+**Status:** Complete — partial discard has a typed high-friction confirmation requiring exact path/hunk/line scope and a distinct confirmation word; selected reverse-patch execution and unrelated-line integration tests are covered by the hunk engine and integration suite.

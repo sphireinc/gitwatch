@@ -1,6 +1,6 @@
 # Task 73: Design versioned plugin system
 
-Status: In progress
+Status: Complete
 
 Progress: Added versioned manifest validation, capability declarations, host capability negotiation, an out-of-process contract document, newline-delimited handshake request/response schema, stable lifecycle/event/command/panel/status-widget/configuration types, and additive compatibility guarantees in the public SDK. The runtime contract includes explicit capability grants and bounded restart supervision; manager UI remains in Task 75.
 

@@ -30,4 +30,4 @@ Implementation notes:
 - Invalid and negative identities are removed safely; patch generation and TUI integration remain covered by Tasks 53–55.
 - Tests cover all transformations, stale selection invalidation, and selected-patch behavior.
 
-**Status:** In progress — stable file/hunk/line identities, toggle/select-hunk behavior, selection counts, validity checks, refresh invalidation, and selection-aware patch generation are implemented and tested; range selection and UI navigation remain.
+**Status:** Complete — stable file/hunk/line identities, toggle/select-hunk behavior, selection counts, validity checks, refresh invalidation, selection-aware patch generation, range selection, and UI navigation are implemented and tested across the follow-on hunk tasks.
