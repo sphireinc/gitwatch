@@ -18,5 +18,3 @@ checkout and should not be reintroduced as v1 scope:
 Future proposals must use `docs/post-v1-triage.md` and remain outside the v1
 release commitment. An embedded Git implementation is intentionally not
 planned: the system Git executable remains the v1/v2 integration boundary.
-
-These are intentionally deferred so v1 can be deep, safe, and polished around status + inspection + staging.

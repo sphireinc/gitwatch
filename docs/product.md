@@ -25,7 +25,7 @@ gitwatch is an interactive, htop-style dashboard for one or more Git worktrees. 
 
 Mouse clicks select rows and explicit stage controls; wheel events scroll the focused pane. Mouse never gains destructive powers that are unavailable to the keyboard.
 
-## v1 feature matrix
+## v1 release-candidate feature matrix
 
 | Area | v1 contract |
 |---|---|
@@ -34,6 +34,9 @@ Mouse clicks select rows and explicit stage controls; wheel events scroll the fo
 | Dashboard | Live branch/upstream/divergence metrics, status counts, file table, details, activity, footer/help, responsive layouts. |
 | File actions | Safe single-file stage/unstage, explicit bulk stage/unstage, and optional confirmed restore/discard. |
 | Inspection | On-demand staged/unstaged diff, binary-file indication, conflict details, filtering and sorting. |
+| Workbench | Commit composer, history/graph inspection, stash actions, branch mutation, linked worktree management, and guarded hunk staging/discard. |
+| Network and repositories | Remote fetch/pull/push workflows with explicit strategies, read-only GitHub provider views, and bounded multi-repository dashboards/groups. |
+| Extensions | Opt-in out-of-process plugin manager, API-1 handshake, capability display, bounded runtime, and dependency-free public SDK. |
 | Refresh | Filesystem watcher with debounce and polling fallback, authoritative Git refresh, bounded/coalesced concurrency. |
 | Accessibility | Keyboard parity, mouse support, `NO_COLOR`, semantic themes, high-contrast-safe text/symbols, reduced/off motion. |
 | Reliability | Typed errors, cancellation, terminal restoration, sanitized untrusted text, bounded activity history, debug logging opt-in. |
@@ -61,7 +64,11 @@ Mouse clicks select rows and explicit stage controls; wheel events scroll the fo
 
 ## Explicit non-goals
 
-v1 does not include commit authoring, interactive rebase, remote hosting APIs, GitHub/GitLab integration, an embedded Git implementation, or a plugin system. Stash management, branch mutation, history graphs, network dashboards, worktree management, multi-repository dashboards, and interactive hunk staging are post-v1 work unless separately promoted by a recorded decision.
+The v1 release candidate includes the workbench and extension surfaces listed
+above. It intentionally does not include interactive rebase, remote-hosting
+write APIs, an embedded Git implementation, telemetry, or arbitrary in-process
+third-party UI. GitHub integration remains read-only/provider-isolated, and
+plugins remain opt-in, out-of-process, capability-bounded, and API-versioned.
 
 ## Release boundary
 
