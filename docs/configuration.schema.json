@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gitwatch.dev/schema/configuration-v2.json",
+  "$id": "https://raw.githubusercontent.com/sphireinc/git-watch/main/docs/configuration.schema.json",
   "title": "gitwatch configuration v2",
   "type": "object",
   "properties": {

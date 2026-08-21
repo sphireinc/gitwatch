@@ -1,8 +1,10 @@
 # macOS operator evidence
 
-Recorded on 2026-08-21 from the current checkout in a disposable repository
-created by `scripts/demo-repo.sh`, using a 120×35 tmux terminal session on
-macOS 26.6.1 arm64 with Git 2.33.0 and tmux 3.6a.
+Recorded on 2026-08-21 in a disposable repository created by
+`scripts/demo-repo.sh`, using a 120×35 tmux terminal session on macOS 26.6.1
+arm64 with Git 2.33.0 and tmux 3.6a. The original session did not preserve an
+exact tested commit, so this record is informational and cannot be used as
+release sign-off evidence.
 
 Observed results:
 

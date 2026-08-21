@@ -1,4 +1,9 @@
-# Migration guide
+# Prerelease configuration migration
+
+The first stable gitwatch release uses configuration schema version 2. The
+schema number is independent of the application release number and advanced
+during prerelease development. This guide exists for users of early source and
+beta builds; no stable v1-to-v2 application upgrade is implied.
 
 ## Configuration
 
@@ -14,7 +19,7 @@ versions are rejected instead of being silently rewritten.
 
 ## Keyboard changes
 
-The core status bindings remain stable. New post-v1 workspaces are opened with
+The core status bindings remain stable. Workbench views are opened with
 `b` (branches), `n` (remotes), `v` (repositories), and `E` (plugins when
 enabled). In the branch workspace, `/` filters, `s` cycles sorting, and
 `c`/`R`/`u`/`N`/`D`/`X` create, rename, set/unset upstream, or delete branches.

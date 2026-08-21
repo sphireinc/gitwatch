@@ -1,11 +1,11 @@
-# AGENTS.md — Implementation Contract
+# AGENTS.md — Contributor and Agent Contract
 
 ## Objective
-Build `gitwatch` from greenfield repository to production-quality v1. Do not reduce scope by replacing the TUI with a basic list, periodic `git status`, or a thin command launcher.
+Maintain `gitwatch` as a production-quality interactive Git workbench. Preserve the responsive TUI, authoritative Git integration, guarded mutations, accessibility behavior, and testable package boundaries when adding or changing features.
 
 ## Working rules
-1. Read `README.md`, `ARCHITECTURE.md`, `UX_SPEC.md`, and the current task before changing code.
-2. Work tasks in numeric order unless a dependency exception is documented.
+1. Read `README.md`, `ARCHITECTURE.md`, `UX_SPEC.md`, and any issue or task governing the change before changing code.
+2. When working from `tasks/`, follow numeric order unless the task documents a dependency exception.
 3. Each task must end with tests, formatting, linting, and an update to task status.
 4. Prefer pure state transformation and testable packages. Keep Bubble Tea models thin where business logic can live elsewhere.
 5. Never parse human-formatted Git output when a porcelain/NUL-delimited format exists.
@@ -18,6 +18,7 @@ Build `gitwatch` from greenfield repository to production-quality v1. Do not red
 12. No telemetry in v1.
 
 ## Quality gates for every task
+- `make check`
 - `go test ./...`
 - `go test -race ./...` on supported dev platforms where race detector is available
 - `go vet ./...`
@@ -27,4 +28,4 @@ Build `gitwatch` from greenfield repository to production-quality v1. Do not red
 - new user-visible behavior documented
 
 ## Completion convention
-Each task file contains acceptance criteria. Do not mark a task complete until every criterion is true or an explicit exception is documented.
+Do not mark an issue or task complete until every acceptance criterion is true or an explicit exception is documented. Commit completed changes as focused, independently verified slices.

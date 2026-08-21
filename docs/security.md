@@ -24,6 +24,7 @@ responses, terminal text, and plugin input/output as untrusted data.
 - Binary, rename, and copy diffs are refused by line-oriented partial patch
   operations; whole-file Git operations remain the supported path.
 
-Automated coverage includes hostile-process fixtures. Release-owner follow-up
-review is tracked in the release sign-off record and covers the supported
-platforms and operator release procedure.
+Automated coverage includes hostile-process fixtures and a checked-in staged
+and full-history secret scan. Native platform review is recorded in the
+[release sign-off](release-signoff.md) and never inferred from local automated
+tests alone.

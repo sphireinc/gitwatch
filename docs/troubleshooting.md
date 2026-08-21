@@ -29,7 +29,9 @@ failed while the authoritative status snapshot was still available.
 
 ## Release validation
 
-Run `./scripts/release-check.sh` on the release host. It covers tests, race,
-vet, build, demo repository behavior, security checks, and archive checksums.
+Run `make check`, `./scripts/secret-scan.sh --history`, and
+`./scripts/release-check.sh` on the release host. Together they cover format,
+lint, tests, race, vet, build, demo repository behavior, security boundaries,
+secret scanning, release identity, dependency notices, and archive checksums.
 Native Windows, terminal recordings, clean-machine installation, and release
 publication require operator evidence and are not simulated by the script.

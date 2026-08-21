@@ -1,5 +1,9 @@
 # v2 release plan
 
+This is a future compatibility-boundary plan, not a gate for the first public
+v1 release. Configuration schema version 2 and plugin API version 1 are
+independent contract numbers and may ship in gitwatch v1.0.0.
+
 The v2 configuration schema is currently version `2`; unknown future
 configuration versions are rejected. The plugin wire contract is currently
 API version `1`, and its compatibility fixtures live under

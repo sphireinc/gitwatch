@@ -25,7 +25,7 @@ gitwatch is an interactive, htop-style dashboard for one or more Git worktrees. 
 
 Mouse clicks select rows and explicit stage controls; wheel events scroll the focused pane. Mouse never gains destructive powers that are unavailable to the keyboard.
 
-## v1 release-candidate feature matrix
+## First stable release feature matrix
 
 | Area | v1 contract |
 |---|---|
@@ -64,7 +64,7 @@ Mouse clicks select rows and explicit stage controls; wheel events scroll the fo
 
 ## Explicit non-goals
 
-The v1 release candidate includes the workbench and extension surfaces listed
+The first stable release includes the workbench and extension surfaces listed
 above. It intentionally does not include interactive rebase, remote-hosting
 write APIs, an embedded Git implementation, telemetry, or arbitrary in-process
 third-party UI. GitHub integration remains read-only/provider-isolated, and
@@ -72,4 +72,4 @@ plugins remain opt-in, out-of-process, capability-bounded, and API-versioned.
 
 ## Release boundary
 
-v1 is releasable only when all P0 tasks and the repository’s release criteria pass on the supported platforms, including real temporary-repository flows, 10,000 changed paths remaining usable, safe unusual filenames, conflict representation, clean process shutdown, installation/version/help behavior, and complete user/contributor/security documentation.
+v1 is releasable only when the repository’s release criteria pass on the supported platforms, including real temporary-repository flows, 10,000 changed paths remaining usable, safe unusual filenames, conflict representation, clean process shutdown, installation/version/help behavior, and complete user/contributor/security documentation.

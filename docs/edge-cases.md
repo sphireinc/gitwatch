@@ -9,6 +9,7 @@
 | Symlinked discovery metadata | Registry discovery skips symlinked entries and `.git` metadata |
 | Untracked/ignored/unusual names | NUL parser and leading-hyphen/path tests |
 | Merge conflict | unmerged record, conflict type/filter, stage guard |
-| Symlink/submodule/very long path | fixture coverage planned for platform CI where supported |
+| Symlinked discovery metadata | registry and plugin discovery reject symlinked metadata/entries |
+| Submodule and very long platform paths | included in native operator acceptance where the host supports creating them |
 
 Platform-specific cases that cannot be created reliably on every host remain explicit CI matrix work rather than being silently claimed as locally verified.

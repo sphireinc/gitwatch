@@ -12,9 +12,9 @@ gitwatch process or mutate TUI state. Startup begins with a newline-delimited
 the host; the plugin must return a matching `handshake` response. A host
 rejects an unsupported API version, unknown capability, or capability that was
 not granted. Lifecycle events are `start`, `stop`, and `failure`; message
-payloads are opaque JSON and are bounded by the SDK limits. Runtime transport,
-timeouts, crash containment, and permission prompts are owned by the plugin
-runtime tasks.
+payloads are opaque JSON and are bounded by the SDK limits. The runtime owns
+transport, timeout and cancellation handling, bounded restart supervision,
+crash containment, and capability validation.
 
 Compatibility guarantee: API version 1 is additive within the declared JSON
 fields. Hosts ignore optional fields they do not use, while plugins must not

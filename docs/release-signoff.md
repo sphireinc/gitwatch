@@ -1,37 +1,44 @@
 # Release sign-off record
 
-This is intentionally a fill-in record, not an assertion that release
-acceptance has happened. A maintainer should attach command output, recordings,
-or CI links for every checked item before moving the launch tasks to
-`tasks/completed/`.
+This file is a blank evidence record, not an assertion that v1 acceptance has happened. Check an item only when evidence for the exact release commit or tag is attached.
+
+- Release commit:
+- Release tag:
+- Candidate date:
+- Release owner:
 
 ## Automated evidence
 
-- [x] `go test ./...`
-- [x] `go test -race ./...` where supported
-- [x] `go vet ./...`
-- [x] performance allocation and benchmark checks
-- [x] security checks
-- [x] five-target archive extraction and SHA256 verification
+- [ ] `make check`
+- [ ] `./scripts/secret-scan.sh --history`
+- [ ] `VERSION=1.0.0 ./scripts/release-check.sh`
+- [ ] CI matrix and native runtime smoke checks
+- [ ] release archive extraction, identity, dependency-license, and SHA256 verification
+- [ ] SBOM and build provenance
+
+Evidence links/output:
 
 ## Operator evidence
 
-- [ ] macOS full keyboard/mouse/resize/watch-mode run
-- [ ] Linux full keyboard/mouse/resize/watch-mode run
-- [ ] Windows full keyboard/mouse/resize/watch-mode run
-- [ ] clean-machine install and upgrade
+- [ ] macOS complete terminal run
+- [ ] Linux complete terminal run
+- [ ] Windows complete terminal run
+- [ ] clean-machine archive and source installation
+- [ ] upgrade/migration behavior
 - [ ] Git-missing and non-repository behavior
-- [ ] no child Git process or altered terminal state after quit
-- [ ] no open P0/P1 issue and no known data-loss issue
+- [ ] no orphan child process or altered terminal state
+- [ ] no open release blocker or known data-loss issue
+
+Evidence links/recordings:
 
 ## Publication
 
 - [ ] signed release tag
-- [ ] GitHub Release and SHA256SUMS
-- [ ] installation-channel/package metadata
-- [ ] v1.1 issue labels/milestones
+- [ ] protected GitHub Release approval
+- [ ] archives, checksums, licenses, SBOM, and provenance
+- [ ] installation channel/package metadata
+- [ ] issue labels and milestones
 - [ ] announcement and demo assets
 
-Signed by:  
-Date:  
-Release tag:  
+- Signed by:
+- Date:

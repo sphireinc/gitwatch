@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// CurrentVersion is the configuration contract consumed by the v2 loader.
+// CurrentVersion is the configuration schema consumed by the version-2 loader.
 // Older unversioned and v1 files migrate in memory; newer versions are
 // rejected until this contract is intentionally advanced.
 const CurrentVersion = 2
@@ -113,7 +113,7 @@ func Load(path string) (Config, error) {
 		return c, fmt.Errorf("invalid config %s: %w", path, err)
 	}
 	// Version 1 and files without a version used the same scalar settings;
-	// unmarshal over v2 defaults supplies the newly introduced module defaults.
+	// Unmarshal over schema-version-2 defaults supplies newly introduced module defaults.
 	c.Version = CurrentVersion
 	c = applyEnv(c)
 	if err := Validate(c); err != nil {

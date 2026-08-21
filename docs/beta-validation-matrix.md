@@ -1,9 +1,9 @@
 # Beta validation matrix
 
-This file is the evidence sheet for Tasks 34 and 89. Automated checks are
-run by CI and `./scripts/release-check.sh`; operator-owned rows must be filled
-with the command output or recording link before a public release is called
-accepted.
+This file is the evidence sheet for the first stable release and full-workbench
+beta. Automated checks run in CI and `./scripts/release-check.sh`;
+operator-owned rows must include the exact commit/tag and command output or
+recording link before a public release is accepted.
 
 | Area | macOS | Linux | Windows | Evidence required |
 | --- | --- | --- | --- | --- |

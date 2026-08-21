@@ -12,7 +12,8 @@ For a recording, show the modified, untracked, and staged/unstaged states; click
 
 The fixture is disposable and contains no credentials or network dependencies.
 
-An asciinema-compatible captured frame from the disposable fixture is checked
-in at [`docs/demo.cast`](demo.cast). Play it with `asciinema play
-docs/demo.cast`; then use the steps above for the interactive mouse, diff,
-stage, and resize portions of a complete recording.
+A real asciinema recording from the disposable fixture is checked in at
+[`docs/demo.cast`](demo.cast). It shows startup, selected-file diff, reversible
+stage/unstage, resize, and clean quit behavior from the current application.
+Play it with `asciinema play docs/demo.cast`. The README image is a rendered
+snapshot of the recorded wide-terminal diff state.

@@ -1,9 +1,8 @@
 # Advanced workflows
 
-This document describes the current domain contracts behind the post-v1
-surfaces. Interactive panels are being integrated incrementally; commands
-remain available only where the corresponding UI confirmation and refresh
-workflow is complete.
+This document describes the advanced workbench surfaces included in the first
+stable release. Commands are exposed only where the corresponding validation,
+confirmation, cancellation, and authoritative refresh workflow is complete.
 
 ## History and patch work
 
@@ -39,7 +38,7 @@ groups are stored as registry metadata.
 
 ## Configuration and safety
 
-Configuration is versioned at v2 and can be validated with:
+Configuration schema version 2 can be validated with:
 
 ```sh
 gitwatch --config-check

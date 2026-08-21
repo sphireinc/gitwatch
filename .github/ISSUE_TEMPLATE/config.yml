@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/sphireinc/git-watch/security/advisories/new
+    about: Report security and data-loss vulnerabilities privately.
+  - name: Usage and troubleshooting
+    url: https://github.com/sphireinc/git-watch/blob/main/docs/troubleshooting.md
+    about: Review common local, provider, plugin, and release diagnostics.

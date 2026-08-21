@@ -5,9 +5,10 @@ gitwatch reads JSON from `GITWATCH_CONFIG`, then
 fallback. Files without a version and version 1 files are migrated in memory
 to the current version 2 defaults; they are never rewritten automatically.
 Future versions are rejected so an older binary cannot silently discard new
-settings.
+settings. The configuration schema version is independent of the gitwatch
+release version; the schema reached version 2 during prerelease development.
 
-The v2 top-level fields are:
+The schema-version-2 top-level fields are:
 
 | Field | Purpose |
 | --- | --- |
@@ -33,6 +34,6 @@ gitwatch --config-check --config /path/to/config.json
 Environment variables override matching scalar settings, and CLI flags take
 precedence over both file and environment values.
 
-The machine-readable v2 schema is available at
+The machine-readable schema is available at
 [`docs/configuration.schema.json`](configuration.schema.json). Duration values
 use the same JSON nanosecond representation as the Go configuration type.
