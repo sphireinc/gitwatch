@@ -11,3 +11,4 @@ if [ -n "$unformatted" ]; then
 fi
 
 ./scripts/secret-scan.sh --staged
+./scripts/secret-scan.sh --history

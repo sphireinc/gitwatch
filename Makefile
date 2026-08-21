@@ -1,5 +1,6 @@
 APP := gitwatch
 GOFLAGS ?=
+GOLANGCI_LINT_VERSION := $(shell cat .golangci-lint-version)
 
 .PHONY: check test race vet fmt lint diff-check security performance build release \
 	secrets secrets-history install-hooks clean
@@ -19,7 +20,7 @@ fmt:
 	test -z "$$(gofmt -l .)"
 
 lint:
-	golangci-lint run
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run
 
 diff-check:
 	git diff --check

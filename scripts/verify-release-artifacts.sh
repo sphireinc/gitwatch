@@ -2,8 +2,15 @@
 set -eu
 
 out=${1:-dist}
-version=${VERSION:-}
+sbom_version=${VERSION:-}
+version=$sbom_version
 version=${version#v}
+require_sbom=${REQUIRE_SBOM:-0}
+
+case "$require_sbom" in
+	0|1) ;;
+	*) echo "REQUIRE_SBOM must be 0 or 1" >&2; exit 2 ;;
+esac
 
 test -d "$out"
 test -f "$out/SHA256SUMS"
@@ -47,4 +54,11 @@ for target in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64 windows_amd64; d
 	fi
 	rm -rf "$dir"
 done
+
+if [ "$require_sbom" = 1 ]; then
+	test -n "$sbom_version"
+	sbom="$out/gitwatch_${sbom_version}_sbom.spdx.json"
+	test -f "$sbom"
+	./scripts/verify-sbom.sh "$sbom"
+fi
 echo "release artifacts verified"

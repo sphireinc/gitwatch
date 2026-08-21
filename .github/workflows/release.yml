@@ -14,18 +14,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build, attest, and publish
+  build:
+    name: Build and verify
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment: release
     permissions:
-      actions: read
-      attestations: write
-      artifact-metadata: write
-      contents: write
-      id-token: write
+      contents: read
     steps:
       - name: Check out full history
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -35,8 +30,32 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          go-version: '1.25.x'
+          go-version-file: .go-version
           cache: true
+      - name: Verify annotated signed release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git cat-file -t "$GITHUB_REF_NAME")" = tag
+          tag_commit=$(git rev-parse "${GITHUB_REF_NAME}^{commit}")
+          test "$(git rev-parse HEAD)" = "$tag_commit"
+
+          ref_json=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${GITHUB_REF_NAME}")
+          test "$(jq -r '.object.type' <<<"$ref_json")" = tag
+          tag_sha=$(jq -r '.object.sha' <<<"$ref_json")
+          test "$(git rev-parse "${GITHUB_REF_NAME}^{tag}")" = "$tag_sha"
+
+          tag_json=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_sha}")
+          test "$(jq -r '.tag' <<<"$tag_json")" = "$GITHUB_REF_NAME"
+          test "$(jq -r '.object.type' <<<"$tag_json")" = commit
+          test "$(jq -r '.object.sha' <<<"$tag_json")" = "$tag_commit"
+          if [ "$(jq -r '.verification.verified' <<<"$tag_json")" != true ]; then
+            reason=$(jq -r '.verification.reason // "unknown"' <<<"$tag_json")
+            echo "release tag is not GitHub-verified: $reason" >&2
+            exit 1
+          fi
       - name: Verify module files
         shell: bash
         run: |
@@ -68,23 +87,63 @@ jobs:
         env:
           COMMIT: ${{ github.sha }}
           OUT_DIR: dist
+          SBOM_INPUT_DIR: ${{ runner.temp }}/gitwatch-sbom-input
           VERSION: ${{ github.ref_name }}
         run: ./scripts/release.sh
       - name: Generate SPDX SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
-          path: dist
+          path: ${{ runner.temp }}/gitwatch-sbom-input/gitwatch
           format: spdx-json
           output-file: dist/gitwatch_${{ github.ref_name }}_sbom.spdx.json
           upload-artifact: false
           upload-release-assets: false
+      - name: Verify SBOM contents
+        run: ./scripts/verify-sbom.sh dist/gitwatch_${{ github.ref_name }}_sbom.spdx.json
       - name: Add SBOM checksum
         shell: bash
         run: cd dist && shasum -a 256 ./*_sbom.spdx.json >>SHA256SUMS
       - name: Verify release artifacts
         env:
+          REQUIRE_SBOM: '1'
           VERSION: ${{ github.ref_name }}
         run: ./scripts/verify-release-artifacts.sh dist
+      - name: Upload immutable release bundle
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*_sbom.spdx.json
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: Attest and publish
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      actions: read
+      attestations: write
+      artifact-metadata: write
+      contents: write
+      id-token: write
+    steps:
+      - name: Download immutable release bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-${{ github.sha }}-${{ github.run_attempt }}
+          path: dist
+      - name: Verify transferred checksums
+        shell: bash
+        run: cd dist && shasum -a 256 -c SHA256SUMS
       - name: Attest artifacts and SBOM
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
