@@ -23,4 +23,6 @@ Support create, switch, rename, set/unset upstream, delete merged branch, and fo
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — branch delete confirmation requires typing the exact branch name, prevents checked-out deletion, and distinguishes force deletion; rename/upstream/delete execution is now typed. Routed local-branch checkout is asynchronous, rejects remote entries, and refreshes status/branch data after success; rename/delete UI, worktree occupancy, and broader refresh integration remain.
+**Status:** Complete
+
+Completion summary: Branches now expose asynchronous create, checkout, rename, set-upstream, unset-upstream, normal delete, and explicit force-delete workflows. Delete modes require typing the exact branch name and reject checked-out or worktree-bound branches before invoking Git. Mutation failures preserve actionable Git errors, successful mutations refresh status and branch/worktree metadata, and the branch footer documents the controls. App and branch primitive tests cover guards, command construction, confirmation, and completion refresh behavior; repository-wide quality gates pass.

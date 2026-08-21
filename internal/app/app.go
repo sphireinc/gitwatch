@@ -124,8 +124,9 @@ type CommitFinishedMsg struct {
 }
 type CommitConfigReadyMsg struct{ Config git.CommitConfig }
 type BranchOperationFinishedMsg struct {
-	Name string
-	Err  error
+	Operation string
+	Name      string
+	Err       error
 }
 type StashPreviewReadyMsg struct {
 	Ref, Text string
@@ -201,6 +202,14 @@ type Model struct {
 	Workspace                *workspace.Model
 	Branches                 branchview.Model
 	BranchSearching          bool
+	BranchCreateMode         bool
+	BranchRenameMode         bool
+	BranchRenameOld          string
+	BranchUpstreamMode       bool
+	BranchMutationInput      string
+	BranchDeleteMode         bool
+	BranchDeleteTarget       branches.Branch
+	BranchDeleteForce        bool
 	Stashes                  stashview.Model
 	History                  historyview.Model
 	HistoryCommits           []history.Commit
@@ -596,8 +605,107 @@ func (m Model) checkoutSelectedBranch() tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
 	return func() tea.Msg {
 		_, err := branches.Checkout(context.Background(), runner, branch.Name)
-		return BranchOperationFinishedMsg{Name: branch.Name, Err: err}
+		return BranchOperationFinishedMsg{Operation: "checked out", Name: branch.Name, Err: err}
 	}
+}
+
+func (m Model) branchMutation(operation, name string, work func(git.Runner) error) tea.Cmd {
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		return BranchOperationFinishedMsg{Operation: operation, Name: name, Err: work(runner)}
+	}
+}
+
+func (m Model) createBranch(name string) tea.Cmd {
+	return m.branchMutation("created", name, func(r git.Runner) error {
+		_, err := branches.Create(context.Background(), r, name)
+		return err
+	})
+}
+
+func (m Model) renameBranch(oldName, newName string) tea.Cmd {
+	return m.branchMutation("renamed", newName, func(r git.Runner) error {
+		_, err := branches.Rename(context.Background(), r, oldName, newName)
+		return err
+	})
+}
+
+func (m Model) setBranchUpstream(local, upstream string) tea.Cmd {
+	return m.branchMutation("set upstream", local, func(r git.Runner) error {
+		_, err := branches.SetUpstream(context.Background(), r, local, upstream)
+		return err
+	})
+}
+
+func (m Model) unsetBranchUpstream(local string) tea.Cmd {
+	return m.branchMutation("unset upstream", local, func(r git.Runner) error {
+		_, err := branches.UnsetUpstream(context.Background(), r, local)
+		return err
+	})
+}
+
+func (m Model) deleteBranch(branch branches.Branch, force bool, input string) tea.Cmd {
+	return m.branchMutation("deleted", branch.Name, func(r git.Runner) error {
+		_, err := branches.Delete(context.Background(), r, branch, branches.DeletePrompt(branch.Name, force), input)
+		return err
+	})
+}
+
+func (m *Model) updateBranchMutationKey(key string) tea.Cmd {
+	if !m.BranchCreateMode && !m.BranchRenameMode && !m.BranchUpstreamMode && !m.BranchDeleteMode {
+		return nil
+	}
+	if key == "esc" {
+		m.BranchCreateMode, m.BranchRenameMode, m.BranchUpstreamMode, m.BranchDeleteMode = false, false, false, false
+		m.BranchMutationInput, m.BranchRenameOld = "", ""
+		m.Status = "branch action cancelled"
+		return nil
+	}
+	if key == "backspace" {
+		m.BranchMutationInput = removeLastRune(m.BranchMutationInput)
+	} else if key == "space" {
+		m.BranchMutationInput += " "
+	} else if key == "enter" {
+		input := strings.TrimSpace(m.BranchMutationInput)
+		if input == "" {
+			m.Status = "branch name is required"
+			return nil
+		}
+		renameMode, upstreamMode := m.BranchRenameMode, m.BranchUpstreamMode
+		m.BranchCreateMode, m.BranchRenameMode, m.BranchUpstreamMode, m.BranchDeleteMode = false, false, false, false
+		m.State = StateOperationPending
+		switch {
+		case renameMode:
+			old := m.BranchRenameOld
+			m.BranchRenameOld, m.BranchMutationInput, m.Status = "", "", "renaming branch"
+			return m.renameBranch(old, input)
+		case m.BranchDeleteTarget.Name != "":
+			branch, force := m.BranchDeleteTarget, m.BranchDeleteForce
+			m.BranchDeleteTarget, m.BranchMutationInput, m.Status = branches.Branch{}, "", "deleting branch"
+			return m.deleteBranch(branch, force, input)
+		case upstreamMode:
+			local := m.Branches.Entries[m.Branches.Selected].Name
+			m.BranchMutationInput, m.Status = "", "setting upstream"
+			return m.setBranchUpstream(local, input)
+		default:
+			m.BranchMutationInput, m.Status = "", "creating branch"
+			return m.createBranch(input)
+		}
+	} else if len([]rune(key)) == 1 {
+		m.BranchMutationInput += key
+	} else {
+		return nil
+	}
+	label := "branch name"
+	if m.BranchRenameOld != "" {
+		label = "rename " + m.BranchRenameOld + " to"
+	} else if m.BranchUpstreamMode {
+		label = "upstream"
+	} else if m.BranchDeleteTarget.Name != "" {
+		label = "type " + m.BranchDeleteTarget.Name + " to confirm"
+	}
+	m.Status = label + ": " + m.BranchMutationInput
+	return nil
 }
 
 func (m Model) loadStashes() tea.Cmd {
@@ -1454,6 +1562,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Branches && m.BranchSearching {
 			return m, m.updateBranchSearch(v.String())
 		}
+		if m.currentView() == workspace.Branches && (m.BranchCreateMode || m.BranchRenameMode || m.BranchUpstreamMode || m.BranchDeleteMode) {
+			return m, m.updateBranchMutationKey(v.String())
+		}
 		if m.currentView() == workspace.Log && m.HistoryInspectorPathMode {
 			switch v.String() {
 			case "esc":
@@ -1730,7 +1841,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "worktree path: "
 			}
 		case "D":
-			if m.currentView() == workspace.Worktrees && m.Worktrees.Selected >= 0 && m.Worktrees.Selected < len(m.Worktrees.Entries) {
+			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+				branch := m.Branches.Entries[m.Branches.Selected]
+				if branch.Current || branch.OccupiedPath != "" {
+					m.Status = "cannot delete checked-out or worktree-bound branch"
+				} else {
+					m.BranchDeleteMode, m.BranchDeleteTarget, m.BranchDeleteForce, m.BranchMutationInput = true, branch, false, ""
+					m.Status = "type " + branch.Name + " to confirm deletion: "
+				}
+			} else if m.currentView() == workspace.Worktrees && m.Worktrees.Selected >= 0 && m.Worktrees.Selected < len(m.Worktrees.Entries) {
 				path := m.Worktrees.Entries[m.Worktrees.Selected].Path
 				m.WorktreeConfirmAction, m.WorktreeConfirmTarget = "remove", path
 				m.Status = "confirm remove worktree " + path + "? (y/n)"
@@ -1773,7 +1892,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "confirm pop " + ref + "? (y/n)"
 			}
 		case "u":
-			if m.currentView() == workspace.Remotes {
+			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+				branch := m.Branches.Entries[m.Branches.Selected]
+				if branch.Remote {
+					m.Status = "select a local branch"
+				} else {
+					m.BranchUpstreamMode, m.BranchMutationInput = true, ""
+					m.Status = "upstream for " + branch.Name + ": "
+				}
+			} else if m.currentView() == workspace.Remotes {
 				m.RemoteSetUpstream, m.RemotePushConfirm = true, true
 				m.Status = "confirm push with upstream tracking to selected remote? (y/n)"
 			}
@@ -1789,6 +1916,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
 				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
 				m.RemoteForceConfirm, m.Status = true, "confirm force-with-lease push to "+remote+" for "+m.Snapshot.Branch.Name+" (y/n)"
+			}
+		case "N":
+			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+				branch := m.Branches.Entries[m.Branches.Selected]
+				if branch.Upstream == "" {
+					m.Status = "branch has no upstream"
+				} else {
+					m.State, m.Status = StateOperationPending, "unsetting upstream"
+					return m, m.unsetBranchUpstream(branch.Name)
+				}
+			}
+		case "X":
+			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+				branch := m.Branches.Entries[m.Branches.Selected]
+				if branch.Current || branch.OccupiedPath != "" {
+					m.Status = "cannot delete checked-out or worktree-bound branch"
+				} else {
+					m.BranchDeleteMode, m.BranchDeleteTarget, m.BranchDeleteForce, m.BranchMutationInput = true, branch, true, ""
+					m.Status = "type " + branch.Name + " to confirm FORCE deletion: "
+				}
 			}
 		case "]":
 			if m.currentView() == workspace.Log && m.HistoryHasMore {
@@ -1832,7 +1979,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "branch from " + m.StashBranchRef + ": enter name"
 			}
 		case "R":
-			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+				branch := m.Branches.Entries[m.Branches.Selected]
+				if branch.Remote {
+					m.Status = "remote branch cannot be renamed here"
+				} else {
+					m.BranchRenameMode, m.BranchRenameOld, m.BranchMutationInput = true, branch.Name, ""
+					m.Status = "rename " + branch.Name + " to: "
+				}
+			} else if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
 				m.HistoryRevertTarget = m.History.Rows[m.History.Selected].Commit.SHA
 				m.HistoryRevertInput, m.HistoryRevertConfirm, m.HistoryRevertInvalid = "", true, false
 				m.Status = "type SHA " + m.HistoryRevertTarget + ": "
@@ -1884,6 +2039,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "confirm " + action + " " + ref + "? (y/n)"
 			}
 		case "c":
+			if m.currentView() == workspace.Branches {
+				m.BranchCreateMode, m.BranchMutationInput = true, ""
+				m.Status = "branch name: "
+				return m, nil
+			}
 			if m.currentView() == workspace.GitHub {
 				for _, run := range m.GitHub.Checks.Runs {
 					if run.URL == "" {
@@ -2211,7 +2371,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
-			m.State, m.Status = StateReady, "checked out "+v.Name
+			operation := v.Operation
+			if operation == "" {
+				operation = "completed"
+			}
+			m.State, m.Status = StateReady, operation+" "+v.Name
 			return m, tea.Batch(m.refresh(), m.loadBranches())
 		}
 	case HistoryReadyMsg:
@@ -2557,7 +2721,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Branches {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
 		if m.BranchSearching {
 			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Branches.Query) + "  [enter] apply  [esc] cancel"
 		}

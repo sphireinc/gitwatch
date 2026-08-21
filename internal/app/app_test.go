@@ -749,6 +749,45 @@ func TestRepositoryDashboardFiltersAndSortsFromKeyboard(t *testing.T) {
 	}
 }
 
+func TestBranchMutationModesGuardAndBuildCommands(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	m.Branches = branchview.New([]branches.Branch{
+		{Name: "main", Current: true},
+		{Name: "feature", Upstream: "origin/feature"},
+	})
+	for i, branch := range m.Branches.Entries {
+		if branch.Name == "main" {
+			m.Branches.Selected = i
+		}
+	}
+	updated, _ := m.Update(key("D"))
+	m = updated.(Model)
+	if m.BranchDeleteMode || !contains(m.Status, "cannot delete") {
+		t.Fatalf("current branch delete guard = mode=%v status=%q", m.BranchDeleteMode, m.Status)
+	}
+	m.Branches.Selected = 1
+	updated, _ = m.Update(key("c"))
+	m = updated.(Model)
+	for _, ch := range "new" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	if !m.BranchCreateMode || m.BranchMutationInput != "new" {
+		t.Fatalf("create mode = %#v", m)
+	}
+	updated, cmd := m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.BranchCreateMode || m.State != StateOperationPending {
+		t.Fatalf("create submit = cmdnil=%v mode=%v state=%v", cmd == nil, m.BranchCreateMode, m.State)
+	}
+	updated, _ = m.Update(BranchOperationFinishedMsg{Operation: "created", Name: "new"})
+	m = updated.(Model)
+	if m.State != StateReady || !contains(m.Status, "created new") {
+		t.Fatalf("create completion = state=%v status=%q", m.State, m.Status)
+	}
+}
+
 func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	m := New()
 	updated, cmd := m.Update(key("b"))
