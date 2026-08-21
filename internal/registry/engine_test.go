@@ -85,3 +85,15 @@ func TestEngineBudgetCancelsSlowStatusSource(t *testing.T) {
 		t.Fatalf("slow source result = %#v", result)
 	}
 }
+
+func TestEngineRecordsAuxiliaryWarningsAndRefreshMetadata(t *testing.T) {
+	engine := NewEngine(1)
+	engine.Discover = func(context.Context, string) (git.Discovery, error) { return git.Discovery{Root: "/repo"}, nil }
+	engine.Snapshot = func(context.Context, git.Discovery, uint64) (repo.Snapshot, error) { return repo.Snapshot{}, nil }
+	engine.Stashes = func(context.Context, git.Discovery) (int, error) { return 0, errors.New("stash unavailable") }
+	engine.Remotes = func(context.Context, git.Discovery) (int, error) { return 0, errors.New("remote unavailable") }
+	results := engine.Refresh(context.Background(), []Repository{{Path: "/repo", Name: "repo"}}, "/repo")
+	if len(results) != 1 || len(results[0].Warnings) != 2 || results[0].Refreshed.IsZero() || results[0].Duration < 0 {
+		t.Fatalf("refresh metadata = %#v", results)
+	}
+}

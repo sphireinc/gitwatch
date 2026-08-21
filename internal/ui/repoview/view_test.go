@@ -27,3 +27,10 @@ func TestFilterAndSortDashboardRows(t *testing.T) {
 		t.Fatalf("sorted rows = key=%q rows=%#v", got, m.Rows)
 	}
 }
+
+func TestViewShowsRepositoryWarnings(t *testing.T) {
+	m := New([]registry.Row{{Repository: registry.Repository{Name: "repo"}, Warnings: []string{"summary unavailable"}}})
+	if !strings.Contains(m.View(), "warnings:1") {
+		t.Fatalf("warning count missing: %s", m.View())
+	}
+}

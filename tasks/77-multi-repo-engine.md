@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added a bounded worker-pool status engine with context cancellation, cached inactive-repository refreshes, injectable discovery/snapshot/stash functions, a 15-second per-repository resource budget, and concurrency tests. The engine now feeds the asynchronous `v` repository dashboard with stash counts; richer adaptive refresh policy remains.
+Progress: Added a bounded worker-pool status engine with context cancellation, cached inactive-repository refreshes, injectable discovery/snapshot/stash functions, a 15-second per-repository resource budget, adaptive group-aware refresh intervals, and concurrency tests. The engine now feeds the asynchronous `v` repository dashboard with stash/remote counts, structured inactive-skip reasons, refresh duration/timestamps, and auxiliary warning summaries.
 
 ## Objective
 Collect branch/dirty/ahead-behind/conflict/stash summaries across many repositories with bounded worker pools, adaptive refresh, inactive-repo throttling, and resource budgets. Do not instantiate the full single-repo watcher stack for every repository.
@@ -25,4 +25,6 @@ Collect branch/dirty/ahead-behind/conflict/stash summaries across many repositor
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Status: Complete
+
+Completion summary: The multi-repository engine uses bounded workers, per-repository timeout budgets, cancellation, cached inactive-repository refreshes, group-aware adaptive intervals, and injectable typed Git discovery/snapshot/summary sources. Dashboard rows preserve branch/dirty/divergence/conflict/stash/remote data and now surface structured auxiliary warnings and refresh metadata without blocking the TUI. Engine, dashboard, benchmark, cancellation, budget, and warning tests pass all repository quality gates.

@@ -17,6 +17,10 @@ type StatusResult struct {
 	Remotes    int
 	Error      error
 	Skipped    bool
+	SkipReason string
+	Warnings   []string
+	Duration   time.Duration
+	Refreshed  time.Time
 }
 
 type Engine struct {
@@ -86,6 +90,7 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 	}
 	if hasCached && repository.Path != activePath && inactiveAfter > 0 && !repository.LastOpened.IsZero() && time.Since(repository.LastOpened) > inactiveAfter {
 		cached.Skipped = true
+		cached.SkipReason = "inactive repository"
 		return cached
 	}
 	if e.Budget > 0 {
@@ -93,17 +98,28 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 		ctx, cancel = context.WithTimeout(ctx, e.Budget)
 		defer cancel()
 	}
+	started := time.Now()
 	discovery, err := e.Discover(ctx, repository.Path)
 	if err == nil {
 		result.Snapshot, err = e.Snapshot(ctx, discovery, 0)
 		if err == nil && e.Stashes != nil {
-			result.Stashes, _ = e.Stashes(ctx, discovery)
+			result.Stashes, err = e.Stashes(ctx, discovery)
+			if err != nil {
+				result.Warnings = append(result.Warnings, "stash summary: "+err.Error())
+				err = nil
+			}
 		}
 		if err == nil && e.Remotes != nil {
-			result.Remotes, _ = e.Remotes(ctx, discovery)
+			result.Remotes, err = e.Remotes(ctx, discovery)
+			if err != nil {
+				result.Warnings = append(result.Warnings, "remote summary: "+err.Error())
+				err = nil
+			}
 		}
 	}
 	result.Error = err
+	result.Duration = time.Since(started)
+	result.Refreshed = time.Now()
 	e.mu.Lock()
 	e.cache[repository.Path] = result
 	e.mu.Unlock()

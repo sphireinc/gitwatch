@@ -25,3 +25,10 @@ func TestRowsFilterAndSort(t *testing.T) {
 		t.Fatalf("unexpected sort: %#v", sorted)
 	}
 }
+
+func TestRowsPreserveWarnings(t *testing.T) {
+	rows := Rows([]StatusResult{{Repository: Repository{Name: "repo"}, Warnings: []string{"slow stash"}}})
+	if len(rows) != 1 || len(rows[0].Warnings) != 1 {
+		t.Fatalf("warnings = %#v", rows)
+	}
+}
