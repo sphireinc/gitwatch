@@ -7,9 +7,12 @@ import (
 )
 
 func TestRowsFilterAndSort(t *testing.T) {
-	rows := Rows([]StatusResult{{Repository: Repository{Name: "zeta", Path: "/z"}, Snapshot: repo.Snapshot{Branch: repo.Branch{Name: "main", Ahead: 1}, Counts: repo.Counts{Staged: 1}}}, {Repository: Repository{Name: "alpha", Path: "/a"}, Snapshot: repo.Snapshot{Branch: repo.Branch{Name: "dev", Behind: 2}, Counts: repo.Counts{Untracked: 2}}}})
+	rows := Rows([]StatusResult{{Repository: Repository{Name: "zeta", Path: "/z"}, Stashes: 2, Snapshot: repo.Snapshot{Branch: repo.Branch{Name: "main", Ahead: 1}, Counts: repo.Counts{Staged: 1}}}, {Repository: Repository{Name: "alpha", Path: "/a"}, Snapshot: repo.Snapshot{Branch: repo.Branch{Name: "dev", Behind: 2}, Counts: repo.Counts{Untracked: 2}}}})
 	if rows[0].Dirty != 1 || rows[1].Dirty != 2 {
 		t.Fatalf("unexpected rows: %#v", rows)
+	}
+	if rows[0].Stashes != 2 {
+		t.Fatalf("stash summary = %d", rows[0].Stashes)
 	}
 	if got := FilterRows(rows, "dev"); len(got) != 1 || got[0].Repository.Name != "alpha" {
 		t.Fatalf("unexpected filter: %#v", got)

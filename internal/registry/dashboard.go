@@ -17,6 +17,7 @@ type Row struct {
 	Conflicts  int
 	Ahead      int
 	Behind     int
+	Stashes    int
 	State      string
 }
 
@@ -24,7 +25,7 @@ func Rows(results []StatusResult) []Row {
 	rows := make([]Row, 0, len(results))
 	for _, result := range results {
 		snapshot := result.Snapshot
-		row := Row{Repository: result.Repository, Branch: snapshot.Branch.Name, Staged: snapshot.Counts.Staged, Unstaged: snapshot.Counts.Unstaged, Untracked: snapshot.Counts.Untracked, Conflicts: snapshot.Counts.Conflicted, Ahead: snapshot.Branch.Ahead, Behind: snapshot.Branch.Behind}
+		row := Row{Repository: result.Repository, Branch: snapshot.Branch.Name, Staged: snapshot.Counts.Staged, Unstaged: snapshot.Counts.Unstaged, Untracked: snapshot.Counts.Untracked, Conflicts: snapshot.Counts.Conflicted, Ahead: snapshot.Branch.Ahead, Behind: snapshot.Branch.Behind, Stashes: result.Stashes}
 		row.Dirty = row.Staged + row.Unstaged + row.Untracked
 		if result.Skipped {
 			row.State = "inactive"

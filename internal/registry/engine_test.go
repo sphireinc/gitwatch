@@ -29,8 +29,9 @@ func TestEngineUsesBoundedWorkersAndCachesInactiveRepositories(t *testing.T) {
 		return git.Discovery{Root: "repo"}, nil
 	}
 	engine.Snapshot = func(context.Context, git.Discovery, uint64) (repo.Snapshot, error) { return repo.Snapshot{}, nil }
+	engine.Stashes = func(context.Context, git.Discovery) (int, error) { return 3, nil }
 	entries := []Repository{{Path: "one"}, {Path: "two"}, {Path: "three"}}
-	if got := engine.Refresh(context.Background(), entries, "one"); len(got) != 3 || peak.Load() > 2 {
+	if got := engine.Refresh(context.Background(), entries, "one"); len(got) != 3 || peak.Load() > 2 || got[0].Stashes != 3 {
 		t.Fatalf("unexpected refresh: len=%d peak=%d", len(got), peak.Load())
 	}
 	if calls.Load() != 3 {

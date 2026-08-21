@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added a bounded worker-pool status engine with context cancellation, cached inactive-repository refreshes, injectable discovery/snapshot functions, and concurrency tests. The engine now feeds the asynchronous `v` repository dashboard; adaptive budgets, stash summaries, and richer refresh policy remain.
+Progress: Added a bounded worker-pool status engine with context cancellation, cached inactive-repository refreshes, injectable discovery/snapshot/stash functions, a 15-second per-repository resource budget, and concurrency tests. The engine now feeds the asynchronous `v` repository dashboard with stash counts; richer adaptive refresh policy remains.
 
 ## Objective
 Collect branch/dirty/ahead-behind/conflict/stash summaries across many repositories with bounded worker pools, adaptive refresh, inactive-repo throttling, and resource budgets. Do not instantiate the full single-repo watcher stack for every repository.
