@@ -13,6 +13,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/hunks"
 	"github.com/jusanchez/gitwatch/internal/patch"
+	"github.com/jusanchez/gitwatch/internal/registry"
 	"github.com/jusanchez/gitwatch/internal/remotes"
 	"github.com/jusanchez/gitwatch/internal/stash"
 	"github.com/jusanchez/gitwatch/internal/worktrees"
@@ -83,6 +84,56 @@ func TestRepositoryWorkbenchScenario(t *testing.T) {
 	}
 	if _, err := worktrees.Prune(ctx, runner, true); err != nil {
 		t.Fatalf("worktree prune dry run failed: %v", err)
+	}
+}
+
+func TestMultiRepositoryRefreshTransitionScenario(t *testing.T) {
+	ctx := context.Background()
+	paths := []string{filepath.Join(t.TempDir(), "first"), filepath.Join(t.TempDir(), "second")}
+	for i, root := range paths {
+		if err := os.MkdirAll(root, 0700); err != nil {
+			t.Fatal(err)
+		}
+		runner := git.NewRunner(root)
+		for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "multi-repo-test"}, {"config", "user.email", "multi@example.com"}} {
+			if _, err := runner.Run(ctx, args...); err != nil {
+				t.Fatal(err)
+			}
+		}
+		file := filepath.Join(root, "state.txt")
+		if err := os.WriteFile(file, []byte("initial\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Stage(ctx, []byte("state.txt")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("initial\n")}); err != nil {
+			t.Fatal(err)
+		}
+		if i == 1 {
+			if err := os.WriteFile(file, []byte("changed\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	engine := registry.NewEngine(2)
+	results := engine.Refresh(ctx, []registry.Repository{{Path: paths[0], Name: "first"}, {Path: paths[1], Name: "second"}}, paths[1])
+	if len(results) != 2 {
+		t.Fatalf("got %d repository results, want 2", len(results))
+	}
+	byPath := make(map[string]registry.StatusResult, len(results))
+	for _, result := range results {
+		byPath[result.Repository.Path] = result
+		if result.Error != nil || result.Snapshot.Branch.Name == "" {
+			t.Fatalf("repository %q refresh failed: %#v", result.Repository.Path, result)
+		}
+	}
+	if len(byPath[paths[0]].Snapshot.Entries) != 0 {
+		t.Fatalf("clean repository reported changes: %#v", byPath[paths[0]].Snapshot.Entries)
+	}
+	if len(byPath[paths[1]].Snapshot.Entries) != 1 || !byPath[paths[1]].Snapshot.Entries[0].Unstaged {
+		t.Fatalf("changed repository transition = %#v", byPath[paths[1]].Snapshot.Entries)
 	}
 }
 

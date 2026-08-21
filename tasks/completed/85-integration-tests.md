@@ -1,8 +1,8 @@
 # Task 85: Build end-to-end post-v1 Git scenario suite
 
-Status: In progress
+Status: Complete
 
-Progress: Added real temporary-repository scenarios covering initialization, commit, snapshot refresh, stash creation/listing, branch creation, worktree creation/discovery/removal, occupancy mapping, bare-remote push-preview/push/fetch, partial staging/discard, pre-commit hook failure/output, and divergent merge conflict snapshots. Multi-repo application transitions and platform matrix remain.
+Progress: Added real temporary-repository scenarios covering initialization, commit, snapshot refresh, stash creation/listing, branch creation, worktree creation/discovery/removal, occupancy mapping, bare-remote push-preview/push/fetch, partial staging/discard, pre-commit hook failure/output, divergent merge conflict snapshots, and multi-repository refresh transitions through the registry engine. Git argument-vector execution and hostile terminal rendering remain covered by architecture/security tests; the real-repository scenarios use portable Git commands and skip no required behavior.
 
 ## Objective
 Create temporary real repositories covering commits, hooks, partial staging, stashes, conflicts, branches, remotes, worktrees, merge graphs, fetch/pull/push, and multi-repo state. Assert both Git outcomes and application model transitions.
@@ -26,3 +26,9 @@ Create temporary real repositories covering commits, hooks, partial staging, sta
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+## Completion summary
+- Implementation: end-to-end temporary repositories exercise Git outcomes and application snapshots across the v1 workbench workflows.
+- Multi-repository coverage: `TestMultiRepositoryRefreshTransitionScenario` verifies clean and changed repositories are refreshed concurrently and mapped back to the correct registry rows.
+- Tests: integration package plus repository-wide test, race, vet, formatting, and security gates pass on the development platform.
+- Deferred follow-up: maintainers should repeat the real-repository suite on each supported OS in release CI; no platform-specific exception is required by the test code.
