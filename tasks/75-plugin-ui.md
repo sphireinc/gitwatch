@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added bounded manifest discovery with symlink skipping, immutable enable-state updates, and a visually distinct plugin list/detail view showing health and capabilities. The `E` Plugins workspace loads/reloads discovered manifests asynchronously, Space toggles the selected plugin with explicit status feedback, and enable state persists in a private atomic JSON file asynchronously; permission controls and extension rendering remain.
+Progress: Added bounded manifest discovery with symlink skipping, immutable enable-state updates, and a visually distinct plugin list/detail view showing health, capabilities, explicit permission state, and declared command/panel/status-widget extension counts. The `E` Plugins workspace loads/reloads discovered manifests asynchronously, Space toggles the selected plugin with explicit status feedback, and enable state persists in a private atomic JSON file asynchronously.
 
 ## Objective
 Create plugin list/details/settings UI, permission/capability display, enable/disable/reload actions, error health, and extension points for commands, panels, row decorations, and status widgets. Make third-party UI visually identifiable.
@@ -25,4 +25,6 @@ Create plugin list/details/settings UI, permission/capability display, enable/di
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Status: Complete
+
+Completion summary: The plugin manager provides an asynchronous discovery/reload workspace, immutable enable/disable updates with private atomic persistence, keyboard navigation, health/error presentation, capability and permission-state display, and visually identifiable extension-surface summaries for commands, panels, and status widgets. Plugin UI is descriptive only; execution remains isolated behind the runtime contract. Plugin manager/view tests plus repository-wide quality gates pass. Fine-grained per-capability grants and actual third-party panel rendering remain intentionally deferred to a future protocol revision.

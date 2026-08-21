@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	publicplugin "github.com/jusanchez/gitwatch/pkg/plugin"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -15,6 +16,9 @@ type Entry struct {
 	Enabled  bool
 	Healthy  bool
 	Error    string
+	Commands []publicplugin.CommandSpec
+	Panels   []publicplugin.PanelSpec
+	Widgets  []publicplugin.StatusWidgetSpec
 }
 
 func Discover(ctx context.Context, directories []string, max int) ([]Entry, error) {

@@ -56,6 +56,14 @@ func (m Model) View() string {
 		}
 		if len(entry.Manifest.Capabilities) > 0 {
 			lines = append(lines, "    capabilities: "+platform.SafeText(strings.Join(capabilityNames(entry.Manifest.Capabilities), ", ")))
+			permission := "none"
+			if entry.Enabled {
+				permission = "all declared capabilities"
+			}
+			lines = append(lines, "    permissions: "+permission)
+		}
+		if len(entry.Commands) > 0 || len(entry.Panels) > 0 || len(entry.Widgets) > 0 {
+			lines = append(lines, fmt.Sprintf("    extensions: commands:%d panels:%d widgets:%d", len(entry.Commands), len(entry.Panels), len(entry.Widgets)))
 		}
 		if entry.Error != "" {
 			lines = append(lines, "    error: "+platform.SafeText(entry.Error))
