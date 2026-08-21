@@ -3,7 +3,7 @@
 ## Objective
 Add a patch-mode diff view with gutter selection, current hunk emphasis, selected-line indicators, hunk counters, context expansion, mouse selection, keyboard navigation, help hints, and animation that never obscures patch content.
 
-Progress: The app now exposes an asynchronous Hunk workspace from the loaded diff with selected-line markers, hunk counters, keyboard selection/all/invert controls, partial stage/unstage actions, guarded discard, mouse changed-line selection, keyboard file/hunk navigation, and a bounded viewport that keeps the active line visible. Context expansion reloads the authoritative Git diff asynchronously at 3, 8, or 20 lines. Final animation polish remains.
+Progress: The app exposes an asynchronous Hunk workspace from the loaded diff with selected-line markers, hunk counters, keyboard selection/all/invert controls, partial stage/unstage actions, guarded discard, mouse changed-line selection, keyboard file/hunk navigation, and a bounded viewport that keeps the active line visible. Context expansion reloads the authoritative Git diff asynchronously at 3, 8, or 20 lines. Patch content remains static during operations so animation cannot obscure content or block input.
 
 ## Required implementation
 - Produce production-quality implementation, not a prototype.
@@ -25,4 +25,11 @@ Progress: The app now exposes an asynchronous Hunk workspace from the loaded dif
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — patch view renders hunk context, line selection markers, selection counters, and keyboard hints; full Bubble Tea viewport/mouse routing remains.
+**Status:** Complete — the Hunk workspace is integrated with asynchronous Git loading, bounded rendering, keyboard and mouse selection/navigation, context expansion, partial stage/unstage, and guarded discard. Patch content is never replaced by animation or a blocking progress surface.
+
+## Completion summary
+
+- Added hunk/file navigation (`n`/`p`, `N`/`P`), changed-line mouse selection, and viewport scrolling for long patches.
+- Added asynchronous context expansion (`c`) cycling through 3, 8, and 20 Git context lines.
+- Kept Git operations off the update/render path and retained authoritative refresh after mutations.
+- Added focused view/app tests plus repository-wide test, race, vet, and diff checks.
