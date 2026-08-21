@@ -23,4 +23,6 @@ Execute normal commits from the composer. Show exact staged scope, run hooks nor
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — safe stdin-backed commit execution supports normal/amend/no-edit/signoff/signing/author options, captures hook output through the typed runner, and returns the resulting SHA. The composer now executes asynchronously with `Ctrl-S`, preserves drafts on failure, and triggers an authoritative status refresh after success; confirmation, hook-output presentation, and full integration coverage remain.
+**Status:** Complete
+
+Completion summary: Safe stdin-backed commit execution supports normal/amend/no-edit/signoff/signing/author options, captures hook output through the typed runner, and returns the resulting SHA. The composer executes asynchronously with `Ctrl-S`, confirms amend rewrites, preserves drafts on failure, displays sanitized hook output, and triggers an authoritative status refresh after success. App coverage verifies failure preservation, confirmation, metadata, and hook-output presentation; repository-wide quality gates pass.

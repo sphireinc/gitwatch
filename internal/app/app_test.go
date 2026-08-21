@@ -315,6 +315,19 @@ func TestCommitComposerOptionsAndAmendConfirmation(t *testing.T) {
 	}
 }
 
+func TestCommitFailureShowsHookOutputAndPreservesDraft(t *testing.T) {
+	m := New()
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("file.txt"), Staged: true}}
+	updated, _ := m.Update(key("c"))
+	m = updated.(Model)
+	m.Composer.SetSubject("keep this draft")
+	updated, _ = m.Update(CommitFinishedMsg{Err: errors.New("hook failed"), HookOutput: "lint failed"})
+	m = updated.(Model)
+	if m.Composer.Draft.Subject != "keep this draft" || !contains(m.Status, "hook output:\nlint failed") {
+		t.Fatalf("commit failure = draft=%q status=%q", m.Composer.Draft.Subject, m.Status)
+	}
+}
+
 func TestCommitConfigIsShownInComposer(t *testing.T) {
 	m := New()
 	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("file.txt"), Staged: true}}

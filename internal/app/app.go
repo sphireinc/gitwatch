@@ -118,8 +118,9 @@ type HistoryActionFinishedMsg struct {
 	Err            error
 }
 type CommitFinishedMsg struct {
-	SHA string
-	Err error
+	SHA        string
+	HookOutput string
+	Err        error
 }
 type CommitConfigReadyMsg struct{ Config git.CommitConfig }
 type BranchOperationFinishedMsg struct {
@@ -1169,7 +1170,7 @@ func (m Model) commit() tea.Cmd {
 			Message: []byte(draft.Message()), Amend: draft.Amend, NoEdit: draft.NoEdit,
 			Signoff: draft.Signoff, Sign: draft.Sign, Author: draft.Author,
 		})
-		return CommitFinishedMsg{SHA: result.SHA, Err: err}
+		return CommitFinishedMsg{SHA: result.SHA, HookOutput: platform.SafeText(string(append(result.Result.Stdout, result.Result.Stderr...))), Err: err}
 	}
 }
 
@@ -2115,6 +2116,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case CommitFinishedMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
+			if strings.TrimSpace(v.HookOutput) != "" {
+				m.Status += "\nhook output:\n" + v.HookOutput
+			}
 			m.notify(notifications.HookFailure, notifications.Error, "commit hook failed", v.Err.Error(), true)
 		} else {
 			m.CommitAmendConfirm, m.CommitAuthorMode = false, false
