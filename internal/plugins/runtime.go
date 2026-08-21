@@ -17,6 +17,9 @@ const MaxOutputBytes = 1 << 20
 
 var ErrOutputLimit = errors.New("plugin output exceeded limit")
 var ErrCapabilityDenied = errors.New("plugin capability was not granted")
+var ErrPluginTimeout = errors.New("plugin execution timed out")
+var ErrPluginCancelled = errors.New("plugin execution cancelled")
+var ErrPluginProtocol = errors.New("invalid plugin protocol")
 
 type Runtime struct {
 	OutputLimit int64
@@ -31,6 +34,7 @@ type Result struct {
 	Stdout   []byte
 	Stderr   []byte
 	ExitCode int
+	Duration time.Duration
 }
 
 func (r Runtime) Handshake(ctx context.Context, manifest Manifest, supported []Capability) (Negotiation, error) {
@@ -46,7 +50,7 @@ func (r Runtime) Handshake(ctx context.Context, manifest Manifest, supported []C
 	if err != nil {
 		return Negotiation{}, err
 	}
-	message, err := publicplugin.Encode(publicplugin.Message{Type: "handshake", Payload: payload})
+	message, err := publicplugin.Encode(publicplugin.Message{Type: publicplugin.MessageHandshake, Payload: payload})
 	if err != nil {
 		return Negotiation{}, err
 	}
@@ -55,18 +59,25 @@ func (r Runtime) Handshake(ctx context.Context, manifest Manifest, supported []C
 		return Negotiation{}, err
 	}
 	response, err := publicplugin.Decode(result.Stdout)
-	if err != nil || response.Type != "handshake" {
-		return Negotiation{}, errors.New("invalid plugin handshake response")
+	if err != nil || response.Type != publicplugin.MessageHandshake {
+		return Negotiation{}, ErrPluginProtocol
 	}
 	var handshake publicplugin.HandshakeResponse
 	if err := json.Unmarshal(response.Payload, &handshake); err != nil {
-		return Negotiation{}, errors.New("invalid plugin handshake payload")
+		return Negotiation{}, ErrPluginProtocol
 	}
 	if handshake.APIVersion != APIVersion || !handshake.Accepted {
 		return Negotiation{Reason: handshake.Reason}, nil
 	}
+	granted := make(map[Capability]bool, len(negotiation.Capabilities))
+	for _, capability := range negotiation.Capabilities {
+		granted[capability] = true
+	}
 	negotiation.Capabilities = negotiation.Capabilities[:0]
 	for _, capability := range handshake.Capabilities {
+		if !granted[Capability(capability)] {
+			return Negotiation{}, fmt.Errorf("%w: %s", ErrCapabilityDenied, capability)
+		}
 		negotiation.Capabilities = append(negotiation.Capabilities, Capability(capability))
 	}
 	return negotiation, nil
@@ -93,17 +104,24 @@ func (r Runtime) RunWithCapabilities(ctx context.Context, manifest Manifest, inp
 	if limit <= 0 {
 		limit = MaxOutputBytes
 	}
+	started := time.Now()
 	command := exec.CommandContext(ctx, manifest.Executable, "--gitwatch-plugin")
 	command.Stdin = bytes.NewReader(input)
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &limitedWriter{writer: &stdout, limit: limit}
 	command.Stderr = &limitedWriter{writer: &stderr, limit: limit}
 	err := command.Run()
-	result := Result{Stdout: stdout.Bytes(), Stderr: stderr.Bytes()}
+	result := Result{Stdout: stdout.Bytes(), Stderr: stderr.Bytes(), Duration: time.Since(started)}
 	if exitErr, ok := err.(*exec.ExitError); ok {
 		result.ExitCode = exitErr.ExitCode()
 	}
 	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return result, fmt.Errorf("%w: %v", ErrPluginTimeout, ctx.Err())
+		}
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return result, fmt.Errorf("%w: %v", ErrPluginCancelled, ctx.Err())
+		}
 		return result, err
 	}
 	return result, nil

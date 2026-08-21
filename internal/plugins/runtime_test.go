@@ -55,6 +55,45 @@ func TestHandshakeRejectsUnsupportedManifestBeforeExecution(t *testing.T) {
 	}
 }
 
+func TestHandshakeRejectsCapabilitiesNotGrantedByHost(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("portable executable fixture uses a POSIX script")
+	}
+	directory := t.TempDir()
+	executable := filepath.Join(directory, "bad-handshake")
+	script := "#!/bin/sh\nprintf '%s\\n' '{\"type\":\"handshake\",\"payload\":{\"api_version\":1,\"accepted\":true,\"capabilities\":[\"panel\"]}}'\n"
+	if err := os.WriteFile(executable, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := Manifest{ID: "handshake", Name: "Handshake", Version: "1", APIVersion: APIVersion, Executable: executable, Capabilities: []Capability{CapabilityCommand}}
+	_, err := (Runtime{}).Handshake(context.Background(), manifest, []Capability{CapabilityCommand})
+	if !errors.Is(err, ErrCapabilityDenied) {
+		t.Fatalf("handshake capability validation = %v", err)
+	}
+}
+
+func TestSuperviseRetriesWithinBoundedPolicy(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("portable executable fixture uses a POSIX script")
+	}
+	directory := t.TempDir()
+	marker := filepath.Join(directory, "attempts")
+	executable := filepath.Join(directory, "failing-plugin")
+	script := "#!/bin/sh\nprintf x >> '" + marker + "'\nexit 1\n"
+	if err := os.WriteFile(executable, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := Manifest{ID: "retry", Name: "Retry", Version: "1", APIVersion: APIVersion, Executable: executable}
+	_, err := (Runtime{}).Supervise(context.Background(), manifest, nil, nil, Supervision{MaxRestarts: 2})
+	if err == nil {
+		t.Fatal("failing plugin unexpectedly succeeded")
+	}
+	data, readErr := os.ReadFile(marker)
+	if readErr != nil || len(data) != 3 {
+		t.Fatalf("restart count = %d, err=%v", len(data), readErr)
+	}
+}
+
 type discardWriter struct{}
 
 func (discardWriter) Write(data []byte) (int, error) { return len(data), nil }

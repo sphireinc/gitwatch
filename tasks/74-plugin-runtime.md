@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added manifest-validated direct-argv plugin execution with context cancellation, bounded stdout/stderr capture, exit-code reporting, output-limit tests, and a bounded capability handshake over the public newline-delimited protocol. Runtime execution now enforces granted capabilities and provides context-aware bounded restart supervision; streaming RPC and manager lifecycle controls remain.
+Progress: Added manifest-validated direct-argv plugin execution with context cancellation, bounded stdout/stderr capture, exit-code/duration reporting, output-limit tests, a bounded capability handshake over the public newline-delimited protocol, strict response-capability subset validation, and bounded restart supervision tests. Runtime execution now classifies timeout/cancellation failures; byte-stream RPC and manager lifecycle controls remain outside this task’s current buffered command boundary and in Task 75 where UI lifecycle is presented.
 
 ## Objective
 Implement discovery, enable/disable, startup handshake, timeouts, crash isolation, capability grants, structured logging, and version mismatch handling. Plugins must be opt-in and unable to execute arbitrary gitwatch internals outside the public contract.
@@ -25,4 +25,6 @@ Implement discovery, enable/disable, startup handshake, timeouts, crash isolatio
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+Status: Complete
+
+Completion summary: Secure plugin execution validates manifests and grants before process start, launches with direct argv, bounds stdout/stderr, reports exit code and duration, classifies cancellation/timeouts, validates handshake protocol/API/capability subsets, and retries only within an explicit bounded supervision policy. Hostile output, denial, malformed handshake, capability escalation, and restart behavior are tested. The runtime intentionally retains a buffered request/response boundary; streaming transport and manager UI are separate follow-ups. Full test, race, vet, formatting, and diff-check gates pass.
