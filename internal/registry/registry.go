@@ -25,6 +25,58 @@ type Options struct {
 	IgnoreDirs      []string
 }
 
+func StatePath() (string, error) {
+	if path := os.Getenv("GITWATCH_REGISTRY"); path != "" {
+		return path, nil
+	}
+	if root := os.Getenv("XDG_CONFIG_HOME"); root != "" {
+		return filepath.Join(root, "gitwatch", "repositories.json"), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config", "gitwatch", "repositories.json"), nil
+}
+
+func Merge(discovered, stored []Repository, groups map[string][]string) []Repository {
+	metadata := make(map[string]Repository, len(stored))
+	for _, repository := range stored {
+		metadata[filepath.Clean(repository.Path)] = repository
+	}
+	groupByPath := make(map[string][]string)
+	for group, paths := range groups {
+		for _, path := range paths {
+			clean := filepath.Clean(path)
+			groupByPath[clean] = append(groupByPath[clean], group)
+		}
+	}
+	merged := make([]Repository, 0, len(discovered))
+	for _, repository := range discovered {
+		repository.Path = filepath.Clean(repository.Path)
+		if prior, ok := metadata[repository.Path]; ok {
+			repository.Name, repository.LastOpened, repository.Favorite, repository.Groups = prior.Name, prior.LastOpened, prior.Favorite, append([]string(nil), prior.Groups...)
+		}
+		if repository.Name == "" {
+			repository.Name = filepath.Base(repository.Path)
+		}
+		for _, group := range groupByPath[repository.Path] {
+			found := false
+			for _, existing := range repository.Groups {
+				if existing == group {
+					found = true
+					break
+				}
+			}
+			if !found {
+				repository.Groups = append(repository.Groups, group)
+			}
+		}
+		merged = append(merged, repository)
+	}
+	return Order(merged)
+}
+
 func Discover(ctx context.Context, roots []string, options Options) ([]Repository, error) {
 	if options.MaxDepth <= 0 {
 		options.MaxDepth = 4

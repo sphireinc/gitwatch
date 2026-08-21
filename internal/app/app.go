@@ -147,8 +147,9 @@ type WorktreeOperationFinishedMsg struct {
 	Err       error
 }
 type RepositoriesReadyMsg struct {
-	Rows []registry.Row
-	Err  error
+	Rows         []registry.Row
+	Repositories []registry.Repository
+	Err          error
 }
 type RepositoryOpenedMsg struct {
 	Path      string
@@ -266,6 +267,9 @@ type Model struct {
 	PluginStatePath          string
 	Repositories             repoview.Model
 	RepositoryRoots          []string
+	RepositoryGroups         map[string][]string
+	RepositoryRegistry       []registry.Repository
+	RepositoryRegistryPath   string
 	RepositoryEngine         *registry.Engine
 	PaletteMode              bool
 	PaletteQuery             string
@@ -404,8 +408,20 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	}
 	m.Theme = theme.New(theme.Name(c.Theme), false)
 	m.RepositoryRoots = append([]string(nil), c.Repositories.Roots...)
+	m.RepositoryGroups = cloneGroups(c.Repositories.Groups)
+	if path, err := registry.StatePath(); err == nil {
+		m.RepositoryRegistryPath = path
+	}
 	m.RepositoryEngine = registry.NewEngine(c.Remote.Workers)
 	return m
+}
+
+func cloneGroups(groups map[string][]string) map[string][]string {
+	cloned := make(map[string][]string, len(groups))
+	for group, paths := range groups {
+		cloned[group] = append([]string(nil), paths...)
+	}
+	return cloned
 }
 
 func mergeKeymap(values map[string]string) map[string]string {
@@ -863,13 +879,28 @@ func (m Model) loadRepositories() tea.Cmd {
 	if engine == nil {
 		engine = registry.NewEngine(2)
 	}
+	statePath := m.RepositoryRegistryPath
+	groups := cloneGroups(m.RepositoryGroups)
 	return func() tea.Msg {
 		repositories, err := registry.Discover(context.Background(), roots, registry.Options{})
 		if err != nil {
 			return RepositoriesReadyMsg{Err: err}
 		}
+		var stored []registry.Repository
+		if statePath != "" {
+			stored, err = registry.Load(statePath)
+			if err != nil {
+				return RepositoriesReadyMsg{Err: err}
+			}
+		}
+		repositories = registry.Merge(repositories, stored, groups)
+		if statePath != "" {
+			if err := registry.Save(statePath, repositories); err != nil {
+				return RepositoriesReadyMsg{Err: err}
+			}
+		}
 		results := engine.Refresh(context.Background(), repositories, m.Discovery.Root)
-		return RepositoriesReadyMsg{Rows: registry.Rows(results)}
+		return RepositoriesReadyMsg{Rows: registry.Rows(results), Repositories: repositories}
 	}
 }
 
@@ -878,8 +909,19 @@ func (m Model) openSelectedRepository() tea.Cmd {
 		return nil
 	}
 	path := m.Repositories.Rows[m.Repositories.Selected].Repository.Path
+	registryEntries := append([]registry.Repository(nil), m.RepositoryRegistry...)
+	registryPath := m.RepositoryRegistryPath
 	return func() tea.Msg {
 		discovery, err := git.Discover(context.Background(), path)
+		if err == nil && registryPath != "" {
+			now := time.Now()
+			for i := range registryEntries {
+				if registryEntries[i].Path == path {
+					registryEntries[i].LastOpened = now
+				}
+			}
+			_ = registry.Save(registryPath, registryEntries)
+		}
 		return RepositoryOpenedMsg{Path: path, Discovery: discovery, Err: err}
 	}
 }
@@ -2103,6 +2145,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
+			m.RepositoryRegistry = append([]registry.Repository(nil), v.Repositories...)
 			if len(m.Repositories.Rows) == 0 {
 				m.Repositories = repoview.New(v.Rows)
 			} else {
@@ -2114,6 +2157,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
+			for i := range m.RepositoryRegistry {
+				if m.RepositoryRegistry[i].Path == v.Path {
+					m.RepositoryRegistry[i].LastOpened = time.Now()
+				}
+			}
 			m.Discovery, m.State, m.Status = v.Discovery, StateReady, "opened "+v.Path
 			m.Workspace.Navigate(workspace.Status, "Status")
 			return m, m.refresh()

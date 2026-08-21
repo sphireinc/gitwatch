@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestDiscoverBoundsAndFindsNestedRepositories(t *testing.T) {
@@ -63,5 +64,18 @@ func TestDiscoverSkipsSymlinkedGitMetadata(t *testing.T) {
 		if repository.Path == repoPath {
 			t.Fatalf("symlinked .git was discovered: %#v", repositories)
 		}
+	}
+}
+
+func TestMergePreservesMetadataAndAppliesConfiguredGroups(t *testing.T) {
+	discovered := []Repository{{Path: "/repo", Name: "repo"}}
+	opened := time.Now().Add(-time.Hour)
+	stored := []Repository{{Path: "/repo", Name: "renamed", LastOpened: opened, Favorite: true, Groups: []string{"oss"}}}
+	merged := Merge(discovered, stored, map[string][]string{"work": {"/repo"}})
+	if len(merged) != 1 || merged[0].Name != "renamed" || !merged[0].Favorite || !merged[0].LastOpened.Equal(opened) {
+		t.Fatalf("merged metadata = %#v", merged)
+	}
+	if len(merged[0].Groups) != 2 || merged[0].Groups[0] != "oss" || merged[0].Groups[1] != "work" {
+		t.Fatalf("merged groups = %#v", merged[0].Groups)
 	}
 }
