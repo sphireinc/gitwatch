@@ -1,0 +1,1 @@
+{"id":"example.widget","name":"Example status widget","version":"1.0.0","api_version":1,"executable":"gitwatch-example-widget","capabilities":["status_widget"]}

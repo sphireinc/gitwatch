@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added dependency-free public `pkg/plugin` manifest/message SDK, wire compatibility tests, a status-plugin example, and SDK documentation. Full command/panel/widget examples, generated protocol fixtures, and runtime compatibility matrix remain.
+Progress: Added dependency-free public `pkg/plugin` manifest/message SDK, wire compatibility tests, buildable status/command/panel/widget examples with API-1 manifests, and SDK documentation. Generated protocol fixtures and a cross-version runtime matrix remain future compatibility work.
 
 ## Objective
 Create a minimal SDK/protocol package, example status widget, example command, example panel, manifest documentation, capability guide, and compatibility test harness. Plugins should be buildable without importing gitwatch internal packages.
