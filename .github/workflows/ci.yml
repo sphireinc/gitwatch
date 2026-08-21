@@ -25,4 +25,8 @@ jobs:
       - if: runner.os != 'Windows'
         run: go test -race ./...
       - if: runner.os == 'Linux'
+        run: ./scripts/performance-check.sh
+      - if: runner.os == 'Linux'
+        run: ./scripts/security-check.sh
+      - if: runner.os == 'Linux'
         run: golangci-lint run
