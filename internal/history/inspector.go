@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/sphireinc/git-watch/internal/git"
 )
 
 var ErrInvalidRef = errors.New("invalid history ref")

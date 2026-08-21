@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/sphireinc/git-watch/internal/git"
 )
 
 type Remote struct {

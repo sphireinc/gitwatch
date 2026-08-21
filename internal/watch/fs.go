@@ -2,10 +2,10 @@ package watch
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -29,8 +29,6 @@ type Watcher struct {
 	root     string
 	debounce time.Duration
 	fs       *fsnotify.Watcher
-	seen     map[string]struct{}
-	mu       sync.Mutex
 }
 
 func New(root string, debounce time.Duration) (*Watcher, error) {
@@ -41,10 +39,9 @@ func New(root string, debounce time.Duration) (*Watcher, error) {
 	if err != nil {
 		return nil, err
 	}
-	w := &Watcher{root: root, debounce: debounce, fs: fw, seen: make(map[string]struct{})}
+	w := &Watcher{root: root, debounce: debounce, fs: fw}
 	if err := w.addTree(root); err != nil {
-		_ = fw.Close()
-		return nil, err
+		return nil, errors.Join(err, fw.Close())
 	}
 	return w, nil
 }
@@ -58,14 +55,12 @@ func (w *Watcher) addTree(root string) error {
 			if err := w.fs.Add(path); err != nil {
 				return err
 			}
-			w.seen[path] = struct{}{}
 			return filepath.SkipDir
 		}
 		if entry.IsDir() && !w.skip(path) {
 			if err := w.fs.Add(path); err != nil {
 				return err
 			}
-			w.seen[path] = struct{}{}
 		}
 		return nil
 	})
@@ -110,7 +105,13 @@ func (w *Watcher) Events(ctx context.Context) <-chan Event {
 				pending = true
 				if event.Op&fsnotify.Create != 0 {
 					if info, err := os.Stat(event.Name); err == nil && info.IsDir() && !w.skip(event.Name) {
-						_ = w.fs.Add(event.Name)
+						if err := w.fs.Add(event.Name); err != nil {
+							select {
+							case out <- Event{At: time.Now(), Path: event.Name, Mode: ModeFS, Err: err}:
+							case <-ctx.Done():
+								return
+							}
+						}
 					}
 				}
 				timer.Reset(w.debounce)

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/sphireinc/git-watch/internal/git"
 )
 
 var ErrMissingTarget = errors.New("history action requires an explicit target")

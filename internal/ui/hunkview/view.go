@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jusanchez/gitwatch/internal/hunks"
-	"github.com/jusanchez/gitwatch/internal/patch"
+	"github.com/sphireinc/git-watch/internal/hunks"
+	"github.com/sphireinc/git-watch/internal/patch"
 )
 
 type Model struct {

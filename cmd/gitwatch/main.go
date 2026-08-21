@@ -7,10 +7,10 @@ import (
 	"os"
 
 	"charm.land/bubbletea/v2"
-	"github.com/jusanchez/gitwatch/internal/app"
-	"github.com/jusanchez/gitwatch/internal/config"
-	"github.com/jusanchez/gitwatch/internal/git"
-	"github.com/jusanchez/gitwatch/internal/version"
+	"github.com/sphireinc/git-watch/internal/app"
+	"github.com/sphireinc/git-watch/internal/config"
+	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/version"
 )
 
 func main() {
@@ -25,7 +25,9 @@ func main() {
 	configInspect := flag.Bool("config-inspect", false, "print effective configuration and exit")
 	configCheck := flag.Bool("config-check", false, "validate configuration and exit")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "gitwatch — interactive Git worktree dashboard\n\nUsage: gitwatch [options]\n\nOptions:\n")
+		if _, err := fmt.Fprint(flag.CommandLine.Output(), "gitwatch — interactive Git worktree dashboard\n\nUsage: gitwatch [options]\n\nOptions:\n"); err != nil {
+			return
+		}
 		flag.PrintDefaults()
 	}
 	flag.Parse()

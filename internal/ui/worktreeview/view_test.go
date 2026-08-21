@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/worktrees"
+	"github.com/sphireinc/git-watch/internal/worktrees"
 )
 
 func TestViewAndSelectionPreservation(t *testing.T) {

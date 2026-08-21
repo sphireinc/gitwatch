@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/history"
+	"github.com/sphireinc/git-watch/internal/history"
 )
 
 func TestSelectionPersistsAcrossRefreshAndFilter(t *testing.T) {

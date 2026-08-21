@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"time"
 
-	publicplugin "github.com/jusanchez/gitwatch/pkg/plugin"
+	publicplugin "github.com/sphireinc/git-watch/pkg/plugin"
 )
 
 const MaxOutputBytes = 1 << 20
@@ -162,11 +162,15 @@ type limitedWriter struct {
 func (w *limitedWriter) Write(data []byte) (int, error) {
 	if int64(len(data))+w.wrote > w.limit {
 		remaining := w.limit - w.wrote
-		if remaining > 0 {
-			_, _ = w.writer.Write(data[:remaining])
+		if remaining <= 0 {
+			return 0, ErrOutputLimit
 		}
-		w.wrote = w.limit
-		return 0, ErrOutputLimit
+		n, err := w.writer.Write(data[:remaining])
+		w.wrote += int64(n)
+		if err != nil {
+			return n, err
+		}
+		return n, ErrOutputLimit
 	}
 	n, err := w.writer.Write(data)
 	w.wrote += int64(n)

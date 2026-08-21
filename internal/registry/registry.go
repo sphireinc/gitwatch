@@ -130,7 +130,11 @@ func Discover(ctx context.Context, roots []string, options Options) ([]Repositor
 			if entry.Name() == ".git" {
 				repositoryPath = filepath.Dir(path)
 			}
-			repositoryPath, _ = filepath.Abs(repositoryPath)
+			absolutePath, err := filepath.Abs(repositoryPath)
+			if err != nil {
+				return err
+			}
+			repositoryPath = absolutePath
 			if !seen[repositoryPath] {
 				seen[repositoryPath] = true
 				repositories = append(repositories, Repository{Path: repositoryPath, Name: filepath.Base(repositoryPath)})

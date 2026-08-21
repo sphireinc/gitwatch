@@ -115,21 +115,16 @@ func parseEntry(record []byte) (StatusEntry, []byte, error) {
 		}
 		return StatusEntry{Kind: kind, Path: append([]byte(nil), record[2:]...)}, nil, nil
 	}
-	limit := 9
-	if kind == '2' {
-		limit = 10
-	} else if kind == 'u' {
+	needed := 9
+	switch kind {
+	case '2':
+		needed = 10
+	case 'u':
 		// Unmerged porcelain-v2 records contain four modes, three object IDs,
 		// and the path: `u xy sub m1 m2 m3 mW h1 h2 h3 path`.
-		limit = 11
-	}
-	fields := bytes.SplitN(record, []byte(" "), limit)
-	needed := 9
-	if kind == '2' {
-		needed = 10
-	} else if kind == 'u' {
 		needed = 11
 	}
+	fields := bytes.SplitN(record, []byte(" "), needed)
 	if len(fields) < needed {
 		return StatusEntry{}, nil, &ParseError{Record: record, Reason: "missing fields"}
 	}

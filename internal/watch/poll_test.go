@@ -42,3 +42,17 @@ func TestPollerEmitsAfterChange(t *testing.T) {
 		t.Fatal("poller did not emit")
 	}
 }
+
+func TestPollerReportsTraversalErrors(t *testing.T) {
+	p := NewPoller(filepath.Join(t.TempDir(), "missing"), time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	select {
+	case event := <-p.Events(ctx):
+		if event.Err == nil || event.Mode != ModePoll {
+			t.Fatalf("unexpected event: %#v", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("poller did not report traversal error")
+	}
+}

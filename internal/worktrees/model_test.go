@@ -1,10 +1,11 @@
 package worktrees
 
 import (
+	"context"
 	"errors"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/sphireinc/git-watch/internal/git"
 )
 
 func TestParse(t *testing.T) {
@@ -19,13 +20,13 @@ func TestOccupancyAndTargetValidation(t *testing.T) {
 	if got := Occupancy(entries)["main"]; got != "/tmp/main" {
 		t.Fatalf("unexpected occupancy: %#v", Occupancy(entries))
 	}
-	if _, err := Add(nil, git.Runner{}, "-bad", ""); !errors.Is(err, ErrInvalidTarget) {
+	if _, err := Add(context.Background(), git.Runner{}, "-bad", ""); !errors.Is(err, ErrInvalidTarget) {
 		t.Fatalf("expected target validation, got %v", err)
 	}
 }
 
 func TestAddWithCommitRejectsUnsafeArguments(t *testing.T) {
-	if _, err := AddWithCommit(nil, git.Runner{}, "/tmp/tree", "feature", "bad\nref"); !errors.Is(err, ErrInvalidTarget) {
+	if _, err := AddWithCommit(context.Background(), git.Runner{}, "/tmp/tree", "feature", "bad\nref"); !errors.Is(err, ErrInvalidTarget) {
 		t.Fatalf("expected invalid commit, got %v", err)
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/provider"
+	"github.com/sphireinc/git-watch/internal/provider"
 )
 
 func TestViewRendersPullRequestAndChecksSafely(t *testing.T) {

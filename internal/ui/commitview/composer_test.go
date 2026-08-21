@@ -1,7 +1,7 @@
 package commitview
 
 import (
-	"github.com/jusanchez/gitwatch/internal/commitmodel"
+	"github.com/sphireinc/git-watch/internal/commitmodel"
 	"strings"
 	"testing"
 )

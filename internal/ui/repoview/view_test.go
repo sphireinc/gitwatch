@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/registry"
+	"github.com/sphireinc/git-watch/internal/registry"
 )
 
 func TestViewPreservesSelectionAndRendersState(t *testing.T) {

@@ -23,9 +23,10 @@ func NewLogger(path string) (*Logger, error) {
 	}
 	return &Logger{w: f}, nil
 }
-func (l *Logger) Printf(format string, args ...any) {
+func (l *Logger) Printf(format string, args ...any) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	message := SafeText(RedactSecrets(fmt.Sprintf(format, args...)))
-	fmt.Fprintf(l.w, "%s %s\n", time.Now().UTC().Format(time.RFC3339Nano), message)
+	_, err := fmt.Fprintf(l.w, "%s %s\n", time.Now().UTC().Format(time.RFC3339Nano), message)
+	return err
 }

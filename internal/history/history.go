@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jusanchez/gitwatch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/repo"
 )
 
 type Kind string

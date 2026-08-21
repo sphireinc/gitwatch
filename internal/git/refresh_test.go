@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jusanchez/gitwatch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/repo"
 )
 
 func TestRefreshCoordinatorCoalesces(t *testing.T) {

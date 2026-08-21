@@ -1,10 +1,11 @@
 package history
 
 import (
+	"context"
 	"errors"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/sphireinc/git-watch/internal/git"
 )
 
 func TestParseStats(t *testing.T) {
@@ -18,7 +19,7 @@ func TestParseStats(t *testing.T) {
 }
 
 func TestResolveRefRejectsOptionLikeInput(t *testing.T) {
-	if _, err := ResolveRef(nil, git.Runner{}, "-bad"); !errors.Is(err, ErrInvalidRef) {
+	if _, err := ResolveRef(context.Background(), git.Runner{}, "-bad"); !errors.Is(err, ErrInvalidRef) {
 		t.Fatalf("expected invalid ref, got %v", err)
 	}
 }

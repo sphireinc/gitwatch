@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/sphireinc/git-watch/internal/git"
 )
 
 var (
@@ -58,9 +58,10 @@ func Pull(ctx context.Context, runner git.Runner, remote, branch, strategy strin
 		return git.Result{}, ErrStrategyRequired
 	}
 	args := []string{"pull", "--progress"}
-	if strategy == "merge" {
+	switch strategy {
+	case "merge":
 		args = append(args, "--no-rebase")
-	} else if strategy == "rebase" || strategy == "ff-only" {
+	case "rebase", "ff-only":
 		args = append(args, "--"+strategy)
 	}
 	return runner.Run(ctx, append(args, remote, branch)...)

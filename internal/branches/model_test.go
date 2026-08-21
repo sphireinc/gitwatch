@@ -1,10 +1,11 @@
 package branches
 
 import (
+	"context"
 	"errors"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/sphireinc/git-watch/internal/git"
 )
 
 func TestParse(t *testing.T) {
@@ -16,11 +17,11 @@ func TestParse(t *testing.T) {
 
 func TestDeleteGuardsCurrentBranchAndExactConfirmation(t *testing.T) {
 	branch := Branch{Name: "feature", Current: false}
-	if _, err := Delete(nil, git.Runner{}, branch, DeletePrompt("feature", false), "wrong"); !errors.Is(err, ErrConfirmation) {
+	if _, err := Delete(context.Background(), git.Runner{}, branch, DeletePrompt("feature", false), "wrong"); !errors.Is(err, ErrConfirmation) {
 		t.Fatalf("expected confirmation error, got %v", err)
 	}
 	branch.Current = true
-	if _, err := Delete(nil, git.Runner{}, branch, DeletePrompt("feature", false), "feature"); !errors.Is(err, ErrCurrentBranch) {
+	if _, err := Delete(context.Background(), git.Runner{}, branch, DeletePrompt("feature", false), "feature"); !errors.Is(err, ErrCurrentBranch) {
 		t.Fatalf("expected current branch error, got %v", err)
 	}
 }

@@ -1,10 +1,11 @@
 package stash
 
 import (
+	"context"
 	"errors"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/sphireinc/git-watch/internal/git"
 )
 
 func TestParse(t *testing.T) {
@@ -15,10 +16,10 @@ func TestParse(t *testing.T) {
 }
 
 func TestMutationRejectsUnsafeReferences(t *testing.T) {
-	if _, err := Apply(nil, git.Runner{}, "-evil"); !errors.Is(err, ErrInvalidRef) {
+	if _, err := Apply(context.Background(), git.Runner{}, "-evil"); !errors.Is(err, ErrInvalidRef) {
 		t.Fatalf("expected invalid ref, got %v", err)
 	}
-	if _, err := Branch(nil, git.Runner{}, "-branch", "stash@{0}"); !errors.Is(err, ErrInvalidRef) {
+	if _, err := Branch(context.Background(), git.Runner{}, "-branch", "stash@{0}"); !errors.Is(err, ErrInvalidRef) {
 		t.Fatalf("expected invalid branch name, got %v", err)
 	}
 }

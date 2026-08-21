@@ -2,7 +2,7 @@ package table
 
 import (
 	"fmt"
-	"github.com/jusanchez/gitwatch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/repo"
 	"testing"
 )
 

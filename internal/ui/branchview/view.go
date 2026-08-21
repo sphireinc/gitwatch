@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jusanchez/gitwatch/internal/branches"
-	"github.com/jusanchez/gitwatch/internal/platform"
+	"github.com/sphireinc/git-watch/internal/branches"
+	"github.com/sphireinc/git-watch/internal/platform"
 )
 
 type SortKey string

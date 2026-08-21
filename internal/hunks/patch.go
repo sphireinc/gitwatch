@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jusanchez/gitwatch/internal/patch"
+	"github.com/sphireinc/git-watch/internal/patch"
 )
 
 var ErrUnsupportedPartialPatch = fmt.Errorf("partial patch is unsupported for binary, rename, or copy changes")

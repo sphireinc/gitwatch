@@ -1,7 +1,7 @@
 package stashview
 
 import (
-	"github.com/jusanchez/gitwatch/internal/stash"
+	"github.com/sphireinc/git-watch/internal/stash"
 	"strings"
 	"testing"
 )

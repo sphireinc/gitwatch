@@ -1,6 +1,6 @@
 # Plugin SDK
 
-Third-party plugins should import `github.com/jusanchez/gitwatch/pkg/plugin`
+Third-party plugins should import `github.com/sphireinc/git-watch/pkg/plugin`
 only. The package contains the versioned manifest and newline-delimited JSON
 message contract; it has no dependency on gitwatch internals.
 

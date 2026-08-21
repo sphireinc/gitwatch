@@ -1,6 +1,7 @@
 /gitwatch
 /dist/
 /coverage.out
+/.serena/
 /.idea/
 *.swp
 *.tmp

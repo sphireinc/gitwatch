@@ -1,7 +1,7 @@
 package hunks
 
 import (
-	"github.com/jusanchez/gitwatch/internal/patch"
+	"github.com/sphireinc/git-watch/internal/patch"
 	"strings"
 	"testing"
 )

@@ -69,7 +69,7 @@ func (c GitHubClient) Reviews(ctx context.Context, repository Repository, number
 	return ParseReviews(response)
 }
 
-func (c GitHubClient) getJSON(ctx context.Context, path string, target any) error {
+func (c GitHubClient) getJSON(ctx context.Context, path string, target any) (returnErr error) {
 	base := strings.TrimRight(c.BaseURL, "/")
 	if base == "" {
 		base = "https://api.github.com"
@@ -102,10 +102,17 @@ func (c GitHubClient) getJSON(ctx context.Context, path string, target any) erro
 		}
 		return ErrProviderUnavailable
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("%w: close response body: %v", ErrProviderUnavailable, err)
+		}
+	}()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
-		return &HTTPError{Status: response.StatusCode, RetryAfter: response.Header.Get("Retry-After")}
+		httpErr := &HTTPError{Status: response.StatusCode, RetryAfter: response.Header.Get("Retry-After")}
+		if _, err := io.Copy(io.Discard, io.LimitReader(response.Body, 4096)); err != nil {
+			return fmt.Errorf("%w: discard response body: %v", httpErr, err)
+		}
+		return httpErr
 	}
 	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(target); err != nil {
 		return fmt.Errorf("%w: invalid response", ErrProviderUnavailable)

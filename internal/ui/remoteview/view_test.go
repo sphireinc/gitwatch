@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jusanchez/gitwatch/internal/remotes"
+	"github.com/sphireinc/git-watch/internal/remotes"
 )
 
 func TestViewRendersRedactedRemoteStateAndPreservesSelection(t *testing.T) {

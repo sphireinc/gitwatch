@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jusanchez/gitwatch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/repo"
 )
 
 type SortMode uint8

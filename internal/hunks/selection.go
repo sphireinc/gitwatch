@@ -2,7 +2,7 @@ package hunks
 
 import (
 	"fmt"
-	"github.com/jusanchez/gitwatch/internal/patch"
+	"github.com/sphireinc/git-watch/internal/patch"
 )
 
 type ID struct{ File, Hunk, Line int }

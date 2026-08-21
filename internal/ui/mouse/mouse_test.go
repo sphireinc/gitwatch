@@ -1,7 +1,7 @@
 package mouse
 
 import (
-	"github.com/jusanchez/gitwatch/internal/ui/layout"
+	"github.com/sphireinc/git-watch/internal/ui/layout"
 	"testing"
 )
 

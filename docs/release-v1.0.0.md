@@ -21,7 +21,7 @@ it against `SHA256SUMS`, place `gitwatch` on `PATH`, and run `gitwatch --help`.
 The source-install path remains:
 
 ```sh
-go install github.com/jusanchez/gitwatch/cmd/gitwatch@v1.0.0
+go install github.com/sphireinc/git-watch/cmd/gitwatch@v1.0.0
 ```
 
 Before publication, maintainers must attach the operator validation matrix,

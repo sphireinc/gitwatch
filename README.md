@@ -9,7 +9,7 @@ An htop-style interactive Git worktree dashboard for the terminal. gitwatch cont
 Requires Go 1.25+ for source installation and Git on `PATH`.
 
 ```sh
-go install github.com/jusanchez/gitwatch/cmd/gitwatch@latest
+go install github.com/sphireinc/git-watch/cmd/gitwatch@latest
 gitwatch --help
 ```
 

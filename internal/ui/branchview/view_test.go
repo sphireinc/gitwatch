@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/branches"
+	"github.com/sphireinc/git-watch/internal/branches"
 )
 
 func TestView(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/jusanchez/gitwatch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/repo"
 )
 
 func Snapshot(ctx context.Context, d Discovery, generation uint64) (repo.Snapshot, error) {

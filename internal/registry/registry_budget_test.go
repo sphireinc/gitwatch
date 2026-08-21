@@ -3,7 +3,7 @@ package registry
 import (
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/repo"
 )
 
 func TestRepositoryRowsAllocationBudget(t *testing.T) {

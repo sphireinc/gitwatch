@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jusanchez/gitwatch/internal/history"
-	"github.com/jusanchez/gitwatch/internal/platform"
+	"github.com/sphireinc/git-watch/internal/history"
+	"github.com/sphireinc/git-watch/internal/platform"
 )
 
 // Model owns the small amount of interaction state needed to render history.

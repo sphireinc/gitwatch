@@ -2,7 +2,7 @@ package git
 
 import (
 	"context"
-	"github.com/jusanchez/gitwatch/internal/hunks"
+	"github.com/sphireinc/git-watch/internal/hunks"
 )
 
 type PartialPatch struct {

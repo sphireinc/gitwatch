@@ -1,6 +1,6 @@
 package mouse
 
-import "github.com/jusanchez/gitwatch/internal/ui/layout"
+import "github.com/sphireinc/git-watch/internal/ui/layout"
 
 type Action uint8
 

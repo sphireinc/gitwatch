@@ -43,10 +43,9 @@ func Search(actions []Action, query string) []Match {
 
 func subsequenceScore(value, query string) (int, bool) {
 	characters := []rune(value)
-	needles := []rune(query)
 	position, score := 0, 0
 	last := -1
-	for _, needle := range needles {
+	for _, needle := range query {
 		found := -1
 		for position < len(characters) {
 			if characters[position] == needle {

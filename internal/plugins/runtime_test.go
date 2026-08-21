@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -28,6 +29,14 @@ func TestLimitedWriterStopsOversizedOutput(t *testing.T) {
 	writer := &limitedWriter{writer: discardWriter{}, limit: 3}
 	if _, err := writer.Write([]byte("1234")); !errors.Is(err, ErrOutputLimit) {
 		t.Fatalf("expected output limit, got %v", err)
+	}
+}
+
+func TestLimitedWriterReturnsUnderlyingFailure(t *testing.T) {
+	want := errors.New("write failed")
+	writer := &limitedWriter{writer: failingWriter{err: want}, limit: 3}
+	if _, err := writer.Write([]byte("1234")); !errors.Is(err, want) {
+		t.Fatalf("expected underlying failure, got %v", err)
 	}
 }
 
@@ -97,3 +106,9 @@ func TestSuperviseRetriesWithinBoundedPolicy(t *testing.T) {
 type discardWriter struct{}
 
 func (discardWriter) Write(data []byte) (int, error) { return len(data), nil }
+
+type failingWriter struct{ err error }
+
+func (w failingWriter) Write([]byte) (int, error) { return 0, w.err }
+
+var _ io.Writer = failingWriter{}

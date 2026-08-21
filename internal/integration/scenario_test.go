@@ -8,15 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/branches"
-	"github.com/jusanchez/gitwatch/internal/git"
-	"github.com/jusanchez/gitwatch/internal/history"
-	"github.com/jusanchez/gitwatch/internal/hunks"
-	"github.com/jusanchez/gitwatch/internal/patch"
-	"github.com/jusanchez/gitwatch/internal/registry"
-	"github.com/jusanchez/gitwatch/internal/remotes"
-	"github.com/jusanchez/gitwatch/internal/stash"
-	"github.com/jusanchez/gitwatch/internal/worktrees"
+	"github.com/sphireinc/git-watch/internal/branches"
+	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/history"
+	"github.com/sphireinc/git-watch/internal/hunks"
+	"github.com/sphireinc/git-watch/internal/patch"
+	"github.com/sphireinc/git-watch/internal/registry"
+	"github.com/sphireinc/git-watch/internal/remotes"
+	"github.com/sphireinc/git-watch/internal/stash"
+	"github.com/sphireinc/git-watch/internal/worktrees"
 )
 
 func TestRepositoryWorkbenchScenario(t *testing.T) {
@@ -228,12 +228,11 @@ func TestHistoryActionsRealRepositoryScenario(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mainBranch := discovery.Root
 	snapshot, err := git.Snapshot(ctx, discovery, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	mainBranch = snapshot.Branch.Name
+	mainBranch := snapshot.Branch.Name
 	firstSHA := snapshot.Branch.OID
 	if err := os.WriteFile(path, []byte("two\n"), 0600); err != nil {
 		t.Fatal(err)

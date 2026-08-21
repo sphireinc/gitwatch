@@ -4,8 +4,8 @@ import "testing"
 
 func TestDraftValidationAndPreservation(t *testing.T) {
 	d := Draft{Subject: "add feature", Files: []File{{Path: "a", Staged: true}}}
-	if !d.Validate().Valid || !d.Validate().Valid {
-		t.Fatal(d.Validate())
+	if validation := d.Validate(); !validation.Valid {
+		t.Fatal(validation)
 	}
 	if d.Message() != "add feature\n" {
 		t.Fatal(d.Message())

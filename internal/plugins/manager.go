@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	publicplugin "github.com/jusanchez/gitwatch/pkg/plugin"
+	publicplugin "github.com/sphireinc/git-watch/pkg/plugin"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -118,7 +118,7 @@ func ApplyState(entries []Entry, state map[string]bool) []Entry {
 	return updated
 }
 
-func SaveState(path string, entries []Entry) error {
+func SaveState(path string, entries []Entry) (returnErr error) {
 	state := make(map[string]bool)
 	for _, entry := range entries {
 		if entry.Manifest.ID != "" {
@@ -137,14 +137,16 @@ func SaveState(path string, entries []Entry) error {
 		return err
 	}
 	temporaryName := temporary.Name()
-	defer os.Remove(temporaryName)
+	defer func() {
+		if err := os.Remove(temporaryName); err != nil && !errors.Is(err, os.ErrNotExist) && returnErr == nil {
+			returnErr = err
+		}
+	}()
 	if err := temporary.Chmod(0o600); err != nil {
-		temporary.Close()
-		return err
+		return errors.Join(err, temporary.Close())
 	}
 	if _, err := temporary.Write(append(data, '\n')); err != nil {
-		temporary.Close()
-		return err
+		return errors.Join(err, temporary.Close())
 	}
 	if err := temporary.Close(); err != nil {
 		return err

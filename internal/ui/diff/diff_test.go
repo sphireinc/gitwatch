@@ -2,7 +2,7 @@ package diff
 
 import (
 	"context"
-	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/sphireinc/git-watch/internal/git"
 	"os"
 	"path/filepath"
 	"testing"

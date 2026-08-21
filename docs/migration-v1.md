@@ -23,6 +23,6 @@ Use `?` for the context-sensitive keymap.
 ## Plugins
 
 Plugins are opt-in, out-of-process programs. Existing plugin manifests remain
-API-versioned; third-party code should import only `github.com/jusanchez/gitwatch/pkg/plugin`.
+API-versioned; third-party code should import only `github.com/sphireinc/git-watch/pkg/plugin`.
 Review requested capabilities and enablement after upgrading. Runtime output
 limits and capability grants continue to apply after migration.

@@ -3,7 +3,7 @@ package stash
 import (
 	"context"
 	"errors"
-	"github.com/jusanchez/gitwatch/internal/git"
+	"github.com/sphireinc/git-watch/internal/git"
 	"strings"
 )
 

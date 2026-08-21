@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jusanchez/gitwatch/internal/remotes"
+	"github.com/sphireinc/git-watch/internal/remotes"
 )
 
 // Model is a render-only projection of remote synchronization state.

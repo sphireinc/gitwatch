@@ -8,38 +8,38 @@ import (
 	"time"
 
 	"charm.land/bubbletea/v2"
-	"github.com/jusanchez/gitwatch/internal/branches"
-	"github.com/jusanchez/gitwatch/internal/commands"
-	"github.com/jusanchez/gitwatch/internal/commitmodel"
-	"github.com/jusanchez/gitwatch/internal/config"
-	"github.com/jusanchez/gitwatch/internal/git"
-	"github.com/jusanchez/gitwatch/internal/history"
-	"github.com/jusanchez/gitwatch/internal/notifications"
-	"github.com/jusanchez/gitwatch/internal/operations"
-	"github.com/jusanchez/gitwatch/internal/patch"
-	"github.com/jusanchez/gitwatch/internal/platform"
-	"github.com/jusanchez/gitwatch/internal/plugins"
-	"github.com/jusanchez/gitwatch/internal/provider"
-	"github.com/jusanchez/gitwatch/internal/registry"
-	"github.com/jusanchez/gitwatch/internal/remotes"
-	"github.com/jusanchez/gitwatch/internal/repo"
-	"github.com/jusanchez/gitwatch/internal/stash"
-	"github.com/jusanchez/gitwatch/internal/ui/branchview"
-	"github.com/jusanchez/gitwatch/internal/ui/commitview"
-	"github.com/jusanchez/gitwatch/internal/ui/githubview"
-	"github.com/jusanchez/gitwatch/internal/ui/historyview"
-	"github.com/jusanchez/gitwatch/internal/ui/hunkview"
-	"github.com/jusanchez/gitwatch/internal/ui/layout"
-	uimouse "github.com/jusanchez/gitwatch/internal/ui/mouse"
-	"github.com/jusanchez/gitwatch/internal/ui/pluginview"
-	"github.com/jusanchez/gitwatch/internal/ui/remoteview"
-	"github.com/jusanchez/gitwatch/internal/ui/repoview"
-	"github.com/jusanchez/gitwatch/internal/ui/stashview"
-	"github.com/jusanchez/gitwatch/internal/ui/table"
-	"github.com/jusanchez/gitwatch/internal/ui/theme"
-	"github.com/jusanchez/gitwatch/internal/ui/worktreeview"
-	"github.com/jusanchez/gitwatch/internal/workspace"
-	"github.com/jusanchez/gitwatch/internal/worktrees"
+	"github.com/sphireinc/git-watch/internal/branches"
+	"github.com/sphireinc/git-watch/internal/commands"
+	"github.com/sphireinc/git-watch/internal/commitmodel"
+	"github.com/sphireinc/git-watch/internal/config"
+	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/history"
+	"github.com/sphireinc/git-watch/internal/notifications"
+	"github.com/sphireinc/git-watch/internal/operations"
+	"github.com/sphireinc/git-watch/internal/patch"
+	"github.com/sphireinc/git-watch/internal/platform"
+	"github.com/sphireinc/git-watch/internal/plugins"
+	"github.com/sphireinc/git-watch/internal/provider"
+	"github.com/sphireinc/git-watch/internal/registry"
+	"github.com/sphireinc/git-watch/internal/remotes"
+	"github.com/sphireinc/git-watch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/stash"
+	"github.com/sphireinc/git-watch/internal/ui/branchview"
+	"github.com/sphireinc/git-watch/internal/ui/commitview"
+	"github.com/sphireinc/git-watch/internal/ui/githubview"
+	"github.com/sphireinc/git-watch/internal/ui/historyview"
+	"github.com/sphireinc/git-watch/internal/ui/hunkview"
+	"github.com/sphireinc/git-watch/internal/ui/layout"
+	uimouse "github.com/sphireinc/git-watch/internal/ui/mouse"
+	"github.com/sphireinc/git-watch/internal/ui/pluginview"
+	"github.com/sphireinc/git-watch/internal/ui/remoteview"
+	"github.com/sphireinc/git-watch/internal/ui/repoview"
+	"github.com/sphireinc/git-watch/internal/ui/stashview"
+	"github.com/sphireinc/git-watch/internal/ui/table"
+	"github.com/sphireinc/git-watch/internal/ui/theme"
+	"github.com/sphireinc/git-watch/internal/ui/worktreeview"
+	"github.com/sphireinc/git-watch/internal/workspace"
+	"github.com/sphireinc/git-watch/internal/worktrees"
 )
 
 type State uint8
@@ -155,9 +155,10 @@ type RepositoriesReadyMsg struct {
 	Err          error
 }
 type RepositoryOpenedMsg struct {
-	Path      string
-	Discovery git.Discovery
-	Err       error
+	Path           string
+	Discovery      git.Discovery
+	Err            error
+	PersistenceErr error
 }
 type RemoteOperationFinishedMsg struct {
 	Operation, Remote string
@@ -1049,6 +1050,7 @@ func (m Model) openSelectedRepository() tea.Cmd {
 	registryPath := m.RepositoryRegistryPath
 	return func() tea.Msg {
 		discovery, err := git.Discover(context.Background(), path)
+		var persistenceErr error
 		if err == nil && registryPath != "" {
 			now := time.Now()
 			for i := range registryEntries {
@@ -1056,9 +1058,9 @@ func (m Model) openSelectedRepository() tea.Cmd {
 					registryEntries[i].LastOpened = now
 				}
 			}
-			_ = registry.Save(registryPath, registryEntries)
+			persistenceErr = registry.Save(registryPath, registryEntries)
 		}
-		return RepositoryOpenedMsg{Path: path, Discovery: discovery, Err: err}
+		return RepositoryOpenedMsg{Path: path, Discovery: discovery, Err: err, PersistenceErr: persistenceErr}
 	}
 }
 
@@ -2141,9 +2143,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.refresh()
 		}
 	case tea.MouseWheelMsg:
-		if v.Button == tea.MouseWheelUp {
+		switch v.Button {
+		case tea.MouseWheelUp:
 			m.Files.Move(-1, m.Height-8)
-		} else if v.Button == tea.MouseWheelDown {
+		case tea.MouseWheelDown:
 			m.Files.Move(1, m.Height-8)
 		}
 	case tea.MouseClickMsg:
@@ -2482,6 +2485,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
+			if v.PersistenceErr != nil {
+				m.Toast = ToastMsg{Text: "repository metadata was not saved: " + v.PersistenceErr.Error(), Error: true}
+			}
 			for i := range m.RepositoryRegistry {
 				if m.RepositoryRegistry[i].Path == v.Path {
 					m.RepositoryRegistry[i].LastOpened = time.Now()
@@ -2644,9 +2650,10 @@ func (m Model) View() tea.View {
 
 func (m Model) featureView(view workspace.View) tea.View {
 	title, content := "gitwatch", "Loading…"
-	if view == workspace.Branches {
+	switch view {
+	case workspace.Branches:
 		title, content = "gitwatch · branches", m.Branches.View()
-	} else if view == workspace.Stashes {
+	case workspace.Stashes:
 		title, content = "gitwatch · stashes", m.Stashes.View()
 		if m.StashPreviewRef != "" {
 			content += "\n\nPreview " + m.StashPreviewRef + ":\n" + m.StashPreview
@@ -2660,7 +2667,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.StashBranchMode {
 			content += "\n\nBranch name: " + m.StashBranchName + "\n" + m.Status
 		}
-	} else if view == workspace.Log {
+	case workspace.Log:
 		title, content = "gitwatch · history", m.History.View()
 		if m.HistorySearching {
 			content = "Search: " + m.HistoryFilter + "\n\n" + content
@@ -2689,9 +2696,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 				content += "  " + tag.Name + " (" + tag.OID + ")\n"
 			}
 		}
-	} else if view == workspace.Commit {
+	case workspace.Commit:
 		title, content = "gitwatch · commit", m.Composer.View()
-	} else if view == workspace.Remotes {
+	case workspace.Remotes:
 		title, content = "gitwatch · remotes", m.Remotes.View()
 		if m.RemoteForceConfirm {
 			content += "\n\n" + m.Status
@@ -2699,18 +2706,18 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.RemotePushConfirm {
 			content += "\n\n" + m.Status
 		}
-	} else if view == workspace.GitHub {
+	case workspace.GitHub:
 		title, content = "gitwatch · GitHub", m.GitHub.View()
-	} else if view == workspace.Plugins {
+	case workspace.Plugins:
 		title, content = "gitwatch · plugins", m.Plugins.View()
-	} else if view == workspace.Hunks {
+	case workspace.Hunks:
 		title, content = "gitwatch · hunk selection", m.Hunks.View()
 		if m.HunkDiscardConfirm {
 			content += "\n\n" + m.Status + ": " + m.HunkDiscardInput
 		}
-	} else if view == workspace.Worktrees {
+	case workspace.Worktrees:
 		title, content = "gitwatch · worktrees", m.Worktrees.View()
-	} else if view == workspace.Repositories {
+	case workspace.Repositories:
 		title, content = "gitwatch · repositories", m.Repositories.View()
 	}
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
@@ -2765,6 +2772,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 	if m.Toast.Text != "" {
 		content += "\n\nNOTICE: " + platform.SafeText(m.Toast.Text)
 	}
+	lines[2] = content
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v

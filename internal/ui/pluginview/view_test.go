@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jusanchez/gitwatch/internal/plugins"
-	"github.com/jusanchez/gitwatch/pkg/plugin"
+	"github.com/sphireinc/git-watch/internal/plugins"
+	"github.com/sphireinc/git-watch/pkg/plugin"
 )
 
 func TestViewShowsDistinctPluginAndCapabilities(t *testing.T) {

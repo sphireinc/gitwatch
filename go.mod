@@ -1,4 +1,4 @@
-module github.com/jusanchez/gitwatch
+module github.com/sphireinc/git-watch
 
 go 1.25.0
 
