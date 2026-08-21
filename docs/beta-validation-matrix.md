@@ -19,3 +19,7 @@ accepted.
 Use `./scripts/demo-repo.sh` to create the disposable fixture. Record the
 terminal, OS version, terminal emulator, Git version, commit under test, and
 whether every row passed. A `pending` row is not a release sign-off.
+
+Partial macOS keyboard-launch/diff evidence is recorded in
+[`operator-macos.md`](operator-macos.md); it does not constitute full macOS
+release acceptance.
