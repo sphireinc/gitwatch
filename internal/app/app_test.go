@@ -23,6 +23,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/ui/hunkview"
 	"github.com/jusanchez/gitwatch/internal/ui/pluginview"
 	"github.com/jusanchez/gitwatch/internal/ui/remoteview"
+	"github.com/jusanchez/gitwatch/internal/ui/repoview"
 	"github.com/jusanchez/gitwatch/internal/ui/stashview"
 	"github.com/jusanchez/gitwatch/internal/ui/worktreeview"
 	"github.com/jusanchez/gitwatch/internal/workspace"
@@ -641,6 +642,20 @@ func TestHunkMouseSelectsChangedLine(t *testing.T) {
 	m = updated.(Model)
 	if cmd != nil || m.Hunks.Selection.Count() != 1 || m.Hunks.Line != 1 {
 		t.Fatalf("hunk mouse selection = cmdnil=%v line=%d selected=%d", cmd == nil, m.Hunks.Line, m.Hunks.Selection.Count())
+	}
+}
+
+func TestRepositoryMouseSelectsRow(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Repositories, "Repositories")
+	m.Repositories = repoview.New([]registry.Row{
+		{Repository: registry.Repository{Name: "one", Path: "/one"}},
+		{Repository: registry.Repository{Name: "two", Path: "/two"}},
+	})
+	updated, cmd := m.Update(tea.MouseClickMsg{X: 2, Y: 5, Button: tea.MouseLeft})
+	m = updated.(Model)
+	if cmd != nil || m.Repositories.Selected != 1 {
+		t.Fatalf("repository mouse selection = cmdnil=%v selected=%d", cmd == nil, m.Repositories.Selected)
 	}
 }
 

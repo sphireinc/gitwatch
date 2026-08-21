@@ -1810,6 +1810,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Hunks.SelectLine(m.Hunks.LineAt(v.Y - 3))
 				return m, nil
 			}
+			if m.currentView() == workspace.Repositories {
+				// Each repository occupies a name/state row followed by its path row.
+				row := (v.Y - 3) / 2
+				if v.Y >= 3 && row >= 0 && row < len(m.Repositories.Rows) {
+					m.Repositories.Selected = row
+				}
+				return m, nil
+			}
 			if m.currentView() == workspace.Remotes {
 				row := (v.Y - 4) / 3
 				if v.Y >= 4 && row >= 0 && row < len(m.Remotes.Dashboard.Remotes) {
