@@ -12,9 +12,15 @@ go vet ./...
 ./scripts/performance-check.sh
 ./scripts/security-check.sh
 ./scripts/install-check.sh
-go build ./cmd/gitwatch
 smoke_binary=$(mktemp "${TMPDIR:-/tmp}/gitwatch-release-smoke.XXXXXX")
-trap 'rm -rf "$demo_dir" "$smoke_binary"' EXIT
+demo_dir=
+release_dir=
+cleanup() {
+	[ -z "$demo_dir" ] || rm -rf "$demo_dir"
+	[ -z "$release_dir" ] || rm -rf "$release_dir"
+	rm -f "$smoke_binary"
+}
+trap cleanup EXIT HUP INT TERM
 go build -o "$smoke_binary" ./cmd/gitwatch
 test -n "$("$smoke_binary" --help 2>&1)"
 test "$("$smoke_binary" --version | cut -d' ' -f1)" = "1.0.0-dev"

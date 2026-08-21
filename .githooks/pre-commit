@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+git diff --cached --check
+
+unformatted=$(find . -type f -name '*.go' -not -path './.git/*' -exec gofmt -l {} +)
+if [ -n "$unformatted" ]; then
+	echo "pre-commit: gofmt required for:" >&2
+	printf '%s\n' "$unformatted" >&2
+	exit 1
+fi
+
+./scripts/secret-scan.sh --staged
