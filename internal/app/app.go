@@ -2581,7 +2581,7 @@ func (m Model) paletteView() tea.View {
 		lines = append(lines, prefix+result.Label+" ["+state+"]")
 	}
 	lines = append(lines, "", "[j/k] move  [enter] run  [esc] close")
-	v := tea.NewView(strings.Join(lines, "\n"))
+	v := tea.NewView(strings.Join(safeRenderLines(lines), "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v
 }
@@ -2636,7 +2636,7 @@ func (m Model) View() tea.View {
 	if m.Notifications != nil && m.Notifications.Attention() > 0 {
 		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
 	}
-	v := tea.NewView(strings.Join(lines, "\n"))
+	v := tea.NewView(strings.Join(safeRenderLines(lines), "\n"))
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
 	return v
@@ -2768,6 +2768,14 @@ func (m Model) featureView(view workspace.View) tea.View {
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v
+}
+
+func safeRenderLines(lines []string) []string {
+	safe := make([]string, len(lines))
+	for i, line := range lines {
+		safe[i] = platform.SafeText(platform.RedactSecrets(line))
+	}
+	return safe
 }
 
 func inspectorText(inspector history.Inspector) string {

@@ -211,6 +211,18 @@ func TestNotificationAttentionBadgeAndDismissal(t *testing.T) {
 	}
 }
 
+func TestViewSanitizesHostileRepositoryText(t *testing.T) {
+	m := New()
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("evil\x1b[31m.txt"), Unstaged: true}}
+	m.Files.SetEntries(m.Snapshot.Entries)
+	m.DiffPath, m.DiffText = "evil\x1b[31m.txt", "-old\x1b[2J\n+new token=secret"
+	m.Width, m.Height = 120, 20
+	view := m.View().Content
+	if strings.Contains(view, "\x1b") || strings.Contains(view, "secret") || !strings.Contains(view, "�") {
+		t.Fatalf("hostile text reached view: %q", view)
+	}
+}
+
 func TestRepositoriesRouteLoadsRows(t *testing.T) {
 	m := New()
 	m.Discovery.Root = "/repo"

@@ -2,7 +2,9 @@
 
 Status: In progress
 
-Progress: Added centralized secret redaction for logs/diagnostics, URL userinfo redaction, safe terminal text handling, hostile secret fixtures, an explicit discovery policy that skips symlinked filesystem entries and rejects symlinked `.git` metadata, bounded plugin protocol decoding, hostile message-size fixtures, an actual hostile out-of-process plugin output fixture, and a security threat-model document. Release/operator review remains.
+Progress: Added centralized secret redaction for logs/diagnostics and final TUI rendering, URL userinfo redaction, hostile terminal/file/diff fixtures, an explicit discovery policy that skips symlinked filesystem entries and rejects symlinked `.git` metadata, bounded plugin protocol decoding, hostile message-size fixtures, an actual hostile out-of-process plugin output fixture, and a security threat-model document. Release/operator review remains.
+
+Automated security evidence: `scripts/security-check.sh` rejects shell-string/interpolated process execution patterns and runs the hostile platform/plugin/registry test packages; it is now part of `scripts/release-check.sh`. Human release/operator review remains explicitly unverified.
 
 ## Objective
 Threat-model patches, commit messages, refs, remotes, credentials, GitHub responses, plugin RPC, repository discovery, terminal escape injection, symlinks, and malicious repository contents. Add redaction and hostile-fixture tests.
