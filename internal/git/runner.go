@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -87,7 +88,7 @@ func (r Runner) run(ctx context.Context, input io.Reader, args ...string) (Resul
 		}
 		return result, &CommandError{Kind: kind, Args: result.Args, Result: result, Cause: err}
 	}
-	if errors.Is(err, exec.ErrNotFound) {
+	if errors.Is(err, exec.ErrNotFound) || errors.Is(err, os.ErrNotExist) {
 		return result, &CommandError{Kind: ErrGitMissing, Args: result.Args, Result: result, Cause: err}
 	}
 	return result, &CommandError{Kind: ErrCommandFailed, Args: result.Args, Result: result, Cause: err}

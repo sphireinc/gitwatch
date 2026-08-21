@@ -31,6 +31,13 @@ func TestRunnerCapturesFailure(t *testing.T) {
 	}
 }
 
+func TestRunnerClassifiesMissingGit(t *testing.T) {
+	_, err := (Runner{Binary: filepath.Join(t.TempDir(), "does-not-exist"), Dir: t.TempDir()}).Run(context.Background(), "--version")
+	if !errors.Is(err, ErrGitMissing) {
+		t.Fatalf("expected missing-git error, got %v", err)
+	}
+}
+
 func TestRunnerCancellation(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("portable long-running Git cancellation fixture is Unix-specific")
