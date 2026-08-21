@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -11,22 +12,48 @@ func TestEngineSerializesRepoAndCancels(t *testing.T) {
 	e := New(2)
 	started := make(chan struct{})
 	release := make(chan struct{})
-	if err := e.Submit(context.Background(), "one", "repo", "first", time.Second, func(context.Context) error { close(started); <-release; return nil }); err != nil {
+	var firstActive atomic.Bool
+	if err := e.Submit(context.Background(), "one", "repo", "first", time.Second, func(context.Context) error {
+		firstActive.Store(true)
+		close(started)
+		<-release
+		firstActive.Store(false)
+		return nil
+	}); err != nil {
 		t.Fatal(err)
 	}
 	<-started
-	if err := e.Submit(context.Background(), "two", "repo", "second", time.Second, func(context.Context) error { return errors.New("should wait") }); err != nil {
+	waitErr := errors.New("waited")
+	overlapped := make(chan struct{}, 1)
+	if err := e.Submit(context.Background(), "two", "repo", "second", time.Second, func(context.Context) error {
+		if firstActive.Load() {
+			overlapped <- struct{}{}
+		}
+		return waitErr
+	}); err != nil {
 		t.Fatal(err)
 	}
 	e.Cancel("one")
 	close(release)
-	r := <-e.Results()
-	if r.ID != "one" {
-		t.Fatal(r)
+	results := make(map[string]Result, 2)
+	for range 2 {
+		select {
+		case result := <-e.Results():
+			results[result.ID] = result
+		case <-time.After(time.Second):
+			t.Fatal("operation result was not delivered")
+		}
 	}
-	r = <-e.Results()
-	if r.ID != "two" {
-		t.Fatal(r)
+	select {
+	case <-overlapped:
+		t.Fatal("operations for one repository overlapped")
+	default:
+	}
+	if results["one"].State != Cancelled {
+		t.Fatalf("first result = %#v", results["one"])
+	}
+	if results["two"].State != Failed || !errors.Is(results["two"].Err, waitErr) {
+		t.Fatalf("second result = %#v", results["two"])
 	}
 }
 func TestEngineTimeout(t *testing.T) {
