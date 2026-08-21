@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Versioned configuration with a canonical `CurrentVersion` constant and machine-readable v2 schema, public plugin SDK foundations and API-1 fixtures, reconciled product scope documentation, benchmark coverage, strict five-target artifact verification, and reproducible v1 release tooling are present; the v2 schema/API freeze points and release procedure are documented in `docs/v2-release-plan.md`. Full feature integration, publication, clean-install/upgrade verification, and announcement remain.
+Progress: Versioned configuration with a canonical `CurrentVersion` constant and machine-readable v2 schema, public plugin SDK foundations and API-1 fixtures, reconciled product scope documentation, benchmark coverage, strict five-target artifact verification, and reproducible v1 release tooling are present; the v2 schema/API freeze points and release procedure are documented in `docs/v2-release-plan.md`. The implemented workbench and multi-repository dashboard are feature-integrated; v2 publication, clean-install/upgrade verification, package-manager updates, and announcement remain.
 
 ## Objective
 Freeze schemas/APIs, finalize changelog and migration notes, tag v2.0.0, build/sign/checksum release artifacts, publish package-manager updates, publish plugin SDK version, verify clean installs/upgrades, and announce the release with demo assets highlighting the full Git workbench and multi-repo dashboard.
