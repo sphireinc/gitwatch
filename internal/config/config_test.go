@@ -24,6 +24,18 @@ func TestConfigPrecedenceAndValidation(t *testing.T) {
 	}
 }
 
+func TestNotificationQuietSettingLoadsAndBuildsModelConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(path, []byte(`{"notifications":{"quiet":true}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(path)
+	if err != nil || !loaded.Notifications.Quiet {
+		t.Fatalf("quiet setting = %#v err=%v", loaded.Notifications, err)
+	}
+}
+
 func TestV2DefaultsAndBindingCollisionValidation(t *testing.T) {
 	c := Defaults()
 	if c.Version != 2 || c.Remote.PullStrategy != "ff-only" {

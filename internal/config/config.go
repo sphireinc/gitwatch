@@ -11,21 +11,22 @@ import (
 )
 
 type Config struct {
-	Version        int               `json:"version"`
-	Theme          string            `json:"theme"`
-	Motion         string            `json:"motion"`
-	Watch          string            `json:"watch"`
-	Interval       time.Duration     `json:"interval"`
-	Reconciliation time.Duration     `json:"reconciliation"`
-	ShowUntracked  bool              `json:"show_untracked"`
-	ShowIgnored    bool              `json:"show_ignored"`
-	Mouse          bool              `json:"mouse"`
-	Debounce       time.Duration     `json:"debounce"`
-	Repositories   RepositoryConfig  `json:"repositories"`
-	Remote         RemoteConfig      `json:"remote"`
-	GitHub         GitHubConfig      `json:"github"`
-	Plugins        PluginConfig      `json:"plugins"`
-	Keymap         map[string]string `json:"keymap"`
+	Version        int                `json:"version"`
+	Theme          string             `json:"theme"`
+	Motion         string             `json:"motion"`
+	Watch          string             `json:"watch"`
+	Interval       time.Duration      `json:"interval"`
+	Reconciliation time.Duration      `json:"reconciliation"`
+	ShowUntracked  bool               `json:"show_untracked"`
+	ShowIgnored    bool               `json:"show_ignored"`
+	Mouse          bool               `json:"mouse"`
+	Debounce       time.Duration      `json:"debounce"`
+	Repositories   RepositoryConfig   `json:"repositories"`
+	Remote         RemoteConfig       `json:"remote"`
+	GitHub         GitHubConfig       `json:"github"`
+	Plugins        PluginConfig       `json:"plugins"`
+	Notifications  NotificationConfig `json:"notifications"`
+	Keymap         map[string]string  `json:"keymap"`
 }
 
 type RepositoryConfig struct {
@@ -51,6 +52,10 @@ type PluginConfig struct {
 	Enabled     bool     `json:"enabled"`
 	Directories []string `json:"directories"`
 	MaxOutput   int64    `json:"max_output"`
+}
+
+type NotificationConfig struct {
+	Quiet bool `json:"quiet"`
 }
 
 func Defaults() Config {

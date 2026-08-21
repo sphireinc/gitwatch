@@ -21,6 +21,7 @@ The v2 top-level fields are:
 | `remote` | Pull strategy, stale threshold, and worker limit. |
 | `github` | Optional provider enablement, token environment name, and cache TTL. |
 | `plugins` | Optional plugin directories, enablement, and output limit. |
+| `notifications` | Notification preferences; set `quiet` to suppress attention badges while retaining history. |
 | `keymap` | Action-to-key bindings; duplicate keys are rejected and configured bindings are applied at runtime. Supported navigation actions include `quit`, `help`, `status`, `branches`, `stashes`, `history`, `remotes`, `worktrees`, `repositories`, `commit`, and `refresh`. |
 
 Validate a file without opening the TUI with:

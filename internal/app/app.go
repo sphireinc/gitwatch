@@ -389,6 +389,7 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 func NewRepository(d git.Discovery) Model { m := New(); m.Discovery = d; return m }
 func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m := NewRepository(d)
+	m.Notifications = notifications.New(100, c.Notifications.Quiet)
 	m.RefreshInterval = c.Interval
 	m.Keymap = mergeKeymap(c.Keymap)
 	m.GitHubEnabled, m.GitHubTokenEnv = c.GitHub.Enabled, c.GitHub.TokenEnv
