@@ -2,18 +2,112 @@ package branchview
 
 import (
 	"fmt"
-	"github.com/jusanchez/gitwatch/internal/branches"
-	"github.com/jusanchez/gitwatch/internal/platform"
+	"sort"
 	"strings"
 	"time"
+
+	"github.com/jusanchez/gitwatch/internal/branches"
+	"github.com/jusanchez/gitwatch/internal/platform"
+)
+
+type SortKey string
+
+const (
+	SortName       SortKey = "name"
+	SortAhead      SortKey = "ahead"
+	SortBehind     SortKey = "behind"
+	SortLastCommit SortKey = "last-commit"
 )
 
 type Model struct {
-	Entries  []branches.Branch
-	Selected int
+	Entries    []branches.Branch
+	AllEntries []branches.Branch
+	Selected   int
+	Query      string
+	Sort       SortKey
+	Desc       bool
 }
 
-func New(e []branches.Branch) Model { return Model{Entries: e} }
+func New(e []branches.Branch) Model {
+	m := Model{AllEntries: append([]branches.Branch(nil), e...), Sort: SortName}
+	m.apply()
+	return m
+}
+
+func (m *Model) SetEntries(entries []branches.Branch) {
+	selected := ""
+	if m.Selected >= 0 && m.Selected < len(m.Entries) {
+		selected = m.Entries[m.Selected].Name
+	}
+	m.AllEntries = append([]branches.Branch(nil), entries...)
+	m.apply()
+	m.Selected = 0
+	for i, entry := range m.Entries {
+		if entry.Name == selected {
+			m.Selected = i
+			break
+		}
+	}
+}
+
+func (m *Model) SetFilter(query string) {
+	m.Query = query
+	m.apply()
+	m.Selected = 0
+}
+
+func (m *Model) CycleSort() SortKey {
+	keys := []SortKey{SortName, SortAhead, SortBehind, SortLastCommit}
+	index := 0
+	for i, key := range keys {
+		if key == m.Sort {
+			index = i
+			break
+		}
+	}
+	if index == len(keys)-1 {
+		m.Desc = !m.Desc
+		if !m.Desc {
+			index = 0
+		}
+	} else {
+		index++
+	}
+	m.Sort = keys[index]
+	m.apply()
+	m.Selected = 0
+	return m.Sort
+}
+
+func (m *Model) apply() {
+	query := strings.ToLower(strings.TrimSpace(m.Query))
+	m.Entries = m.Entries[:0]
+	for _, entry := range m.AllEntries {
+		if query == "" || strings.Contains(strings.ToLower(entry.Name), query) || strings.Contains(strings.ToLower(entry.Upstream), query) {
+			m.Entries = append(m.Entries, entry)
+		}
+	}
+	sort.SliceStable(m.Entries, func(i, j int) bool {
+		left, right := m.Entries[i], m.Entries[j]
+		var less bool
+		switch m.Sort {
+		case SortAhead:
+			less = left.Ahead < right.Ahead
+		case SortBehind:
+			less = left.Behind < right.Behind
+		case SortLastCommit:
+			less = left.LastCommitUnix < right.LastCommitUnix
+		default:
+			less = strings.ToLower(left.Name) < strings.ToLower(right.Name)
+		}
+		if m.Desc {
+			return !less && left.Name != right.Name
+		}
+		return less
+	})
+}
+
+func (m Model) SortLabel() string { return string(m.Sort) }
 func (m *Model) Move(d int) {
 	m.Selected += d
 	if m.Selected < 0 {
@@ -24,7 +118,12 @@ func (m *Model) Move(d int) {
 	}
 }
 func (m Model) View() string {
-	lines := []string{"Branches"}
+	header := "Branches"
+	if m.Query != "" {
+		header += " · filter: " + platform.SafeText(m.Query)
+	}
+	header += " · sort: " + m.SortLabel()
+	lines := []string{header}
 	for i, e := range m.Entries {
 		p := "  "
 		if i == m.Selected {

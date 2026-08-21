@@ -200,6 +200,7 @@ type Model struct {
 	HunkContext              int
 	Workspace                *workspace.Model
 	Branches                 branchview.Model
+	BranchSearching          bool
 	Stashes                  stashview.Model
 	History                  historyview.Model
 	HistoryCommits           []history.Commit
@@ -1385,6 +1386,27 @@ func (m *Model) updateRepositorySearch(key string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) updateBranchSearch(key string) tea.Cmd {
+	if key == "esc" || key == "enter" {
+		m.BranchSearching = false
+		m.Status = ""
+		return nil
+	}
+	switch key {
+	case "backspace":
+		m.Branches.SetFilter(removeLastRune(m.Branches.Query))
+	case "space":
+		m.Branches.SetFilter(m.Branches.Query + " ")
+	default:
+		if len([]rune(key)) != 1 {
+			return nil
+		}
+		m.Branches.SetFilter(m.Branches.Query + key)
+	}
+	m.Status = "branch filter: " + m.Branches.Query
+	return nil
+}
+
 func (m Model) currentView() workspace.View {
 	if m.Workspace == nil {
 		return workspace.Status
@@ -1428,6 +1450,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.currentView() == workspace.Repositories && m.RepositorySearching {
 			return m, m.updateRepositorySearch(v.String())
+		}
+		if m.currentView() == workspace.Branches && m.BranchSearching {
+			return m, m.updateBranchSearch(v.String())
 		}
 		if m.currentView() == workspace.Log && m.HistoryInspectorPathMode {
 			switch v.String() {
@@ -1677,6 +1702,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "repository sort: " + string(m.Repositories.CycleSort())
 				return m, nil
 			}
+			if m.currentView() == workspace.Branches {
+				m.Branches.CycleSort()
+				m.Status = "branch sort: " + m.Branches.SortLabel()
+				return m, nil
+			}
 			return m, m.navigate(workspace.Stashes, "Stashes")
 		case "l":
 			return m, m.navigate(workspace.Log, "History")
@@ -1771,6 +1801,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.currentView() == workspace.Repositories {
 				m.RepositorySearching, m.Status = true, "repository filter: "
+			}
+			if m.currentView() == workspace.Branches {
+				m.BranchSearching, m.Status = true, "branch filter: "
 			}
 		case "x":
 			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
@@ -1973,6 +2006,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
+			if m.currentView() == workspace.Branches {
+				row := v.Y - 3
+				if row >= 0 && row < len(m.Branches.Entries) {
+					m.Branches.Selected = row
+				}
+				return m, nil
+			}
 			if m.currentView() == workspace.Hunks {
 				// The hunk header occupies the first content row; patch lines start at y=3.
 				m.Hunks.SelectLine(m.Hunks.LineAt(v.Y - 3))
@@ -2087,7 +2127,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
-			m.Branches, m.State = branchview.New(v.Entries), StateReady
+			if len(m.Branches.AllEntries) == 0 {
+				m.Branches = branchview.New(v.Entries)
+			} else {
+				m.Branches.SetEntries(v.Entries)
+			}
+			m.State = StateReady
 		}
 	case StashesReadyMsg:
 		if v.Err != nil {
@@ -2510,6 +2555,12 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Log {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
+	}
+	if view == workspace.Branches {
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [esc] back  [q] quit"
+		if m.BranchSearching {
+			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Branches.Query) + "  [enter] apply  [esc] cancel"
+		}
 	}
 	if view == workspace.Remotes {
 		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push preview  [P] force-with-lease  [esc] back  [q] quit"

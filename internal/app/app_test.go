@@ -761,6 +761,8 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	if got := m.View().Content; !contains(got, "main") {
 		t.Fatalf("branch view missing entry: %q", got)
 	}
+	updated, _ = m.Update(key("esc"))
+	m = updated.(Model)
 	updated, cmd = m.Update(key("s"))
 	m = updated.(Model)
 	if m.currentView() != workspace.Stashes || cmd == nil {
@@ -778,7 +780,7 @@ func TestWorkspaceRoutesLoadAndRenderFeatureViews(t *testing.T) {
 	}
 	updated, _ = m.Update(key("esc"))
 	m = updated.(Model)
-	if m.currentView() != workspace.Branches {
+	if m.currentView() != workspace.Status {
 		t.Fatalf("escape route = %q", m.currentView())
 	}
 	updated, _ = m.Update(key("1"))

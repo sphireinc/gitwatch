@@ -23,4 +23,6 @@ Build searchable/sortable local and remote branch views with checkout/switch, cr
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — branch list view with current-branch indication, keyboard selection, asynchronous Bubble Tea loading, and keyboard checkout are implemented; search/sort metadata and richer mutation feedback remain.
+**Status:** Complete
+
+Completion summary: Branches now support filtered search by branch/upstream, cyclic sorting by name/ahead/behind/last-commit, current/remote/upstream/divergence/merged/last-commit/worktree metadata, keyboard selection and checkout, and mouse row selection. Bubble Tea routes branch search and sort without blocking, preserves selected branches across refreshes, and documents the new keymap. App and branch-view tests cover filtering, sorting, mouse selection, and metadata rendering; repository-wide quality gates pass.
