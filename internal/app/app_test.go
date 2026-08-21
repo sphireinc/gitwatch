@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -387,12 +388,16 @@ func TestGitHubWorkspaceLoadsAsynchronouslyWhenEnabled(t *testing.T) {
 
 func TestPluginWorkspaceTogglesSelectedEntry(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{}, config.Config{Plugins: config.PluginConfig{Enabled: true}})
+	m.PluginStatePath = filepath.Join(t.TempDir(), "plugins.json")
 	m.Workspace.Navigate(workspace.Plugins, "Plugins")
 	m.Plugins = pluginview.New([]plugins.Entry{{Manifest: plugins.Manifest{ID: "one", Name: "One"}, Enabled: true, Healthy: true}})
 	updated, cmd := m.Update(key("space"))
 	m = updated.(Model)
-	if cmd != nil || m.Plugins.Entries[0].Enabled || m.Status != "plugin one disabled" {
+	if cmd == nil || m.Plugins.Entries[0].Enabled || m.Status != "plugin one disabled" {
 		t.Fatalf("plugin toggle = cmdnil=%v enabled=%v status=%q", cmd == nil, m.Plugins.Entries[0].Enabled, m.Status)
+	}
+	if _, ok := cmd().(PluginStateSavedMsg); !ok {
+		t.Fatalf("plugin state command returned %T", cmd())
 	}
 }
 

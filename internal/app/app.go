@@ -175,6 +175,7 @@ type PluginsReadyMsg struct {
 	Entries []plugins.Entry
 	Err     error
 }
+type PluginStateSavedMsg struct{ Err error }
 
 type Model struct {
 	State                    State
@@ -262,6 +263,7 @@ type Model struct {
 	Plugins                  pluginview.Model
 	PluginsEnabled           bool
 	PluginDirectories        []string
+	PluginStatePath          string
 	Repositories             repoview.Model
 	RepositoryRoots          []string
 	RepositoryEngine         *registry.Engine
@@ -389,6 +391,9 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.GitHubChecksCache = provider.NewCache[provider.ChecksSnapshot](c.GitHub.CacheTTL)
 	m.GitHubReviewsCache = provider.NewCache[provider.ReviewSnapshot](c.GitHub.CacheTTL)
 	m.PluginsEnabled, m.PluginDirectories = c.Plugins.Enabled, append([]string(nil), c.Plugins.Directories...)
+	if path, err := plugins.StatePath(); err == nil {
+		m.PluginStatePath = path
+	}
 	switch c.Motion {
 	case "reduced":
 		m.Motion = MotionReduced
@@ -809,9 +814,27 @@ func (m Model) loadGitHub() tea.Cmd {
 
 func (m Model) loadPlugins() tea.Cmd {
 	directories := append([]string(nil), m.PluginDirectories...)
+	statePath := m.PluginStatePath
 	return func() tea.Msg {
 		entries, err := plugins.Discover(context.Background(), directories, 128)
+		if err == nil && statePath != "" {
+			state, stateErr := plugins.LoadState(statePath)
+			if stateErr != nil {
+				return PluginsReadyMsg{Err: stateErr}
+			}
+			entries = plugins.ApplyState(entries, state)
+		}
 		return PluginsReadyMsg{Entries: entries, Err: err}
+	}
+}
+
+func (m Model) savePluginState(entries []plugins.Entry) tea.Cmd {
+	path := m.PluginStatePath
+	if path == "" {
+		return nil
+	}
+	return func() tea.Msg {
+		return PluginStateSavedMsg{Err: plugins.SaveState(path, entries)}
 	}
 }
 
@@ -1779,7 +1802,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					state = "enabled"
 				}
 				m.Status = "plugin " + entry.Manifest.ID + " " + state
-				return m, nil
+				return m, m.savePluginState(m.Plugins.Entries)
 			}
 			return m, m.mutate()
 		case "d":
@@ -1981,6 +2004,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.Plugins.SetEntries(v.Entries)
 			m.State, m.Status = StateReady, "plugins loaded"
+		}
+	case PluginStateSavedMsg:
+		if v.Err != nil {
+			m.Status = "plugin state: " + v.Err.Error()
 		}
 	case BranchOperationFinishedMsg:
 		if v.Err != nil {

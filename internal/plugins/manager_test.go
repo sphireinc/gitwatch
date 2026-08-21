@@ -26,3 +26,26 @@ func TestDiscoverBoundsAndSkipsSymlinks(t *testing.T) {
 		t.Fatal("set enabled mutated source or failed")
 	}
 }
+
+func TestPluginStateRoundTripIsPrivateAndImmutable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "plugins.json")
+	entries := []Entry{{Manifest: Manifest{ID: "one"}, Enabled: false}, {Manifest: Manifest{ID: "two"}, Enabled: true}}
+	if err := SaveState(path, entries); err != nil {
+		t.Fatal(err)
+	}
+	state, err := LoadState(path)
+	if err != nil || !state["two"] || state["one"] {
+		t.Fatalf("state = %#v err=%v", state, err)
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("state mode = %v err=%v", info.Mode().Perm(), err)
+	}
+	updated := ApplyState([]Entry{{Manifest: Manifest{ID: "one"}, Enabled: true}}, state)
+	if updated[0].Enabled {
+		t.Fatal("apply state did not disable plugin")
+	}
+	if entries[0].Enabled {
+		t.Fatal("state application mutated source")
+	}
+}
