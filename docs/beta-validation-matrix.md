@@ -7,10 +7,10 @@ accepted.
 
 | Area | macOS | Linux | Windows | Evidence required |
 | --- | --- | --- | --- | --- |
-| Build and launch | pending | pending | pending | version and help output |
+| Build and launch | observed* | pending | pending | version and help output |
 | Real repository refresh | pending | pending | pending | clean, modified, staged, untracked |
-| File selection and diff pane | pending | pending | pending | keyboard and mouse recording |
-| Stage/unstage and refresh | pending | pending | pending | before/after status output |
+| File selection and diff pane | partial* | pending | pending | keyboard and mouse recording |
+| Stage/unstage and refresh | partial* | pending | pending | before/after status output |
 | Filesystem watch and polling | pending | pending | pending | external edit refresh output |
 | Resize and terminal capability | pending | pending | pending | supported-size recording |
 | Git missing / non-repository error | pending | pending | pending | exit status and message |
@@ -23,3 +23,7 @@ whether every row passed. A `pending` row is not a release sign-off.
 Partial macOS keyboard-launch/diff evidence is recorded in
 [`operator-macos.md`](operator-macos.md); it does not constitute full macOS
 release acceptance.
+
+`observed*` and `partial*` refer only to the documented local tmux session;
+mouse, resize, watch-mode, clean-install, and other release checks remain
+pending.

@@ -1,7 +1,8 @@
 # macOS operator evidence
 
 Recorded on 2026-08-21 from the current checkout in a disposable repository
-created by `scripts/demo-repo.sh`, using a 120×35 terminal session on macOS.
+created by `scripts/demo-repo.sh`, using a 120×35 tmux terminal session on
+macOS 26.6.1 arm64 with Git 2.33.0 and tmux 3.6a.
 
 Observed results:
 
