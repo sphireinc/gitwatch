@@ -1,6 +1,6 @@
 # Task 80: Add global command palette
 
-Status: In progress
+Status: Complete
 
 Progress: Added pure action descriptors with enabled/disabled reasons and deterministic subsequence fuzzy search/ranking. Bubble Tea now exposes a global `Ctrl-P` palette with query editing, keyboard selection, disabled-reason rendering, and asynchronous navigation/refresh action execution. Provider and plugin integrations can register action descriptors with deferred command factories.
 
@@ -26,3 +26,10 @@ Provide fuzzy searchable actions across current context: stage, commit, stash, s
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+## Completion summary
+
+- `Ctrl-P` opens the palette from every workspace; query input, selection, execution, and Escape dismissal are covered by app tests.
+- Actions expose stable IDs, shortcuts, availability, and disabled reasons; fuzzy ranking is deterministic and unit-tested.
+- Provider/plugin actions use deferred command factories so external work stays asynchronous and isolated from rendering.
+- Documented the key binding in `README.md` and `KEYMAP.md`; no additional configuration is required for v1.
