@@ -5,6 +5,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/branches"
 	"github.com/jusanchez/gitwatch/internal/platform"
 	"strings"
+	"time"
 )
 
 type Model struct {
@@ -39,6 +40,12 @@ func (m Model) View() string {
 		}
 		if e.Upstream != "" {
 			lines[len(lines)-1] += fmt.Sprintf(" · ahead %d/behind %d", e.Ahead, e.Behind)
+		}
+		if e.Merged {
+			lines[len(lines)-1] += " · merged"
+		}
+		if e.LastCommitUnix != 0 {
+			lines[len(lines)-1] += " · last commit " + time.Unix(e.LastCommitUnix, 0).Format("2006-01-02")
 		}
 	}
 	return strings.Join(lines, "\n")

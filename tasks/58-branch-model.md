@@ -23,4 +23,6 @@ Model local branches, remote-tracking branches, current HEAD, detached HEAD, ups
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
 
-**Status:** In progress — branch parsing, current/remote metadata, listing, checkout, and create operations use typed Git argv; numeric divergence is now enriched with `rev-list --left-right --count` and rendered for upstream-tracking branches. Last-commit/merged metadata and remaining mutation safeguards remain.
+**Status:** Complete
+
+Completion summary: Branch parsing and listing use typed `for-each-ref`/`rev-list` argv with NUL-delimited fields, preserving current/detached/remote/upstream identity, numeric divergence, last-commit timestamp/subject, merged state, and worktree occupancy. Checkout/create and other branch operations remain typed and validate names. Branch parser and view tests cover metadata rendering; repository-wide quality gates pass.

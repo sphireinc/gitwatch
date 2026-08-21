@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jusanchez/gitwatch/internal/git"
@@ -18,7 +19,10 @@ var (
 type Branch struct {
 	Name, OID, Upstream string
 	OccupiedPath        string
+	LastCommitUnix      int64
+	Subject             string
 	Current, Remote     bool
+	Merged              bool
 	Ahead, Behind       int
 }
 
@@ -29,16 +33,24 @@ func Parse(lines []byte) []Branch {
 		if len(p) < 4 {
 			continue
 		}
-		branch := Branch{Name: p[0], OID: p[1], Upstream: p[2], Current: p[3] == "*", Remote: strings.HasPrefix(p[0], "remotes/")}
+		branch := Branch{Name: p[0], OID: p[1], Upstream: p[2], Current: strings.TrimSpace(p[3]) == "*", Remote: strings.HasPrefix(p[0], "remotes/")}
 		if len(p) > 4 {
 			branch.Ahead, branch.Behind = ParseTracking(p[4])
+		}
+		if len(p) > 5 {
+			if value, err := strconv.ParseInt(strings.TrimSpace(p[5]), 10, 64); err == nil {
+				branch.LastCommitUnix = value
+			}
+		}
+		if len(p) > 6 {
+			branch.Subject = p[6]
 		}
 		out = append(out, branch)
 	}
 	return out
 }
 func List(ctx context.Context, r git.Runner) ([]Branch, error) {
-	res, err := r.Run(ctx, "for-each-ref", "--format=%(refname:short)\x00%(objectname)\x00%(upstream:short)\x00 %(upstream:trackshort)", "refs/heads", "refs/remotes")
+	res, err := r.Run(ctx, "for-each-ref", "--format=%(refname:short)\x00%(objectname)\x00%(upstream:short)\x00%(HEAD)\x00%(upstream:trackshort)\x00%(creatordate:unix)\x00%(subject)", "refs/heads", "refs/remotes")
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +64,19 @@ func List(ctx context.Context, r git.Runner) ([]Branch, error) {
 			return nil, err
 		}
 		entries[i].Ahead, entries[i].Behind = ahead, behind
+	}
+	merged, err := r.Run(ctx, "for-each-ref", "--merged=HEAD", "--format=%(refname:short)", "refs/heads")
+	if err != nil {
+		return nil, err
+	}
+	mergedNames := make(map[string]struct{})
+	for _, name := range strings.Split(strings.TrimSpace(string(merged.Stdout)), "\n") {
+		if name != "" {
+			mergedNames[name] = struct{}{}
+		}
+	}
+	for i := range entries {
+		_, entries[i].Merged = mergedNames[entries[i].Name]
 	}
 	return entries, nil
 }
