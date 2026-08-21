@@ -415,6 +415,16 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 		m.RepositoryRegistryPath = path
 	}
 	m.RepositoryEngine = registry.NewEngine(c.Remote.Workers)
+	groupRefresh := cloneRefreshPolicies(c.Repositories.GroupRefresh)
+	m.RepositoryEngine.InactiveAfterFor = func(repository registry.Repository) time.Duration {
+		interval := m.RepositoryEngine.InactiveAfter
+		for _, group := range repository.Groups {
+			if policy, ok := groupRefresh[group]; ok && policy < interval {
+				interval = policy
+			}
+		}
+		return interval
+	}
 	return m
 }
 
@@ -422,6 +432,14 @@ func cloneGroups(groups map[string][]string) map[string][]string {
 	cloned := make(map[string][]string, len(groups))
 	for group, paths := range groups {
 		cloned[group] = append([]string(nil), paths...)
+	}
+	return cloned
+}
+
+func cloneRefreshPolicies(policies map[string]time.Duration) map[string]time.Duration {
+	cloned := make(map[string]time.Duration, len(policies))
+	for group, duration := range policies {
+		cloned[group] = duration
 	}
 	return cloned
 }

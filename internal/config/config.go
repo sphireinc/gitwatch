@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -30,10 +31,11 @@ type Config struct {
 }
 
 type RepositoryConfig struct {
-	Roots           []string            `json:"roots"`
-	Groups          map[string][]string `json:"groups"`
-	MaxDepth        int                 `json:"max_depth"`
-	MaxRepositories int                 `json:"max_repositories"`
+	Roots           []string                 `json:"roots"`
+	Groups          map[string][]string      `json:"groups"`
+	GroupRefresh    map[string]time.Duration `json:"group_refresh"`
+	MaxDepth        int                      `json:"max_depth"`
+	MaxRepositories int                      `json:"max_repositories"`
 }
 
 type RemoteConfig struct {
@@ -147,6 +149,11 @@ func Validate(c Config) error {
 	}
 	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 {
 		return fmt.Errorf("config limits cannot be negative")
+	}
+	for group, duration := range c.Repositories.GroupRefresh {
+		if strings.TrimSpace(group) == "" || duration < 0 {
+			return fmt.Errorf("invalid group refresh policy %q", group)
+		}
 	}
 	if c.Remote.PullStrategy != "merge" && c.Remote.PullStrategy != "rebase" && c.Remote.PullStrategy != "ff-only" {
 		return fmt.Errorf("invalid pull strategy %q", c.Remote.PullStrategy)

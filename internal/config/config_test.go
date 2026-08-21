@@ -36,6 +36,18 @@ func TestNotificationQuietSettingLoadsAndBuildsModelConfig(t *testing.T) {
 	}
 }
 
+func TestGroupRefreshPolicyValidation(t *testing.T) {
+	c := Defaults()
+	c.Repositories.GroupRefresh = map[string]time.Duration{"work": time.Minute}
+	if err := Validate(c); err != nil {
+		t.Fatal(err)
+	}
+	c.Repositories.GroupRefresh[" "] = time.Minute
+	if err := Validate(c); err == nil {
+		t.Fatal("blank group policy was accepted")
+	}
+}
+
 func TestV2DefaultsAndBindingCollisionValidation(t *testing.T) {
 	c := Defaults()
 	if c.Version != 2 || c.Remote.PullStrategy != "ff-only" {

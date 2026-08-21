@@ -1,8 +1,8 @@
 # Task 79: Add repository groups and workspace presets
 
-Status: In progress
+Status: Complete
 
-Progress: Added pure group discovery/filtering, favorite updates, duplicate-safe group assignment, deterministic favorite/last-opened/name ordering over registry records, private pinned/favorite persistence through the repository registry, and `--group` CLI launch filtering. Per-group refresh policies remain.
+Progress: Added pure group discovery/filtering, favorite updates, duplicate-safe group assignment, deterministic favorite/last-opened/name ordering over registry records, private pinned/favorite persistence through the repository registry, `--group` CLI launch filtering, and configurable per-group refresh policies applied by the bounded status engine.
 
 ## Objective
 Allow named groups/workspaces such as work, OSS, monorepos, or client projects. Support favorites, pinned ordering, per-group refresh policy, and CLI launch directly into a group.
@@ -26,3 +26,11 @@ Allow named groups/workspaces such as work, OSS, monorepos, or client projects. 
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+## Completion summary
+
+- Groups are declared in configuration and merged into the private repository registry without losing persisted metadata.
+- Favorites provide deterministic pinned ordering and are persisted with the registry.
+- `gitwatch --group <name>` launches directly into a filtered repository dashboard.
+- `repositories.group_refresh` assigns per-group inactive-refresh intervals; repositories in multiple groups use the strictest configured interval.
+- Registry, engine policy, CLI/app, and configuration validation tests pass alongside the repository-wide test, race, vet, and diff gates.

@@ -45,3 +45,24 @@ func TestEngineUsesBoundedWorkersAndCachesInactiveRepositories(t *testing.T) {
 		t.Fatalf("inactive cache was not used: %d", calls.Load())
 	}
 }
+
+func TestEngineUsesRepositoryRefreshPolicy(t *testing.T) {
+	engine := NewEngine(1)
+	engine.InactiveAfter = time.Hour
+	engine.InactiveAfterFor = func(repository Repository) time.Duration {
+		if len(repository.Groups) > 0 && repository.Groups[0] == "fast" {
+			return time.Minute
+		}
+		return time.Hour
+	}
+	engine.Discover = func(context.Context, string) (git.Discovery, error) { return git.Discovery{}, nil }
+	engine.Snapshot = func(context.Context, git.Discovery, uint64) (repo.Snapshot, error) { return repo.Snapshot{}, nil }
+	engine.Stashes = nil
+	engine.Remotes = nil
+	entries := []Repository{{Path: "fast", Groups: []string{"fast"}, LastOpened: time.Now().Add(-2 * time.Hour)}, {Path: "slow", LastOpened: time.Now().Add(-30 * time.Minute)}}
+	engine.Refresh(context.Background(), entries, "active")
+	results := engine.Refresh(context.Background(), entries, "active")
+	if !results[0].Skipped || results[1].Skipped {
+		t.Fatalf("refresh policy results = %#v", results)
+	}
+}

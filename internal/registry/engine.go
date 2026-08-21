@@ -20,15 +20,16 @@ type StatusResult struct {
 }
 
 type Engine struct {
-	Workers       int
-	InactiveAfter time.Duration
-	Budget        time.Duration
-	Discover      func(context.Context, string) (git.Discovery, error)
-	Snapshot      func(context.Context, git.Discovery, uint64) (repo.Snapshot, error)
-	Stashes       func(context.Context, git.Discovery) (int, error)
-	Remotes       func(context.Context, git.Discovery) (int, error)
-	mu            sync.Mutex
-	cache         map[string]StatusResult
+	Workers          int
+	InactiveAfter    time.Duration
+	Budget           time.Duration
+	InactiveAfterFor func(Repository) time.Duration
+	Discover         func(context.Context, string) (git.Discovery, error)
+	Snapshot         func(context.Context, git.Discovery, uint64) (repo.Snapshot, error)
+	Stashes          func(context.Context, git.Discovery) (int, error)
+	Remotes          func(context.Context, git.Discovery) (int, error)
+	mu               sync.Mutex
+	cache            map[string]StatusResult
 }
 
 func NewEngine(workers int) *Engine {
@@ -79,7 +80,11 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 	e.mu.Lock()
 	cached, hasCached := e.cache[repository.Path]
 	e.mu.Unlock()
-	if hasCached && repository.Path != activePath && e.InactiveAfter > 0 && !repository.LastOpened.IsZero() && time.Since(repository.LastOpened) > e.InactiveAfter {
+	inactiveAfter := e.InactiveAfter
+	if e.InactiveAfterFor != nil {
+		inactiveAfter = e.InactiveAfterFor(repository)
+	}
+	if hasCached && repository.Path != activePath && inactiveAfter > 0 && !repository.LastOpened.IsZero() && time.Since(repository.LastOpened) > inactiveAfter {
 		cached.Skipped = true
 		return cached
 	}
