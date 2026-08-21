@@ -1,6 +1,6 @@
 # Task 81: Add operation notifications and attention model
 
-Status: In progress
+Status: Complete
 
 Progress: Added bounded, thread-safe notifications with severity/kind metadata, dismissible attention badges, quiet-mode suppression, and newest-first ordering helpers. Bubble Tea now routes core operation, conflict snapshot, commit-hook failure, stale-remote, plugin-state failure, and remote success/failure events into notifications, renders sanitized toast notices, shows a global attention badge, and supports `Ctrl-N` dismissal of the newest active notification; configured full/reduced/off motion is carried into the app model for presentation policy.
 
@@ -25,4 +25,5 @@ Create non-intrusive toast/activity notifications for completed jobs, conflicts,
 - The task is not complete until automated tests cover its primary behavior.
 
 ## Completion artifact
-Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
+
+Completion summary: Notifications are bounded and thread-safe, carry severity/kind metadata, suppress attention in quiet mode, preserve sanitized toast text, and expose newest-first active/dismissal behavior. The app emits notifications for completed/failed operations, conflicts, hook failures, stale remotes, plugin state failures, and remote outcomes; every workspace renders the attention badge and `Ctrl-N` dismisses the newest active item. Configuration supports quiet notifications and full/reduced/off motion. Model, config, app-routing, badge, dismissal, and race-enabled repository tests pass all quality gates.
