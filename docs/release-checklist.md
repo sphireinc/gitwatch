@@ -2,6 +2,12 @@
 
 `./scripts/release-check.sh` is the repeatable local gate for evidence that can run on the current host. It covers the Go test suite, race detector, vet, build, help/version/config inspection, a real disposable Git demo repository, and release archive checksum verification.
 
+Tagged pushes matching `v*.*.*` run `.github/workflows/release.yml`. That
+workflow cross-builds the five supported archives (`darwin/amd64`,
+`darwin/arm64`, `linux/amd64`, `linux/arm64`, and `windows/amd64`), verifies
+`SHA256SUMS`, and attaches the archives to a GitHub Release. Repository owners
+must still review the generated release notes and approve publication.
+
 The following acceptance evidence remains platform/operator-owned and must be returned before a public v1 tag:
 
 - native Windows run with real path, mouse, resize, stage, unstage, and quit checks;
