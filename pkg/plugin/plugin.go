@@ -3,11 +3,18 @@
 package plugin
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 )
 
 const APIVersion = 1
+
+const (
+	MaxMessageBytes = 1 << 20
+	MaxFieldBytes   = 256
+)
 
 type Capability string
 
@@ -60,12 +67,22 @@ func Encode(message Message) ([]byte, error) {
 }
 
 func Decode(data []byte) (Message, error) {
+	if len(data) > MaxMessageBytes {
+		return Message{}, fmt.Errorf("plugin message exceeds %d bytes", MaxMessageBytes)
+	}
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 {
+		return Message{}, errors.New("plugin message is empty")
+	}
 	var message Message
 	if err := json.Unmarshal(data, &message); err != nil {
 		return Message{}, err
 	}
 	if message.Type == "" {
 		return Message{}, errors.New("plugin message type is required")
+	}
+	if len(message.Type) > MaxFieldBytes || len(message.ID) > MaxFieldBytes {
+		return Message{}, fmt.Errorf("plugin message field exceeds %d bytes", MaxFieldBytes)
 	}
 	return message, nil
 }

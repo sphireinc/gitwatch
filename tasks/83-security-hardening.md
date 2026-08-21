@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Added centralized secret redaction for logs/diagnostics, URL userinfo redaction, safe terminal text handling, hostile secret fixtures, and an explicit discovery policy that skips symlinked filesystem entries and rejects symlinked `.git` metadata. Plugin RPC threat tests and full threat-model documentation remain.
+Progress: Added centralized secret redaction for logs/diagnostics, URL userinfo redaction, safe terminal text handling, hostile secret fixtures, an explicit discovery policy that skips symlinked filesystem entries and rejects symlinked `.git` metadata, bounded plugin protocol decoding, hostile message-size fixtures, and a security threat-model document. Expanded hostile-process fixtures and release/operator review remain.
 
 ## Objective
 Threat-model patches, commit messages, refs, remotes, credentials, GitHub responses, plugin RPC, repository discovery, terminal escape injection, symlinks, and malicious repository contents. Add redaction and hostile-fixture tests.
