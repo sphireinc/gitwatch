@@ -88,3 +88,13 @@ func TestGitHubClientPreservesCancellation(t *testing.T) {
 		t.Fatalf("cancellation error = %v", err)
 	}
 }
+
+func TestGitHubClientDegradesWhenOffline(t *testing.T) {
+	client := GitHubClient{BaseURL: "https://api.test", HTTPClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("network unreachable")
+	})}}
+	_, err := client.PullRequest(context.Background(), Repository{Owner: "o", Name: "r"}, "main")
+	if !errors.Is(err, ErrProviderUnavailable) {
+		t.Fatalf("offline error = %v", err)
+	}
+}

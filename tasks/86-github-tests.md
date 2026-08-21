@@ -1,8 +1,10 @@
 # Task 86: Build GitHub provider contract tests
 
-Status: In progress
+Status: Complete
 
-Progress: Provider parsing, cache behavior, CLI-token failure handling, secret-redaction tests, recorded success/error/rate-limit fixtures, offline degradation, and context-cancellation classification are present without developer credentials. Full provider contract coverage remains limited to the current read-only PR/check/review surface.
+Progress: Provider parsing, cache behavior, CLI-token failure handling, secret-redaction tests, recorded success/error/rate-limit fixtures, offline degradation, and context-cancellation classification are present without developer credentials. The current read-only PR/check/review provider contract is covered by deterministic HTTP fixtures.
+
+Completion summary: Added deterministic fake transport coverage for successful PR/check/review responses, missing/CLI token states, HTTP failures without token leakage, rate-limit retry hints, offline transport failure, cancellation, parsing, and cache behavior. No developer credential is required. Provider errors degrade to typed unavailable/rate-limited/cancelled outcomes.
 
 ## Objective
 Use recorded/fake provider responses for PR/check/auth/rate-limit/error states. Ensure no test requires a developer token. Add redaction tests and graceful degradation when GitHub is offline or unavailable.
