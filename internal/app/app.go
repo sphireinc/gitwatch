@@ -15,6 +15,7 @@ import (
 	"github.com/jusanchez/gitwatch/internal/git"
 	"github.com/jusanchez/gitwatch/internal/history"
 	"github.com/jusanchez/gitwatch/internal/notifications"
+	"github.com/jusanchez/gitwatch/internal/operations"
 	"github.com/jusanchez/gitwatch/internal/patch"
 	"github.com/jusanchez/gitwatch/internal/platform"
 	"github.com/jusanchez/gitwatch/internal/plugins"
@@ -273,6 +274,7 @@ type Model struct {
 	RepositoryRegistry       []registry.Repository
 	RepositoryRegistryPath   string
 	RepositoryEngine         *registry.Engine
+	OperationEngine          *operations.Engine
 	PaletteMode              bool
 	PaletteQuery             string
 	PaletteSelected          int
@@ -282,7 +284,7 @@ type Model struct {
 }
 
 func New() Model {
-	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Keymap: config.DefaultKeymap(), GitHub: githubview.New(), GitHubCache: provider.NewPullRequestCache(2 * time.Minute), GitHubChecksCache: provider.NewCache[provider.ChecksSnapshot](2 * time.Minute), GitHubReviewsCache: provider.NewCache[provider.ReviewSnapshot](2 * time.Minute), Plugins: pluginview.New(nil), Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false)}
+	return Model{State: StateLoading, Focus: "files", Motion: MotionFull, Keymap: config.DefaultKeymap(), GitHub: githubview.New(), GitHubCache: provider.NewPullRequestCache(2 * time.Minute), GitHubChecksCache: provider.NewCache[provider.ChecksSnapshot](2 * time.Minute), GitHubReviewsCache: provider.NewCache[provider.ReviewSnapshot](2 * time.Minute), Plugins: pluginview.New(nil), Theme: theme.New(theme.Auto, false), ctx: context.Background(), RefreshInterval: 2 * time.Second, Workspace: workspace.New(), Notifications: notifications.New(100, false), OperationEngine: operations.New(4)}
 }
 
 func (m Model) paletteActions() []commands.Action {
@@ -1033,6 +1035,18 @@ func (m *Model) startRemoteJob(operation, remote string) context.Context {
 	return ctx
 }
 
+func (m *Model) remoteCommand(ctx context.Context, operation, remote string, work operations.Work) tea.Cmd {
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	id, repoRoot := m.RemoteJobID, m.Discovery.Root
+	command := m.OperationEngine.Command(ctx, id, repoRoot, operation, 5*time.Minute, work)
+	return func() tea.Msg {
+		result := command()
+		return RemoteOperationFinishedMsg{Operation: operation, Remote: remote, Err: result.Result.Err}
+	}
+}
+
 func (m *Model) fetchSelectedRemote() tea.Cmd {
 	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) {
 		return nil
@@ -1041,10 +1055,10 @@ func (m *Model) fetchSelectedRemote() tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx := m.startRemoteJob("fetch", remote)
 	m.Remotes.Dashboard.Jobs[len(m.Remotes.Dashboard.Jobs)-1].Progress = "fetching remote refs"
-	return func() tea.Msg {
+	return m.remoteCommand(ctx, "fetch", remote, func(ctx context.Context) error {
 		_, err := remotes.Fetch(ctx, runner, remote)
-		return RemoteOperationFinishedMsg{Operation: "fetch", Remote: remote, Err: err}
-	}
+		return err
+	})
 }
 
 func (m *Model) pullSelectedRemote(strategy string) tea.Cmd {
@@ -1056,10 +1070,10 @@ func (m *Model) pullSelectedRemote(strategy string) tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx := m.startRemoteJob("pull "+strategy, remote)
 	m.Remotes.Dashboard.Jobs[len(m.Remotes.Dashboard.Jobs)-1].Progress = "integrating " + strategy
-	return func() tea.Msg {
+	return m.remoteCommand(ctx, "pull "+strategy, remote, func(ctx context.Context) error {
 		_, err := remotes.Pull(ctx, runner, remote, branch, strategy)
-		return RemoteOperationFinishedMsg{Operation: "pull " + strategy, Remote: remote, Err: err}
-	}
+		return err
+	})
 }
 
 func (m *Model) pushSelectedRemote(forceWithLease bool) tea.Cmd {
@@ -1072,10 +1086,10 @@ func (m *Model) pushSelectedRemote(forceWithLease bool) tea.Cmd {
 	ctx := m.startRemoteJob("push", remote)
 	m.Remotes.Dashboard.Jobs[len(m.Remotes.Dashboard.Jobs)-1].Progress = "sending refs"
 	setUpstream := m.RemoteSetUpstream
-	return func() tea.Msg {
+	return m.remoteCommand(ctx, "push", remote, func(ctx context.Context) error {
 		_, err := remotes.PushWithOptions(ctx, runner, remote, branch, remotes.PushOptions{ForceWithLease: forceWithLease, SetUpstream: setUpstream})
-		return RemoteOperationFinishedMsg{Operation: "push", Remote: remote, Err: err}
-	}
+		return err
+	})
 }
 
 func (m *Model) pushSelectedTag() tea.Cmd {
@@ -1086,10 +1100,10 @@ func (m *Model) pushSelectedTag() tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx := m.startRemoteJob("push tag", remote)
 	m.Remotes.Dashboard.Jobs[len(m.Remotes.Dashboard.Jobs)-1].Progress = "sending tag"
-	return func() tea.Msg {
+	return m.remoteCommand(ctx, "push tag "+tag, remote, func(ctx context.Context) error {
 		_, err := remotes.PushTag(ctx, runner, remote, tag)
-		return RemoteOperationFinishedMsg{Operation: "push tag " + tag, Remote: remote, Err: err}
-	}
+		return err
+	})
 }
 
 func (m Model) previewSelectedRemotePush() tea.Cmd {
@@ -2262,7 +2276,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					job.Finished = time.Now()
 					if v.Err != nil {
 						job.State, job.Error, job.Progress = remotes.JobFailed, v.Err.Error(), "failed"
-						if errors.Is(v.Err, git.ErrCancelled) {
+						if errors.Is(v.Err, git.ErrCancelled) || errors.Is(v.Err, context.Canceled) {
 							job.State, job.Progress = remotes.JobCanceled, "cancelled"
 						}
 					} else {
