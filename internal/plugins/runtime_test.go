@@ -3,6 +3,9 @@ package plugins
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -25,6 +28,22 @@ func TestLimitedWriterStopsOversizedOutput(t *testing.T) {
 	writer := &limitedWriter{writer: discardWriter{}, limit: 3}
 	if _, err := writer.Write([]byte("1234")); !errors.Is(err, ErrOutputLimit) {
 		t.Fatalf("expected output limit, got %v", err)
+	}
+}
+
+func TestRuntimeContainsHostilePluginOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("portable executable fixture uses a POSIX script")
+	}
+	directory := t.TempDir()
+	executable := filepath.Join(directory, "hostile-plugin")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nprintf '1234567890'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := Manifest{ID: "hostile", Name: "Hostile", Version: "1", APIVersion: APIVersion, Executable: executable}
+	result, err := (Runtime{OutputLimit: 4}).Run(context.Background(), manifest, nil)
+	if err == nil || len(result.Stdout) > 4 {
+		t.Fatalf("hostile output result = len=%d err=%v", len(result.Stdout), err)
 	}
 }
 
