@@ -11,9 +11,13 @@ import (
 	"strings"
 )
 
+// ErrProviderUnavailable indicates that the optional provider cannot be used.
 var ErrProviderUnavailable = errors.New("GitHub provider unavailable")
+
+// ErrRateLimited indicates that the provider rejected a request for quota.
 var ErrRateLimited = errors.New("GitHub API rate limited")
 
+// HTTPError preserves an unsuccessful provider response and status code.
 type HTTPError struct {
 	Status     int
 	RetryAfter string
@@ -33,12 +37,14 @@ func (e *HTTPError) Unwrap() error {
 	return ErrProviderUnavailable
 }
 
+// GitHubClient fetches optional GitHub data using a token source.
 type GitHubClient struct {
 	BaseURL     string
 	TokenSource TokenSource
 	HTTPClient  *http.Client
 }
 
+// PullRequest fetches the open pull request for branch.
 func (c GitHubClient) PullRequest(ctx context.Context, repository Repository, branch string) (PullRequest, error) {
 	var values []json.RawMessage
 	query := url.Values{"head": []string{repository.Owner + ":" + branch}, "state": []string{"open"}, "per_page": []string{"1"}}
@@ -51,6 +57,7 @@ func (c GitHubClient) PullRequest(ctx context.Context, repository Repository, br
 	return ParsePullRequest(values[0])
 }
 
+// Checks fetches check runs for ref.
 func (c GitHubClient) Checks(ctx context.Context, repository Repository, ref string) (ChecksSnapshot, error) {
 	var response json.RawMessage
 	path := "/repos/" + url.PathEscape(repository.Owner) + "/" + url.PathEscape(repository.Name) + "/commits/" + url.PathEscape(ref) + "/check-runs"
@@ -60,6 +67,7 @@ func (c GitHubClient) Checks(ctx context.Context, repository Repository, ref str
 	return ParseChecks(response)
 }
 
+// Reviews fetches review state for a pull request number.
 func (c GitHubClient) Reviews(ctx context.Context, repository Repository, number int) (ReviewSnapshot, error) {
 	var response json.RawMessage
 	path := "/repos/" + url.PathEscape(repository.Owner) + "/" + url.PathEscape(repository.Name) + "/pulls/" + url.PathEscape(fmt.Sprint(number)) + "/reviews"

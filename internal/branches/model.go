@@ -11,11 +11,13 @@ import (
 )
 
 var (
+	// ErrInvalidName indicates that a branch name is unsafe or empty.
 	ErrInvalidName   = errors.New("invalid branch name")
 	ErrCurrentBranch = errors.New("cannot delete the checked-out branch")
 	ErrConfirmation  = errors.New("branch mutation confirmation did not match")
 )
 
+// Branch is a parsed local or remote branch and its synchronization metadata.
 type Branch struct {
 	Name, OID, Upstream string
 	OccupiedPath        string
@@ -26,6 +28,7 @@ type Branch struct {
 	Ahead, Behind       int
 }
 
+// Parse converts NUL-delimited branch records into branch rows.
 func Parse(lines []byte) []Branch {
 	var out []Branch
 	for _, line := range strings.Split(strings.TrimSpace(string(lines)), "\n") {
@@ -49,6 +52,8 @@ func Parse(lines []byte) []Branch {
 	}
 	return out
 }
+
+// List returns local branches and their upstream metadata.
 func List(ctx context.Context, r git.Runner) ([]Branch, error) {
 	res, err := r.Run(ctx, "for-each-ref", "--format=%(refname:short)\x00%(objectname)\x00%(upstream:short)\x00%(HEAD)\x00%(upstream:trackshort)\x00%(creatordate:unix)\x00%(subject)", "refs/heads", "refs/remotes")
 	if err != nil {
@@ -94,6 +99,7 @@ func Divergence(ctx context.Context, r git.Runner, upstream, local string) (behi
 	return ParseDivergence(result.Stdout)
 }
 
+// ListWithOccupancy returns branches annotated with linked-worktree paths.
 func ListWithOccupancy(ctx context.Context, r git.Runner, occupancy map[string]string) ([]Branch, error) {
 	entries, err := List(ctx, r)
 	if err != nil {
@@ -103,6 +109,7 @@ func ListWithOccupancy(ctx context.Context, r git.Runner, occupancy map[string]s
 	return entries, nil
 }
 
+// AttachOccupancy annotates branch entries in place from a branch-to-path map.
 func AttachOccupancy(entries []Branch, occupancy map[string]string) {
 	for i := range entries {
 		if !entries[i].Remote {

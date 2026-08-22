@@ -1,3 +1,4 @@
+// Command releasepack creates deterministic release archives for gitwatch.
 package main
 
 import (

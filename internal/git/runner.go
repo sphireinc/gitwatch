@@ -13,6 +13,7 @@ import (
 )
 
 var (
+	// ErrGitMissing indicates that the Git executable could not be started.
 	ErrGitMissing     = errors.New("git executable not found")
 	ErrNotRepository  = errors.New("not a git repository")
 	ErrCommandFailed  = errors.New("git command failed")
@@ -20,6 +21,7 @@ var (
 	ErrUnsupportedGit = errors.New("unsupported git version")
 )
 
+// Result captures Git's arguments, output, exit code, and execution duration.
 type Result struct {
 	Args     []string
 	Stdout   []byte
@@ -28,6 +30,7 @@ type Result struct {
 	Duration time.Duration
 }
 
+// CommandError classifies a failed Git invocation and retains its result.
 type CommandError struct {
 	Kind   error
 	Args   []string
@@ -44,18 +47,22 @@ func (e *CommandError) Error() string {
 
 func (e *CommandError) Unwrap() error { return e.Kind }
 
+// Runner executes Git with an argument vector in a specific directory.
 type Runner struct {
 	Binary string
 	Dir    string
 	Env    []string
 }
 
+// NewRunner creates a Runner that invokes Git from dir.
 func NewRunner(dir string) Runner { return Runner{Binary: "git", Dir: dir} }
 
+// Run executes Git without stdin and returns its captured result.
 func (r Runner) Run(ctx context.Context, args ...string) (Result, error) {
 	return r.run(ctx, nil, args...)
 }
 
+// RunInput executes Git with input connected to stdin.
 func (r Runner) RunInput(ctx context.Context, input []byte, args ...string) (Result, error) {
 	return r.run(ctx, bytes.NewReader(input), args...)
 }

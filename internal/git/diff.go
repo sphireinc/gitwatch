@@ -6,6 +6,7 @@ import (
 	"strconv"
 )
 
+// Diff is the result of reading a path's staged or unstaged patch.
 type Diff struct {
 	Path   []byte
 	Staged bool
@@ -14,6 +15,7 @@ type Diff struct {
 	Result Result
 }
 
+// Diff returns a unified diff with Git's default context size.
 func (r Runner) Diff(ctx context.Context, path []byte, staged bool) (Diff, error) {
 	return r.DiffWithContext(ctx, path, staged, 3)
 }

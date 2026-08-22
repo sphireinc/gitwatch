@@ -8,6 +8,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/git"
 )
 
+// Remote is a configured Git remote and its resolved synchronization metadata.
 type Remote struct {
 	Name          string
 	FetchURL      string
@@ -18,6 +19,7 @@ type Remote struct {
 	LastFetchUnix int64
 }
 
+// List returns remotes from Git using machine-readable configuration output.
 func List(ctx context.Context, runner git.Runner) ([]Remote, error) {
 	result, err := runner.Run(ctx, "remote")
 	if err != nil {
@@ -57,6 +59,7 @@ func parseUnix(data []byte) int64 {
 	return value
 }
 
+// Redact removes credentials and sensitive query data from a remote URL.
 func Redact(raw string) string {
 	raw = strings.TrimSpace(raw)
 	parsed, err := url.Parse(raw)

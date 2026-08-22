@@ -10,6 +10,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/repo"
 )
 
+// StatusResult contains one repository's refresh outcome.
 type StatusResult struct {
 	Repository Repository
 	Snapshot   repo.Snapshot
@@ -23,6 +24,7 @@ type StatusResult struct {
 	Refreshed  time.Time
 }
 
+// Engine refreshes repositories concurrently with a bounded worker pool.
 type Engine struct {
 	Workers          int
 	InactiveAfter    time.Duration
@@ -36,6 +38,7 @@ type Engine struct {
 	cache            map[string]StatusResult
 }
 
+// NewEngine creates a registry engine with at least one worker.
 func NewEngine(workers int) *Engine {
 	if workers < 1 {
 		workers = 1
@@ -43,6 +46,7 @@ func NewEngine(workers int) *Engine {
 	return &Engine{Workers: workers, InactiveAfter: 5 * time.Minute, Budget: 15 * time.Second, Discover: git.Discover, Snapshot: git.Snapshot, Stashes: stashCount, Remotes: remoteCount, cache: make(map[string]StatusResult)}
 }
 
+// Refresh reads all repositories and returns results in input order.
 func (e *Engine) Refresh(ctx context.Context, repositories []Repository, activePath string) []StatusResult {
 	workers := e.Workers
 	if workers < 1 {

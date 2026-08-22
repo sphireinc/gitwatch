@@ -1,3 +1,4 @@
+// Package pluginview renders discovered plugins and their capability state.
 package pluginview
 
 import (
@@ -8,20 +9,26 @@ import (
 	"github.com/sphireinc/git-watch/internal/plugins"
 )
 
+// Model stores the selection state for the plugin view.
 type Model struct {
 	Entries  []plugins.Entry
 	Selected int
 }
 
+// New creates a plugin view model with entries selected at the first row.
 func New(entries []plugins.Entry) Model {
 	return Model{Entries: append([]plugins.Entry(nil), entries...)}
 }
+
+// SetEntries replaces rows while keeping the selection within the new bounds.
 func (m *Model) SetEntries(entries []plugins.Entry) {
 	m.Entries = append([]plugins.Entry(nil), entries...)
 	if m.Selected >= len(m.Entries) {
 		m.Selected = max(0, len(m.Entries)-1)
 	}
 }
+
+// Move shifts the selected row by delta and clamps it to the available rows.
 func (m *Model) Move(delta int) {
 	m.Selected += delta
 	if m.Selected < 0 {
@@ -32,6 +39,7 @@ func (m *Model) Move(delta int) {
 	}
 }
 
+// View renders plugin names, capabilities, and health state.
 func (m Model) View() string {
 	lines := []string{"Plugins"}
 	for i, entry := range m.Entries {

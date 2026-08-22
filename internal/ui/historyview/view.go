@@ -1,3 +1,4 @@
+// Package historyview renders commit history and graph lanes.
 package historyview
 
 import (
@@ -17,8 +18,10 @@ type Model struct {
 	Pulse    uint8
 }
 
+// New creates a history view from commits ordered by the history service.
 func New(commits []history.Commit) Model { return Model{Rows: history.BuildGraph(commits)} }
 
+// SetCommits replaces history rows and preserves the selected position.
 func (m *Model) SetCommits(commits []history.Commit) {
 	selectedSHA := ""
 	if m.Selected >= 0 && m.Selected < len(m.Rows) {
@@ -34,13 +37,16 @@ func (m *Model) SetCommits(commits []history.Commit) {
 	}
 }
 
+// SetFilter applies a subject, author, or SHA filter to commits.
 func (m *Model) SetFilter(filter string, commits []history.Commit) {
 	m.Filter = filter
 	m.SetCommits(commits)
 }
 
+// SetPulse updates the render pulse used for activity emphasis.
 func (m *Model) SetPulse(pulse uint8) { m.Pulse = pulse }
 
+// Move shifts the selected commit and clamps it to available rows.
 func (m *Model) Move(delta int) {
 	if len(m.Rows) == 0 {
 		m.Selected = 0
@@ -55,6 +61,7 @@ func (m *Model) Move(delta int) {
 	}
 }
 
+// View renders the history graph and selected commit metadata.
 func (m Model) View() string {
 	lines := []string{"History"}
 	if m.Filter != "" {

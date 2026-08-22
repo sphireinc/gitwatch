@@ -2,11 +2,14 @@ package repo
 
 import "time"
 
+// Path preserves a repository path as bytes so unusual names survive parsing.
 type Path []byte
 
+// Bytes returns an owned copy of the path bytes.
 func (p Path) Bytes() []byte  { return append([]byte(nil), p...) }
 func (p Path) String() string { return string(p) }
 
+// Entry is an immutable projection of one Git status path.
 type Entry struct {
 	Path       Path
 	Original   Path
@@ -25,6 +28,7 @@ type Entry struct {
 	Submodule  string
 }
 
+// ConflictType returns the human-readable conflict classification.
 func (e Entry) ConflictType() string {
 	if !e.Conflicted {
 		return ""
@@ -49,6 +53,7 @@ func (e Entry) ConflictType() string {
 	}
 }
 
+// Branch contains HEAD, upstream, and divergence metadata.
 type Branch struct {
 	Name     string
 	OID      string
@@ -59,8 +64,10 @@ type Branch struct {
 	Unborn   bool
 }
 
+// Counts summarizes status categories in a snapshot.
 type Counts struct{ Staged, Unstaged, Untracked, Conflicted, Added, Deleted int }
 
+// Snapshot is the authoritative repository state used by the UI.
 type Snapshot struct {
 	Root            string
 	GitDir          string
@@ -72,6 +79,7 @@ type Snapshot struct {
 	RefreshDuration time.Duration
 }
 
+// Clone returns an independent snapshot copy safe for model ownership.
 func (s Snapshot) Clone() Snapshot {
 	s.Entries = append([]Entry(nil), s.Entries...)
 	for i := range s.Entries {
@@ -81,6 +89,7 @@ func (s Snapshot) Clone() Snapshot {
 	return s
 }
 
+// StatusLabel returns the compact status symbol for an entry.
 func StatusLabel(e Entry) string {
 	switch {
 	case e.Conflicted:

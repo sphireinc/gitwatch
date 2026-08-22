@@ -1,3 +1,4 @@
+// Package worktreeview renders linked worktrees and their selection state.
 package worktreeview
 
 import (
@@ -8,15 +9,18 @@ import (
 	"github.com/sphireinc/git-watch/internal/worktrees"
 )
 
+// Model stores the selection state for the worktree view.
 type Model struct {
 	Entries  []worktrees.Entry
 	Selected int
 }
 
+// New creates a worktree view model with entries selected at the first row.
 func New(entries []worktrees.Entry) Model {
 	return Model{Entries: append([]worktrees.Entry(nil), entries...)}
 }
 
+// SetEntries replaces rows while keeping the selection within the new bounds.
 func (m *Model) SetEntries(entries []worktrees.Entry) {
 	selectedPath := ""
 	if m.Selected >= 0 && m.Selected < len(m.Entries) {
@@ -32,6 +36,7 @@ func (m *Model) SetEntries(entries []worktrees.Entry) {
 	}
 }
 
+// Move shifts the selected row by delta and clamps it to the available rows.
 func (m *Model) Move(delta int) {
 	if len(m.Entries) == 0 {
 		m.Selected = 0
@@ -46,6 +51,7 @@ func (m *Model) Move(delta int) {
 	}
 }
 
+// View renders the current worktree rows.
 func (m Model) View() string {
 	lines := []string{"Worktrees"}
 	for i, entry := range m.Entries {

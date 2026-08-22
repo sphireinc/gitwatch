@@ -9,17 +9,20 @@ import (
 )
 
 var (
+	// ErrMissingRemote indicates that an operation did not name an explicit remote.
 	ErrMissingRemote    = errors.New("remote operation requires an explicit remote")
 	ErrStrategyRequired = errors.New("pull strategy must be explicitly selected")
 	ErrMissingTag       = errors.New("tag push requires an explicit tag")
 )
 
+// RefMovement describes the commits a remote operation would add or remove.
 type RefMovement struct {
 	Remote, Branch string
 	LocalSHA       string
 	RemoteSHA      string
 }
 
+// PreviewPush calculates remote ref movement without changing the repository.
 func PreviewPush(ctx context.Context, runner git.Runner, remote, branch string) (RefMovement, error) {
 	if !validArg(remote) || !validArg(branch) {
 		return RefMovement{}, ErrMissingRemote
@@ -43,6 +46,7 @@ func parseRemoteSHA(data []byte) string {
 	return fields[0]
 }
 
+// Fetch updates remote-tracking refs for remote.
 func Fetch(ctx context.Context, runner git.Runner, remote string) (git.Result, error) {
 	if !validArg(remote) {
 		return git.Result{}, ErrMissingRemote
@@ -50,6 +54,7 @@ func Fetch(ctx context.Context, runner git.Runner, remote string) (git.Result, e
 	return runner.Run(ctx, "fetch", "--progress", remote)
 }
 
+// Pull integrates branch from remote using the selected strategy.
 func Pull(ctx context.Context, runner git.Runner, remote, branch, strategy string) (git.Result, error) {
 	if !validArg(remote) || !validArg(branch) {
 		return git.Result{}, ErrMissingRemote
@@ -67,16 +72,19 @@ func Pull(ctx context.Context, runner git.Runner, remote, branch, strategy strin
 	return runner.Run(ctx, append(args, remote, branch)...)
 }
 
+// Push publishes branch to remote, optionally using force-with-lease.
 func Push(ctx context.Context, runner git.Runner, remote, branch string, forceWithLease bool) (git.Result, error) {
 	return PushWithOptions(ctx, runner, remote, branch, PushOptions{ForceWithLease: forceWithLease})
 }
 
+// PushOptions controls safety checks and refspec behavior for a push.
 type PushOptions struct {
 	ForceWithLease bool
 	SetUpstream    bool
 	Tag            bool
 }
 
+// PushWithOptions publishes ref using the supplied push safety options.
 func PushWithOptions(ctx context.Context, runner git.Runner, remote, ref string, options PushOptions) (git.Result, error) {
 	if !validArg(remote) {
 		return git.Result{}, ErrMissingRemote
@@ -102,10 +110,12 @@ func PushWithOptions(ctx context.Context, runner git.Runner, remote, ref string,
 	return runner.Run(ctx, args...)
 }
 
+// PushTag publishes tag to remote.
 func PushTag(ctx context.Context, runner git.Runner, remote, tag string) (git.Result, error) {
 	return PushWithOptions(ctx, runner, remote, tag, PushOptions{Tag: true})
 }
 
+// PushSetUpstream publishes branch and records remote as its upstream.
 func PushSetUpstream(ctx context.Context, runner git.Runner, remote, branch string) (git.Result, error) {
 	return PushWithOptions(ctx, runner, remote, branch, PushOptions{SetUpstream: true})
 }

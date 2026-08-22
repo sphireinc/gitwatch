@@ -1,3 +1,4 @@
+// Package branchview renders branch rows with filtering and sorting controls.
 package branchview
 
 import (
@@ -10,15 +11,21 @@ import (
 	"github.com/sphireinc/git-watch/internal/platform"
 )
 
+// SortKey identifies the branch field used for ordering.
 type SortKey string
 
 const (
-	SortName       SortKey = "name"
-	SortAhead      SortKey = "ahead"
-	SortBehind     SortKey = "behind"
+	// SortName orders branches by name.
+	SortName SortKey = "name"
+	// SortAhead orders branches by ahead count.
+	SortAhead SortKey = "ahead"
+	// SortBehind orders branches by behind count.
+	SortBehind SortKey = "behind"
+	// SortLastCommit orders branches by commit timestamp.
 	SortLastCommit SortKey = "last-commit"
 )
 
+// Model stores filtered, sorted branch rows and the current selection.
 type Model struct {
 	Entries    []branches.Branch
 	AllEntries []branches.Branch
@@ -28,12 +35,14 @@ type Model struct {
 	Desc       bool
 }
 
+// New creates a branch view model from the supplied rows.
 func New(e []branches.Branch) Model {
 	m := Model{AllEntries: append([]branches.Branch(nil), e...), Sort: SortName}
 	m.apply()
 	return m
 }
 
+// SetEntries replaces branch rows while preserving the selected branch.
 func (m *Model) SetEntries(entries []branches.Branch) {
 	selected := ""
 	if m.Selected >= 0 && m.Selected < len(m.Entries) {
@@ -50,12 +59,14 @@ func (m *Model) SetEntries(entries []branches.Branch) {
 	}
 }
 
+// SetFilter applies a case-insensitive name or upstream filter.
 func (m *Model) SetFilter(query string) {
 	m.Query = query
 	m.apply()
 	m.Selected = 0
 }
 
+// CycleSort advances through supported sort fields and direction.
 func (m *Model) CycleSort() SortKey {
 	keys := []SortKey{SortName, SortAhead, SortBehind, SortLastCommit}
 	index := 0
@@ -107,7 +118,10 @@ func (m *Model) apply() {
 	})
 }
 
+// SortLabel returns the current sort field name.
 func (m Model) SortLabel() string { return string(m.Sort) }
+
+// Move shifts the selected branch and clamps it to the filtered rows.
 func (m *Model) Move(d int) {
 	m.Selected += d
 	if m.Selected < 0 {
@@ -117,6 +131,8 @@ func (m *Model) Move(d int) {
 		m.Selected = len(m.Entries) - 1
 	}
 }
+
+// View renders the filtered branch list and synchronization metadata.
 func (m Model) View() string {
 	header := "Branches"
 	if m.Query != "" {

@@ -1,3 +1,4 @@
+// Package theme defines semantic terminal styles and colorless fallbacks.
 package theme
 
 import (

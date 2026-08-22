@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Status is the parsed repository-wide porcelain-v2 status response.
 type Status struct {
 	BranchHead string
 	BranchOID  string
@@ -15,6 +16,7 @@ type Status struct {
 	Entries    []StatusEntry
 }
 
+// StatusEntry is one porcelain-v2 path record with byte-preserved paths.
 type StatusEntry struct {
 	Kind        byte
 	XY          string
@@ -29,6 +31,7 @@ type StatusEntry struct {
 	OrigPath    []byte
 }
 
+// ParseError identifies malformed machine-readable Git output.
 type ParseError struct {
 	Record []byte
 	Reason string
@@ -38,6 +41,7 @@ func (e *ParseError) Error() string {
 	return fmt.Sprintf("porcelain v2 record: %s (%q)", e.Reason, e.Record)
 }
 
+// ParseStatus parses NUL-delimited porcelain-v2 status output.
 func ParseStatus(data []byte) (Status, error) {
 	var status Status
 	for len(data) > 0 {

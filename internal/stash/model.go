@@ -1,3 +1,4 @@
+// Package stash provides guarded Git stash operations and immutable stash rows.
 package stash
 
 import (
@@ -7,13 +8,16 @@ import (
 	"strings"
 )
 
+// ErrInvalidRef indicates that a stash reference is empty or malformed.
 var ErrInvalidRef = errors.New("invalid stash reference")
 
+// Entry is one stash entry returned by Git.
 type Entry struct {
 	Ref, OID, Branch, Message string
 	Unix                      int64
 }
 
+// Parse converts formatted stash output into entries.
 func Parse(lines []byte) []Entry {
 	var out []Entry
 	for _, line := range strings.Split(strings.TrimSpace(string(lines)), "\n") {
@@ -37,6 +41,8 @@ func parseInt(s string) int64 {
 	}
 	return n
 }
+
+// List returns the repository's stash entries, newest first.
 func List(ctx context.Context, r git.Runner) ([]Entry, error) {
 	res, err := r.Run(ctx, "stash", "list", "--format=%gd %H %ct %s")
 	if err != nil {
@@ -44,10 +50,13 @@ func List(ctx context.Context, r git.Runner) ([]Entry, error) {
 	}
 	return Parse(res.Stdout), nil
 }
+
+// Create saves tracked worktree changes as a stash.
 func Create(ctx context.Context, r git.Runner, message string) (git.Result, error) {
 	return CreateWithOptions(ctx, r, message, true)
 }
 
+// CreateWithOptions saves changes and optionally includes untracked files.
 func CreateWithOptions(ctx context.Context, r git.Runner, message string, includeUntracked bool) (git.Result, error) {
 	args := []string{"stash", "push", "-m", message}
 	if includeUntracked {
@@ -55,6 +64,8 @@ func CreateWithOptions(ctx context.Context, r git.Runner, message string, includ
 	}
 	return r.Run(ctx, append(args, "--")...)
 }
+
+// Apply reapplies a stash while retaining it in the stash list.
 func Apply(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
 	if !validRef(ref) {
 		return git.Result{}, ErrInvalidRef
@@ -70,6 +81,7 @@ func ApplyChecked(ctx context.Context, r git.Runner, ref string) (git.Result, er
 	return Apply(ctx, r, ref)
 }
 
+// Pop reapplies a stash and removes it when the operation succeeds.
 func Pop(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
 	if !validRef(ref) {
 		return git.Result{}, ErrInvalidRef
@@ -85,6 +97,7 @@ func PopChecked(ctx context.Context, r git.Runner, ref string) (git.Result, erro
 	return Pop(ctx, r, ref)
 }
 
+// Drop removes a stash after validating its reference.
 func Drop(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
 	if !validRef(ref) {
 		return git.Result{}, ErrInvalidRef
@@ -92,6 +105,7 @@ func Drop(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
 	return r.Run(ctx, "stash", "drop", ref)
 }
 
+// Branch creates a new branch from a stash and applies the stash changes.
 func Branch(ctx context.Context, r git.Runner, name, ref string) (git.Result, error) {
 	if !validRef(ref) || !validName(name) {
 		return git.Result{}, ErrInvalidRef
@@ -107,6 +121,7 @@ func BranchChecked(ctx context.Context, r git.Runner, name, ref string) (git.Res
 	return Branch(ctx, r, name, ref)
 }
 
+// Show returns the patch represented by a stash.
 func Show(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
 	if !validRef(ref) {
 		return git.Result{}, ErrInvalidRef
@@ -114,6 +129,7 @@ func Show(ctx context.Context, r git.Runner, ref string) (git.Result, error) {
 	return r.Run(ctx, "stash", "show", "--patch", "--stat", ref)
 }
 
+// RequireClean rejects stash application when tracked worktree changes exist.
 func RequireClean(ctx context.Context, r git.Runner) error {
 	result, err := r.Run(ctx, "status", "--porcelain=v1", "-z", "--untracked-files=all")
 	if err != nil {

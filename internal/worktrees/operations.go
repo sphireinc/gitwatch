@@ -8,8 +8,10 @@ import (
 	"github.com/sphireinc/git-watch/internal/git"
 )
 
+// ErrInvalidTarget indicates that a worktree path or branch is unsafe to use.
 var ErrInvalidTarget = errors.New("invalid worktree target")
 
+// Add creates a linked worktree at path for branch.
 func Add(ctx context.Context, runner git.Runner, path, branch string) (git.Result, error) {
 	if !validTarget(path) || (branch != "" && !validTarget(branch)) {
 		return git.Result{}, ErrInvalidTarget
@@ -39,6 +41,7 @@ func AddWithCommit(ctx context.Context, runner git.Runner, path, branch, commit 
 	return runner.Run(ctx, args...)
 }
 
+// Remove deletes a linked worktree, optionally forcing removal of changes.
 func Remove(ctx context.Context, runner git.Runner, path string, force bool) (git.Result, error) {
 	if !validTarget(path) {
 		return git.Result{}, ErrInvalidTarget
@@ -50,6 +53,7 @@ func Remove(ctx context.Context, runner git.Runner, path string, force bool) (gi
 	return runner.Run(ctx, append(args, path)...)
 }
 
+// Prune removes stale linked-worktree metadata, or previews that removal.
 func Prune(ctx context.Context, runner git.Runner, dryRun bool) (git.Result, error) {
 	args := []string{"worktree", "prune"}
 	if dryRun {
@@ -58,6 +62,7 @@ func Prune(ctx context.Context, runner git.Runner, dryRun bool) (git.Result, err
 	return runner.Run(ctx, args...)
 }
 
+// Occupancy maps each branch to the worktree path currently using it.
 func Occupancy(entries []Entry) map[string]string {
 	occupied := make(map[string]string)
 	for _, entry := range entries {

@@ -7,8 +7,10 @@ import (
 	"github.com/sphireinc/git-watch/internal/repo"
 )
 
+// SnapshotFunc refreshes repository state for a monotonically increasing generation.
 type SnapshotFunc func(context.Context, uint64) (repo.Snapshot, error)
 
+// RefreshCoordinator coalesces refresh requests and publishes completed snapshots.
 type RefreshCoordinator struct {
 	mu         sync.Mutex
 	active     bool
@@ -21,17 +23,24 @@ type RefreshCoordinator struct {
 	wg         sync.WaitGroup
 }
 
+// RefreshResult contains one snapshot refresh and its possible error.
 type RefreshResult struct {
 	Snapshot repo.Snapshot
 	Err      error
 }
 
+// NewRefreshCoordinator creates a coordinator backed by fn.
 func NewRefreshCoordinator(fn SnapshotFunc) *RefreshCoordinator {
 	return &RefreshCoordinator{refresh: fn, results: make(chan RefreshResult, 2), closed: make(chan struct{})}
 }
-func (c *RefreshCoordinator) Results() <-chan RefreshResult { return c.results }
-func (c *RefreshCoordinator) Done() <-chan struct{}         { return c.closed }
 
+// Results returns the channel on which completed refreshes are published.
+func (c *RefreshCoordinator) Results() <-chan RefreshResult { return c.results }
+
+// Done returns a channel that closes when the coordinator shuts down.
+func (c *RefreshCoordinator) Done() <-chan struct{} { return c.closed }
+
+// Request schedules a refresh, coalescing requests that arrive while one runs.
 func (c *RefreshCoordinator) Request(ctx context.Context) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -93,6 +102,7 @@ func (c *RefreshCoordinator) run(ctx context.Context) {
 	}
 }
 
+// Close cancels the active refresh and waits for the coordinator to stop.
 func (c *RefreshCoordinator) Close() {
 	c.mu.Lock()
 	select {

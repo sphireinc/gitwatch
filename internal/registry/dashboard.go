@@ -7,6 +7,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/repo"
 )
 
+// Row is a render-ready repository status row.
 type Row struct {
 	Repository Repository
 	Branch     string
@@ -23,6 +24,7 @@ type Row struct {
 	State      string
 }
 
+// Rows converts refresh results into independently owned dashboard rows.
 func Rows(results []StatusResult) []Row {
 	rows := make([]Row, 0, len(results))
 	for _, result := range results {
@@ -41,6 +43,7 @@ func Rows(results []StatusResult) []Row {
 	return rows
 }
 
+// FilterRows returns rows whose path, group, or status matches query.
 func FilterRows(rows []Row, query string) []Row {
 	query = strings.ToLower(strings.TrimSpace(query))
 	if query == "" {
@@ -55,15 +58,18 @@ func FilterRows(rows []Row, query string) []Row {
 	return filtered
 }
 
+// SortKey identifies the field used to order repository rows.
 type SortKey string
 
 const (
+	// SortName orders rows by repository name.
 	SortName   SortKey = "name"
 	SortDirty  SortKey = "dirty"
 	SortAhead  SortKey = "ahead"
 	SortBehind SortKey = "behind"
 )
 
+// SortRows returns a sorted copy of rows.
 func SortRows(rows []Row, key SortKey, descending bool) []Row {
 	sorted := append([]Row(nil), rows...)
 	sort.SliceStable(sorted, func(i, j int) bool {

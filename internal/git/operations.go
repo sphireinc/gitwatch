@@ -8,18 +8,22 @@ import (
 	"github.com/sphireinc/git-watch/internal/repo"
 )
 
+// OperationResult records a mutating Git command and the paths it affected.
 type OperationResult struct {
 	Name   string
 	Paths  [][]byte
 	Result Result
 }
 
+// Stage adds path to the index.
 func (r Runner) Stage(ctx context.Context, path []byte) (OperationResult, error) {
 	return r.pathOperation(ctx, "stage", []byte(path), "add", "--")
 }
 
+// StageAllowed reports whether an entry can be staged without conflict handling.
 func StageAllowed(entry repo.Entry) bool { return !entry.Conflicted }
 
+// Unstage removes path from the index while preserving its worktree content.
 func (r Runner) Unstage(ctx context.Context, path []byte) (OperationResult, error) {
 	result, err := r.pathOperation(ctx, "unstage", path, "restore", "--staged", "--")
 	if err == nil {
@@ -31,11 +35,13 @@ func (r Runner) Unstage(ctx context.Context, path []byte) (OperationResult, erro
 	return r.pathOperation(ctx, "unstage", path, "reset", "HEAD", "--")
 }
 
+// StageAll adds all worktree changes to the index.
 func (r Runner) StageAll(ctx context.Context) (OperationResult, error) {
 	result, err := r.Run(ctx, "add", "--all", "--")
 	return OperationResult{Name: "stage all", Result: result}, err
 }
 
+// Restore discards selected staged or worktree content for path.
 func (r Runner) Restore(ctx context.Context, path []byte, staged, worktree bool) (OperationResult, error) {
 	if !worktree {
 		return OperationResult{Name: "restore"}, fmt.Errorf("restore %q: no working-tree content selected", path)
@@ -52,6 +58,7 @@ func (r Runner) Restore(ctx context.Context, path []byte, staged, worktree bool)
 	return OperationResult{Name: "restore", Paths: [][]byte{append([]byte(nil), path...)}, Result: result}, err
 }
 
+// UnstageAll removes all paths from the index while preserving worktree files.
 func (r Runner) UnstageAll(ctx context.Context) (OperationResult, error) {
 	result, err := r.Run(ctx, "restore", "--staged", ".")
 	if err != nil {

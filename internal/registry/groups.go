@@ -2,6 +2,7 @@ package registry
 
 import "sort"
 
+// Groups returns distinct non-empty repository groups in stable order.
 func Groups(repositories []Repository) []string {
 	seen := make(map[string]bool)
 	var groups []string
@@ -17,6 +18,7 @@ func Groups(repositories []Repository) []string {
 	return groups
 }
 
+// InGroup returns repositories assigned to group.
 func InGroup(repositories []Repository, group string) []Repository {
 	var filtered []Repository
 	for _, repository := range repositories {
@@ -30,6 +32,7 @@ func InGroup(repositories []Repository, group string) []Repository {
 	return Order(filtered)
 }
 
+// SetFavorite returns repositories with path's favorite flag updated.
 func SetFavorite(repositories []Repository, path string, favorite bool) []Repository {
 	updated := clone(repositories)
 	for i := range updated {
@@ -40,6 +43,7 @@ func SetFavorite(repositories []Repository, path string, favorite bool) []Reposi
 	return Order(updated)
 }
 
+// AddToGroup returns repositories with path assigned to group.
 func AddToGroup(repositories []Repository, path, group string) []Repository {
 	updated := clone(repositories)
 	for i := range updated {
@@ -56,6 +60,7 @@ func AddToGroup(repositories []Repository, path, group string) []Repository {
 	return Order(updated)
 }
 
+// Order returns repositories in favorite-first, group, name order.
 func Order(repositories []Repository) []Repository {
 	ordered := clone(repositories)
 	sort.SliceStable(ordered, func(i, j int) bool {

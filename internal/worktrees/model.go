@@ -1,3 +1,4 @@
+// Package worktrees provides parsing and operations for linked Git worktrees.
 package worktrees
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/git"
 )
 
+// Entry is one linked worktree reported by Git.
 type Entry struct {
 	Path     string
 	HEAD     string
@@ -18,6 +20,7 @@ type Entry struct {
 	Prunable bool
 }
 
+// Parse converts porcelain worktree output into entries.
 func Parse(lines []byte) []Entry {
 	var out []Entry
 	var entry Entry
@@ -54,6 +57,7 @@ func Parse(lines []byte) []Entry {
 	return out
 }
 
+// List returns linked worktrees from the repository.
 func List(ctx context.Context, runner git.Runner) ([]Entry, error) {
 	result, err := runner.Run(ctx, "worktree", "list", "--porcelain")
 	if err != nil {

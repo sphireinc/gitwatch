@@ -7,6 +7,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/repo"
 )
 
+// Snapshot reads authoritative porcelain-v2 status without modifying the index.
 func Snapshot(ctx context.Context, d Discovery, generation uint64) (repo.Snapshot, error) {
 	start := time.Now()
 	// Prevent the read-only status refresh from opportunistically rewriting the

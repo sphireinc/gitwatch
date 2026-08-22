@@ -7,6 +7,7 @@ import (
 	"runtime"
 )
 
+// OpenURLCommand returns the platform command used to open an HTTP(S) URL.
 func OpenURLCommand(raw string) (*exec.Cmd, error) {
 	parsed, err := url.Parse(raw)
 	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {

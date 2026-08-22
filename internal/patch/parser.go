@@ -1,3 +1,4 @@
+// Package patch parses unified Git patches while preserving their raw text.
 package patch
 
 import (
@@ -6,26 +7,36 @@ import (
 	"strings"
 )
 
+// LineKind identifies the role of a line within a patch hunk.
 type LineKind byte
 
 const (
+	// Context is an unchanged context line.
 	Context LineKind = ' '
-	Added   LineKind = '+'
+	// Added is a line added by the patch.
+	Added LineKind = '+'
+	// Removed is a line removed by the patch.
 	Removed LineKind = '-'
-	Meta    LineKind = 'm'
+	// Meta is patch metadata rather than file content.
+	Meta LineKind = 'm'
 )
 
+// Line is one parsed patch line and its old/new source positions.
 type Line struct {
 	Kind             LineKind
 	Text             string
 	OldLine, NewLine int
 	NoNewline        bool
 }
+
+// Hunk is one contiguous change region in a patch file.
 type Hunk struct {
 	OldStart, OldCount, NewStart, NewCount int
 	Header                                 string
 	Lines                                  []Line
 }
+
+// File is one file-level patch, including binary and rename metadata.
 type File struct {
 	OldPath, NewPath                       string
 	Binary                                 bool
@@ -33,9 +44,13 @@ type File struct {
 	Hunks                                  []Hunk
 	Raw                                    string
 }
+
+// ParseError identifies the malformed patch line and reason.
 type ParseError struct{ Line, Reason string }
 
 func (e *ParseError) Error() string { return fmt.Sprintf("patch: %s: %q", e.Reason, e.Line) }
+
+// Parse converts unified diff text into files, hunks, and lines.
 func Parse(input string) ([]File, error) {
 	lines := strings.Split(strings.ReplaceAll(input, "\r\n", "\n"), "\n")
 	var files []File

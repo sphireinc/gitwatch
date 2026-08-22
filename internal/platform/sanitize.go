@@ -21,6 +21,7 @@ func SafeText(value string) string {
 	return b.String()
 }
 
+// RedactSecrets removes credential-like values before text reaches logs.
 func RedactSecrets(value string) string {
 	value = secretPattern.ReplaceAllString(value, "$1=[REDACTED]")
 	if strings.Contains(value, "https://") || strings.Contains(value, "http://") {

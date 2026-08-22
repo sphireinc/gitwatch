@@ -8,11 +8,13 @@ import (
 	"time"
 )
 
+// Logger writes timestamped, sanitized messages to a private log destination.
 type Logger struct {
 	mu sync.Mutex
 	w  io.Writer
 }
 
+// NewLogger creates a logger that discards output when path is empty.
 func NewLogger(path string) (*Logger, error) {
 	if path == "" {
 		return &Logger{w: io.Discard}, nil
@@ -23,6 +25,8 @@ func NewLogger(path string) (*Logger, error) {
 	}
 	return &Logger{w: f}, nil
 }
+
+// Printf writes one sanitized, UTC-timestamped formatted message.
 func (l *Logger) Printf(format string, args ...any) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()

@@ -8,6 +8,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/patch"
 )
 
+// Model stores file, hunk, line, viewport, and partial-selection state.
 type Model struct {
 	Files            []patch.File
 	File, Hunk, Line int
@@ -15,7 +16,10 @@ type Model struct {
 	Selection        hunks.Selection
 }
 
+// New creates a hunk view model for parsed patch files.
 func New(files []patch.File) Model { return Model{Files: files, Selection: hunks.New()} }
+
+// Move shifts the selected line within the current hunk.
 func (m *Model) Move(delta int) {
 	if len(m.Files) == 0 {
 		return
@@ -36,6 +40,8 @@ func (m *Model) Move(delta int) {
 	}
 	m.ensureVisible()
 }
+
+// MoveHunk moves to the next or previous non-empty hunk across files.
 func (m *Model) MoveHunk(delta int) {
 	if len(m.Files) == 0 || delta == 0 {
 		return
@@ -64,6 +70,8 @@ func (m *Model) MoveHunk(delta int) {
 		}
 	}
 }
+
+// MoveFile moves to the next or previous file containing a hunk.
 func (m *Model) MoveFile(delta int) {
 	if len(m.Files) == 0 || delta == 0 {
 		return

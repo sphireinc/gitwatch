@@ -1,3 +1,4 @@
+// Package commitview renders and validates the commit composer.
 package commitview
 
 import (
@@ -7,6 +8,7 @@ import (
 	"strings"
 )
 
+// Composer stores editable commit draft state and validation feedback.
 type Composer struct {
 	Draft         commitmodel.Draft
 	Focus         string
@@ -15,13 +17,24 @@ type Composer struct {
 	ConfigSummary string
 }
 
+// New creates a composer for the supplied commit files.
 func New(files []commitmodel.File) Composer {
 	return Composer{Draft: commitmodel.Draft{Files: append([]commitmodel.File(nil), files...)}, Focus: "subject"}
 }
-func (c *Composer) SetSubject(s string)             { c.Draft.Subject = s; c.Error = "" }
-func (c *Composer) SetBody(s string)                { c.Draft.Body = s; c.Error = "" }
+
+// SetSubject updates the commit subject and clears the prior error.
+func (c *Composer) SetSubject(s string) { c.Draft.Subject = s; c.Error = "" }
+
+// SetBody updates the commit body and clears the prior error.
+func (c *Composer) SetBody(s string) { c.Draft.Body = s; c.Error = "" }
+
+// SetConfigSummary updates the displayed commit configuration summary.
 func (c *Composer) SetConfigSummary(summary string) { c.ConfigSummary = summary }
-func (c Composer) Ready() bool                      { return c.Draft.Validate().Valid }
+
+// Ready reports whether the current draft passes validation.
+func (c Composer) Ready() bool { return c.Draft.Validate().Valid }
+
+// View renders the commit composer and validation messages.
 func (c Composer) View() string {
 	v := c.Draft.Validate()
 	lines := []string{"Commit changes", "", "Staged files:"}

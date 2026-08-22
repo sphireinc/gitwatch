@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// Discovery describes the repository and Git metadata found from a directory.
 type Discovery struct {
 	Root       string
 	GitDir     string
@@ -22,6 +23,7 @@ type Discovery struct {
 	Unborn     bool
 }
 
+// Discover resolves repository topology and HEAD state for dir.
 func Discover(ctx context.Context, dir string) (Discovery, error) {
 	r := NewRunner(dir)
 	values, err := r.Run(ctx, "rev-parse", "--show-toplevel", "--absolute-git-dir", "--git-common-dir", "--is-bare-repository", "--is-inside-work-tree", "--git-dir")

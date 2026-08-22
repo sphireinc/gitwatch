@@ -8,6 +8,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/registry"
 )
 
+// Model stores filtered, sorted repository rows and the current selection.
 type Model struct {
 	Rows     []registry.Row
 	AllRows  []registry.Row
@@ -17,12 +18,14 @@ type Model struct {
 	Desc     bool
 }
 
+// New creates a repository view model from registry rows.
 func New(rows []registry.Row) Model {
 	m := Model{AllRows: append([]registry.Row(nil), rows...), Sort: registry.SortName}
 	m.apply()
 	return m
 }
 
+// SetRows replaces repository rows while preserving selection when possible.
 func (m *Model) SetRows(rows []registry.Row) {
 	selected := ""
 	if m.Selected >= 0 && m.Selected < len(m.Rows) {
@@ -39,12 +42,14 @@ func (m *Model) SetRows(rows []registry.Row) {
 	}
 }
 
+// SetFilter applies a case-insensitive repository filter.
 func (m *Model) SetFilter(query string) {
 	m.Query = query
 	m.apply()
 	m.Selected = 0
 }
 
+// CycleSort advances through repository sort fields and direction.
 func (m *Model) CycleSort() registry.SortKey {
 	keys := []registry.SortKey{registry.SortName, registry.SortDirty, registry.SortAhead, registry.SortBehind}
 	index := 0
@@ -73,6 +78,7 @@ func (m *Model) apply() {
 	m.Rows = registry.SortRows(filtered, m.Sort, m.Desc)
 }
 
+// Move shifts the selected repository and clamps it to visible rows.
 func (m *Model) Move(delta int) {
 	if len(m.Rows) == 0 {
 		m.Selected = 0
@@ -87,6 +93,7 @@ func (m *Model) Move(delta int) {
 	}
 }
 
+// View renders repositories and their current health state.
 func (m Model) View() string {
 	header := "Repositories"
 	if m.Query != "" {

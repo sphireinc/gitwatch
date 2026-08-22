@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Model stores the selection state for the stash view.
 type Model struct {
 	Entries  []stash.Entry
 	Selected int

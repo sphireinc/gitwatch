@@ -1,3 +1,4 @@
+// Package table renders and navigates status entries.
 package table
 
 import (
@@ -7,15 +8,18 @@ import (
 	"github.com/sphireinc/git-watch/internal/repo"
 )
 
+// SortMode identifies the status-table ordering.
 type SortMode uint8
 
 const (
+	// SortPath orders entries by repository path.
 	SortPath SortMode = iota
 	SortStatus
 	SortStagedFirst
 	SortChangedMost
 )
 
+// Model stores status rows, filters, sorting, and selection state.
 type Model struct {
 	Entries  []repo.Entry
 	Visible  []int
@@ -25,17 +29,24 @@ type Model struct {
 	Offset   int
 }
 
+// New creates a status table model from repository entries.
 func New(entries []repo.Entry) Model {
 	m := Model{Entries: append([]repo.Entry(nil), entries...)}
 	m.rebuild("")
 	return m
 }
+
+// SetEntries replaces rows while preserving the selected path when possible.
 func (m *Model) SetEntries(entries []repo.Entry) {
 	selected := m.SelectedPath()
 	m.Entries = append([]repo.Entry(nil), entries...)
 	m.rebuild(selected)
 }
+
+// SetFilter applies the path filter and rebuilds visible rows.
 func (m *Model) SetFilter(filter string) { m.Filter = filter; m.rebuild(m.SelectedPath()) }
+
+// SetConflictFilter limits visible rows to conflicted entries when enabled.
 func (m *Model) SetConflictFilter(enabled bool) {
 	if enabled {
 		m.Filter = "!conflict"
@@ -44,13 +55,19 @@ func (m *Model) SetConflictFilter(enabled bool) {
 	}
 	m.rebuild(m.SelectedPath())
 }
+
+// CycleSort advances the status-table ordering.
 func (m *Model) CycleSort() { m.Sort = (m.Sort + 1) % 4; m.rebuild(m.SelectedPath()) }
+
+// SelectedPath returns the selected entry path, or an empty string.
 func (m Model) SelectedPath() string {
 	if m.Selected < 0 || m.Selected >= len(m.Visible) {
 		return ""
 	}
 	return string(m.Entries[m.Visible[m.Selected]].Path)
 }
+
+// Move changes selection and adjusts the viewport for height rows.
 func (m *Model) Move(delta, height int) {
 	if len(m.Visible) == 0 {
 		return
@@ -71,6 +88,8 @@ func (m *Model) Move(delta, height int) {
 		}
 	}
 }
+
+// RowAt resolves a visible terminal row to its repository entry.
 func (m Model) RowAt(y, top, height int) (repo.Entry, bool) {
 	i := y - top + m.Offset
 	if i < 0 || i >= height || i >= len(m.Visible) {

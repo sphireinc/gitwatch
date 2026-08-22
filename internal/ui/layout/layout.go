@@ -1,34 +1,44 @@
+// Package layout computes responsive dashboard rectangles.
 package layout
 
+// Mode identifies the responsive dashboard arrangement.
 type Mode uint8
 
 const (
+	// Wide places files and details side by side.
 	Wide Mode = iota
 	Medium
 	Narrow
 	TooSmall
 )
 
+// Rect is a terminal rectangle in cell coordinates.
 type Rect struct{ X, Y, Width, Height int }
+
+// Layout contains the rectangles used by the status dashboard.
 type Layout struct {
 	Mode                                              Mode
 	Header, Metrics, Files, Details, Activity, Footer Rect
 	Message                                           string
 }
 
+// Split contains the configured wide-layout panel percentages.
 type Split struct {
 	FilesPercent   int
 	DetailsPercent int
 }
 
+// DefaultSplit returns the standard 60/40 files/details split.
 func DefaultSplit() Split {
 	return Split{FilesPercent: 60, DetailsPercent: 40}
 }
 
+// Compute calculates a layout using the default panel split.
 func Compute(width, height int) Layout {
 	return ComputeWithSplit(width, height, DefaultSplit())
 }
 
+// ComputeWithSplit calculates a layout using split for wide terminals.
 func ComputeWithSplit(width, height int, split Split) Layout {
 	l := Layout{Mode: Wide}
 	if width < 60 || height < 12 {
@@ -67,6 +77,7 @@ func splitWidths(width int, split Split) (int, int) {
 	return filesWidth, width - filesWidth
 }
 
+// Contains reports whether a terminal coordinate is inside the rectangle.
 func (r Rect) Contains(x, y int) bool {
 	return x >= r.X && y >= r.Y && x < r.X+r.Width && y < r.Y+r.Height
 }

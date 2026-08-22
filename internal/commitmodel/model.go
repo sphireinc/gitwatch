@@ -1,3 +1,4 @@
+// Package commitmodel contains pure commit-draft state and validation.
 package commitmodel
 
 import (
@@ -5,23 +6,29 @@ import (
 	"strings"
 )
 
+// File describes a path participating in a commit draft.
 type File struct {
 	Path          string
 	Staged        bool
 	SelectedHunks int
 }
+
+// Draft contains commit metadata and the paths selected for commit.
 type Draft struct {
 	Subject, Body                string
 	Amend, NoEdit, Signoff, Sign bool
 	Author                       string
 	Files                        []File
 }
+
+// Validation reports commit-draft errors and advisory warnings.
 type Validation struct {
 	Valid    bool
 	Errors   []string
 	Warnings []string
 }
 
+// Message formats the draft as Git commit-message input.
 func (d Draft) Message() string {
 	if d.NoEdit {
 		return ""
@@ -31,6 +38,8 @@ func (d Draft) Message() string {
 	}
 	return strings.TrimSpace(d.Subject) + "\n\n" + strings.TrimSpace(d.Body) + "\n"
 }
+
+// Validate checks message, author, and staged-path requirements.
 func (d Draft) Validate() Validation {
 	v := Validation{Valid: true}
 	if d.Amend && d.NoEdit && d.Subject != "" {
@@ -59,5 +68,9 @@ func (d Draft) Validate() Validation {
 	}
 	return v
 }
+
+// WithSubject returns a copy of the draft with subject replaced.
 func (d Draft) WithSubject(subject string) Draft { d.Subject = subject; return d }
-func (d Draft) ClearAfterSuccess() Draft         { return Draft{} }
+
+// ClearAfterSuccess returns an empty draft for the next commit.
+func (d Draft) ClearAfterSuccess() Draft { return Draft{} }

@@ -1,10 +1,13 @@
+// Package mouse maps terminal coordinates to dashboard actions and rows.
 package mouse
 
 import "github.com/sphireinc/git-watch/internal/ui/layout"
 
+// Action identifies a mouse gesture recognized by the dashboard.
 type Action uint8
 
 const (
+	// None means no actionable mouse gesture was detected.
 	None Action = iota
 	SelectRow
 	ToggleStage
@@ -13,6 +16,7 @@ const (
 	ScrollDown
 )
 
+// HitMap describes the screen regions occupied by dashboard controls and rows.
 type HitMap struct {
 	Files                     layout.Rect
 	RowTop, RowHeight, Offset int
@@ -21,6 +25,7 @@ type HitMap struct {
 	RowCount                  int
 }
 
+// Hit resolves terminal coordinates into an action and logical row.
 func (h HitMap) Hit(x, y int, wheel int) (Action, int, bool) {
 	if wheel < 0 && h.Files.Contains(x, y) {
 		return ScrollDown, -1, true
@@ -64,4 +69,5 @@ func rowHeightAt(heights []int, index int) int {
 	return heights[index]
 }
 
+// DoubleClick returns the action emitted for a double-click gesture.
 func DoubleClick() Action { return OpenDiff }

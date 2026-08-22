@@ -14,8 +14,10 @@ type Model struct {
 	Selected  int
 }
 
+// New creates a remote dashboard view model.
 func New(dashboard remotes.Dashboard) Model { return Model{Dashboard: dashboard} }
 
+// SetDashboard replaces the displayed remote synchronization snapshot.
 func (m *Model) SetDashboard(dashboard remotes.Dashboard) {
 	selectedName := ""
 	if m.Selected >= 0 && m.Selected < len(m.Dashboard.Remotes) {
@@ -31,6 +33,7 @@ func (m *Model) SetDashboard(dashboard remotes.Dashboard) {
 	}
 }
 
+// Move shifts the selected remote operation or row.
 func (m *Model) Move(delta int) {
 	if len(m.Dashboard.Remotes) == 0 {
 		m.Selected = 0
@@ -45,6 +48,7 @@ func (m *Model) Move(delta int) {
 	}
 }
 
+// View renders remotes, active jobs, and recent activity.
 func (m Model) View() string {
 	d := m.Dashboard
 	lines := []string{"Remotes", fmt.Sprintf("Branch: %s  ahead %d  behind %d", nonEmpty(d.CurrentBranch, "detached"), d.Ahead, d.Behind)}
@@ -107,4 +111,5 @@ func nonEmpty(value, fallback string) string {
 	return value
 }
 
+// DefaultStaleAfter returns the age after which remote data is stale.
 func DefaultStaleAfter() time.Duration { return 24 * time.Hour }

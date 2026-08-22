@@ -7,13 +7,17 @@ import (
 	"github.com/sphireinc/git-watch/internal/git"
 )
 
+// Mode identifies whether a diff is read from the index or worktree.
 type Mode uint8
 
 const (
+	// Unstaged reads the worktree diff.
 	Unstaged Mode = iota
+	// Staged reads the index diff.
 	Staged
 )
 
+// Result is the asynchronously loaded state of one diff.
 type Result struct {
 	Path   []byte
 	Mode   Mode
@@ -21,6 +25,8 @@ type Result struct {
 	Binary bool
 	Err    error
 }
+
+// Viewer loads diffs asynchronously and cancels superseded requests.
 type Viewer struct {
 	mu      sync.Mutex
 	Path    []byte
@@ -30,6 +36,7 @@ type Viewer struct {
 	cancel  context.CancelFunc
 }
 
+// Open starts loading path and replaces any previous in-flight request.
 func (v *Viewer) Open(ctx context.Context, runner git.Runner, path []byte, mode Mode) {
 	v.mu.Lock()
 	if v.cancel != nil {
@@ -53,6 +60,8 @@ func (v *Viewer) Open(ctx context.Context, runner git.Runner, path []byte, mode 
 		v.Result = Result{Path: d.Path, Mode: mode, Text: d.Text, Binary: d.Binary, Err: err}
 	}()
 }
+
+// Close cancels the current diff request and clears its loading state.
 func (v *Viewer) Close() {
 	v.mu.Lock()
 	if v.cancel != nil {
@@ -61,6 +70,8 @@ func (v *Viewer) Close() {
 	v.Loading = false
 	v.mu.Unlock()
 }
+
+// Snapshot returns the latest diff result and whether it is still loading.
 func (v *Viewer) Snapshot() (Result, bool) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
