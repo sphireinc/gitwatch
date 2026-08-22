@@ -32,4 +32,7 @@ go install github.com/sphireinc/git-watch/cmd/gitwatch@v1.0.0
 
 ## Verification
 
-The final release notes must link the accepted operator matrix, CI run, signed tag, checksums, SBOM, provenance, clean-install evidence, and package-manager installation results before publication.
+The final release notes must link the accepted operator matrix, CI run, signed
+tag, checksums, SBOM, provenance, clean-install evidence, and package-manager
+installation results before publication. The current evidence record is
+explicitly blocked because native operator rows remain pending.

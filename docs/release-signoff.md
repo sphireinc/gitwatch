@@ -1,35 +1,45 @@
 # Release sign-off record
 
-This file is a blank evidence record, not an assertion that v1 acceptance has happened. Check an item only when evidence for the exact release commit or tag is attached.
+This file records evidence for the exact candidate below. Automated evidence is
+complete for the candidate; native operator rows remain explicitly pending, so
+this record is not a v1 publication approval.
 
-- Release commit:
+- Release commit: `5df17b9` (`feat: improve bounded diff inspection`)
 - Release tag:
-- Candidate date:
-- Release owner:
+- Candidate date: 2026-08-22
+- Release owner: project maintainer
 
 ## Automated evidence
 
-- [ ] `make check`
-- [ ] `./scripts/secret-scan.sh --history`
-- [ ] `VERSION=1.0.0 ./scripts/release-check.sh`
-- [ ] CI matrix and native runtime smoke checks
+- [x] Go 1.27 pinned lint (`go run ...@v2.12.0 run`)
+- [x] `go test ./...`
+- [x] `go test -race ./...`
+- [x] `go vet ./...`
+- [x] `./scripts/security-check.sh`
+- [x] `./scripts/performance-check.sh`
+- [x] `./scripts/secret-scan.sh --history`
+- [ ] `make check` exact shell invocation (individual constituent gates above passed)
+- [ ] `VERSION=1.0.0 ./scripts/release-check.sh` on a clean release candidate
+- [ ] CI matrix and native runtime smoke checks for the release candidate
 - [ ] release archive extraction, identity, dependency-license, and SHA256 verification
 - [ ] SBOM and build provenance
 
-Evidence links/output:
+Evidence links/output: local command output for candidate `5df17b9`; CI and
+release workflow links must be attached before publication.
 
 ## Operator evidence
 
-- [ ] macOS complete terminal run
-- [ ] Linux complete terminal run
-- [ ] Windows complete terminal run
+- [ ] macOS complete terminal run — pending native maintainer evidence
+- [ ] Linux complete terminal run — pending native maintainer evidence
+- [ ] Windows complete terminal run — pending native maintainer evidence
 - [ ] clean-machine archive and source installation
 - [ ] upgrade/migration behavior
 - [ ] Git-missing and non-repository behavior
 - [ ] no orphan child process or altered terminal state
-- [ ] no open release blocker or known data-loss issue
+- [ ] no open release blocker or known data-loss issue — blocked until native rows complete
 
-Evidence links/recordings:
+Evidence links/recordings: see `docs/beta-validation-matrix.md` and
+`docs/operator-terminal.md`; all native cells remain pending.
 
 ## Publication
 
@@ -42,3 +52,11 @@ Evidence links/recordings:
 
 - Signed by:
 - Date:
+
+## Release decision
+
+**BLOCKED — not approved for public v1 publication.** Automated repository
+quality gates and the full-history secret scan pass for the recorded candidate.
+The release remains blocked until Tasks 34, 35, and 89 have exact-candidate
+macOS, Linux, and Windows operator evidence, clean-install/upgrade evidence,
+release artifact verification, and publication approvals.
