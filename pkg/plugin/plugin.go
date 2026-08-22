@@ -96,6 +96,46 @@ type Message struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
+// NewHandshake creates the API-1 handshake request used by plugin hosts.
+func NewHandshake(capabilities []Capability) Message {
+	payload, _ := json.Marshal(HandshakeRequest{APIVersion: APIVersion, Capabilities: capabilities})
+	return Message{Type: MessageHandshake, Payload: payload}
+}
+
+// NewEvent creates a lifecycle/event message with a bounded opaque payload.
+func NewEvent(id string, event Event) (Message, error) {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return Message{}, err
+	}
+	return Message{Type: MessageEvent, ID: id, Payload: payload}, nil
+}
+
+// NewCommand, NewPanel, and NewWidget create public extension messages.
+func NewCommand(id string, spec CommandSpec) (Message, error) {
+	return newPayloadMessage(MessageCommand, id, spec)
+}
+func NewPanel(id string, spec PanelSpec) (Message, error) {
+	return newPayloadMessage(MessagePanel, id, spec)
+}
+func NewWidget(id string, spec StatusWidgetSpec) (Message, error) {
+	return newPayloadMessage(MessageWidget, id, spec)
+}
+
+// WireError is a structured, non-sensitive plugin error payload.
+type WireError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func newPayloadMessage(kind, id string, payload any) (Message, error) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return Message{}, err
+	}
+	return Message{Type: kind, ID: id, Payload: data}, nil
+}
+
 // Event describes a plugin lifecycle event with an optional opaque payload.
 type Event struct {
 	Lifecycle Lifecycle       `json:"lifecycle"`

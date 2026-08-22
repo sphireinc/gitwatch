@@ -39,4 +39,9 @@ Run fuzz/budget/race tests, process-leak checks, security scans, example builds,
 and native enable/disable/crash evidence. Update `docs/plugin-sdk.md`, plugin
 contract docs, threat model, and release notes.
 
-**Status:** Planned
+**Status:** Complete
+
+**Completion summary:** Added public SDK message builders and structured error
+payloads, documented API-1 additive evolution and capability/limit policy, and
+retained host-side bounded output, timeout, cancellation, restart, handshake,
+and state-permission enforcement with compatibility tests and examples.

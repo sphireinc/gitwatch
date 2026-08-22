@@ -31,3 +31,9 @@ go build ./examples/plugin-widget
 The examples intentionally echo protocol payloads rather than invoking Git or
 accessing gitwatch internals. Compatibility tests in `pkg/plugin` enforce the
 wire shape, API version, capability validation, and bounded message fields.
+
+SDK helpers such as `NewHandshake`, `NewCommand`, `NewPanel`, `NewWidget`, and
+`NewEvent` construct API-1 messages without importing Bubble Tea or internal
+packages. Use `Encode` for newline-delimited transport and `Decode` for every
+incoming record. Errors should use bounded `WireError` codes/messages and must
+not include tokens, full remote URLs, or repository file contents.

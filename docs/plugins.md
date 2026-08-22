@@ -20,3 +20,10 @@ Compatibility guarantee: API version 1 is additive within the declared JSON
 fields. Hosts ignore optional fields they do not use, while plugins must not
 depend on undeclared capabilities or private gitwatch packages. A future
 breaking wire change requires a new API version.
+
+API-1 policy: new optional fields and new message payload fields are additive;
+existing meanings and limits remain stable. A breaking envelope, capability
+meaning, or required-field change requires API 2 plus migration fixtures. The
+host grants capabilities explicitly, limits each process output and runtime,
+and never lets a plugin write terminal control sequences directly. Plugin
+state is opt-in, private, and can be reset by deleting the state file.

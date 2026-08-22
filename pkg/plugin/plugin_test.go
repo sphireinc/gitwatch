@@ -81,3 +81,19 @@ func TestV1WireFixturesRemainDecodable(t *testing.T) {
 		}
 	}
 }
+
+func TestSDKBuildersRemainAPI1WireCompatible(t *testing.T) {
+	message := NewHandshake([]Capability{Command, StatusWidget})
+	if message.Type != MessageHandshake {
+		t.Fatal(message)
+	}
+	if _, err := NewCommand("build", CommandSpec{ID: "build", Title: "Build"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewPanel("panel", PanelSpec{ID: "panel", Title: "Panel"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewWidget("widget", StatusWidgetSpec{ID: "widget", Text: "ok"}); err != nil {
+		t.Fatal(err)
+	}
+}
