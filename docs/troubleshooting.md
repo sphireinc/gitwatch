@@ -35,3 +35,17 @@ lint, tests, race, vet, build, demo repository behavior, security boundaries,
 secret scanning, release identity, dependency notices, and archive checksums.
 Native Windows, terminal recordings, clean-machine installation, and release
 publication require operator evidence and are not simulated by the script.
+# Diagnostics and support bundles
+
+Use `gitwatch --diagnostics` for a bounded, sanitized local report without
+starting the TUI. To create a private bundle for inspection or an issue report:
+
+```sh
+gitwatch --support-bundle /tmp/gitwatch-diagnostics.json
+```
+
+Inspect the JSON before sharing it. It contains versions, capabilities, modes,
+and sanitized errors only—not file contents, tokens, credential-bearing URLs,
+or arbitrary provider/plugin payloads. Bundles are written with mode `0600` by
+an atomic replacement and should be deleted after use. Correlation IDs are
+per-process diagnostic references, not telemetry or user identifiers.

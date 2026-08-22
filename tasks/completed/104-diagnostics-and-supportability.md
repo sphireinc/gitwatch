@@ -41,4 +41,10 @@ data export.
 Add unit/security tests, update SECURITY and troubleshooting docs, and provide
 an issue-template section requesting sanitized diagnostic output.
 
-**Status:** Planned
+**Status:** Complete
+
+**Completion summary:** Added explicit local diagnostics and support-bundle
+commands, stable metadata schema/correlation IDs, bounded private atomic JSON
+writes, redaction/control-byte/path sanitization tests, troubleshooting and
+security guidance, and a sanitized diagnostics section in the public issue
+template. No telemetry or network activity is introduced.

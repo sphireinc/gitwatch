@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"charm.land/bubbletea/v2"
 	"github.com/sphireinc/git-watch/internal/app"
 	"github.com/sphireinc/git-watch/internal/config"
+	"github.com/sphireinc/git-watch/internal/diagnostics"
 	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/version"
 )
@@ -25,6 +27,8 @@ func main() {
 	profileFlag := flag.String("profile", "", "select a named keymap profile")
 	configInspect := flag.Bool("config-inspect", false, "print effective configuration and exit")
 	configCheck := flag.Bool("config-check", false, "validate configuration and exit")
+	diagnosticsFlag := flag.Bool("diagnostics", false, "print sanitized local diagnostics and exit")
+	supportBundle := flag.String("support-bundle", "", "write a sanitized private diagnostics bundle and exit")
 	flag.Usage = func() {
 		if _, err := fmt.Fprint(flag.CommandLine.Output(), "gitwatch — interactive Git worktree dashboard\n\nUsage: gitwatch [options]\n\nOptions:\n"); err != nil {
 			return
@@ -69,8 +73,35 @@ func main() {
 
 	discovery, err := git.Discover(context.Background(), ".")
 	if err != nil {
+		if *diagnosticsFlag || *supportBundle != "" {
+			report := diagnostics.Build(version.Version, c, git.Discovery{}, "startup", err)
+			if *supportBundle != "" {
+				if writeErr := diagnostics.WriteBundle(*supportBundle, report); writeErr != nil {
+					fmt.Fprintf(os.Stderr, "gitwatch: diagnostics: %v\n", writeErr)
+					os.Exit(1)
+				}
+			} else {
+				data, _ := json.MarshalIndent(report, "", "  ")
+				fmt.Println(string(data))
+			}
+			return
+		}
 		fmt.Fprintf(os.Stderr, "gitwatch: %v\n", err)
 		os.Exit(1)
+	}
+	if *diagnosticsFlag || *supportBundle != "" {
+		report := diagnostics.Build(version.Version, c, discovery, "startup", nil)
+		if *supportBundle != "" {
+			if err := diagnostics.WriteBundle(*supportBundle, report); err != nil {
+				fmt.Fprintf(os.Stderr, "gitwatch: diagnostics: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println(*supportBundle)
+		} else {
+			data, _ := json.MarshalIndent(report, "", "  ")
+			fmt.Println(string(data))
+		}
+		return
 	}
 	model := app.NewRepositoryWithConfig(discovery, c)
 	model.RepositoryGroup = *groupFlag

@@ -1,35 +1,29 @@
 ---
 name: Bug report
-about: Report a reproducible gitwatch problem
+about: Report a reproducible problem with sanitized diagnostics
 title: ""
-labels: "bug, needs-triage"
-assignees: ""
+labels: "bug"
 ---
 
-## Environment
+## Summary
 
-- gitwatch version/commit:
-- OS and architecture:
-- terminal emulator and size:
-- Git version:
-- watch mode:
+Describe what happened and what you expected.
 
 ## Reproduction
 
-1.
-2.
-3.
+Include safe commands and a disposable repository description. Do not include
+credentials, private repository contents, full remote URLs with credentials, or
+raw plugin/provider payloads.
 
-Expected behavior:
+## Environment
 
-Observed behavior:
+- gitwatch commit/version:
+- OS and architecture:
+- terminal and dimensions:
+- Git version:
+- watch mode:
 
-## Safety and diagnostics
+## Sanitized diagnostics
 
-- Does this risk data loss or a crash? If yes, explain the impact without
-  including private repository data.
-- If this may be a security vulnerability, stop and use
-  [private vulnerability reporting](https://github.com/sphireinc/git-watch/security/advisories/new)
-  instead of submitting this issue.
-- Attach a sanitized recording or log. Never include credentials or private
-  repository contents.
+Run `gitwatch --diagnostics` or inspect `gitwatch --support-bundle PATH`, then
+paste only the reviewed output here. Remove personal paths and private names.

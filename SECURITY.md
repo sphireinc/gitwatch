@@ -23,6 +23,11 @@ Do not open a public issue containing exploit details. Include:
 
 Never include credentials, private repository contents, or secret-bearing remote URLs. If private reporting is unavailable, email `juan.sanchez@juanleonardosanchez.com` with the subject `gitwatch security report` and ask for a secure transfer method before sending sensitive material.
 
+For ordinary support requests, run `gitwatch --diagnostics` or create a
+`--support-bundle` file, inspect it, and remove any personal paths or unrelated
+details before sharing. Do not attach raw logs, provider responses, plugin
+payloads, or repository archives.
+
 Maintainers aim to acknowledge reports within three business days, establish severity and next steps within seven business days, and coordinate disclosure after a fix or mitigation is available. Complex or cross-platform issues may require more time; the reporter will receive status updates when practical.
 
 ## Security design
