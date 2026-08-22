@@ -71,7 +71,7 @@ func (r Runner) Probe(ctx context.Context) (Capabilities, error) {
 		return Capabilities{}, err
 	}
 	if version.Compare(MinimumGitVersion) < 0 {
-		return Capabilities{Version: version}, fmt.Errorf("Git %s is unsupported; gitwatch requires Git %s or newer: %w", version, MinimumGitVersion, ErrUnsupportedGit)
+		return Capabilities{Version: version}, fmt.Errorf("git %s is unsupported; gitwatch requires Git %s or newer: %w", version, MinimumGitVersion, ErrUnsupportedGit)
 	}
 	return Capabilities{
 		Version: version, Restore: version.Compare(Version{Major: 2, Minor: 23}) >= 0,
