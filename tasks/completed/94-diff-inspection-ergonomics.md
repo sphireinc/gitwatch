@@ -50,4 +50,4 @@ Add `docs/diff-view.md` with key bindings, budgets, and limitations. Run full
 tests, race tests, vet, lint, benchmarks, and native keyboard/mouse evidence
 on wide and narrow terminals.
 
-**Status:** Planned
+**Status:** Complete — added bounded diff byte/line configuration, explicit staged/unstaged switching, cancellable request-scoped loading, viewport search, truncation notices, aligned panel rendering, documentation, and focused budget/search coverage.

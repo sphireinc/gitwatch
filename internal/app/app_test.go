@@ -288,6 +288,23 @@ func TestStatusPanelsWrapLongContent(t *testing.T) {
 	}
 }
 
+func TestDiffSearchAndBudget(t *testing.T) {
+	m := New()
+	m.Width, m.Height = 160, 20
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("notes.txt"), Unstaged: true}}
+	m.Files.SetEntries(m.Snapshot.Entries)
+	m.DiffPath = "notes.txt"
+	m.DiffText = "first line\nneedle here\nlast line"
+	m.DiffMaxBytes, m.DiffMaxLines = 1<<20, 2
+	if text, truncated := limitDiffText(m.DiffText, m.DiffMaxBytes, m.DiffMaxLines); !truncated || strings.Contains(text, "last line") {
+		t.Fatalf("diff budget = %q truncated=%v", text, truncated)
+	}
+	m.DiffSearchInput = "needle"
+	if !m.seekDiffMatch(0) || m.DiffOffset != 1 {
+		t.Fatalf("diff search offset = %d", m.DiffOffset)
+	}
+}
+
 func TestDiffStatIgnoresPatchHeaders(t *testing.T) {
 	added, deleted := diffStat("diff --git a/a b/a\n--- a/a\n+++ b/a\n context\n-old\n+new\n++literal\n--literal\n")
 	if added != 2 || deleted != 2 {

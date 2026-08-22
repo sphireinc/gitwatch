@@ -11,6 +11,8 @@ var DefaultBindings = []Binding{
 	{Key: "a", Action: "stage-all", Description: "stage all tracked, untracked, and deleted paths"},
 	{Key: "U", Action: "unstage-all", Description: "unstage all while preserving working-tree content"},
 	{Key: "enter/d", Action: "open-diff", Description: "open selected file diff"},
+	{Key: "V", Action: "diff-mode", Description: "switch staged or unstaged diff"},
+	{Key: "/", Action: "diff-search", Description: "search the open diff; n finds the next match"},
 	{Key: "/", Action: "filter", Description: "filter files"},
 	{Key: "S", Action: "sort", Description: "cycle status-file sort mode"},
 	{Key: "!", Action: "conflicts", Description: "toggle conflict-only status filter"},

@@ -52,7 +52,7 @@ func TestGroupRefreshPolicyValidation(t *testing.T) {
 
 func TestV2DefaultsAndBindingCollisionValidation(t *testing.T) {
 	c := Defaults()
-	if c.Version != CurrentVersion || c.Remote.PullStrategy != "ff-only" || c.Layout.FilesPercent != 60 || c.Layout.DetailsPercent != 40 {
+	if c.Version != CurrentVersion || c.Remote.PullStrategy != "ff-only" || c.Layout.FilesPercent != 60 || c.Layout.DetailsPercent != 40 || c.Diff.MaxBytes <= 0 || c.Diff.MaxLines <= 0 {
 		t.Fatalf("unexpected defaults: %#v", c)
 	}
 	c.Keymap = map[string]string{"one": "x", "two": "x"}
@@ -70,6 +70,19 @@ func TestLayoutPercentValidation(t *testing.T) {
 	c.Layout.DetailsPercent = 49
 	if err := Validate(c); err == nil {
 		t.Fatal("layout percentages that do not sum to 100 were accepted")
+	}
+}
+
+func TestDiffBudgetValidation(t *testing.T) {
+	c := Defaults()
+	c.Diff.MaxBytes = 0
+	if err := Validate(c); err == nil {
+		t.Fatal("zero diff byte budget was accepted")
+	}
+	c = Defaults()
+	c.Diff.MaxLines = 0
+	if err := Validate(c); err == nil {
+		t.Fatal("zero diff line budget was accepted")
 	}
 }
 

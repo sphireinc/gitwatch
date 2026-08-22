@@ -33,6 +33,7 @@ type Config struct {
 	Plugins        PluginConfig       `json:"plugins"`
 	Notifications  NotificationConfig `json:"notifications"`
 	Layout         LayoutConfig       `json:"layout"`
+	Diff           DiffConfig         `json:"diff"`
 	Keymap         map[string]string  `json:"keymap"`
 }
 
@@ -71,8 +72,14 @@ type LayoutConfig struct {
 	DetailsPercent int `json:"details_percent"`
 }
 
+// DiffConfig bounds diff loading and rendering work.
+type DiffConfig struct {
+	MaxBytes int64 `json:"max_bytes"`
+	MaxLines int   `json:"max_lines"`
+}
+
 func Defaults() Config {
-	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Layout: LayoutConfig{FilesPercent: 60, DetailsPercent: 40}, Keymap: DefaultKeymap()}
+	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Layout: LayoutConfig{FilesPercent: 60, DetailsPercent: 40}, Diff: DiffConfig{MaxBytes: 4 << 20, MaxLines: 20_000}, Keymap: DefaultKeymap()}
 }
 
 func DefaultKeymap() map[string]string {
@@ -172,7 +179,7 @@ func Validate(c Config) error {
 	if c.Version != CurrentVersion {
 		return fmt.Errorf("unsupported config version %d", c.Version)
 	}
-	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 {
+	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 || c.Diff.MaxBytes <= 0 || c.Diff.MaxLines <= 0 {
 		return fmt.Errorf("config limits cannot be negative")
 	}
 	if c.Layout.FilesPercent <= 0 || c.Layout.DetailsPercent <= 0 || c.Layout.FilesPercent+c.Layout.DetailsPercent != 100 {

@@ -31,6 +31,7 @@ provenance and local playback instructions.
 - Live, authoritative porcelain-v2 status with filesystem watching and polling fallback.
 - Responsive status dashboard with branch divergence, staged/unstaged state, conflicts, filtering, sorting, activity, and selected-file details.
 - Long file paths and diff/details lines wrap to the active panel width instead of being silently truncated.
+- Read-only staged/unstaged diff switching, bounded scrolling/search, and explicit large-diff truncation notices.
 - Mouse or keyboard file selection that opens the selected file's diff without mutating the repository.
 - Guarded stage, unstage, restore, hunk, commit, stash, branch, worktree, remote, and history workflows.
 - Optional read-only GitHub pull-request/check visibility, multi-repository dashboards, and capability-bounded out-of-process plugins.

@@ -56,6 +56,13 @@
         "details_percent": { "type": "integer", "minimum": 1, "maximum": 99 }
       }
     },
+    "diff": {
+      "type": "object",
+      "properties": {
+        "max_bytes": { "type": "integer", "minimum": 1 },
+        "max_lines": { "type": "integer", "minimum": 1 }
+      }
+    },
     "keymap": { "type": "object", "additionalProperties": { "type": "string" } }
   }
 }

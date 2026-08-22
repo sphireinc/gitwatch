@@ -256,7 +256,11 @@ func (m Model) statusDiffLines(width, height int) []string {
 	if m.DiffStaged {
 		mode = "staged"
 	}
-	lines := []string{fitSafeDisplay(fmt.Sprintf("Diff (%s) · %s · +%d -%d · [esc] close", mode, m.DiffPath, m.DiffAdded, m.DiffDeleted), width)}
+	heading := fmt.Sprintf("Diff (%s) · %s · +%d -%d · [V] switch · [/] search · [esc] close", mode, m.DiffPath, m.DiffAdded, m.DiffDeleted)
+	if m.DiffSearchInput != "" {
+		heading += " · search: " + m.DiffSearchInput
+	}
+	lines := []string{fitSafeDisplay(heading, width)}
 	switch {
 	case m.DiffLoading:
 		lines = append(lines, "", "Loading…")
@@ -274,6 +278,9 @@ func (m Model) statusDiffLines(width, height int) []string {
 			body = nil
 		}
 		lines = append(lines, body...)
+	}
+	if m.DiffTruncated {
+		lines = append([]string{"diff truncated at configured budget"}, lines...)
 	}
 	return padStatusPanel(lines, width, height)
 }

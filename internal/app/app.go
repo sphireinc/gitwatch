@@ -107,6 +107,7 @@ type DiffReadyMsg struct {
 	Deleted    int
 	Request    uint64
 	Err        error
+	Truncated  bool
 }
 type PartialOperationFinishedMsg struct {
 	Name       string
@@ -254,6 +255,12 @@ type Model struct {
 	DiffDeleted              int
 	DiffRequest              uint64
 	DiffCancel               context.CancelFunc
+	DiffSearchMode           bool
+	DiffSearchInput          string
+	DiffSearchMatch          int
+	DiffTruncated            bool
+	DiffMaxBytes             int64
+	DiffMaxLines             int
 	Restore                  Confirmation
 	RestoreInput             string
 	HunkContext              int
@@ -365,6 +372,7 @@ func New() Model {
 		DetailsCache: details.NewCache(), ActivityLog: history.New(100),
 		ctx: ctx, cancel: cancel, RefreshInterval: 2 * time.Second,
 		ReconciliationInterval: 30 * time.Second, WatchDebounce: 75 * time.Millisecond,
+		DiffMaxBytes: 4 << 20, DiffMaxLines: 20_000,
 		WatchRequested: watch.RequestedAuto, Workspace: workspace.New(),
 		Notifications: notifications.New(100, false), OperationEngine: operations.New(4),
 	}
@@ -485,6 +493,7 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.RefreshInterval = c.Interval
 	m.ReconciliationInterval = c.Reconciliation
 	m.WatchDebounce = c.Debounce
+	m.DiffMaxBytes, m.DiffMaxLines = c.Diff.MaxBytes, c.Diff.MaxLines
 	if requested, ok := watch.ParseMode(c.Watch); ok {
 		m.WatchRequested = requested
 	}
@@ -834,7 +843,62 @@ func (m *Model) updateFileFilterKey(key string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) updateDiffSearchKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.DiffSearchMode, m.DiffSearchInput = false, ""
+		m.Status = "diff search cancelled"
+	case "backspace":
+		m.DiffSearchInput = removeLastRune(m.DiffSearchInput)
+	case "enter":
+		m.DiffSearchMode = false
+		if !m.seekDiffMatch(0) {
+			m.Status = "diff search: no matches"
+		} else {
+			m.Status = "diff search: " + m.DiffSearchInput
+		}
+	case "space":
+		m.DiffSearchInput += " "
+	default:
+		if len([]rune(key)) == 1 {
+			m.DiffSearchInput += key
+		}
+	}
+	if m.DiffSearchMode {
+		m.Status = "diff search: " + m.DiffSearchInput
+	}
+	return nil
+}
+
+func (m *Model) seekDiffMatch(start int) bool {
+	query := strings.ToLower(m.DiffSearchInput)
+	if query == "" || m.DiffText == "" {
+		return false
+	}
+	lines := strings.Split(m.DiffText, "\n")
+	if start < 0 {
+		start = 0
+	}
+	for offset := 0; offset < len(lines); offset++ {
+		index := (start + offset) % len(lines)
+		if strings.Contains(strings.ToLower(lines[index]), query) {
+			m.DiffSearchMatch = index
+			m.DiffOffset = index
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Model) openDiff() tea.Cmd {
+	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
+		return nil
+	}
+	e := m.Files.Entries[m.Files.Visible[m.Files.Selected]]
+	return m.openDiffMode(e.Staged && !e.Unstaged)
+}
+
+func (m *Model) openDiffMode(staged bool) tea.Cmd {
 	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
 		return nil
 	}
@@ -853,17 +917,38 @@ func (m *Model) openDiff() tea.Cmd {
 	m.DiffRequest++
 	request := m.DiffRequest
 	m.DiffPath, m.DiffText = string(path), ""
-	m.DiffBinary, m.DiffStaged, m.DiffLoading, m.DiffErr, m.DiffOffset, m.DiffAdded, m.DiffDeleted = false, e.Staged && !e.Unstaged, true, nil, 0, 0, 0
+	m.DiffBinary, m.DiffStaged, m.DiffLoading, m.DiffErr, m.DiffOffset, m.DiffAdded, m.DiffDeleted, m.DiffTruncated = false, staged, true, nil, 0, 0, 0, false
 	m.Status = "loading diff for " + string(path)
 	contextLines := m.HunkContext
 	if contextLines <= 0 {
 		contextLines = 3
 	}
 	return func() tea.Msg {
-		d, err := r.DiffWithContext(loadCtx, path, e.Staged && !e.Unstaged, contextLines)
-		added, deleted := diffStat(string(d.Text))
-		return DiffReadyMsg{Path: string(path), Text: string(d.Text), Staged: d.Staged, Binary: d.Binary, Added: added, Deleted: deleted, Request: request, Err: err}
+		d, err := r.DiffWithContext(loadCtx, path, staged, contextLines)
+		text, truncated := limitDiffText(string(d.Text), m.DiffMaxBytes, m.DiffMaxLines)
+		added, deleted := diffStat(text)
+		return DiffReadyMsg{Path: string(path), Text: text, Staged: d.Staged, Binary: d.Binary, Added: added, Deleted: deleted, Request: request, Err: err, Truncated: truncated}
 	}
+}
+
+func limitDiffText(text string, maxBytes int64, maxLines int) (string, bool) {
+	if maxBytes <= 0 {
+		maxBytes = 4 << 20
+	}
+	if maxLines <= 0 {
+		maxLines = 20_000
+	}
+	truncated := false
+	if int64(len(text)) > maxBytes {
+		text = text[:maxBytes]
+		truncated = true
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) > maxLines {
+		lines = lines[:maxLines]
+		truncated = true
+	}
+	return strings.Join(lines, "\n"), truncated
 }
 
 func diffStat(text string) (added, deleted int) {
@@ -885,7 +970,7 @@ func (m *Model) closeDiff() {
 	}
 	m.DiffRequest++
 	m.DiffPath, m.DiffText = "", ""
-	m.DiffBinary, m.DiffStaged, m.DiffLoading, m.DiffErr, m.DiffOffset, m.DiffAdded, m.DiffDeleted = false, false, false, nil, 0, 0, 0
+	m.DiffBinary, m.DiffStaged, m.DiffLoading, m.DiffErr, m.DiffOffset, m.DiffAdded, m.DiffDeleted, m.DiffTruncated = false, false, false, nil, 0, 0, 0, false
 }
 
 func (m *Model) beginHunks() {
@@ -1894,6 +1979,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Status && m.FileFilterMode {
 			return m, m.updateFileFilterKey(v.String())
 		}
+		if m.currentView() == workspace.Status && m.DiffSearchMode {
+			return m, m.updateDiffSearchKey(v.String())
+		}
 		if m.currentView() == workspace.Hunks {
 			return m, m.updateHunkKey(v.String())
 		}
@@ -2190,6 +2278,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "l":
 			return m, m.navigate(workspace.Log, "History")
 		case "n":
+			if m.currentView() == workspace.Status && m.DiffPath != "" && m.DiffSearchInput != "" {
+				if !m.seekDiffMatch(m.DiffSearchMatch + 1) {
+					m.Status = "diff search: no matches"
+				}
+				return m, nil
+			}
 			return m, m.navigate(workspace.Remotes, "Remotes")
 		case "G":
 			if m.GitHubEnabled {
@@ -2217,6 +2311,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Status {
 				m.Files.CycleSort()
 				m.Status = "file sort mode changed"
+			}
+		case "V":
+			if m.currentView() == workspace.Status && m.DiffPath != "" {
+				return m, m.openDiffMode(!m.DiffStaged)
 			}
 		case "!":
 			if m.currentView() == workspace.Status {
@@ -2332,6 +2430,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.loadHistoryPage(m.HistorySkip)
 			}
 		case "/":
+			if m.currentView() == workspace.Status && m.DiffPath != "" {
+				m.DiffSearchMode, m.DiffSearchInput = true, ""
+				m.Status = "diff search: "
+				return m, nil
+			}
 			if m.currentView() == workspace.Log {
 				m.HistorySearching, m.Status = true, "filter: "
 			}
@@ -2797,7 +2900,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.DiffCancel, m.DiffLoading = nil, false
-		m.DiffPath, m.DiffText, m.DiffStaged, m.DiffBinary, m.DiffAdded, m.DiffDeleted, m.DiffErr, m.Status = v.Path, v.Text, v.Staged, v.Binary, v.Added, v.Deleted, v.Err, ""
+		m.DiffPath, m.DiffText, m.DiffStaged, m.DiffBinary, m.DiffAdded, m.DiffDeleted, m.DiffErr, m.DiffTruncated, m.Status = v.Path, v.Text, v.Staged, v.Binary, v.Added, v.Deleted, v.Err, v.Truncated, ""
 		if v.Err != nil {
 			m.Status = v.Err.Error()
 		} else if m.currentView() == workspace.Hunks {

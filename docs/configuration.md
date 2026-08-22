@@ -24,6 +24,7 @@ The schema-version-2 top-level fields are:
 | `plugins` | Optional plugin directories, enablement, and output limit. |
 | `notifications` | Notification preferences; set `quiet` to suppress attention badges while retaining history. |
 | `layout` | Wide status split; `files_percent` controls the left file panel and `details_percent` controls the right details/diff panel. They must be positive and sum to `100`; defaults are `60` and `40`. |
+| `diff` | Diff inspection budgets; `max_bytes` defaults to `4194304` and `max_lines` defaults to `20000`. Truncated diffs show an explicit notice. |
 | `keymap` | Action-to-key bindings; duplicate keys are rejected and configured bindings are applied at runtime. Supported navigation actions include `quit`, `help`, `status`, `branches`, `stashes`, `history`, `remotes`, `worktrees`, `repositories`, `commit`, and `refresh`. |
 
 Validate a file without opening the TUI with:
@@ -40,6 +41,10 @@ For example, make the two wide status panels equal width:
   "layout": {
     "files_percent": 50,
     "details_percent": 50
+  },
+  "diff": {
+    "max_bytes": 4194304,
+    "max_lines": 20000
   }
 }
 ```
