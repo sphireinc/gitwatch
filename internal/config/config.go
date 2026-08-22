@@ -43,6 +43,7 @@ type RepositoryConfig struct {
 	Roots           []string                 `json:"roots"`
 	Groups          map[string][]string      `json:"groups"`
 	GroupRefresh    map[string]time.Duration `json:"group_refresh"`
+	IgnoreDirs      []string                 `json:"ignore_dirs"`
 	MaxDepth        int                      `json:"max_depth"`
 	MaxRepositories int                      `json:"max_repositories"`
 }

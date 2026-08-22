@@ -18,7 +18,7 @@ The schema-version-2 top-level fields are:
 | `watch` | `auto`, `fs`, or `poll`. |
 | `interval`, `reconciliation`, `debounce` | Positive/ non-negative Go duration values encoded as JSON numbers. |
 | `show_untracked`, `show_ignored`, `mouse` | Status and input preferences. |
-| `repositories` | Roots, groups, per-group refresh intervals, discovery depth, and repository limit. |
+| `repositories` | Roots, groups, per-group refresh intervals, discovery depth, repository limit, and symlink/ignored-directory policy. |
 | `remote` | Pull strategy, stale threshold, and worker limit. |
 | `github` | Optional provider enablement, token environment name, and cache TTL. |
 | `plugins` | Optional plugin directories, enablement, and output limit. |

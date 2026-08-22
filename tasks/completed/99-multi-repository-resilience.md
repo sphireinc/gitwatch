@@ -39,4 +39,11 @@ repositories, concurrent edits, and persisted favorites/groups.
 Update multi-repository and configuration docs, add disposable collection
 fixtures, run race/performance gates, and collect native switching evidence.
 
-**Status:** Planned
+**Status:** Complete
+
+**Completion summary:** Hardened multi-repository registry persistence with a
+versioned envelope, legacy-array migration, private atomic replacement and
+sync, bounded configured discovery limits, symlink/VCS/vendor boundaries, and
+independent per-repository refresh/error handling. Existing registry metadata
+and selection flows remain compatible; native switching evidence remains part
+of the release matrix.

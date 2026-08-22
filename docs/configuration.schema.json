@@ -20,6 +20,7 @@
         "roots": { "type": "array", "items": { "type": "string" } },
         "groups": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
         "group_refresh": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "ignore_dirs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "max_depth": { "type": "integer", "minimum": 0 },
         "max_repositories": { "type": "integer", "minimum": 0 }
       }

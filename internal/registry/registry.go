@@ -19,6 +19,13 @@ type Repository struct {
 	Groups     []string  `json:"groups,omitempty"`
 }
 
+const registryVersion = 1
+
+type stateFile struct {
+	Version      int          `json:"version"`
+	Repositories []Repository `json:"repositories"`
+}
+
 type Options struct {
 	MaxDepth        int
 	MaxRepositories int
@@ -181,6 +188,14 @@ func Load(path string) ([]Repository, error) {
 	if err != nil {
 		return nil, err
 	}
+	var envelope stateFile
+	if err := json.Unmarshal(data, &envelope); err == nil && envelope.Repositories != nil {
+		if envelope.Version > registryVersion {
+			return nil, errors.New("repository registry uses a newer schema version")
+		}
+		return envelope.Repositories, nil
+	}
+	// Version-zero array files are accepted and migrated on the next save.
 	var repositories []Repository
 	if err := json.Unmarshal(data, &repositories); err != nil {
 		return nil, err
@@ -189,12 +204,33 @@ func Load(path string) ([]Repository, error) {
 }
 
 func Save(path string, repositories []Repository) error {
-	data, err := json.MarshalIndent(repositories, "", "  ")
+	data, err := json.MarshalIndent(stateFile{Version: registryVersion, Repositories: repositories}, "", "  ")
 	if err != nil {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(data, '\n'), 0600)
+	temporary, err := os.CreateTemp(filepath.Dir(path), ".repositories-*.tmp")
+	if err != nil {
+		return err
+	}
+	temporaryPath := temporary.Name()
+	defer os.Remove(temporaryPath)
+	if err := temporary.Chmod(0600); err != nil {
+		temporary.Close()
+		return err
+	}
+	if _, err := temporary.Write(append(data, '\n')); err != nil {
+		temporary.Close()
+		return err
+	}
+	if err := temporary.Sync(); err != nil {
+		temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporaryPath, path)
 }

@@ -348,6 +348,9 @@ type Model struct {
 	RepositoryRoots          []string
 	RepositoryGroups         map[string][]string
 	RepositoryGroup          string
+	RepositoryMaxDepth       int
+	RepositoryMaxCount       int
+	RepositoryIgnoreDirs     []string
 	RepositoryRegistry       []registry.Repository
 	RepositoryRegistryPath   string
 	RepositoryEngine         *registry.Engine
@@ -518,6 +521,8 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.PanelSplit = layout.Split{FilesPercent: c.Layout.FilesPercent, DetailsPercent: c.Layout.DetailsPercent}
 	m.RepositoryRoots = append([]string(nil), c.Repositories.Roots...)
 	m.RepositoryGroups = cloneGroups(c.Repositories.Groups)
+	m.RepositoryMaxDepth, m.RepositoryMaxCount = c.Repositories.MaxDepth, c.Repositories.MaxRepositories
+	m.RepositoryIgnoreDirs = append([]string(nil), c.Repositories.IgnoreDirs...)
 	if path, err := registry.StatePath(); err == nil {
 		m.RepositoryRegistryPath = path
 	}
@@ -1452,7 +1457,7 @@ func (m Model) loadRepositories() tea.Cmd {
 	statePath := m.RepositoryRegistryPath
 	groups := cloneGroups(m.RepositoryGroups)
 	return func() tea.Msg {
-		repositories, err := registry.Discover(m.commandContext(), roots, registry.Options{})
+		repositories, err := registry.Discover(m.commandContext(), roots, registry.Options{MaxDepth: m.RepositoryMaxDepth, MaxRepositories: m.RepositoryMaxCount, IgnoreDirs: m.RepositoryIgnoreDirs})
 		if err != nil {
 			return RepositoriesReadyMsg{Err: err}
 		}

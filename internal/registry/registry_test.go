@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -44,6 +45,24 @@ func TestRegistryRoundTripUsesPrivateFileMode(t *testing.T) {
 	}
 	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Fatalf("registry mode = %v", info.Mode().Perm())
+	}
+}
+
+func TestRegistryLoadsLegacyArrayAndWritesVersionedEnvelope(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "registry.json")
+	if err := os.WriteFile(path, []byte(`[{"path":"/legacy","name":"legacy"}]`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := Load(path)
+	if err != nil || len(legacy) != 1 {
+		t.Fatalf("legacy load = %#v err=%v", legacy, err)
+	}
+	if err := Save(path, legacy); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || !strings.Contains(string(data), `"version": 1`) {
+		t.Fatalf("versioned registry = %s err=%v", data, err)
 	}
 }
 

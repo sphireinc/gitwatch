@@ -32,9 +32,11 @@ core Git workflows.
 
 Plugins use the dependency-free `pkg/plugin` wire contract and execute out of
 process with bounded output. The registry discovers explicit roots with depth
-and repository limits, persists private JSON metadata, and refreshes status via
-a bounded worker pool. Repository rows are filterable/sortable; favorites and
-groups are stored as registry metadata.
+and repository limits, skips symlink traversal and VCS/vendor directories,
+persists private versioned JSON metadata with atomic replacement, and refreshes
+status via a bounded worker pool. A missing or failing repository becomes an
+independent error row; it does not block healthy repositories. Repository rows
+are filterable/sortable; favorites and groups are stored as registry metadata.
 
 ## Configuration and safety
 
