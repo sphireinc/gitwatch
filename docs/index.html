@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="gitwatch is an htop-style interactive Git worktree dashboard for the terminal.">
+  <meta name="theme-color" content="#f7f9f2">
+  <title>gitwatch — live Git status for your terminal</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f1b1b;
+      --muted: #625f5f;
+      --line: #d9d8d3;
+      --paper: #ffffff;
+      --soft: #f4f5f0;
+      --aqua: #dff8ee;
+      --aqua-line: #9ed9c4;
+      --aqua-strong: #39b98a;
+      --yellow: #fff1bb;
+      --shadow: 0 28px 80px rgb(36 78 64 / 16%);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 16px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .container {
+      width: min(1120px, calc(100% - 2rem));
+      margin-inline: auto;
+    }
+
+    .skip-link {
+      position: absolute;
+      z-index: 100;
+      top: -5rem;
+      left: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      background: var(--ink);
+      color: white;
+    }
+
+    .skip-link:focus {
+      top: 1rem;
+    }
+
+    .site-header {
+      position: sticky;
+      z-index: 20;
+      top: 1rem;
+      padding-top: 1rem;
+    }
+
+    .nav-shell {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 64px;
+      padding: 0.55rem 0.7rem 0.55rem 1rem;
+      border: 1px solid rgb(217 216 211 / 88%);
+      border-radius: 12px;
+      background: rgb(255 255 255 / 86%);
+      box-shadow: 0 8px 26px rgb(31 27 27 / 7%);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.7rem;
+      font-size: 1.12rem;
+      font-weight: 780;
+      letter-spacing: -0.035em;
+      text-decoration: none;
+    }
+
+    .brand img {
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.4rem;
+    }
+
+    .nav-links a {
+      font-size: 0.91rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .nav-links a:hover {
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    .nav-links .nav-button {
+      padding: 0.7rem 1rem;
+      border-radius: 999px;
+      background: var(--ink);
+      color: white;
+    }
+
+    .nav-links .nav-button:hover {
+      background: #474242;
+      text-decoration: none;
+    }
+
+    .hero-wrap {
+      position: relative;
+      overflow: hidden;
+      padding: 7.5rem 0 5rem;
+    }
+
+    .hero-wrap::before {
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 auto;
+      height: 42rem;
+      background-image: radial-gradient(circle, #d5d7d0 1.15px, transparent 1.15px);
+      background-size: 24px 24px;
+      content: "";
+      mask-image: linear-gradient(to bottom, rgb(0 0 0 / 45%), transparent 88%);
+    }
+
+    .hero-copy {
+      max-width: 820px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .eyebrow {
+      margin: 0 0 1.25rem;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 760;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(3rem, 8.2vw, 6.4rem);
+      font-weight: 680;
+      line-height: 0.98;
+      letter-spacing: -0.07em;
+    }
+
+    .highlight {
+      display: inline-block;
+      margin: 0.08em 0;
+      padding: 0.01em 0.18em 0.08em;
+      border: 1px solid var(--aqua-line);
+      border-radius: 0.18em;
+      background: var(--aqua);
+      font-weight: 520;
+      letter-spacing: -0.055em;
+    }
+
+    .lede {
+      max-width: 650px;
+      margin: 2rem auto 0;
+      color: #494646;
+      font-size: clamp(1.1rem, 2vw, 1.32rem);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 1.2rem;
+      margin-top: 2.25rem;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      min-height: 50px;
+      padding: 0.75rem 1.25rem;
+      border-radius: 999px;
+      font-weight: 720;
+      text-decoration: none;
+    }
+
+    .button.primary {
+      background: var(--ink);
+      color: white;
+    }
+
+    .button.primary:hover {
+      background: #474242;
+    }
+
+    .button.secondary {
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    .button svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .demo {
+      margin-top: 5.5rem;
+    }
+
+    .demo-tabs {
+      display: flex;
+      width: fit-content;
+      margin: 0 auto 1.25rem;
+      padding: 4px;
+      border: 1px solid var(--aqua-line);
+      border-radius: 12px;
+      background: var(--aqua);
+    }
+
+    .demo-tabs span {
+      padding: 0.48rem 1.2rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .demo-tabs span:first-child {
+      background: white;
+      box-shadow: 0 2px 8px rgb(31 27 27 / 8%);
+    }
+
+    .terminal-frame {
+      overflow: hidden;
+      padding: 0 0.8rem 0.8rem;
+      border-radius: 18px;
+      background: var(--ink);
+      box-shadow: var(--shadow);
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 38px;
+    }
+
+    .terminal-bar span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: white;
+    }
+
+    .terminal-frame img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 11px;
+      background: #0b0f19;
+    }
+
+    .section {
+      padding: 7rem 0;
+    }
+
+    .section.soft {
+      background: var(--soft);
+    }
+
+    .section-heading {
+      display: grid;
+      grid-template-columns: 0.7fr 1.3fr;
+      gap: 3rem;
+      align-items: start;
+      margin-bottom: 4rem;
+    }
+
+    .section-label {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 760;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      max-width: 700px;
+      margin: 0;
+      font-size: clamp(2.2rem, 5vw, 4.25rem);
+      font-weight: 620;
+      line-height: 1.04;
+      letter-spacing: -0.055em;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    .feature-card {
+      min-height: 285px;
+      padding: 1.6rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+    }
+
+    .feature-card:nth-child(2) {
+      background: var(--aqua);
+      border-color: var(--aqua-line);
+    }
+
+    .feature-card:nth-child(3) {
+      background: var(--yellow);
+      border-color: #e2cc78;
+    }
+
+    .feature-number {
+      display: inline-flex;
+      width: 34px;
+      height: 34px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid currentColor;
+      border-radius: 50%;
+      font: 700 0.78rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .feature-card h3 {
+      margin: 5.5rem 0 0.65rem;
+      font-size: 1.25rem;
+      letter-spacing: -0.025em;
+    }
+
+    .feature-card p {
+      margin: 0;
+      color: #575353;
+    }
+
+    .install-card {
+      display: grid;
+      grid-template-columns: 0.8fr 1.2fr;
+      gap: 3rem;
+      align-items: center;
+      padding: clamp(1.5rem, 5vw, 4rem);
+      border-radius: 16px;
+      background: var(--ink);
+      color: white;
+    }
+
+    .install-card h2 {
+      font-size: clamp(2.25rem, 5vw, 4rem);
+    }
+
+    .install-card p {
+      margin: 1rem 0 0;
+      color: #cecccc;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 0;
+      padding: 1.4rem;
+      border: 1px solid #575252;
+      border-radius: 12px;
+      background: #0c0b0b;
+      color: #bdf4dc;
+      font: 0.88rem/1.8 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .disclosure {
+      margin-top: 1rem;
+      padding: 1.5rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+      color: #514d4d;
+    }
+
+    .disclosure strong {
+      color: var(--ink);
+    }
+
+    footer {
+      padding: 4rem 0 2rem;
+      background: var(--soft);
+    }
+
+    .footer-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 3rem;
+      padding-bottom: 4rem;
+    }
+
+    .footer-brand p {
+      max-width: 320px;
+      margin: 1rem 0 0;
+      color: var(--muted);
+    }
+
+    .footer-links {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(130px, 1fr));
+      gap: 1rem 3rem;
+    }
+
+    .footer-links a {
+      color: #4f4b4b;
+      font-size: 0.92rem;
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding-top: 1.3rem;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    @media (max-width: 800px) {
+      .hero-wrap {
+        padding-top: 5.5rem;
+      }
+
+      .section-heading,
+      .install-card {
+        grid-template-columns: 1fr;
+      }
+
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .feature-card {
+        min-height: 230px;
+      }
+
+      .feature-card h3 {
+        margin-top: 3.6rem;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .nav-links a:not(.nav-button) {
+        display: none;
+      }
+
+      .hero-wrap {
+        padding-bottom: 3rem;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+      }
+
+      .button {
+        width: 100%;
+      }
+
+      .demo {
+        margin-top: 3.5rem;
+      }
+
+      .demo-tabs span {
+        padding-inline: 0.8rem;
+        font-size: 0.78rem;
+      }
+
+      .section {
+        padding: 5rem 0;
+      }
+
+      .footer-top,
+      .footer-bottom {
+        flex-direction: column;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+
+  <header class="site-header container">
+    <div class="nav-shell">
+      <a class="brand" href="./" aria-label="gitwatch home">
+        <img src="https://raw.githubusercontent.com/sphireinc/gitwatch/main/assets/gitwatch-logo.png" alt="">
+        <span>gitwatch</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/sphireinc/gitwatch#documentation">Docs</a>
+        <a class="nav-button" href="https://github.com/sphireinc/gitwatch">View on GitHub ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <section class="hero-wrap">
+      <div class="container">
+        <div class="hero-copy">
+          <p class="eyebrow">An interactive Git dashboard</p>
+          <h1>Watch your <span class="highlight">worktree</span> come alive.</h1>
+          <p class="lede">Live, authoritative Git status and focused diffs in a fast terminal interface—with guarded operations for the work you do every day.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="#install">
+              Install gitwatch
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <a class="button secondary" href="https://github.com/sphireinc/gitwatch">Explore the source</a>
+          </div>
+        </div>
+
+        <div class="demo">
+          <div class="demo-tabs" aria-hidden="true">
+            <span>Live status</span>
+            <span>Focused diffs</span>
+          </div>
+          <div class="terminal-frame">
+            <div class="terminal-bar" aria-hidden="true"><span>&nbsp;</span><span>&nbsp;</span><span>&nbsp;</span></div>
+            <img src="demo.svg" alt="gitwatch showing repository status and the selected file's diff">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section soft" id="features">
+      <div class="container">
+        <div class="section-heading">
+          <p class="section-label">Built for flow</p>
+          <h2>Everything you need between editing and committing.</h2>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <span class="feature-number">01</span>
+            <h3>Authoritative live status</h3>
+            <p>Filesystem events prompt refreshes, while machine-readable Git output always remains the source of truth.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-number">02</span>
+            <h3>Diffs where you need them</h3>
+            <p>Click a file or use the keyboard to open its staged or unstaged diff right beside the status list.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-number">03</span>
+            <h3>Guardrails included</h3>
+            <p>Stage, restore, commit, stash, branch, and sync with confirmations around destructive operations.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="install">
+      <div class="container">
+        <div class="install-card">
+          <div>
+            <p class="eyebrow" style="color:#b9b5b5">Get started</p>
+            <h2>Start watching in seconds.</h2>
+            <p>Install with Go, then launch gitwatch from any Git worktree or nested directory.</p>
+          </div>
+          <pre><code>go install github.com/sphireinc/git-watch/cmd/gitwatch@latest
+cd path/to/repository
+gitwatch</code></pre>
+        </div>
+
+        <div class="disclosure">
+          <strong>Agentically built.</strong> gitwatch was planned and implemented with OpenAI models, with human direction, review, testing, and project ownership. This disclosure is included for transparency about the project's development methodology.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a class="brand" href="./">
+            <img src="https://raw.githubusercontent.com/sphireinc/gitwatch/main/assets/gitwatch-logo.png" alt="">
+            <span>gitwatch</span>
+          </a>
+          <p>An htop-style interactive Git worktree dashboard for the terminal.</p>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/sphireinc/gitwatch#install">Installation</a>
+          <a href="https://github.com/sphireinc/gitwatch/blob/main/KEYMAP.md">Keymap</a>
+          <a href="https://github.com/sphireinc/gitwatch#documentation">Documentation</a>
+          <a href="https://github.com/sphireinc/gitwatch/blob/main/CONTRIBUTING.md">Contributing</a>
+          <a href="https://github.com/sphireinc/gitwatch/security">Security</a>
+          <a href="https://github.com/sphireinc/gitwatch/blob/main/LICENSE">MIT License</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 gitwatch contributors.</span>
+        <span>No telemetry. Just Git.</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
