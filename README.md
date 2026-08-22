@@ -37,6 +37,14 @@ provenance and local playback instructions.
 - Keyboard and mouse parity, `NO_COLOR`, semantic themes, high-contrast-safe text, and reduced/off motion.
 - No telemetry.
 
+### Colorized static view
+
+The animated demo above shows the terminal interaction over time. This static
+rendering makes the dashboard's color treatment and selected-file diff pane
+easy to inspect at a glance:
+
+![Colorized gitwatch status dashboard](docs/demo.svg)
+
 ## Install
 
 gitwatch requires Git on `PATH`. Source installation and contributor checks are validated with Go 1.25.10 (the module language-version floor is Go 1.25.0):
