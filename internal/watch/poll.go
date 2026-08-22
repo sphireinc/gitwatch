@@ -111,6 +111,12 @@ func (p Poller) signature() (string, error) {
 		}
 		add(directory, info)
 		for _, entry := range entries {
+			// Object payloads and the objects directory's own metadata are
+			// irrelevant to status. Windows updates that directory timestamp when
+			// payloads change, so hashing it defeats bounded object exclusion.
+			if entry.IsDir() && entry.Name() == "objects" {
+				continue
+			}
 			path := filepath.Join(directory, entry.Name())
 			entryInfo, infoErr := entry.Info()
 			if infoErr != nil {

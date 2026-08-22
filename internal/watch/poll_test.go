@@ -94,10 +94,12 @@ func TestPollerSignatureSeesExternalGitMetadata(t *testing.T) {
 func TestPollerSkipsGitObjectTraversal(t *testing.T) {
 	root := t.TempDir()
 	gitDir := filepath.Join(root, ".git")
-	if err := os.MkdirAll(filepath.Join(gitDir, "objects"), 0o755); err != nil {
+	objectsDir := filepath.Join(gitDir, "objects")
+	if err := os.MkdirAll(objectsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(gitDir, "objects", "ignored"), []byte("one"), 0o600); err != nil {
+	objectPath := filepath.Join(objectsDir, "ignored")
+	if err := os.WriteFile(objectPath, []byte("one"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	p := NewPollerWithMetadata(root, []string{gitDir}, time.Second)
@@ -105,7 +107,13 @@ func TestPollerSkipsGitObjectTraversal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(gitDir, "objects", "ignored"), []byte("two"), 0o600); err != nil {
+	if err := os.WriteFile(objectPath, []byte("two"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Force the directory metadata change observed naturally on Windows so the
+	// bounded-signature regression remains deterministic on every platform.
+	changedTime := time.Now().Add(2 * time.Second)
+	if err := os.Chtimes(objectsDir, changedTime, changedTime); err != nil {
 		t.Fatal(err)
 	}
 	afterObject, err := p.signature()
