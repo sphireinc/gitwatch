@@ -36,9 +36,9 @@ The fixture is disposable and contains no credentials or network dependencies.
 A real asciinema recording from the disposable fixture is checked in at
 [`docs/demo.cast`](demo.cast). It shows startup, selected-file diff, reversible
 keyboard stage/unstage, a wide-to-narrow resize, and clean quit behavior. Play
-it with `asciinema play docs/demo.cast`. The README image is an illustrated
-static preview of the recorded wide-terminal diff state; the cast is the
-authoritative capture of the real application.
+it with `asciinema play docs/demo.cast`. The README image is an animated preview
+of the recorded application; the cast is the authoritative capture of the real
+application.
 
 The cast records an external watcher-driven edit, an SGR mouse click opening the
 selected-file diff, fuzzy filter entry and clearing, reversible stage/unstage,

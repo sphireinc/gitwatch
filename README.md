@@ -19,7 +19,7 @@ An htop-style interactive Git worktree dashboard for the terminal. gitwatch cont
 >
 > This disclosure is included for transparency and to make the project’s development methodology explicit.
 
-![gitwatch status dashboard](docs/demo.svg)
+![gitwatch status dashboard](docs/demo.gif)
 
 [Replay the complete terminal recording](docs/demo.cast), including live
 refresh, mouse and keyboard diff opening, filtering, stage/unstage, and the
