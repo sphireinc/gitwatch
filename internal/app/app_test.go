@@ -257,6 +257,7 @@ func TestStatusViewAppliesConfiguredColorPolicy(t *testing.T) {
 
 func TestStatusDiffUsesWideRightPaneAndNarrowOverlay(t *testing.T) {
 	m := New()
+	m.Theme = theme.New(theme.Dark, true)
 	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("notes.txt"), Unstaged: true}}
 	m.Files.SetEntries(m.Snapshot.Entries)
 	m.DiffPath, m.DiffText, m.DiffAdded, m.DiffDeleted = "notes.txt", "diff --git a/notes.txt b/notes.txt\n-old\n+new", 1, 1
