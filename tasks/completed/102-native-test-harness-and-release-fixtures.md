@@ -40,4 +40,10 @@ capture without pretending screenshots replace behavioral assertions.
 Update `docs/beta-validation-matrix.md`, operator guides, CI smoke boundaries,
 and release sign-off templates. Exercise the harness on every supported OS.
 
-**Status:** Planned
+**Status:** Complete
+
+**Completion summary:** Added deterministic native fixture preparation, reset,
+and inspection commands plus sanitized evidence capture and cross-platform
+operator instructions. The harness separates automated porcelain assertions
+from human rendering/input/lifecycle evidence and documents cleanup and public
+evidence redaction.
