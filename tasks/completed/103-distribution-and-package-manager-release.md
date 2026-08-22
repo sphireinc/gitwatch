@@ -40,4 +40,10 @@ without making package-manager publication a hidden release dependency.
 Update install docs, release checklist, CI/release workflows, and changelog.
 Run exact-version clean-machine tests and record channel-specific evidence.
 
-**Status:** Planned
+**Status:** Complete
+
+**Completion summary:** Added generated release metadata tied to the canonical
+version, commit, build date, targets, repository, and license; included and
+verified it in release checksums; documented maintained archive/source channels,
+optional package-manager ownership boundaries, upgrade preservation, and
+rollback behavior.

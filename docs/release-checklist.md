@@ -18,6 +18,11 @@ VERSION=1.0.0 ./scripts/release-check.sh
 
 The automated gate covers formatting, lint, tests, race detection where supported, vet, security boundaries, representative performance budgets, an isolated source install, CLI/config inspection, a disposable real Git repository, cross-platform archive creation, dependency-license packaging, extraction, embedded build identity, and checksums.
 
+Release archives also emit canonical version/commit/target metadata. Verify
+that metadata and the documented distribution channel independently; package
+manager publication is optional and must not block or weaken the protected
+release workflow.
+
 Tagged pushes matching `v*.*.*` run `.github/workflows/release.yml`. The workflow builds macOS amd64/arm64, Linux amd64/arm64, and Windows amd64 archives, verifies their contents and `SHA256SUMS`, produces an SBOM and build provenance, and publishes through the protected release environment.
 
 ## Native operator acceptance

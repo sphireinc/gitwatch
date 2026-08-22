@@ -57,6 +57,9 @@ gitwatch --help
 
 Release archives for macOS, Linux, and Windows are published with `SHA256SUMS`. Verify the checksum, place the extracted `gitwatch` binary on `PATH`, and run `gitwatch --version`.
 
+See [distribution and upgrade guidance](docs/distribution.md) for archive
+verification, source installation, rollback, and configuration preservation.
+
 To build the current checkout:
 
 ```sh

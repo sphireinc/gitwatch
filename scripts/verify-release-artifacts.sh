@@ -16,6 +16,14 @@ test -d "$out"
 test -f "$out/SHA256SUMS"
 (cd "$out" && shasum -a 256 -c SHA256SUMS)
 
+if [ -n "$version" ]; then
+	metadata="$out/gitwatch_${version}_release.json"
+	test -f "$metadata"
+	grep -q '"schema": 1' "$metadata"
+	grep -q '"license": "MIT"' "$metadata"
+	grep -q '"targets"' "$metadata"
+fi
+
 for target in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64 windows_amd64; do
 	extension=tar.gz
 	[ "$target" = windows_amd64 ] && extension=zip

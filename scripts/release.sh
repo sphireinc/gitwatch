@@ -101,4 +101,17 @@ for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64; d
 		"$work/releasepack" -format tar.gz -name "$name" -output "$out/$name.tar.gz" -root "$package" -timestamp "$build_date"
 	fi
 done
-(cd "$out" && shasum -a 256 ./*.tar.gz ./*.zip >SHA256SUMS)
+metadata="$out/gitwatch_${version}_release.json"
+{
+	printf '{\n'
+	printf '  "schema": 1,\n'
+	printf '  "name": "gitwatch",\n'
+	printf '  "version": "%s",\n' "$version"
+	printf '  "commit": "%s",\n' "$commit"
+	printf '  "build_date": "%s",\n' "$build_date"
+	printf '  "repository": "https://github.com/sphireinc/gitwatch",\n'
+	printf '  "license": "MIT",\n'
+	printf '  "targets": ["darwin/amd64", "darwin/arm64", "linux/amd64", "linux/arm64", "windows/amd64"]\n'
+	printf '}\n'
+} >"$metadata"
+(cd "$out" && shasum -a 256 ./*.tar.gz ./*.zip ./*_release.json >SHA256SUMS)
