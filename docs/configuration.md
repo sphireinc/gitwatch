@@ -25,7 +25,8 @@ The schema-version-2 top-level fields are:
 | `notifications` | Notification preferences; set `quiet` to suppress attention badges while retaining history. |
 | `layout` | Wide status split; `files_percent` controls the left file panel and `details_percent` controls the right details/diff panel. They must be positive and sum to `100`; defaults are `60` and `40`. |
 | `diff` | Diff inspection budgets; `max_bytes` defaults to `4194304` and `max_lines` defaults to `20000`. Truncated diffs show an explicit notice. |
-| `keymap` | Action-to-key bindings; duplicate keys are rejected and configured bindings are applied at runtime. Supported navigation actions include `quit`, `help`, `status`, `branches`, `stashes`, `history`, `remotes`, `worktrees`, `repositories`, `commit`, and `refresh`. |
+| `profile`, `keymap_profiles` | Optional named keymap profile and profile definitions. |
+| `keymap` | Direct action-to-key overrides; these take precedence over the selected profile. Duplicate keys, unknown actions, reserved terminal controls, and destructive-action remaps are rejected before startup. |
 
 Validate a file without opening the TUI with:
 
@@ -55,6 +56,12 @@ zero values, and negative values remain configuration errors.
 
 Environment variables override matching scalar settings, and CLI flags take
 precedence over both file and environment values.
+
+Keymap precedence is defaults, selected `keymap_profiles.<profile>`, then the
+direct `keymap` object. `GITWATCH_PROFILE` and `--profile` select a profile;
+the CLI flag wins. Only the documented non-dangerous navigation/workspace
+actions are configurable. This keeps restore, delete, discard, and force
+operations behind their deliberate built-in confirmations.
 
 The machine-readable schema is available at
 [`docs/configuration.schema.json`](configuration.schema.json). Duration values

@@ -39,4 +39,10 @@ Update the JSON schema, configuration docs, keymap docs, examples, and release
 migration notes. Run full tests, schema validation, and native keyboard-only
 acceptance on all supported platforms.
 
-**Status:** Planned
+**Status:** Complete
+
+**Completion summary:** Added additive profile-aware keymap configuration,
+effective precedence and `--profile` selection, pre-start validation with
+actionable field paths, reserved-control/collision/unknown-action checks,
+runtime dispatch through the effective registry, schema/docs, and reset
+semantics. Destructive actions remain deliberately non-remappable.

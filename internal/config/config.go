@@ -17,24 +17,26 @@ import (
 const CurrentVersion = 2
 
 type Config struct {
-	Version        int                `json:"version"`
-	Theme          string             `json:"theme"`
-	Motion         string             `json:"motion"`
-	Watch          string             `json:"watch"`
-	Interval       time.Duration      `json:"interval"`
-	Reconciliation time.Duration      `json:"reconciliation"`
-	ShowUntracked  bool               `json:"show_untracked"`
-	ShowIgnored    bool               `json:"show_ignored"`
-	Mouse          bool               `json:"mouse"`
-	Debounce       time.Duration      `json:"debounce"`
-	Repositories   RepositoryConfig   `json:"repositories"`
-	Remote         RemoteConfig       `json:"remote"`
-	GitHub         GitHubConfig       `json:"github"`
-	Plugins        PluginConfig       `json:"plugins"`
-	Notifications  NotificationConfig `json:"notifications"`
-	Layout         LayoutConfig       `json:"layout"`
-	Diff           DiffConfig         `json:"diff"`
-	Keymap         map[string]string  `json:"keymap"`
+	Version        int                          `json:"version"`
+	Theme          string                       `json:"theme"`
+	Motion         string                       `json:"motion"`
+	Watch          string                       `json:"watch"`
+	Interval       time.Duration                `json:"interval"`
+	Reconciliation time.Duration                `json:"reconciliation"`
+	ShowUntracked  bool                         `json:"show_untracked"`
+	ShowIgnored    bool                         `json:"show_ignored"`
+	Mouse          bool                         `json:"mouse"`
+	Debounce       time.Duration                `json:"debounce"`
+	Repositories   RepositoryConfig             `json:"repositories"`
+	Remote         RemoteConfig                 `json:"remote"`
+	GitHub         GitHubConfig                 `json:"github"`
+	Plugins        PluginConfig                 `json:"plugins"`
+	Notifications  NotificationConfig           `json:"notifications"`
+	Layout         LayoutConfig                 `json:"layout"`
+	Diff           DiffConfig                   `json:"diff"`
+	Keymap         map[string]string            `json:"keymap"`
+	Profile        string                       `json:"profile,omitempty"`
+	KeymapProfiles map[string]map[string]string `json:"keymap_profiles,omitempty"`
 }
 
 type RepositoryConfig struct {
@@ -84,6 +86,21 @@ func Defaults() Config {
 
 func DefaultKeymap() map[string]string {
 	return map[string]string{"quit": "q", "help": "?", "status": "1", "branches": "b", "stashes": "s", "history": "l", "remotes": "n", "worktrees": "w", "repositories": "v", "commit": "c", "refresh": "r"}
+}
+
+// KnownKeymapActions is the non-dangerous action surface that may be rebound.
+var KnownKeymapActions = map[string]bool{"quit": true, "help": true, "status": true, "branches": true, "stashes": true, "history": true, "remotes": true, "worktrees": true, "repositories": true, "commit": true, "refresh": true}
+
+// EffectiveKeymap merges defaults, the selected profile, and direct overrides.
+func EffectiveKeymap(c Config) map[string]string {
+	keymap := DefaultKeymap()
+	for action, key := range c.KeymapProfiles[c.Profile] {
+		keymap[action] = key
+	}
+	for action, key := range c.Keymap {
+		keymap[action] = key
+	}
+	return keymap
 }
 func Path() (string, error) {
 	if p := os.Getenv("GITWATCH_CONFIG"); p != "" {
@@ -199,7 +216,54 @@ func Validate(c Config) error {
 	if collisions := BindingCollisions(c.Keymap); len(collisions) > 0 {
 		return fmt.Errorf("key binding collision: %s", collisions[0])
 	}
+	if err := ValidateKeymaps(c); err != nil {
+		return err
+	}
 	return nil
+}
+
+// ValidateKeymaps rejects unknown actions, unsafe controls, invalid profiles,
+// and collisions before the TUI can start.
+func ValidateKeymaps(c Config) error {
+	if c.Profile != "" && c.KeymapProfiles[c.Profile] == nil {
+		return fmt.Errorf("profile %q is not defined in keymap_profiles", c.Profile)
+	}
+	for profile, bindings := range c.KeymapProfiles {
+		if strings.TrimSpace(profile) == "" {
+			return fmt.Errorf("keymap_profiles contains an empty profile name")
+		}
+		if err := validateBindings("keymap_profiles."+profile, bindings); err != nil {
+			return err
+		}
+	}
+	return validateBindings("keymap", c.Keymap)
+}
+
+func validateBindings(field string, bindings map[string]string) error {
+	seen := make(map[string]string)
+	for action, key := range bindings {
+		if !KnownKeymapActions[action] {
+			return fmt.Errorf("%s.%s: unknown action; destructive actions cannot be remapped", field, action)
+		}
+		if strings.TrimSpace(key) == "" || len([]rune(key)) > 16 {
+			return fmt.Errorf("%s.%s: key sequence must contain 1-16 characters", field, action)
+		}
+		lower := strings.ToLower(key)
+		if lower == "ctrl+c" || lower == "ctrl+z" || lower == "ctrl+\\" {
+			return fmt.Errorf("%s.%s: reserved terminal control sequence %q", field, action, key)
+		}
+		if prior := seen[key]; prior != "" {
+			return fmt.Errorf("%s.%s: key %q collides with %s", field, action, key, prior)
+		}
+		seen[key] = action
+	}
+	return nil
+}
+
+// ResetKeymap returns a copy with custom bindings and profiles removed.
+func ResetKeymap(c Config) Config {
+	c.Profile, c.KeymapProfiles, c.Keymap = "", nil, DefaultKeymap()
+	return c
 }
 
 func BindingCollisions(bindings map[string]string) []string {
@@ -216,6 +280,9 @@ func BindingCollisions(bindings map[string]string) []string {
 }
 func Inspect(c Config) ([]byte, error) { return json.MarshalIndent(c, "", "  ") }
 func applyEnv(c Config) Config {
+	if v := os.Getenv("GITWATCH_PROFILE"); v != "" {
+		c.Profile = v
+	}
 	if v := os.Getenv("GITWATCH_THEME"); v != "" {
 		c.Theme = v
 	}

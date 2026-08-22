@@ -497,7 +497,7 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	if requested, ok := watch.ParseMode(c.Watch); ok {
 		m.WatchRequested = requested
 	}
-	m.Keymap = mergeKeymap(c.Keymap)
+	m.Keymap = mergeKeymap(config.EffectiveKeymap(c))
 	m.GitHubEnabled, m.GitHubTokenEnv = c.GitHub.Enabled, c.GitHub.TokenEnv
 	m.GitHubCache = provider.NewPullRequestCache(c.GitHub.CacheTTL)
 	m.GitHubChecksCache = provider.NewCache[provider.ChecksSnapshot](c.GitHub.CacheTTL)

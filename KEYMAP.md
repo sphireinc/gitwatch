@@ -61,3 +61,22 @@
 | q | Quit |
 
 Destructive actions must use deliberately distinct bindings and confirmation dialogs.
+
+## Profiles and validation
+
+The JSON configuration can define named profiles:
+
+```json
+{
+  "profile": "writer",
+  "keymap_profiles": { "writer": { "quit": "x", "help": "h" } },
+  "keymap": { "refresh": "R" }
+}
+```
+
+The direct `keymap` object overrides the selected profile, which overrides the
+defaults. Select a profile with `GITWATCH_PROFILE` or `--profile`. Invalid
+actions, duplicate keys, blank/overlong sequences, and terminal controls such
+as `ctrl+c` are rejected by `--config-check`. The profile and effective
+bindings are included in `--config-inspect`; secrets are not part of the
+keymap model.

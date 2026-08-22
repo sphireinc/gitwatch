@@ -86,6 +86,28 @@ func TestDiffBudgetValidation(t *testing.T) {
 	}
 }
 
+func TestKeymapProfilesPrecedenceAndValidation(t *testing.T) {
+	c := Defaults()
+	c.Profile = "writer"
+	c.KeymapProfiles = map[string]map[string]string{"writer": {"quit": "x", "help": "h"}}
+	c.Keymap = map[string]string{"quit": "q"}
+	if err := Validate(c); err != nil {
+		t.Fatal(err)
+	}
+	if got := EffectiveKeymap(c); got["quit"] != "q" || got["help"] != "h" {
+		t.Fatalf("effective keymap = %#v", got)
+	}
+	c.Keymap = map[string]string{"unknown": "x"}
+	if err := Validate(c); err == nil || !strings.Contains(err.Error(), "unknown action") {
+		t.Fatalf("unknown action error = %v", err)
+	}
+	c = Defaults()
+	c.Keymap = map[string]string{"quit": "ctrl+c"}
+	if err := Validate(c); err == nil || !strings.Contains(err.Error(), "reserved") {
+		t.Fatalf("reserved key error = %v", err)
+	}
+}
+
 func TestLayoutPercentOverflowNormalizesToEqualPanels(t *testing.T) {
 	c := Defaults()
 	c.Layout = LayoutConfig{FilesPercent: 70, DetailsPercent: 40}

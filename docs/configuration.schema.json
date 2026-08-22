@@ -63,6 +63,11 @@
         "max_lines": { "type": "integer", "minimum": 1 }
       }
     },
-    "keymap": { "type": "object", "additionalProperties": { "type": "string" } }
+    "profile": { "type": "string" },
+    "keymap": { "type": "object", "additionalProperties": { "type": "string" } },
+    "keymap_profiles": {
+      "type": "object",
+      "additionalProperties": { "type": "object", "additionalProperties": { "type": "string" } }
+    }
   }
 }

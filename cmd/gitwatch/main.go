@@ -22,6 +22,7 @@ func main() {
 	watchFlag := flag.String("watch", "", "watch mode: auto, fs, or poll")
 	intervalFlag := flag.Duration("interval", 0, "poll/reconciliation interval")
 	groupFlag := flag.String("group", "", "open the repository dashboard filtered to a configured group")
+	profileFlag := flag.String("profile", "", "select a named keymap profile")
 	configInspect := flag.Bool("config-inspect", false, "print effective configuration and exit")
 	configCheck := flag.Bool("config-check", false, "validate configuration and exit")
 	flag.Usage = func() {
@@ -45,6 +46,9 @@ func main() {
 		os.Exit(1)
 	}
 	c = config.ApplyCLI(c, *themeFlag, *motionFlag, *watchFlag, *intervalFlag)
+	if *profileFlag != "" {
+		c.Profile = *profileFlag
+	}
 	if err := config.Validate(c); err != nil {
 		fmt.Fprintf(os.Stderr, "gitwatch: config: %v\n", err)
 		os.Exit(1)
