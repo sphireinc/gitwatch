@@ -10,17 +10,18 @@ import (
 
 // Discovery describes the repository and Git metadata found from a directory.
 type Discovery struct {
-	Root       string
-	GitDir     string
-	CommonDir  string
-	Bare       bool
-	Worktree   bool
-	Linked     bool
-	Submodule  bool
-	GitVersion string
-	Head       string
-	Detached   bool
-	Unborn     bool
+	Root         string
+	GitDir       string
+	CommonDir    string
+	Bare         bool
+	Worktree     bool
+	Linked       bool
+	Submodule    bool
+	GitVersion   string
+	Capabilities Capabilities
+	Head         string
+	Detached     bool
+	Unborn       bool
 }
 
 // Discover resolves repository topology and HEAD state for dir.
@@ -62,7 +63,11 @@ func Discover(ctx context.Context, dir string) (Discovery, error) {
 		return Discovery{}, err
 	}
 	headResult, headErr := r.Run(ctx, "symbolic-ref", "--quiet", "--short", "HEAD")
-	d := Discovery{Root: root, GitDir: gitDir, CommonDir: commonDir, Bare: bare, Worktree: inside, GitVersion: strings.TrimSpace(string(versionResult.Stdout))}
+	capabilities, err := r.Probe(ctx)
+	if err != nil {
+		return Discovery{}, err
+	}
+	d := Discovery{Root: root, GitDir: gitDir, CommonDir: commonDir, Bare: bare, Worktree: inside, GitVersion: strings.TrimSpace(string(versionResult.Stdout)), Capabilities: capabilities}
 	d.Linked = !samePath(d.GitDir, d.CommonDir)
 	d.Submodule = filepath.Base(root) != filepath.Base(commonDir) && strings.Contains(d.GitDir, filepath.Join(".git", "modules"))
 	headOID, oidErr := r.Run(ctx, "rev-parse", "--verify", "HEAD")

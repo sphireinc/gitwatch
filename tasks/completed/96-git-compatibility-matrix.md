@@ -41,4 +41,10 @@ Update `docs/edge-cases.md`, README requirements, release-check commands, and
 the beta matrix. Run the full gate against every locally available Git version;
 label container or CI evidence separately from native evidence.
 
-**Status:** Planned
+**Status:** Complete
+
+**Completion summary:** Added Git 2.23 minimum-version enforcement, semantic
+version parsing, cached per-discovery capability results, startup diagnostics,
+and compatibility documentation. Core machine-readable workflows remain
+argument-vector based; capability-gated optional behavior is not authorized by
+fallback error text.
