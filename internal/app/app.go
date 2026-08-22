@@ -2630,7 +2630,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if statusLayout.Mode == layout.Wide {
 				files.Width = max(1, files.Width-1)
 			}
-			hit := uimouse.HitMap{Files: files, RowTop: files.Y, RowHeight: 1, Offset: m.Files.Offset, RowHeights: m.statusFileRowHeights(files.Width), StageX: files.X, StageWidth: 3, RowCount: len(m.Files.Visible)}
+			files.Width = max(1, files.Width-1)
+			hit := uimouse.HitMap{Files: files, RowTop: files.Y + 1, RowHeight: 1, Offset: m.Files.Offset, RowHeights: m.statusFileRowHeights(files.Width), StageX: files.X + 1, StageWidth: 3, RowCount: len(m.Files.Visible)}
 			action, row, ok := hit.Hit(v.X, v.Y, 0)
 			if ok {
 				m.Files.Selected = row

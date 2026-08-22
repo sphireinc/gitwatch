@@ -35,9 +35,10 @@ func (m Model) statusRowCount() int {
 	if statusLayout.Mode == layout.Wide {
 		width = max(1, width-1)
 	}
+	width = max(1, width-1)
 	rows := 0
 	for _, height := range m.statusFileRowHeights(width) {
-		if rows+height > statusLayout.Files.Height {
+		if rows+height > max(1, statusLayout.Files.Height-1) {
 			break
 		}
 		rows++
@@ -219,7 +220,7 @@ func (m Model) statusFileLines(width, height int) []string {
 	if len(lines) == 0 {
 		lines = append(lines, fitSafeDisplay("  clean worktree", width))
 	}
-	return fitLines(lines, width, height)
+	return padStatusPanel(lines, width, height)
 }
 
 func (m Model) statusFileRowHeights(width int) []int {
@@ -249,7 +250,7 @@ func (m Model) statusFileText(entry repo.Entry, selected bool) string {
 
 func (m Model) statusDiffLines(width, height int) []string {
 	if m.DiffPath == "" {
-		return m.statusDetailsLines(width, height)
+		return padStatusPanel(m.statusDetailsLines(width, height), width, height)
 	}
 	mode := "unstaged"
 	if m.DiffStaged {
@@ -274,7 +275,26 @@ func (m Model) statusDiffLines(width, height int) []string {
 		}
 		lines = append(lines, body...)
 	}
-	return fitLines(lines, width, height)
+	return padStatusPanel(lines, width, height)
+}
+
+// padStatusPanel reserves one terminal cell on the panel's left and top edges.
+// A cell is the smallest reliable spacing unit across terminal fonts and keeps
+// the visual inset aligned with mouse coordinates and wrapped content.
+func padStatusPanel(lines []string, width, height int) []string {
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	innerWidth := max(1, width-1)
+	padded := make([]string, 0, len(lines)+1)
+	padded = append(padded, "")
+	for _, line := range lines {
+		wrapped := fitSafeDisplayLines(line, innerWidth)
+		for _, part := range wrapped {
+			padded = append(padded, " "+part)
+		}
+	}
+	return fitLines(padded, width, height)
 }
 
 func (m Model) statusDetailsLines(width, height int) []string {

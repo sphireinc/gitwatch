@@ -263,7 +263,7 @@ func TestStatusDiffUsesWideRightPaneAndNarrowOverlay(t *testing.T) {
 	m.DiffPath, m.DiffText, m.DiffAdded, m.DiffDeleted = "notes.txt", "diff --git a/notes.txt b/notes.txt\n-old\n+new", 1, 1
 	m.Width, m.Height = 160, 20
 	wide := strings.Split(m.View().Content, "\n")
-	if len(wide) != m.Height || !strings.Contains(wide[3], "│Diff (unstaged) · notes.txt") {
+	if len(wide) != m.Height || !strings.Contains(wide[4], "│ Diff (unstaged) · notes.txt") {
 		t.Fatalf("wide diff is not right-aligned: %#v", wide)
 	}
 	m.Width = 80
@@ -323,7 +323,7 @@ func TestStatusMouseClickOpensSelectedFileDiff(t *testing.T) {
 	m.Width, m.Height = 160, 20
 	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("first.txt"), Unstaged: true}, {Path: repo.Path("second.txt"), Unstaged: true}}
 	m.Files.SetEntries(m.Snapshot.Entries)
-	updated, command := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 10, Y: 4})
+	updated, command := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 10, Y: 5})
 	m = updated.(Model)
 	if command == nil || m.Files.Selected != 1 || m.DiffPath != "second.txt" || !m.DiffLoading {
 		t.Fatalf("mouse diff = commandnil=%v selected=%d path=%q loading=%v", command == nil, m.Files.Selected, m.DiffPath, m.DiffLoading)
