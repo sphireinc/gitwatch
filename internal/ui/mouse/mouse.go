@@ -16,6 +16,7 @@ const (
 type HitMap struct {
 	Files                     layout.Rect
 	RowTop, RowHeight, Offset int
+	RowHeights                []int
 	StageX, StageWidth        int
 	RowCount                  int
 }
@@ -30,14 +31,37 @@ func (h HitMap) Hit(x, y int, wheel int) (Action, int, bool) {
 	if !h.Files.Contains(x, y) {
 		return None, -1, false
 	}
-	row := y - h.RowTop + h.Offset
-	if row < 0 || row >= h.RowCount || h.RowHeight <= 0 {
+	displayRow := y - h.RowTop
+	if displayRow < 0 || h.RowHeight <= 0 {
+		return None, -1, false
+	}
+	row := displayRow + h.Offset
+	if len(h.RowHeights) > 0 {
+		row = h.Offset
+		for _, rowHeight := range h.RowHeights {
+			if displayRow < rowHeight {
+				break
+			}
+			displayRow -= rowHeight
+			row++
+		}
+		if displayRow < 0 || row >= h.RowCount || rowHeightAt(h.RowHeights, row-h.Offset) <= 0 {
+			return None, -1, false
+		}
+	} else if row < 0 || row >= h.RowCount {
 		return None, -1, false
 	}
 	if x >= h.StageX && x < h.StageX+h.StageWidth {
 		return ToggleStage, row, true
 	}
 	return SelectRow, row, true
+}
+
+func rowHeightAt(heights []int, index int) int {
+	if index < 0 || index >= len(heights) {
+		return 0
+	}
+	return heights[index]
 }
 
 func DoubleClick() Action { return OpenDiff }

@@ -16,7 +16,20 @@ type Layout struct {
 	Message                                           string
 }
 
+type Split struct {
+	FilesPercent   int
+	DetailsPercent int
+}
+
+func DefaultSplit() Split {
+	return Split{FilesPercent: 60, DetailsPercent: 40}
+}
+
 func Compute(width, height int) Layout {
+	return ComputeWithSplit(width, height, DefaultSplit())
+}
+
+func ComputeWithSplit(width, height int, split Split) Layout {
 	l := Layout{Mode: Wide}
 	if width < 60 || height < 12 {
 		l.Mode = TooSmall
@@ -30,9 +43,9 @@ func Compute(width, height int) Layout {
 	l.Activity = Rect{X: 0, Y: height - 4, Width: width, Height: 3}
 	contentTop, contentHeight := 3, height-7
 	if width >= 140 {
-		split := width * 3 / 5
-		l.Files = Rect{X: 0, Y: contentTop, Width: split, Height: contentHeight}
-		l.Details = Rect{X: split, Y: contentTop, Width: width - split, Height: contentHeight}
+		filesWidth, detailsWidth := splitWidths(width, split)
+		l.Files = Rect{X: 0, Y: contentTop, Width: filesWidth, Height: contentHeight}
+		l.Details = Rect{X: filesWidth, Y: contentTop, Width: detailsWidth, Height: contentHeight}
 	} else if width >= 90 {
 		l.Mode = Medium
 		l.Files = Rect{X: 0, Y: contentTop, Width: width, Height: contentHeight}
@@ -43,6 +56,15 @@ func Compute(width, height int) Layout {
 		l.Details = l.Files
 	}
 	return l
+}
+
+func splitWidths(width int, split Split) (int, int) {
+	if split.FilesPercent <= 0 || split.DetailsPercent <= 0 || split.FilesPercent+split.DetailsPercent != 100 {
+		split = DefaultSplit()
+	}
+	filesWidth := width * split.FilesPercent / 100
+	filesWidth = max(1, min(width-1, filesWidth))
+	return filesWidth, width - filesWidth
 }
 
 func (r Rect) Contains(x, y int) bool {

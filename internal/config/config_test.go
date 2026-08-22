@@ -1,8 +1,10 @@
 package config
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -50,12 +52,64 @@ func TestGroupRefreshPolicyValidation(t *testing.T) {
 
 func TestV2DefaultsAndBindingCollisionValidation(t *testing.T) {
 	c := Defaults()
-	if c.Version != CurrentVersion || c.Remote.PullStrategy != "ff-only" {
+	if c.Version != CurrentVersion || c.Remote.PullStrategy != "ff-only" || c.Layout.FilesPercent != 60 || c.Layout.DetailsPercent != 40 {
 		t.Fatalf("unexpected defaults: %#v", c)
 	}
 	c.Keymap = map[string]string{"one": "x", "two": "x"}
 	if Validate(c) == nil || len(BindingCollisions(c.Keymap)) != 1 {
 		t.Fatal("binding collision was not rejected")
+	}
+}
+
+func TestLayoutPercentValidation(t *testing.T) {
+	c := Defaults()
+	c.Layout = LayoutConfig{FilesPercent: 50, DetailsPercent: 50}
+	if err := Validate(c); err != nil {
+		t.Fatal(err)
+	}
+	c.Layout.DetailsPercent = 49
+	if err := Validate(c); err == nil {
+		t.Fatal("layout percentages that do not sum to 100 were accepted")
+	}
+}
+
+func TestLayoutPercentOverflowNormalizesToEqualPanels(t *testing.T) {
+	c := Defaults()
+	c.Layout = LayoutConfig{FilesPercent: 70, DetailsPercent: 40}
+	normalized, changed := NormalizeLayout(c)
+	if !changed || normalized.Layout.FilesPercent != 50 || normalized.Layout.DetailsPercent != 50 {
+		t.Fatalf("normalized layout = %#v changed=%v", normalized.Layout, changed)
+	}
+	if err := Validate(normalized); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLoadLogsLayoutOverflowOnce(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, []byte(`{"layout":{"files_percent":70,"details_percent":40}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	originalStderr := os.Stderr
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = writer
+	loaded, loadErr := Load(path)
+	if closeErr := writer.Close(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	os.Stderr = originalStderr
+	message, readErr := io.ReadAll(reader)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if loadErr != nil || loaded.Layout.FilesPercent != 50 || loaded.Layout.DetailsPercent != 50 {
+		t.Fatalf("loaded overflow layout = %#v err=%v", loaded.Layout, loadErr)
+	}
+	if count := strings.Count(string(message), "layout percentages exceed 100"); count != 1 {
+		t.Fatalf("overflow warning count = %d, output=%q", count, message)
 	}
 }
 

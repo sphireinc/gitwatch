@@ -49,6 +49,13 @@
       }
     },
     "notifications": { "type": "object", "properties": { "quiet": { "type": "boolean" } } },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "files_percent": { "type": "integer", "minimum": 1, "maximum": 99 },
+        "details_percent": { "type": "integer", "minimum": 1, "maximum": 99 }
+      }
+    },
     "keymap": { "type": "object", "additionalProperties": { "type": "string" } }
   }
 }

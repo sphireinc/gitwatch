@@ -229,6 +229,7 @@ type Model struct {
 	FileFilterInput          string
 	FileConflictOnly         bool
 	Theme                    theme.Roles
+	PanelSplit               layout.Split
 	DetailsCache             *details.Cache
 	ActivityLog              *history.Log
 	ctx                      context.Context
@@ -360,7 +361,7 @@ func New() Model {
 		GitHubCache:        provider.NewPullRequestCache(2 * time.Minute),
 		GitHubChecksCache:  provider.NewCache[provider.ChecksSnapshot](2 * time.Minute),
 		GitHubReviewsCache: provider.NewCache[provider.ReviewSnapshot](2 * time.Minute),
-		Plugins:            pluginview.New(nil), Theme: theme.New(theme.Auto, false),
+		Plugins:            pluginview.New(nil), Theme: theme.New(theme.Auto, false), PanelSplit: layout.DefaultSplit(),
 		DetailsCache: details.NewCache(), ActivityLog: history.New(100),
 		ctx: ctx, cancel: cancel, RefreshInterval: 2 * time.Second,
 		ReconciliationInterval: 30 * time.Second, WatchDebounce: 75 * time.Millisecond,
@@ -505,6 +506,7 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 		m.Motion = MotionFull
 	}
 	m.Theme = theme.New(theme.Name(c.Theme), false)
+	m.PanelSplit = layout.Split{FilesPercent: c.Layout.FilesPercent, DetailsPercent: c.Layout.DetailsPercent}
 	m.RepositoryRoots = append([]string(nil), c.Repositories.Roots...)
 	m.RepositoryGroups = cloneGroups(c.Repositories.Groups)
 	if path, err := registry.StatePath(); err == nil {
@@ -2628,7 +2630,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if statusLayout.Mode == layout.Wide {
 				files.Width = max(1, files.Width-1)
 			}
-			hit := uimouse.HitMap{Files: files, RowTop: files.Y, RowHeight: 1, Offset: m.Files.Offset, StageX: files.X, StageWidth: 3, RowCount: len(m.Files.Visible)}
+			hit := uimouse.HitMap{Files: files, RowTop: files.Y, RowHeight: 1, Offset: m.Files.Offset, RowHeights: m.statusFileRowHeights(files.Width), StageX: files.X, StageWidth: 3, RowCount: len(m.Files.Visible)}
 			action, row, ok := hit.Hit(v.X, v.Y, 0)
 			if ok {
 				m.Files.Selected = row

@@ -23,6 +23,7 @@ The schema-version-2 top-level fields are:
 | `github` | Optional provider enablement, token environment name, and cache TTL. |
 | `plugins` | Optional plugin directories, enablement, and output limit. |
 | `notifications` | Notification preferences; set `quiet` to suppress attention badges while retaining history. |
+| `layout` | Wide status split; `files_percent` controls the left file panel and `details_percent` controls the right details/diff panel. They must be positive and sum to `100`; defaults are `60` and `40`. |
 | `keymap` | Action-to-key bindings; duplicate keys are rejected and configured bindings are applied at runtime. Supported navigation actions include `quit`, `help`, `status`, `branches`, `stashes`, `history`, `remotes`, `worktrees`, `repositories`, `commit`, and `refresh`. |
 
 Validate a file without opening the TUI with:
@@ -30,6 +31,22 @@ Validate a file without opening the TUI with:
 ```text
 gitwatch --config-check --config /path/to/config.json
 ```
+
+For example, make the two wide status panels equal width:
+
+```json
+{
+  "version": 2,
+  "layout": {
+    "files_percent": 50,
+    "details_percent": 50
+  }
+}
+```
+
+If the two layout percentages total more than `100`, gitwatch logs one startup
+error and safely uses a `50`/`50` split for that session. Totals below `100`,
+zero values, and negative values remain configuration errors.
 
 Environment variables override matching scalar settings, and CLI flags take
 precedence over both file and environment values.

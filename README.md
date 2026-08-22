@@ -30,6 +30,7 @@ provenance and local playback instructions.
 
 - Live, authoritative porcelain-v2 status with filesystem watching and polling fallback.
 - Responsive status dashboard with branch divergence, staged/unstaged state, conflicts, filtering, sorting, activity, and selected-file details.
+- Long file paths and diff/details lines wrap to the active panel width instead of being silently truncated.
 - Mouse or keyboard file selection that opens the selected file's diff without mutating the repository.
 - Guarded stage, unstage, restore, hunk, commit, stash, branch, worktree, remote, and history workflows.
 - Optional read-only GitHub pull-request/check visibility, multi-repository dashboards, and capability-bounded out-of-process plugins.
@@ -95,7 +96,7 @@ Read the [security policy](SECURITY.md) and [threat model](docs/security.md) bef
 
 ## Configuration
 
-Configuration is JSON at `$XDG_CONFIG_HOME/gitwatch/config.json` or the platform configuration fallback. `GITWATCH_CONFIG`, `GITWATCH_THEME`, `GITWATCH_MOTION`, `GITWATCH_WATCH`, and `GITWATCH_INTERVAL` provide explicit environment overrides; CLI flags take precedence.
+Configuration is JSON at `$XDG_CONFIG_HOME/gitwatch/config.json` or the platform configuration fallback. `GITWATCH_CONFIG`, `GITWATCH_THEME`, `GITWATCH_MOTION`, `GITWATCH_WATCH`, and `GITWATCH_INTERVAL` provide explicit environment overrides; CLI flags take precedence. The `layout.files_percent` and `layout.details_percent` settings control the wide status panel split and must sum to `100`.
 
 ```sh
 gitwatch --config-check --config /path/to/config.json

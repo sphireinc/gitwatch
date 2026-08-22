@@ -273,6 +273,21 @@ func TestStatusDiffUsesWideRightPaneAndNarrowOverlay(t *testing.T) {
 	}
 }
 
+func TestStatusPanelsWrapLongContent(t *testing.T) {
+	m := New()
+	m.Theme = theme.New(theme.Dark, true)
+	m.Width, m.Height = 160, 20
+	longPath := repo.Path("a/very/long/path/" + strings.Repeat("nested/", 16) + "filename-with-a-visible-tail.txt")
+	m.Snapshot.Entries = []repo.Entry{{Path: longPath, Unstaged: true}}
+	m.Files.SetEntries(m.Snapshot.Entries)
+	m.DiffPath = string(longPath)
+	m.DiffText = "+" + strings.Repeat("right-panel-content ", 12) + "visible-tail"
+	view := m.View().Content
+	if !strings.Contains(view, "filename-with-a-visible-tail.txt") || !strings.Contains(view, "visible-tail") {
+		t.Fatalf("wrapped panel content was truncated: %q", view)
+	}
+}
+
 func TestDiffStatIgnoresPatchHeaders(t *testing.T) {
 	added, deleted := diffStat("diff --git a/a b/a\n--- a/a\n+++ b/a\n context\n-old\n+new\n++literal\n--literal\n")
 	if added != 2 || deleted != 2 {
@@ -592,6 +607,17 @@ func TestConfiguredKeymapDispatchesCanonicalActions(t *testing.T) {
 	m = updated.(Model)
 	if cmd == nil || m.State != StateShutdown {
 		t.Fatalf("remapped quit = cmdnil=%v state=%v", cmd == nil, m.State)
+	}
+}
+
+func TestConfiguredPanelSplitReachesStatusLayout(t *testing.T) {
+	c := config.Defaults()
+	c.Layout.FilesPercent, c.Layout.DetailsPercent = 50, 50
+	m := NewRepositoryWithConfig(git.Discovery{}, c)
+	m.Width, m.Height = 200, 40
+	status := m.statusLayout()
+	if status.Files.Width != 100 || status.Details.Width != 100 {
+		t.Fatalf("configured panel split = %#v", status)
 	}
 }
 

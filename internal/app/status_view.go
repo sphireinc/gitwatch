@@ -26,11 +26,23 @@ func (m Model) statusLayout() layout.Layout {
 	if height <= 0 {
 		height = defaultStatusHeight
 	}
-	return layout.Compute(width, height)
+	return layout.ComputeWithSplit(width, height, m.PanelSplit)
 }
 
 func (m Model) statusRowCount() int {
-	return max(1, m.statusLayout().Files.Height)
+	statusLayout := m.statusLayout()
+	width := statusLayout.Files.Width
+	if statusLayout.Mode == layout.Wide {
+		width = max(1, width-1)
+	}
+	rows := 0
+	for _, height := range m.statusFileRowHeights(width) {
+		if rows+height > statusLayout.Files.Height {
+			break
+		}
+		rows++
+	}
+	return max(1, rows)
 }
 
 func (m *Model) scrollDiff(delta int) {
@@ -71,10 +83,14 @@ func (m Model) statusView() string {
 	metrics := fmt.Sprintf("STAGED %d  MODIFIED %d  UNTRACKED %d  CONFLICTS %d", m.Snapshot.Counts.Staged, m.Snapshot.Counts.Unstaged, m.Snapshot.Counts.Untracked, m.Snapshot.Counts.Conflicted)
 	lines := []string{fitSafeDisplay(header, width), fitSafeDisplay(metrics, width), strings.Repeat("─", width)}
 
-	files := m.statusFileLines(statusLayout.Files.Width, statusLayout.Files.Height)
+	fileWidth := statusLayout.Files.Width
+	if statusLayout.Mode == layout.Wide {
+		fileWidth = max(1, fileWidth-1)
+	}
+	files := m.statusFileLines(fileWidth, statusLayout.Files.Height)
 	diff := m.statusDiffLines(statusLayout.Details.Width, statusLayout.Details.Height)
 	if statusLayout.Mode == layout.Wide {
-		lines = append(lines, joinStatusColumns(files, diff, statusLayout.Files.Width, statusLayout.Details.Width, statusLayout.Files.Height)...)
+		lines = append(lines, joinStatusColumns(files, diff, fileWidth, statusLayout.Details.Width, statusLayout.Files.Height)...)
 	} else if m.DiffPath != "" {
 		lines = append(lines, fitLines(diff, width, statusLayout.Files.Height)...)
 	} else {
@@ -197,24 +213,38 @@ func (m Model) statusFileLines(width, height int) []string {
 	lines := make([]string, 0, height)
 	for i := m.Files.Offset; i < len(m.Files.Visible) && len(lines) < height; i++ {
 		entry := m.Files.Entries[m.Files.Visible[i]]
-		stage := "[ ]"
-		if entry.Staged {
-			stage = "[S]"
-		}
-		selection := " "
-		if i == m.Files.Selected {
-			selection = ">"
-		}
-		path := string(entry.Path)
-		if len(entry.Original) > 0 {
-			path = string(entry.Original) + " → " + path
-		}
-		lines = append(lines, fitSafeDisplay(fmt.Sprintf("%s%s %s %s", stage, selection, theme.Symbol(repo.StatusLabel(entry)), path), width))
+		wrapped := fitSafeDisplayLines(m.statusFileText(entry, i == m.Files.Selected), width)
+		lines = append(lines, wrapped...)
 	}
 	if len(lines) == 0 {
-		lines = append(lines, fitDisplay("  clean worktree", width))
+		lines = append(lines, fitSafeDisplay("  clean worktree", width))
 	}
 	return fitLines(lines, width, height)
+}
+
+func (m Model) statusFileRowHeights(width int) []int {
+	heights := make([]int, 0, len(m.Files.Visible))
+	for i := m.Files.Offset; i < len(m.Files.Visible); i++ {
+		entry := m.Files.Entries[m.Files.Visible[i]]
+		heights = append(heights, len(fitSafeDisplayLines(m.statusFileText(entry, i == m.Files.Selected), width)))
+	}
+	return heights
+}
+
+func (m Model) statusFileText(entry repo.Entry, selected bool) string {
+	stage := "[ ]"
+	if entry.Staged {
+		stage = "[S]"
+	}
+	selection := " "
+	if selected {
+		selection = ">"
+	}
+	path := string(entry.Path)
+	if len(entry.Original) > 0 {
+		path = string(entry.Original) + " → " + path
+	}
+	return fmt.Sprintf("%s%s %s %s", stage, selection, theme.Symbol(repo.StatusLabel(entry)), path)
 }
 
 func (m Model) statusDiffLines(width, height int) []string {
@@ -305,7 +335,6 @@ func (m Model) latestActivityLine() string {
 }
 
 func joinStatusColumns(left, right []string, leftWidth, rightWidth, height int) []string {
-	leftContentWidth := max(1, leftWidth-1)
 	joined := make([]string, height)
 	for index := range joined {
 		var leftLine, rightLine string
@@ -315,16 +344,20 @@ func joinStatusColumns(left, right []string, leftWidth, rightWidth, height int) 
 		if index < len(right) {
 			rightLine = right[index]
 		}
-		joined[index] = fitDisplay(leftLine, leftContentWidth) + "│" + fitDisplay(rightLine, rightWidth)
+		joined[index] = fitDisplay(leftLine, leftWidth) + "│" + fitDisplay(rightLine, rightWidth)
 	}
 	return joined
 }
 
 func fitLines(lines []string, width, height int) []string {
 	fitted := make([]string, height)
+	wrapped := make([]string, 0, len(lines))
+	for _, line := range lines {
+		wrapped = append(wrapped, fitSafeDisplayLines(line, width)...)
+	}
 	for index := range fitted {
-		if index < len(lines) {
-			fitted[index] = fitSafeDisplay(lines[index], width)
+		if index < len(wrapped) {
+			fitted[index] = wrapped[index]
 		} else {
 			fitted[index] = strings.Repeat(" ", max(0, width))
 		}
@@ -334,6 +367,51 @@ func fitLines(lines []string, width, height int) []string {
 
 func fitSafeDisplay(value string, width int) string {
 	return fitDisplay(platform.SafeText(platform.RedactSecrets(value)), width)
+}
+
+func fitSafeDisplayLines(value string, width int) []string {
+	return wrapDisplay(platform.SafeText(platform.RedactSecrets(value)), width)
+}
+
+func wrapDisplay(value string, width int) []string {
+	if width <= 0 {
+		return []string{""}
+	}
+	value = strings.ReplaceAll(value, "\t", "    ")
+	if value == "" {
+		return []string{""}
+	}
+	lines := make([]string, 0, 1+(runewidth.StringWidth(value)/width))
+	for len(value) > 0 {
+		line, remainder := takeDisplayWidth(value, width)
+		lines = append(lines, line)
+		value = remainder
+	}
+	return lines
+}
+
+func takeDisplayWidth(value string, width int) (string, string) {
+	used := 0
+	cut := 0
+	for index, r := range value {
+		runeWidth := runewidth.RuneWidth(r)
+		if used > 0 && used+runeWidth > width {
+			break
+		}
+		if used == 0 && runeWidth > width {
+			cut = index + len(string(r))
+			break
+		}
+		used += runeWidth
+		cut = index + len(string(r))
+		if used >= width {
+			break
+		}
+	}
+	if cut == 0 {
+		return value, ""
+	}
+	return value[:cut], value[cut:]
 }
 
 func fitDisplay(value string, width int) string {

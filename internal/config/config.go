@@ -32,6 +32,7 @@ type Config struct {
 	GitHub         GitHubConfig       `json:"github"`
 	Plugins        PluginConfig       `json:"plugins"`
 	Notifications  NotificationConfig `json:"notifications"`
+	Layout         LayoutConfig       `json:"layout"`
 	Keymap         map[string]string  `json:"keymap"`
 }
 
@@ -65,8 +66,13 @@ type NotificationConfig struct {
 	Quiet bool `json:"quiet"`
 }
 
+type LayoutConfig struct {
+	FilesPercent   int `json:"files_percent"`
+	DetailsPercent int `json:"details_percent"`
+}
+
 func Defaults() Config {
-	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Keymap: DefaultKeymap()}
+	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Layout: LayoutConfig{FilesPercent: 60, DetailsPercent: 40}, Keymap: DefaultKeymap()}
 }
 
 func DefaultKeymap() map[string]string {
@@ -116,6 +122,11 @@ func Load(path string) (Config, error) {
 	// Unmarshal over schema-version-2 defaults supplies newly introduced module defaults.
 	c.Version = CurrentVersion
 	c = applyEnv(c)
+	var layoutAdjusted bool
+	c, layoutAdjusted = NormalizeLayout(c)
+	if layoutAdjusted {
+		fmt.Fprintln(os.Stderr, "gitwatch: config: error: layout percentages exceed 100; using 50/50 panel widths")
+	}
 	if err := Validate(c); err != nil {
 		return c, err
 	}
@@ -136,6 +147,15 @@ func ApplyCLI(c Config, theme, motion, watch string, interval time.Duration) Con
 	}
 	return c
 }
+
+func NormalizeLayout(c Config) (Config, bool) {
+	if c.Layout.FilesPercent+c.Layout.DetailsPercent > 100 {
+		c.Layout = LayoutConfig{FilesPercent: 50, DetailsPercent: 50}
+		return c, true
+	}
+	return c, false
+}
+
 func Validate(c Config) error {
 	if c.Theme != "auto" && c.Theme != "dark" && c.Theme != "light" && c.Theme != "high-contrast" {
 		return fmt.Errorf("invalid theme %q", c.Theme)
@@ -154,6 +174,9 @@ func Validate(c Config) error {
 	}
 	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 {
 		return fmt.Errorf("config limits cannot be negative")
+	}
+	if c.Layout.FilesPercent <= 0 || c.Layout.DetailsPercent <= 0 || c.Layout.FilesPercent+c.Layout.DetailsPercent != 100 {
+		return fmt.Errorf("layout files_percent and details_percent must be positive and sum to 100")
 	}
 	for group, duration := range c.Repositories.GroupRefresh {
 		if strings.TrimSpace(group) == "" || duration < 0 {
