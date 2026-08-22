@@ -98,3 +98,20 @@ func TestGitHubClientDegradesWhenOffline(t *testing.T) {
 		t.Fatalf("offline error = %v", err)
 	}
 }
+
+func TestProviderClassifiesStatesAndRetriesSafeReads(t *testing.T) {
+	if Classify(context.Background(), ErrNoToken) != StateNotConfigured || Classify(context.Background(), ErrRateLimited) != StateRateLimited {
+		t.Fatal("provider state classification failed")
+	}
+	attempts := 0
+	client := GitHubClient{BaseURL: "https://api.test", Retries: 1, HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		attempts++
+		if attempts == 1 {
+			return &http.Response{StatusCode: 503, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header), Request: r}, nil
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"check_runs":[]}`)), Header: make(http.Header), Request: r}, nil
+	})}}
+	if _, err := client.Checks(context.Background(), Repository{Owner: "o", Name: "r"}, "main"); err != nil || attempts != 2 {
+		t.Fatalf("retry attempts=%d err=%v", attempts, err)
+	}
+}

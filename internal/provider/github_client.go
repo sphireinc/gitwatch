@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // ErrProviderUnavailable indicates that the optional provider cannot be used.
@@ -16,6 +17,22 @@ var ErrProviderUnavailable = errors.New("GitHub provider unavailable")
 
 // ErrRateLimited indicates that the provider rejected a request for quota.
 var ErrRateLimited = errors.New("GitHub API rate limited")
+
+// State describes the bounded availability state of optional provider data.
+type State string
+
+const (
+	StateDisabled       State = "disabled"
+	StateNotConfigured  State = "not configured"
+	StateAuthenticating State = "authenticating"
+	StateAvailable      State = "available"
+	StateStaleCache     State = "stale-cache"
+	StateRateLimited    State = "rate-limited"
+	StateUnauthorized   State = "unauthorized"
+	StateUnavailable    State = "unavailable"
+	StateMalformed      State = "malformed"
+	StateCanceled       State = "canceled"
+)
 
 // HTTPError preserves an unsuccessful provider response and status code.
 type HTTPError struct {
@@ -42,6 +59,8 @@ type GitHubClient struct {
 	BaseURL     string
 	TokenSource TokenSource
 	HTTPClient  *http.Client
+	Timeout     time.Duration
+	Retries     int
 }
 
 // PullRequest fetches the open pull request for branch.
@@ -101,9 +120,14 @@ func (c GitHubClient) getJSON(ctx context.Context, path string, target any) (ret
 	}
 	client := c.HTTPClient
 	if client == nil {
-		client = http.DefaultClient
+		client = &http.Client{}
 	}
-	response, err := client.Do(request)
+	if c.Timeout > 0 {
+		copy := *client
+		copy.Timeout = c.Timeout
+		client = &copy
+	}
+	response, err := c.doWithRetry(ctx, client, request)
 	if err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -126,4 +150,38 @@ func (c GitHubClient) getJSON(ctx context.Context, path string, target any) (ret
 		return fmt.Errorf("%w: invalid response", ErrProviderUnavailable)
 	}
 	return nil
+}
+
+func (c GitHubClient) doWithRetry(ctx context.Context, client *http.Client, request *http.Request) (*http.Response, error) {
+	retries := c.Retries
+	if retries < 0 {
+		retries = 0
+	}
+	if retries > 3 {
+		retries = 3
+	}
+	for attempt := 0; ; attempt++ {
+		response, err := client.Do(request)
+		if err != nil {
+			return nil, err
+		}
+		if attempt >= retries || (response.StatusCode < 500 && response.StatusCode != http.StatusTooManyRequests) {
+			return response, nil
+		}
+		_ = response.Body.Close()
+		delay := time.Duration(1<<attempt) * 50 * time.Millisecond
+		if retryAfter := response.Header.Get("Retry-After"); retryAfter != "" {
+			if seconds, parseErr := time.ParseDuration(retryAfter + "s"); parseErr == nil && seconds < time.Second {
+				delay = seconds
+			}
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+		request = request.Clone(ctx)
+	}
 }

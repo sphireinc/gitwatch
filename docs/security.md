@@ -28,3 +28,14 @@ Automated coverage includes hostile-process fixtures and a checked-in staged
 and full-history secret scan. Native platform review is recorded in the
 [release sign-off](release-signoff.md) and never inferred from local automated
 tests alone.
+
+## Optional provider privacy boundary
+
+GitHub/provider support is opt-in and sends only the selected repository owner,
+repository name, branch/ref, and requested read-only endpoint data. Tokens come
+from the configured environment or an authenticated CLI source; they are never
+written to the main configuration or support bundles. Provider responses,
+headers, token-bearing URLs, and response bodies are bounded and redacted
+before diagnostics. Disabled, unauthenticated, offline, rate-limited,
+malformed, stale-cache, and canceled states leave local Git status and
+mutations usable.

@@ -40,4 +40,10 @@ Update security/threat-model/provider docs, privacy disclosure, configuration
 schema, and release checklist. Use disposable test servers and non-secret
 fixtures only; run full and race tests.
 
-**Status:** Planned
+**Status:** Complete
+
+**Completion summary:** Added explicit provider availability states, bounded
+safe-read retries with cancellation and timeout controls, stale-cache support,
+HTTP error classification, and tests for token absence, rate limits, malformed
+responses, offline behavior, and retry isolation. Provider data remains
+optional and local Git operation paths remain independent.
