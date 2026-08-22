@@ -6,6 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
+	"github.com/sphireinc/git-watch/internal/operations"
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/ui/details"
@@ -106,6 +107,21 @@ func (m Model) statusView() string {
 	}
 	lines = append(lines, fitSafeDisplay(notice, width))
 	footer := "[j/k] move  [space] stage  [a/U] all  [enter/d] diff  [/] filter  [S] sort  [R] restore  [?] help  [q] quit"
+	if m.OperationEngine != nil {
+		active := 0
+		for _, operation := range m.OperationEngine.Snapshot() {
+			if operation.State == operations.Pending || operation.State == operations.Running {
+				active++
+			}
+		}
+		if active > 0 {
+			suffix := "s"
+			if active == 1 {
+				suffix = ""
+			}
+			footer = fmt.Sprintf("[%d operation%s active] ", active, suffix) + footer
+		}
+	}
 	if m.Notifications != nil && m.Notifications.Attention() > 0 {
 		footer = fmt.Sprintf("[!] %d attention  [ctrl+n] dismiss  ", m.Notifications.Attention()) + footer
 	}

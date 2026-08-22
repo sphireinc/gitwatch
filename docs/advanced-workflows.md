@@ -38,6 +38,20 @@ groups are stored as registry metadata.
 
 ## Configuration and safety
 
+### Background operation lifecycle
+
+Git, network, history, provider, and plugin work uses the shared operation
+engine. Each operation has a stable ID and repository scope and transitions
+through `queued`, `running`, `completed`, `failed`, `canceled`, or `timed out`.
+The engine limits concurrent work, serializes conflicting work for one
+repository, rejects duplicate IDs, and keeps a bounded completion history.
+Cancellation propagates through the operation context to child Git/process
+boundaries. Cancellation and timeout are reported separately from ordinary
+failure; a successful mutation still requests an authoritative refresh.
+
+Repository switching supplies a new context, so late results from the prior
+repository cannot be applied to the active workspace.
+
 Configuration schema version 2 can be validated with:
 
 ```sh

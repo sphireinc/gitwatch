@@ -20,11 +20,32 @@ const (
 	TimedOut
 )
 
+// String returns the stable user-facing lifecycle label.
+func (s State) String() string {
+	switch s {
+	case Pending:
+		return "queued"
+	case Running:
+		return "running"
+	case Succeeded:
+		return "completed"
+	case Failed:
+		return "failed"
+	case Cancelled:
+		return "canceled"
+	case TimedOut:
+		return "timed out"
+	default:
+		return "unknown"
+	}
+}
+
 type Result struct {
-	ID, Repo, Name    string
-	State             State
-	Err               error
-	Started, Finished time.Time
+	ID, Repo, Name            string
+	State                     State
+	Err                       error
+	Cause                     string
+	Queued, Started, Finished time.Time
 }
 type Work func(context.Context) error
 type ResultMsg struct{ Result Result }
@@ -35,15 +56,30 @@ type Engine struct {
 	active  map[string]context.CancelFunc
 	waiters map[string]chan Result
 	results chan Result
+	latest  map[string]Result
+	history []Result
 }
 
 func New(limit int) *Engine {
 	if limit < 1 {
 		limit = 1
 	}
-	return &Engine{limit: make(chan struct{}, limit), repos: make(map[string]*sync.Mutex), active: make(map[string]context.CancelFunc), waiters: make(map[string]chan Result), results: make(chan Result, limit)}
+	return &Engine{limit: make(chan struct{}, limit), repos: make(map[string]*sync.Mutex), active: make(map[string]context.CancelFunc), waiters: make(map[string]chan Result), results: make(chan Result, limit), latest: make(map[string]Result)}
 }
 func (e *Engine) Results() <-chan Result { return e.results }
+
+// Snapshot returns copies of active and recently completed lifecycle records.
+func (e *Engine) Snapshot() []Result {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	result := append([]Result(nil), e.history...)
+	for _, item := range e.latest {
+		if item.State == Pending || item.State == Running {
+			result = append(result, item)
+		}
+	}
+	return result
+}
 func (e *Engine) Submit(parent context.Context, id, repo, name string, timeout time.Duration, work Work) error {
 	_, err := e.submit(parent, id, repo, name, timeout, work)
 	return err
@@ -59,6 +95,7 @@ func (e *Engine) submit(parent context.Context, id, repo, name string, timeout t
 	e.active[id] = cancel
 	waiter := make(chan Result, 1)
 	e.waiters[id] = waiter
+	e.latest[id] = Result{ID: id, Repo: repo, Name: name, State: Pending, Queued: time.Now()}
 	lock := e.repos[repo]
 	if lock == nil {
 		lock = &sync.Mutex{}
@@ -68,12 +105,16 @@ func (e *Engine) submit(parent context.Context, id, repo, name string, timeout t
 	go e.run(ctx, id, repo, name, timeout, lock, work)
 	return waiter, nil
 }
-func (e *Engine) Cancel(id string) {
+
+// Cancel requests cancellation and reports whether the operation was active.
+func (e *Engine) Cancel(id string) bool {
 	e.mu.Lock()
+	defer e.mu.Unlock()
 	if c := e.active[id]; c != nil {
 		c()
+		return true
 	}
-	e.mu.Unlock()
+	return false
 }
 
 // Command adapts one operation result to a Bubble Tea-compatible command.
@@ -95,12 +136,15 @@ func (e *Engine) run(ctx context.Context, id, repo, name string, timeout time.Du
 	}
 	timerCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	result := Result{ID: id, Repo: repo, Name: name, State: Running, Started: started}
+	result := Result{ID: id, Repo: repo, Name: name, State: Running, Queued: started, Started: started}
+	e.setLatest(result)
 	select {
 	case e.limit <- struct{}{}:
 	case <-timerCtx.Done():
 		result.State = Cancelled
 		result.Err = timerCtx.Err()
+		result.Cause = causeFor(result.Err)
+		result.Finished = time.Now()
 		e.finish(result)
 		return
 	}
@@ -113,13 +157,17 @@ func (e *Engine) run(ctx context.Context, id, repo, name string, timeout time.Du
 	if errors.Is(timerCtx.Err(), context.DeadlineExceeded) {
 		result.State = TimedOut
 		result.Err = timerCtx.Err()
+		result.Cause = "deadline exceeded"
 	} else if errors.Is(timerCtx.Err(), context.Canceled) {
 		result.State = Cancelled
 		result.Err = timerCtx.Err()
+		result.Cause = "canceled by user or shutdown"
 	} else if err != nil {
 		result.State = Failed
+		result.Cause = "operation failed"
 	} else {
 		result.State = Succeeded
+		result.Cause = "completed"
 	}
 	e.finish(result)
 }
@@ -128,6 +176,11 @@ func (e *Engine) finish(r Result) {
 	delete(e.active, r.ID)
 	waiter := e.waiters[r.ID]
 	delete(e.waiters, r.ID)
+	e.latest[r.ID] = r
+	e.history = append(e.history, r)
+	if len(e.history) > 32 {
+		e.history = e.history[len(e.history)-32:]
+	}
 	e.mu.Unlock()
 	if waiter != nil {
 		waiter <- r
@@ -138,4 +191,17 @@ func (e *Engine) finish(r Result) {
 	case e.results <- r:
 	default:
 	}
+}
+
+func (e *Engine) setLatest(result Result) {
+	e.mu.Lock()
+	e.latest[result.ID] = result
+	e.mu.Unlock()
+}
+
+func causeFor(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "deadline exceeded"
+	}
+	return "canceled by user or shutdown"
 }

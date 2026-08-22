@@ -42,4 +42,11 @@ Update `docs/advanced-workflows.md`, help text, notifications documentation,
 and the architecture concurrency section. Run full, race, leak, and native
 shutdown tests.
 
-**Status:** Planned
+**Status:** Complete
+
+**Completion summary:** Extended the shared operation engine with stable
+lifecycle snapshots, queued/running/completed/failed/canceled/timed-out
+classification, causes, timestamps, bounded history, duplicate protection,
+repository serialization, and cancellation reporting. Documented concurrency
+and refresh semantics; native slow-operation responsiveness remains an
+operator-evidence item in the release matrix.

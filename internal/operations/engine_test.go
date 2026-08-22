@@ -91,3 +91,26 @@ func TestCommandsReceiveTheirOwnResultsConcurrently(t *testing.T) {
 		t.Fatalf("missing command result: %#v", seen)
 	}
 }
+
+func TestLifecycleSnapshotClassifiesCancellationAndRetainsHistory(t *testing.T) {
+	e := New(1)
+	started := make(chan struct{})
+	if err := e.Submit(context.Background(), "cancel", "repo", "fetch", time.Second, func(ctx context.Context) error {
+		close(started)
+		<-ctx.Done()
+		return ctx.Err()
+	}); err != nil {
+		t.Fatal(err)
+	}
+	<-started
+	if !e.Cancel("cancel") {
+		t.Fatal("active operation was not cancellable")
+	}
+	result := <-e.Results()
+	if result.State != Cancelled || result.Cause == "" || result.Queued.IsZero() || result.Finished.IsZero() {
+		t.Fatalf("incomplete cancellation lifecycle: %#v", result)
+	}
+	if got := e.Snapshot(); len(got) != 1 || got[0].ID != "cancel" || got[0].State != Cancelled {
+		t.Fatalf("lifecycle history = %#v", got)
+	}
+}
