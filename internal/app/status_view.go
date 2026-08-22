@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/repo"
@@ -92,7 +93,104 @@ func (m Model) statusView() string {
 		footer = fmt.Sprintf("[!] %d attention  [ctrl+n] dismiss  ", m.Notifications.Attention()) + footer
 	}
 	lines = append(lines, fitSafeDisplay(footer, width))
-	return strings.Join(lines, "\n")
+	return strings.Join(m.styleStatusLines(lines, statusLayout), "\n")
+}
+
+func (m Model) styleStatusLines(lines []string, statusLayout layout.Layout) []string {
+	if len(lines) < 3 {
+		return lines
+	}
+	styled := append([]string(nil), lines...)
+	styled[0] = m.Theme.Header.Render(styled[0])
+	styled[1] = m.styleStatusMetrics(styled[1])
+	styled[2] = m.Theme.Border.Render(styled[2])
+
+	contentStart := 3
+	contentEnd := min(len(styled), contentStart+statusLayout.Files.Height)
+	for index := contentStart; index < contentEnd; index++ {
+		if statusLayout.Mode == layout.Wide {
+			left, right, found := strings.Cut(styled[index], "│")
+			if found {
+				styled[index] = m.styleStatusFileLine(left) + m.Theme.Border.Render("│") + m.styleStatusDetailsLine(right, index == contentStart)
+				continue
+			}
+		}
+		if m.DiffPath != "" {
+			styled[index] = m.styleStatusDetailsLine(styled[index], index == contentStart)
+		} else {
+			styled[index] = m.styleStatusFileLine(styled[index])
+		}
+	}
+
+	if contentEnd < len(styled) {
+		styled[contentEnd] = m.Theme.Border.Render(styled[contentEnd])
+	}
+	if len(styled) > 0 {
+		styled[len(styled)-1] = m.Theme.Muted.Render(styled[len(styled)-1])
+	}
+	return styled
+}
+
+func (m Model) styleStatusMetrics(line string) string {
+	parts := strings.Split(line, "  ")
+	styles := []lipgloss.Style{m.Theme.Staged, m.Theme.Modified, m.Theme.Untracked, m.Theme.Conflict}
+	for index := range parts {
+		if index < len(styles) {
+			parts[index] = styles[index].Render(parts[index])
+		}
+	}
+	return strings.Join(parts, "  ")
+}
+
+func (m Model) styleStatusFileLine(line string) string {
+	if strings.Contains(line, "clean worktree") {
+		return m.Theme.Clean.Render(line)
+	}
+	if len(line) < 6 {
+		return line
+	}
+	if line[3] == '>' {
+		return m.Theme.Selection.Render(line)
+	}
+	role := m.Theme.Muted
+	switch line[5] {
+	case 'S':
+		role = m.Theme.Staged
+	case 'M', 'R':
+		role = m.Theme.Modified
+	case '?':
+		role = m.Theme.Untracked
+	case '!':
+		role = m.Theme.Conflict
+	case 'D':
+		role = m.Theme.Deleted
+	}
+	styled := line[:5] + role.Render(line[5:6]) + line[6:]
+	if line[:3] == "[S]" {
+		styled = m.Theme.Staged.Render(line[:3]) + styled[3:]
+	}
+	return styled
+}
+
+func (m Model) styleStatusDetailsLine(line string, heading bool) string {
+	if heading {
+		return m.Theme.Header.Render(line)
+	}
+	trimmed := strings.TrimLeft(line, " ")
+	switch {
+	case strings.HasPrefix(trimmed, "@@"):
+		return m.Theme.Header.Render(line)
+	case strings.HasPrefix(trimmed, "+"):
+		return m.Theme.Success.Render(line)
+	case strings.HasPrefix(trimmed, "-"):
+		return m.Theme.Deleted.Render(line)
+	case strings.HasPrefix(trimmed, "Unable to load diff:"):
+		return m.Theme.Error.Render(line)
+	case strings.HasPrefix(trimmed, "Loading"):
+		return m.Theme.Muted.Render(line)
+	default:
+		return line
+	}
 }
 
 func (m Model) statusFileLines(width, height int) []string {

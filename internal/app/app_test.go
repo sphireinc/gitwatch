@@ -30,6 +30,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/remoteview"
 	"github.com/sphireinc/git-watch/internal/ui/repoview"
 	"github.com/sphireinc/git-watch/internal/ui/stashview"
+	"github.com/sphireinc/git-watch/internal/ui/theme"
 	"github.com/sphireinc/git-watch/internal/ui/worktreeview"
 	"github.com/sphireinc/git-watch/internal/watch"
 	"github.com/sphireinc/git-watch/internal/workspace"
@@ -229,10 +230,28 @@ func TestViewSanitizesHostileRepositoryText(t *testing.T) {
 	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("evil\x1b[31m.txt"), Unstaged: true}}
 	m.Files.SetEntries(m.Snapshot.Entries)
 	m.DiffPath, m.DiffText = "evil\x1b[31m.txt", "-old\x1b[2J\n+new token=secret"
+	m.Theme = theme.New(theme.Dark, true)
 	m.Width, m.Height = 120, 20
 	view := m.View().Content
 	if strings.Contains(view, "\x1b") || strings.Contains(view, "secret") || !strings.Contains(view, "�") {
 		t.Fatalf("hostile text reached view: %q", view)
+	}
+}
+
+func TestStatusViewAppliesConfiguredColorPolicy(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	m := New()
+	m.Width, m.Height = 120, 20
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("notes.txt"), Unstaged: true}}
+	m.Files.SetEntries(m.Snapshot.Entries)
+	if view := m.View().Content; !strings.Contains(view, "\x1b[") {
+		t.Fatalf("the configured theme did not render terminal styles: %q", view)
+	}
+
+	t.Setenv("NO_COLOR", "1")
+	m.Theme = theme.New(theme.Dark, false)
+	if view := m.View().Content; strings.Contains(view, "\x1b[") {
+		t.Fatalf("NO_COLOR view contains terminal styles: %q", view)
 	}
 }
 

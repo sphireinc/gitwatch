@@ -36,6 +36,12 @@ func New(name Name, noColor bool) Roles {
 		}
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(fg))
 	}
+	selection := func(fg, bg string) lipgloss.Style {
+		if noColor {
+			return lipgloss.NewStyle()
+		}
+		return style(fg).Background(lipgloss.Color(bg))
+	}
 	if dark {
 		roles.Clean = style("#7ee787")
 		roles.Modified = style("#f2cc60")
@@ -44,7 +50,7 @@ func New(name Name, noColor bool) Roles {
 		roles.Conflict = style("#ff7b72")
 		roles.Deleted = style("#ff7b72")
 		roles.Muted = style("#8b949e")
-		roles.Selection = style("#ffffff").Background(lipgloss.Color("#30363d"))
+		roles.Selection = selection("#ffffff", "#30363d")
 		roles.Success = style("#7ee787")
 		roles.Warning = style("#f2cc60")
 		roles.Error = style("#ff7b72")
@@ -58,7 +64,7 @@ func New(name Name, noColor bool) Roles {
 		roles.Conflict = style("#cf222e")
 		roles.Deleted = style("#cf222e")
 		roles.Muted = style("#57606a")
-		roles.Selection = style("#24292f").Background(lipgloss.Color("#ddf4ff"))
+		roles.Selection = selection("#24292f", "#ddf4ff")
 		roles.Success = style("#1a7f37")
 		roles.Warning = style("#9a6700")
 		roles.Error = style("#cf222e")
