@@ -19,6 +19,19 @@ Think `htop` for a Git repository: dense, legible, interactive, colorful where s
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+### Terminal-cell spacing contract
+
+The dashboard uses terminal cells, not CSS pixels, as its portable spacing unit.
+Status panels reserve one cell of left inset and one cell of top breathing room;
+wide layouts reserve one divider cell between files and details. Wrapped rows,
+scroll offsets, and mouse hit regions must use the same inset calculations. The
+header, metric bar, activity strip, and footer remain single-cell rows so the
+minimum-size contract stays deterministic.
+
+At narrow sizes, preserving readable content and input affordances takes
+precedence over maintaining the wide split. A blank or padded cell is not
+allowed to hide a required heading, status message, error, or footer binding.
+
 ## Interaction
 - Arrow keys / j,k move selection.
 - Space toggles staged state for selected path according to current status.
