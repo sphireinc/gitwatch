@@ -38,10 +38,13 @@ git tag -v "$VERSION"
 echo "Pushing $VERSION to origin..."
 git push origin "$VERSION"
 
-echo "Creating GitHub release..."
-gh release create "$VERSION" \
-  --verify-tag \
-  --generate-notes \
-  --title "gitwatch $VERSION"
+#echo "Creating GitHub release..."
+#gh release create "$VERSION" \
+#  --verify-tag \
+#  --generate-notes \
+#  --title "gitwatch $VERSION"
 
-echo "Released gitwatch $VERSION successfully."
+#echo "Released gitwatch $VERSION successfully."
+
+echo "Release tag $VERSION pushed."
+echo "GitHub Actions will build, attest, and publish the release."
