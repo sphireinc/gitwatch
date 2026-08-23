@@ -441,6 +441,13 @@ func TestCommitTreeStatusPaneIsBoundedAndScrollable(t *testing.T) {
 	if !strings.Contains(view, "Commit tree") || !strings.Contains(view, "abc123") {
 		t.Fatalf("commit tree missing from status view: %q", view)
 	}
+	lines := m.statusCommitTreeLines(40, 8)
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) != strings.Repeat("─", 39) {
+		t.Fatalf("commit tree separator = %#v", lines)
+	}
+	if strings.TrimSpace(lines[1]) != "Commit tree · last 100" {
+		t.Fatalf("commit tree heading moved unexpectedly = %#v", lines)
+	}
 	m.CommitTreeFocused = true
 	m.scrollCommitTree(2)
 	if m.CommitTreeOffset < 0 || m.CommitTreeOffset > len(m.CommitTreeLines) {

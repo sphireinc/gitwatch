@@ -272,10 +272,13 @@ func (m Model) statusCommitTreeLines(width, height int) []string {
 		start := min(m.CommitTreeOffset, len(m.CommitTreeLines))
 		lines = append(lines, m.CommitTreeLines[start:]...)
 	}
-	return padStatusPanel(lines, width, height)
+	return padStatusPanelWithTopBorder(lines, width, height)
 }
 
 func (m Model) styleStatusTreeLine(line string) string {
+	if strings.Trim(line, " ─") == "" && strings.Contains(line, "─") {
+		return m.Theme.Border.Render(line)
+	}
 	if strings.HasPrefix(strings.TrimSpace(line), "Commit tree") {
 		return m.Theme.Header.Render(line)
 	}
@@ -354,6 +357,24 @@ func padStatusPanel(lines []string, width, height int) []string {
 	innerWidth := max(1, width-1)
 	padded := make([]string, 0, len(lines)+1)
 	padded = append(padded, "")
+	for _, line := range lines {
+		wrapped := fitSafeDisplayLines(line, innerWidth)
+		for _, part := range wrapped {
+			padded = append(padded, " "+part)
+		}
+	}
+	return fitLines(padded, width, height)
+}
+
+// padStatusPanelWithTopBorder reserves the panel's left inset while using its
+// first row as a separator from the content above it.
+func padStatusPanelWithTopBorder(lines []string, width, height int) []string {
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	innerWidth := max(1, width-1)
+	padded := make([]string, 0, len(lines)+1)
+	padded = append(padded, " "+strings.Repeat("─", innerWidth))
 	for _, line := range lines {
 		wrapped := fitSafeDisplayLines(line, innerWidth)
 		for _, part := range wrapped {
