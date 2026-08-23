@@ -137,6 +137,12 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - name: Check out release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Download immutable release bundle
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -155,12 +161,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            dist/*.tar.gz \
-            dist/*.zip \
-            dist/*_release.json \
-            dist/*_sbom.spdx.json \
-            dist/SHA256SUMS \
-            --generate-notes \
-            --title "gitwatch ${GITHUB_REF_NAME}" \
-            --verify-tag
+          assets=(
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*_release.json
+            dist/*_sbom.spdx.json
+            dist/SHA256SUMS
+          )
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "gitwatch ${GITHUB_REF_NAME}"
+          else
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+              --generate-notes \
+              --title "gitwatch ${GITHUB_REF_NAME}" \
+              --verify-tag
+          fi
