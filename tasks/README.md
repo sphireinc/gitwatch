@@ -18,6 +18,8 @@ than adding v1 scope. Task 103 may follow once release evidence is complete.
 | v1 release closure | 92, 102, 103 | Candidate evidence, native fixtures, distribution and upgrade verification |
 | v1.x UX and reliability | 93, 94, 95, 96, 97, 98, 99, 100, 101, 104 | Compatibility-preserving improvements to interaction, scale, integrations, and supportability |
 | v2 preparation | 105 | Freeze contracts and design migrations without pulling breaking behavior into v1.x |
+| v1.x colorized commit tree | 108, 109, 110, 111, 112 | Add safe semantic color rendering to the optional commit graph |
+| v1.x commit inspection | 113 | Inspect a selected historical commit and its per-file diffs |
 
 ## Dependency shape
 
@@ -30,6 +32,8 @@ than adding v1 scope. Task 103 may follow once release evidence is complete.
 70/71/72/86 ────────────> 100 ──> 101
 27/28/81 ───────────────────────────> 104
 87/98/99/101/103/104 ──────────────> 105
+105/107 ──> 108 ──> 109 ──> 110 ──> 111 ──> 112
+105/107/111 ───────────────────────────────────> 113
 ```
 
 Dependencies are planning boundaries, not permission to skip the repository's
