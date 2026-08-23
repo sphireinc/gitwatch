@@ -455,6 +455,26 @@ func TestCommitTreeStatusPaneIsBoundedAndScrollable(t *testing.T) {
 	}
 }
 
+func TestCommitTreeInitKeepsAsyncRequestOnLiveModel(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: t.TempDir()}, config.Config{
+		ShowCommitTree: true,
+		CommitTree:     config.CommitTreeConfig{MaxCommits: 100},
+	})
+	cmd := m.Init()
+	if cmd == nil || m.CommitTreeRequest != 0 {
+		t.Fatalf("init tree request state: cmdnil=%v request=%d", cmd == nil, m.CommitTreeRequest)
+	}
+	updated, _ := m.Update(CommitTreeReadyMsg{
+		Generation: m.repositoryGeneration,
+		Request:    0,
+		Tree:       git.CommitTree{Head: "abc123", Lines: []string{"* abc123 commit"}},
+	})
+	m = updated.(Model)
+	if len(m.CommitTreeLines) != 1 || m.CommitTreeHead != "abc123" {
+		t.Fatalf("init tree result was discarded: %#v", m.CommitTreeLines)
+	}
+}
+
 func key(text string) tea.KeyPressMsg {
 	if text == "esc" {
 		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape})

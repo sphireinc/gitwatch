@@ -670,13 +670,29 @@ func (m Model) Init() tea.Cmd {
 		return nil
 	}
 	commands := []tea.Cmd{m.refresh(), m.tick(), m.startWatcher()}
-	if tree := m.loadCommitTree(); tree != nil {
+	if tree := m.loadCommitTreeAtInit(); tree != nil {
 		commands = append(commands, tree)
 	}
 	if m.RefreshCoordinator != nil {
 		commands = append(commands, waitForRefresh(m.RefreshCoordinator))
 	}
 	return tea.Batch(commands...)
+}
+
+// loadCommitTreeAtInit starts the first tree load without mutating a value
+// receiver. Subsequent loads run through loadCommitTree and advance the live
+// model's request counter in Update.
+func (m Model) loadCommitTreeAtInit() tea.Cmd {
+	if !m.CommitTreeEnabled || m.Discovery.Root == "" {
+		return nil
+	}
+	ctx := m.commandContext()
+	runner := git.NewRunner(m.Discovery.Root)
+	generation, request, limit := m.repositoryGeneration, m.CommitTreeRequest, m.CommitTreeMaxCommits
+	return func() tea.Msg {
+		tree, err := git.LoadCommitTree(ctx, runner, limit)
+		return CommitTreeReadyMsg{Tree: tree, Generation: generation, Request: request, Err: err}
+	}
 }
 
 func (m Model) tick() tea.Cmd {
