@@ -2743,9 +2743,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		statusLayout := m.statusLayout()
 		if m.currentView() == workspace.Status && m.CommitTreeEnabled && statusLayout.CommitTree.Contains(v.X, v.Y) {
 			m.CommitTreeFocused = true
-			if v.Button == tea.MouseWheelUp {
+			switch v.Button {
+			case tea.MouseWheelUp:
 				m.scrollCommitTree(-3)
-			} else if v.Button == tea.MouseWheelDown {
+			case tea.MouseWheelDown:
 				m.scrollCommitTree(3)
 			}
 			return m, nil
