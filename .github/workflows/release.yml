@@ -93,7 +93,7 @@ jobs:
       - name: Generate SPDX SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
-          path: ${{ runner.temp }}/gitwatch-sbom-input/gitwatch
+          file: ${{ runner.temp }}/gitwatch-sbom-input/gitwatch
           format: spdx-json
           output-file: dist/gitwatch_${{ github.ref_name }}_sbom.spdx.json
           upload-artifact: false
