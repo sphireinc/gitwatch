@@ -196,4 +196,12 @@ Update:
 - Automated tests, race tests, vet, lint, performance/security gates, and
   native operator evidence are complete or explicitly recorded as pending.
 
-**Status:** Planned
+**Status:** Complete
+
+**Completion summary:** Added the opt-in bounded commit graph to the status
+workspace with `--with-commit-tree` and `show_commit_tree`, a default 100-commit
+limit capped at 1000, independent focus/scrolling, responsive layout regions,
+sanitized argument-vector Git history loading, generation-scoped cancellation,
+and refresh integration. Updated configuration, UX, architecture, keymap,
+release evidence, and commit-tree documentation. Native terminal evidence
+remains an operator-owned release-matrix item.

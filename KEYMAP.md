@@ -54,6 +54,8 @@
 | Tab | Cycle focus/panes |
 | / | Filter status files |
 | r | Force refresh |
+| T | Focus the optional commit tree in Status view |
+| j/k, PgUp/PgDn, Home/End | Scroll the focused commit tree |
 | ? | Help |
 | Ctrl-P | Open command palette |
 | Ctrl-N | Dismiss newest notification attention |

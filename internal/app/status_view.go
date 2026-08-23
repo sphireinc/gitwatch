@@ -27,7 +27,7 @@ func (m Model) statusLayout() layout.Layout {
 	if height <= 0 {
 		height = defaultStatusHeight
 	}
-	return layout.ComputeWithSplit(width, height, m.PanelSplit)
+	return layout.ComputeWithSplitAndCommitTree(width, height, m.PanelSplit, m.CommitTreeEnabled)
 }
 
 func (m Model) statusRowCount() int {
@@ -63,6 +63,15 @@ func (m *Model) scrollDiff(delta int) {
 	}
 }
 
+func (m *Model) scrollCommitTree(delta int) {
+	if !m.CommitTreeEnabled {
+		return
+	}
+	viewport := max(1, m.statusLayout().CommitTree.Height-2)
+	maximum := max(0, len(m.CommitTreeLines)-viewport)
+	m.CommitTreeOffset = max(0, min(maximum, m.CommitTreeOffset+delta))
+}
+
 func (m Model) statusView() string {
 	statusLayout := m.statusLayout()
 	width := statusLayout.Header.Width
@@ -90,13 +99,15 @@ func (m Model) statusView() string {
 		fileWidth = max(1, fileWidth-1)
 	}
 	files := m.statusFileLines(fileWidth, statusLayout.Files.Height)
+	tree := m.statusCommitTreeLines(statusLayout.CommitTree.Width, statusLayout.CommitTree.Height)
 	diff := m.statusDiffLines(statusLayout.Details.Width, statusLayout.Details.Height)
+	left := append(files, tree...)
 	if statusLayout.Mode == layout.Wide {
-		lines = append(lines, joinStatusColumns(files, diff, fileWidth, statusLayout.Details.Width, statusLayout.Files.Height)...)
+		lines = append(lines, joinStatusColumns(left, diff, fileWidth, statusLayout.Details.Width, statusLayout.Details.Height)...)
 	} else if m.DiffPath != "" {
 		lines = append(lines, fitLines(diff, width, statusLayout.Files.Height)...)
 	} else {
-		lines = append(lines, fitLines(files, width, statusLayout.Files.Height)...)
+		lines = append(lines, fitLines(left, width, statusLayout.Details.Height)...)
 	}
 
 	lines = append(lines, strings.Repeat("─", width))
@@ -139,17 +150,23 @@ func (m Model) styleStatusLines(lines []string, statusLayout layout.Layout) []st
 	styled[2] = m.Theme.Border.Render(styled[2])
 
 	contentStart := 3
-	contentEnd := min(len(styled), contentStart+statusLayout.Files.Height)
+	contentEnd := min(len(styled), contentStart+statusLayout.Details.Height)
 	for index := contentStart; index < contentEnd; index++ {
 		if statusLayout.Mode == layout.Wide {
 			left, right, found := strings.Cut(styled[index], "│")
 			if found {
-				styled[index] = m.styleStatusFileLine(left) + m.Theme.Border.Render("│") + m.styleStatusDetailsLine(right, index == contentStart)
+				leftStyle := m.styleStatusFileLine
+				if index >= contentStart+statusLayout.Files.Height {
+					leftStyle = m.styleStatusTreeLine
+				}
+				styled[index] = leftStyle(left) + m.Theme.Border.Render("│") + m.styleStatusDetailsLine(right, index == contentStart)
 				continue
 			}
 		}
 		if m.DiffPath != "" {
 			styled[index] = m.styleStatusDetailsLine(styled[index], index == contentStart)
+		} else if index >= contentStart+statusLayout.Files.Height {
+			styled[index] = m.styleStatusTreeLine(styled[index])
 		} else {
 			styled[index] = m.styleStatusFileLine(styled[index])
 		}
@@ -237,6 +254,32 @@ func (m Model) statusFileLines(width, height int) []string {
 		lines = append(lines, fitSafeDisplay("  clean worktree", width))
 	}
 	return padStatusPanel(lines, width, height)
+}
+
+func (m Model) statusCommitTreeLines(width, height int) []string {
+	if !m.CommitTreeEnabled || height <= 0 || width <= 0 {
+		return nil
+	}
+	lines := []string{fmt.Sprintf("Commit tree · last %d", m.CommitTreeMaxCommits)}
+	switch {
+	case m.CommitTreeLoading:
+		lines = append(lines, "Loading commit tree…")
+	case m.CommitTreeErr != nil:
+		lines = append(lines, "Unable to load commit tree: "+m.CommitTreeErr.Error())
+	case len(m.CommitTreeLines) == 0:
+		lines = append(lines, "No commits yet.")
+	default:
+		start := min(m.CommitTreeOffset, len(m.CommitTreeLines))
+		lines = append(lines, m.CommitTreeLines[start:]...)
+	}
+	return padStatusPanel(lines, width, height)
+}
+
+func (m Model) styleStatusTreeLine(line string) string {
+	if strings.HasPrefix(strings.TrimSpace(line), "Commit tree") {
+		return m.Theme.Header.Render(line)
+	}
+	return line
 }
 
 func (m Model) statusFileRowHeights(width int) []int {

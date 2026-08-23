@@ -61,6 +61,11 @@ examples/                buildable plugin examples
 9. Execute mutations asynchronously and force an authoritative refresh when they complete.
 10. Cancel watchers, network/history jobs, plugins, and Git children during shutdown.
 
+When enabled, the status workspace separately loads a bounded presentation
+commit graph. Its request is cancellable and generation-scoped; HEAD/ref
+identity prevents unnecessary reloads, and a graph failure never blocks the
+authoritative status snapshot.
+
 ## Process boundaries
 
 The primary status command is:

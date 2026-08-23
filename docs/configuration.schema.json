@@ -13,6 +13,7 @@
     "show_untracked": { "type": "boolean" },
     "show_ignored": { "type": "boolean" },
     "mouse": { "type": "boolean" },
+    "show_commit_tree": { "type": "boolean" },
     "debounce": { "type": "integer", "minimum": 0 },
     "repositories": {
       "type": "object",
@@ -63,6 +64,10 @@
         "max_bytes": { "type": "integer", "minimum": 1 },
         "max_lines": { "type": "integer", "minimum": 1 }
       }
+    },
+    "commit_tree": {
+      "type": "object",
+      "properties": { "max_commits": { "type": "integer", "minimum": 1, "maximum": 1000 } }
     },
     "profile": { "type": "string" },
     "keymap": { "type": "object", "additionalProperties": { "type": "string" } },

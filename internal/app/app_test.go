@@ -431,6 +431,23 @@ func TestRepositoriesRouteLoadsRows(t *testing.T) {
 	}
 }
 
+func TestCommitTreeStatusPaneIsBoundedAndScrollable(t *testing.T) {
+	m := New()
+	m.Width, m.Height = 160, 30
+	m.CommitTreeEnabled = true
+	m.CommitTreeMaxCommits = 100
+	m.CommitTreeLines = []string{"* abc123 first", "| * def456 second", "|/", "* 789abc third"}
+	view := m.statusView()
+	if !strings.Contains(view, "Commit tree") || !strings.Contains(view, "abc123") {
+		t.Fatalf("commit tree missing from status view: %q", view)
+	}
+	m.CommitTreeFocused = true
+	m.scrollCommitTree(2)
+	if m.CommitTreeOffset < 0 || m.CommitTreeOffset > len(m.CommitTreeLines) {
+		t.Fatalf("invalid tree offset: %d", m.CommitTreeOffset)
+	}
+}
+
 func key(text string) tea.KeyPressMsg {
 	if text == "esc" {
 		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape})

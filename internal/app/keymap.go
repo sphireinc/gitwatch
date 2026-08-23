@@ -12,6 +12,7 @@ var DefaultBindings = []Binding{
 	{Key: "U", Action: "unstage-all", Description: "unstage all while preserving working-tree content"},
 	{Key: "enter/d", Action: "open-diff", Description: "open selected file diff"},
 	{Key: "V", Action: "diff-mode", Description: "switch staged or unstaged diff"},
+	{Key: "T", Action: "commit-tree-focus", Description: "focus the optional commit tree"},
 	{Key: "/", Action: "diff-search", Description: "search the open diff; n finds the next match"},
 	{Key: "/", Action: "filter", Description: "filter files"},
 	{Key: "S", Action: "sort", Description: "cycle status-file sort mode"},

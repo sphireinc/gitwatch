@@ -109,6 +109,12 @@ type DiffReadyMsg struct {
 	Err        error
 	Truncated  bool
 }
+type CommitTreeReadyMsg struct {
+	Tree       git.CommitTree
+	Generation uint64
+	Request    uint64
+	Err        error
+}
 type PartialOperationFinishedMsg struct {
 	Name       string
 	Repository uint64
@@ -261,6 +267,16 @@ type Model struct {
 	DiffTruncated            bool
 	DiffMaxBytes             int64
 	DiffMaxLines             int
+	CommitTreeEnabled        bool
+	CommitTreeMaxCommits     int
+	CommitTreeLines          []string
+	CommitTreeHead           string
+	CommitTreeOffset         int
+	CommitTreeFocused        bool
+	CommitTreeLoading        bool
+	CommitTreeErr            error
+	CommitTreeRequest        uint64
+	CommitTreeCancel         context.CancelFunc
 	Restore                  Confirmation
 	RestoreInput             string
 	HunkContext              int
@@ -375,7 +391,7 @@ func New() Model {
 		DetailsCache: details.NewCache(), ActivityLog: history.New(100),
 		ctx: ctx, cancel: cancel, RefreshInterval: 2 * time.Second,
 		ReconciliationInterval: 30 * time.Second, WatchDebounce: 75 * time.Millisecond,
-		DiffMaxBytes: 4 << 20, DiffMaxLines: 20_000,
+		DiffMaxBytes: 4 << 20, DiffMaxLines: 20_000, CommitTreeMaxCommits: config.DefaultCommitTreeCommits,
 		WatchRequested: watch.RequestedAuto, Workspace: workspace.New(),
 		Notifications: notifications.New(100, false), OperationEngine: operations.New(4),
 	}
@@ -497,6 +513,7 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.ReconciliationInterval = c.Reconciliation
 	m.WatchDebounce = c.Debounce
 	m.DiffMaxBytes, m.DiffMaxLines = c.Diff.MaxBytes, c.Diff.MaxLines
+	m.CommitTreeEnabled, m.CommitTreeMaxCommits = c.ShowCommitTree, c.CommitTree.MaxCommits
 	if requested, ok := watch.ParseMode(c.Watch); ok {
 		m.WatchRequested = requested
 	}
@@ -564,7 +581,12 @@ func (m *Model) setRepository(discovery git.Discovery) error {
 	if m.RefreshCoordinator != nil {
 		m.RefreshCoordinator.Close()
 	}
+	if m.CommitTreeCancel != nil {
+		m.CommitTreeCancel()
+		m.CommitTreeCancel = nil
+	}
 	m.Discovery = discovery
+	m.CommitTreeLines, m.CommitTreeHead, m.CommitTreeOffset, m.CommitTreeErr = nil, "", 0, nil
 	if discovery.Root != "" {
 		m.repositoryCtx, m.repositoryCancel = context.WithCancel(m.ctx)
 		m.RefreshCoordinator = git.NewRefreshCoordinator(func(ctx context.Context, generation uint64) (repo.Snapshot, error) {
@@ -648,6 +670,9 @@ func (m Model) Init() tea.Cmd {
 		return nil
 	}
 	commands := []tea.Cmd{m.refresh(), m.tick(), m.startWatcher()}
+	if tree := m.loadCommitTree(); tree != nil {
+		commands = append(commands, tree)
+	}
 	if m.RefreshCoordinator != nil {
 		commands = append(commands, waitForRefresh(m.RefreshCoordinator))
 	}
@@ -682,6 +707,32 @@ func (m Model) refresh() tea.Cmd {
 		}
 		return SnapshotMsg{Snapshot: snapshot}
 	}
+}
+
+func (m *Model) loadCommitTree() tea.Cmd {
+	if !m.CommitTreeEnabled || m.Discovery.Root == "" {
+		return nil
+	}
+	if m.CommitTreeCancel != nil {
+		m.CommitTreeCancel()
+	}
+	ctx, cancel := context.WithCancel(m.commandContext())
+	m.CommitTreeCancel = cancel
+	m.CommitTreeRequest++
+	request, generation, limit := m.CommitTreeRequest, m.repositoryGeneration, m.CommitTreeMaxCommits
+	runner := git.NewRunner(m.Discovery.Root)
+	m.CommitTreeLoading, m.CommitTreeErr = true, nil
+	return func() tea.Msg {
+		tree, err := git.LoadCommitTree(ctx, runner, limit)
+		return CommitTreeReadyMsg{Tree: tree, Generation: generation, Request: request, Err: err}
+	}
+}
+
+func (m Model) refreshCommitTreeIfNeeded() tea.Cmd {
+	if !m.CommitTreeEnabled || m.CommitTreeLoading || m.Snapshot.Branch.OID == m.CommitTreeHead && m.CommitTreeHead != "" {
+		return nil
+	}
+	return m.loadCommitTree()
 }
 
 func waitForRefresh(coordinator *git.RefreshCoordinator) tea.Cmd {
@@ -2397,7 +2448,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "confirm push with upstream tracking to selected remote? (y/n)"
 			}
 		case "T":
-			if m.currentView() == workspace.Remotes {
+			if m.currentView() == workspace.Status && m.CommitTreeEnabled {
+				m.CommitTreeFocused = !m.CommitTreeFocused
+				m.Status = map[bool]string{true: "commit tree focused", false: "status files focused"}[m.CommitTreeFocused]
+			} else if m.currentView() == workspace.Remotes {
 				m.RemoteTagMode, m.RemoteTag = true, ""
 				m.Status = "tag name: "
 			}
@@ -2584,6 +2638,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.openDiff()
 		case "j", "down":
+			if m.currentView() == workspace.Status && m.CommitTreeFocused {
+				m.scrollCommitTree(1)
+				return m, nil
+			}
 			switch m.currentView() {
 			case workspace.Branches:
 				m.Branches.Move(1)
@@ -2606,6 +2664,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "k", "up":
+			if m.currentView() == workspace.Status && m.CommitTreeFocused {
+				m.scrollCommitTree(-1)
+				return m, nil
+			}
 			switch m.currentView() {
 			case workspace.Branches:
 				m.Branches.Move(-1)
@@ -2628,9 +2690,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "pgup":
+			if m.currentView() == workspace.Status && m.CommitTreeFocused {
+				m.scrollCommitTree(-m.statusLayout().CommitTree.Height)
+				return m, nil
+			}
 			m.scrollDiff(-m.statusRowCount())
 		case "pgdown":
+			if m.currentView() == workspace.Status && m.CommitTreeFocused {
+				m.scrollCommitTree(m.statusLayout().CommitTree.Height)
+				return m, nil
+			}
 			m.scrollDiff(m.statusRowCount())
+		case "home":
+			if m.currentView() == workspace.Status && m.CommitTreeFocused {
+				m.CommitTreeOffset = 0
+				return m, nil
+			}
+		case "end":
+			if m.currentView() == workspace.Status && m.CommitTreeFocused {
+				m.CommitTreeOffset = len(m.CommitTreeLines)
+				m.scrollCommitTree(0)
+				return m, nil
+			}
 		case "space":
 			if m.currentView() == workspace.Plugins && m.Plugins.Selected >= 0 && m.Plugins.Selected < len(m.Plugins.Entries) {
 				entry := m.Plugins.Entries[m.Plugins.Selected]
@@ -2660,6 +2741,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseWheelMsg:
 		statusLayout := m.statusLayout()
+		if m.currentView() == workspace.Status && m.CommitTreeEnabled && statusLayout.CommitTree.Contains(v.X, v.Y) {
+			m.CommitTreeFocused = true
+			if v.Button == tea.MouseWheelUp {
+				m.scrollCommitTree(-3)
+			} else if v.Button == tea.MouseWheelDown {
+				m.scrollCommitTree(3)
+			}
+			return m, nil
+		}
 		if m.DiffPath != "" && (statusLayout.Mode != layout.Wide || statusLayout.Details.Contains(v.X, v.Y)) {
 			switch v.Button {
 			case tea.MouseWheelUp:
@@ -2731,6 +2821,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			statusLayout := m.statusLayout()
+			if m.currentView() == workspace.Status && m.CommitTreeEnabled && statusLayout.CommitTree.Contains(v.X, v.Y) {
+				m.CommitTreeFocused = true
+				return m, nil
+			}
 			if statusLayout.Mode != layout.Wide && m.DiffPath != "" {
 				return m, nil
 			}
@@ -2768,7 +2862,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.applySnapshot(v.Result.Snapshot)
 			m.State = StateReady
 		}
-		return m, waitForRefresh(v.Coordinator)
+		return m, tea.Batch(waitForRefresh(v.Coordinator), m.refreshCommitTreeIfNeeded())
 	case refreshRequestedMsg:
 		if v.Coordinator != m.RefreshCoordinator {
 			return m, nil
@@ -2778,6 +2872,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SnapshotMsg:
 		m.applySnapshot(v.Snapshot)
 		m.State = StateReady
+		return m, m.refreshCommitTreeIfNeeded()
 	case RefreshStartedMsg:
 		m.State = StateRefreshing
 	case RefreshFinishedMsg:
@@ -2788,6 +2883,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if m.State == StateRefreshing {
 			m.State = StateReady
 		}
+		return m, m.refreshCommitTreeIfNeeded()
 	case TickMsg:
 		if !m.Motion.Ticks() {
 			return m, nil
@@ -2910,6 +3006,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Status = v.Err.Error()
 		} else if m.currentView() == workspace.Hunks {
 			m.beginHunks()
+		}
+	case CommitTreeReadyMsg:
+		if v.Generation != m.repositoryGeneration || v.Request != m.CommitTreeRequest {
+			return m, nil
+		}
+		m.CommitTreeCancel, m.CommitTreeLoading = nil, false
+		if v.Err != nil {
+			m.CommitTreeErr = v.Err
+			m.Status = "commit tree: " + v.Err.Error()
+		} else {
+			m.CommitTreeLines, m.CommitTreeHead, m.CommitTreeErr = append([]string(nil), v.Tree.Lines...), v.Tree.Head, nil
+			m.CommitTreeOffset = min(m.CommitTreeOffset, max(0, len(m.CommitTreeLines)-1))
 		}
 	case BranchesReadyMsg:
 		if v.Err != nil {

@@ -32,6 +32,7 @@ provenance and local playback instructions.
 - Responsive status dashboard with branch divergence, staged/unstaged state, conflicts, filtering, sorting, activity, and selected-file details.
 - Long file paths and diff/details lines wrap to the active panel width instead of being silently truncated.
 - Read-only staged/unstaged diff switching, bounded scrolling/search, and explicit large-diff truncation notices.
+- Optional bottom-pane commit graph with bounded history (`--with-commit-tree` or `show_commit_tree`).
 - Mouse or keyboard file selection that opens the selected file's diff without mutating the repository.
 - Guarded stage, unstage, restore, hunk, commit, stash, branch, worktree, remote, and history workflows.
 - Optional read-only GitHub pull-request/check visibility, multi-repository dashboards, and capability-bounded out-of-process plugins.
@@ -116,6 +117,10 @@ gitwatch --config-inspect
 ```
 
 See [docs/configuration.md](docs/configuration.md) and the [configuration schema](docs/configuration.schema.json). The configuration schema version is independent of the gitwatch release version.
+
+The optional commit tree is disabled by default. Enable it with
+`gitwatch --with-commit-tree` or `"show_commit_tree": true`; it shows the most
+recent 100 commits by default and can be bounded with `commit_tree.max_commits`.
 
 ## Documentation
 

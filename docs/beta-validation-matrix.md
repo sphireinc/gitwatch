@@ -45,6 +45,10 @@ Use `./scripts/demo-repo.sh` to create the disposable fixture. Record the
 terminal, OS version, terminal emulator, Git version, commit under test, and
 whether every row passed. A `pending` row is not a release sign-off.
 
+The commit-tree feature additionally requires disabled/enabled, wide/narrow,
+resize, scroll, external-commit, and keyboard/mouse evidence. Use the bounded
+100-commit default unless the configured limit is explicitly recorded.
+
 For repeatable native evidence, use [`native-harness.md`](native-harness.md),
 `scripts/native-fixture.sh`, and `scripts/native-capture.sh`. The fixture
 asserts Git state through porcelain output; the operator records rendering,

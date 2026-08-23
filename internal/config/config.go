@@ -34,6 +34,8 @@ type Config struct {
 	Notifications  NotificationConfig           `json:"notifications"`
 	Layout         LayoutConfig                 `json:"layout"`
 	Diff           DiffConfig                   `json:"diff"`
+	ShowCommitTree bool                         `json:"show_commit_tree"`
+	CommitTree     CommitTreeConfig             `json:"commit_tree"`
 	Keymap         map[string]string            `json:"keymap"`
 	Profile        string                       `json:"profile,omitempty"`
 	KeymapProfiles map[string]map[string]string `json:"keymap_profiles,omitempty"`
@@ -81,8 +83,16 @@ type DiffConfig struct {
 	MaxLines int   `json:"max_lines"`
 }
 
+// CommitTreeConfig bounds the optional status-workspace history graph.
+type CommitTreeConfig struct {
+	MaxCommits int `json:"max_commits"`
+}
+
+const DefaultCommitTreeCommits = 100
+const MaxCommitTreeCommits = 1000
+
 func Defaults() Config {
-	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Layout: LayoutConfig{FilesPercent: 60, DetailsPercent: 40}, Diff: DiffConfig{MaxBytes: 4 << 20, MaxLines: 20_000}, Keymap: DefaultKeymap()}
+	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Layout: LayoutConfig{FilesPercent: 60, DetailsPercent: 40}, Diff: DiffConfig{MaxBytes: 4 << 20, MaxLines: 20_000}, CommitTree: CommitTreeConfig{MaxCommits: DefaultCommitTreeCommits}, Keymap: DefaultKeymap()}
 }
 
 func DefaultKeymap() map[string]string {
@@ -197,7 +207,7 @@ func Validate(c Config) error {
 	if c.Version != CurrentVersion {
 		return fmt.Errorf("unsupported config version %d", c.Version)
 	}
-	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 || c.Diff.MaxBytes <= 0 || c.Diff.MaxLines <= 0 {
+	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 || c.Diff.MaxBytes <= 0 || c.Diff.MaxLines <= 0 || c.CommitTree.MaxCommits <= 0 || c.CommitTree.MaxCommits > MaxCommitTreeCommits {
 		return fmt.Errorf("config limits cannot be negative")
 	}
 	if c.Layout.FilesPercent <= 0 || c.Layout.DetailsPercent <= 0 || c.Layout.FilesPercent+c.Layout.DetailsPercent != 100 {

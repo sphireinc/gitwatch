@@ -52,12 +52,25 @@ func TestGroupRefreshPolicyValidation(t *testing.T) {
 
 func TestV2DefaultsAndBindingCollisionValidation(t *testing.T) {
 	c := Defaults()
-	if c.Version != CurrentVersion || c.Remote.PullStrategy != "ff-only" || c.Layout.FilesPercent != 60 || c.Layout.DetailsPercent != 40 || c.Diff.MaxBytes <= 0 || c.Diff.MaxLines <= 0 {
+	if c.Version != CurrentVersion || c.Remote.PullStrategy != "ff-only" || c.Layout.FilesPercent != 60 || c.Layout.DetailsPercent != 40 || c.Diff.MaxBytes <= 0 || c.Diff.MaxLines <= 0 || c.ShowCommitTree || c.CommitTree.MaxCommits != DefaultCommitTreeCommits {
 		t.Fatalf("unexpected defaults: %#v", c)
 	}
 	c.Keymap = map[string]string{"one": "x", "two": "x"}
 	if Validate(c) == nil || len(BindingCollisions(c.Keymap)) != 1 {
 		t.Fatal("binding collision was not rejected")
+	}
+}
+
+func TestCommitTreeLimitValidation(t *testing.T) {
+	c := Defaults()
+	c.CommitTree.MaxCommits = 0
+	if err := Validate(c); err == nil {
+		t.Fatal("zero commit tree limit was accepted")
+	}
+	c = Defaults()
+	c.CommitTree.MaxCommits = MaxCommitTreeCommits + 1
+	if err := Validate(c); err == nil {
+		t.Fatal("unsafe commit tree limit was accepted")
 	}
 }
 

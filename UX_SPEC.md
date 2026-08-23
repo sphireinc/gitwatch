@@ -32,6 +32,13 @@ At narrow sizes, preserving readable content and input affordances takes
 precedence over maintaining the wide split. A blank or padded cell is not
 allowed to hide a required heading, status message, error, or footer binding.
 
+When enabled, the left status panel reserves approximately its lower quarter
+for a `Commit tree` region and keeps the status-file list above it. `T` toggles
+focus between the file list and tree; the focused tree supports `j/k`,
+Page Up/Page Down, Home/End, and mouse-wheel scrolling. The tree is context
+only: selecting it never performs a Git mutation. Narrow layouts may collapse
+the tree to the lower switchable region when space is constrained.
+
 ## Interaction
 - Arrow keys / j,k move selection.
 - Space toggles staged state for selected path according to current status.

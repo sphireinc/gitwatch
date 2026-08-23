@@ -25,6 +25,7 @@ func main() {
 	intervalFlag := flag.Duration("interval", 0, "poll/reconciliation interval")
 	groupFlag := flag.String("group", "", "open the repository dashboard filtered to a configured group")
 	profileFlag := flag.String("profile", "", "select a named keymap profile")
+	commitTreeFlag := flag.Bool("with-commit-tree", false, "show the bounded commit tree in the status pane")
 	configInspect := flag.Bool("config-inspect", false, "print effective configuration and exit")
 	configCheck := flag.Bool("config-check", false, "validate configuration and exit")
 	diagnosticsFlag := flag.Bool("diagnostics", false, "print sanitized local diagnostics and exit")
@@ -52,6 +53,9 @@ func main() {
 	c = config.ApplyCLI(c, *themeFlag, *motionFlag, *watchFlag, *intervalFlag)
 	if *profileFlag != "" {
 		c.Profile = *profileFlag
+	}
+	if *commitTreeFlag {
+		c.ShowCommitTree = true
 	}
 	if err := config.Validate(c); err != nil {
 		fmt.Fprintf(os.Stderr, "gitwatch: config: %v\n", err)

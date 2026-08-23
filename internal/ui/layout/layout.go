@@ -17,9 +17,9 @@ type Rect struct{ X, Y, Width, Height int }
 
 // Layout contains the rectangles used by the status dashboard.
 type Layout struct {
-	Mode                                              Mode
-	Header, Metrics, Files, Details, Activity, Footer Rect
-	Message                                           string
+	Mode                                                          Mode
+	Header, Metrics, Files, Details, CommitTree, Activity, Footer Rect
+	Message                                                       string
 }
 
 // Split contains the configured wide-layout panel percentages.
@@ -40,6 +40,11 @@ func Compute(width, height int) Layout {
 
 // ComputeWithSplit calculates a layout using split for wide terminals.
 func ComputeWithSplit(width, height int, split Split) Layout {
+	return ComputeWithSplitAndCommitTree(width, height, split, false)
+}
+
+// ComputeWithSplitAndCommitTree calculates a layout with an optional lower history pane.
+func ComputeWithSplitAndCommitTree(width, height int, split Split, withCommitTree bool) Layout {
 	l := Layout{Mode: Wide}
 	if width < 60 || height < 12 {
 		l.Mode = TooSmall
@@ -54,18 +59,32 @@ func ComputeWithSplit(width, height int, split Split) Layout {
 	contentTop, contentHeight := 3, height-7
 	if width >= 140 {
 		filesWidth, detailsWidth := splitWidths(width, split)
-		l.Files = Rect{X: 0, Y: contentTop, Width: filesWidth, Height: contentHeight}
+		filesHeight, treeHeight := splitTreeHeights(contentHeight, withCommitTree)
+		l.Files = Rect{X: 0, Y: contentTop, Width: filesWidth, Height: filesHeight}
+		l.CommitTree = Rect{X: 0, Y: contentTop + filesHeight, Width: filesWidth, Height: treeHeight}
 		l.Details = Rect{X: filesWidth, Y: contentTop, Width: detailsWidth, Height: contentHeight}
 	} else if width >= 90 {
 		l.Mode = Medium
-		l.Files = Rect{X: 0, Y: contentTop, Width: width, Height: contentHeight}
+		filesHeight, treeHeight := splitTreeHeights(contentHeight, withCommitTree)
+		l.Files = Rect{X: 0, Y: contentTop, Width: width, Height: filesHeight}
+		l.CommitTree = Rect{X: 0, Y: contentTop + filesHeight, Width: width, Height: treeHeight}
 		l.Details = Rect{X: 0, Y: contentTop, Width: width, Height: contentHeight}
 	} else {
 		l.Mode = Narrow
-		l.Files = Rect{X: 0, Y: contentTop, Width: width, Height: contentHeight}
+		filesHeight, treeHeight := splitTreeHeights(contentHeight, withCommitTree)
+		l.Files = Rect{X: 0, Y: contentTop, Width: width, Height: filesHeight}
+		l.CommitTree = Rect{X: 0, Y: contentTop + filesHeight, Width: width, Height: treeHeight}
 		l.Details = l.Files
 	}
 	return l
+}
+
+func splitTreeHeights(contentHeight int, enabled bool) (int, int) {
+	if !enabled || contentHeight < 6 {
+		return contentHeight, 0
+	}
+	tree := max(3, contentHeight/4)
+	return contentHeight - tree, tree
 }
 
 func splitWidths(width int, split Split) (int, int) {

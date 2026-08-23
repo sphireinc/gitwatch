@@ -25,6 +25,7 @@ The schema-version-2 top-level fields are:
 | `notifications` | Notification preferences; set `quiet` to suppress attention badges while retaining history. |
 | `layout` | Wide status split; `files_percent` controls the left file panel and `details_percent` controls the right details/diff panel. They must be positive and sum to `100`; defaults are `60` and `40`. |
 | `diff` | Diff inspection budgets; `max_bytes` defaults to `4194304` and `max_lines` defaults to `20000`. Truncated diffs show an explicit notice. |
+| `show_commit_tree`, `commit_tree` | Optional status-pane commit graph; disabled by default, with `max_commits` defaulting to `100` and capped at `1000`. |
 | `profile`, `keymap_profiles` | Optional named keymap profile and profile definitions. |
 | `keymap` | Direct action-to-key overrides; these take precedence over the selected profile. Duplicate keys, unknown actions, reserved terminal controls, and destructive-action remaps are rejected before startup. |
 
@@ -62,6 +63,19 @@ direct `keymap` object. `GITWATCH_PROFILE` and `--profile` select a profile;
 the CLI flag wins. Only the documented non-dangerous navigation/workspace
 actions are configurable. This keeps restore, delete, discard, and force
 operations behind their deliberate built-in confirmations.
+
+The commit tree can be enabled without changing other layout settings:
+
+```json
+{
+  "show_commit_tree": true,
+  "commit_tree": { "max_commits": 100 }
+}
+```
+
+The CLI flag `--with-commit-tree` also enables it and takes precedence over the
+file value. The graph is loaded with a bounded Git log request and refreshes
+when HEAD/ref state changes.
 
 The machine-readable schema is available at
 [`docs/configuration.schema.json`](configuration.schema.json). Duration values

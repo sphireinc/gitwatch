@@ -19,3 +19,14 @@ func TestResponsiveModes(t *testing.T) {
 		t.Fatalf("invalid split did not use defaults = %#v", invalid)
 	}
 }
+
+func TestCommitTreeSplitsLeftPanelOnlyWhenEnabled(t *testing.T) {
+	without := ComputeWithSplitAndCommitTree(160, 30, DefaultSplit(), false)
+	with := ComputeWithSplitAndCommitTree(160, 30, DefaultSplit(), true)
+	if with.CommitTree.Height == 0 || with.Files.Height >= without.Files.Height || with.Details.Height != without.Details.Height {
+		t.Fatalf("unexpected tree layout: without=%#v with=%#v", without, with)
+	}
+	if with.CommitTree.Y != with.Files.Y+with.Files.Height {
+		t.Fatalf("tree is not below files: %#v", with)
+	}
+}
