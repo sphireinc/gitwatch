@@ -116,6 +116,7 @@ jobs:
           path: |
             dist/*.tar.gz
             dist/*.zip
+            dist/*_release.json
             dist/*_sbom.spdx.json
             dist/SHA256SUMS
           if-no-files-found: error
@@ -157,6 +158,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             dist/*.tar.gz \
             dist/*.zip \
+            dist/*_release.json \
             dist/*_sbom.spdx.json \
             dist/SHA256SUMS \
             --generate-notes \
