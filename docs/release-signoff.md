@@ -27,7 +27,9 @@ this record is not a v1 publication approval.
 Evidence links/output: local command output for candidate `c0a7d46`; CI and
 release workflow links must be attached before publication. The release-check
 run generated and verified the five `gitwatch_1.0.6_*` archives, release
-metadata, and checksums.
+metadata, and checksums. The exact `make check` invocation also passed on the
+current docs-only descendant `a1fc799`; rerun it on the final tagged candidate
+before signing.
 
 ## Operator evidence
 
