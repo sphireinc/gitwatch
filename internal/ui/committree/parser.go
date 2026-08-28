@@ -27,6 +27,16 @@ type Segment struct {
 	Role Role
 }
 
+// Plain returns the safe visible text represented by a parsed line.
+func Plain(line string) string {
+	segments := Parse(line)
+	var b strings.Builder
+	for _, segment := range segments {
+		b.WriteString(segment.Text)
+	}
+	return b.String()
+}
+
 // Parse converts Git SGR output into safe semantic segments. Unsupported
 // controls and malformed escape sequences are discarded.
 func Parse(line string) []Segment {
