@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "theme": "dark",
+  "motion": "reduced",
+  "watch": "poll",
+  "interval": 2000000000,
+  "show_untracked": true,
+  "layout": {
+    "files_percent": 60,
+    "details_percent": 40
+  }
+}

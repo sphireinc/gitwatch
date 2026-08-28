@@ -48,4 +48,17 @@ Run schema/fixture tests, clean-install and upgrade simulations, SDK/example
 compatibility tests, and documentation link checks. Record decisions in the
 task completion summary and update the roadmap only after review.
 
-**Status:** Planned
+**Status:** Complete
+
+## Completion summary
+
+The v2 contract inventory and compatibility boundary are documented in
+`docs/v2-release-plan.md`. Configuration migration now has a read-only
+`--config-migration-dry-run` report, preserves source files, rejects future
+versions, and is covered by an immutable v1 fixture. Existing API-1 plugin
+fixtures continue to decode through the public SDK.
+
+Focused verification passed: config/plugin/cmd tests, `go vet`, formatting,
+diff checks, and dry-run reports for missing/current and version-1 files. Full
+native cross-platform release evidence remains an operator-owned release gate,
+not a prerequisite for this contract-freeze implementation task.

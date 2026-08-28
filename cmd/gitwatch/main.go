@@ -28,6 +28,7 @@ func main() {
 	commitTreeFlag := flag.Bool("with-commit-tree", false, "show the bounded commit tree in the status pane")
 	configInspect := flag.Bool("config-inspect", false, "print effective configuration and exit")
 	configCheck := flag.Bool("config-check", false, "validate configuration and exit")
+	configMigrationDryRun := flag.Bool("config-migration-dry-run", false, "explain configuration migration without writing the source file")
 	diagnosticsFlag := flag.Bool("diagnostics", false, "print sanitized local diagnostics and exit")
 	supportBundle := flag.String("support-bundle", "", "write a sanitized private diagnostics bundle and exit")
 	flag.Usage = func() {
@@ -37,6 +38,26 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	if *configMigrationDryRun {
+		var err error
+		path := *configPath
+		if path == "" {
+			path, err = config.Path()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "gitwatch: config migration: %v\n", err)
+				os.Exit(1)
+			}
+		}
+		plan, err := config.PlanMigrationFile(path)
+		if os.IsNotExist(err) {
+			plan = config.MigrationPlan{SourceVersion: config.CurrentVersion, TargetVersion: config.CurrentVersion}
+		} else if err != nil {
+			fmt.Fprintf(os.Stderr, "gitwatch: config migration: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Print(config.FormatMigrationPlan(plan))
+		return
+	}
 	if *versionFlag {
 		fmt.Println(version.String())
 		return
