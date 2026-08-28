@@ -289,9 +289,11 @@ func (m Model) statusCommitTreeLines(width, height int) []string {
 		lines = append(lines, "No commits yet.")
 	default:
 		start := min(m.CommitTreeOffset, len(m.CommitTreeLines))
-		lines = append(lines, m.CommitTreeLines[start:]...)
+		for _, line := range m.CommitTreeLines[start:] {
+			lines = append(lines, m.renderCommitTreeLine(line))
+		}
 	}
-	return padStatusPanelWithTopBorder(lines, width, height)
+	return padStyledStatusPanelWithTopBorder(lines, width, height)
 }
 
 func (m Model) statusContextPaneLines(width, height int) []string {
@@ -364,10 +366,54 @@ func (m Model) styleStatusTreeLine(line string) string {
 	if strings.HasPrefix(strings.TrimSpace(line), "Commit tree") {
 		return m.Theme.Header.Render(line)
 	}
+	if strings.Contains(line, "\x1b[") {
+		return line
+	}
 	if m.showCommitTreePane() {
 		return m.renderCommitTreeLine(line)
 	}
 	return line
+}
+
+func padStyledStatusPanelWithTopBorder(lines []string, width, height int) []string {
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	innerWidth := max(1, width-1)
+	padded := make([]string, 0, len(lines)+1)
+	padded = append(padded, " "+strings.Repeat("─", innerWidth))
+	for _, line := range lines {
+		if strings.Contains(line, "\x1b[") {
+			if lipgloss.Width(line) > innerWidth {
+				line = lipgloss.NewStyle().MaxWidth(innerWidth).Render(line)
+			}
+			if lipgloss.Width(line) < innerWidth {
+				line += strings.Repeat(" ", innerWidth-lipgloss.Width(line))
+			}
+			padded = append(padded, " "+line)
+			continue
+		}
+		for _, part := range fitSafeDisplayLines(line, innerWidth) {
+			padded = append(padded, " "+part)
+		}
+	}
+	return fitStyledLines(padded, width, height)
+}
+
+func fitStyledLines(lines []string, width, height int) []string {
+	fitted := make([]string, height)
+	for index := range fitted {
+		if index < len(lines) {
+			line := lines[index]
+			if lipgloss.Width(line) < width {
+				line += strings.Repeat(" ", width-lipgloss.Width(line))
+			}
+			fitted[index] = line
+		} else {
+			fitted[index] = strings.Repeat(" ", width)
+		}
+	}
+	return fitted
 }
 
 func (m Model) renderCommitTreeLine(line string) string {

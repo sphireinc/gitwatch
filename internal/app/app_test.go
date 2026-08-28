@@ -482,6 +482,11 @@ func TestCommitTreeRenderingUsesSafeThemeSegments(t *testing.T) {
 	if strings.Contains(view, "\x1b") || !strings.Contains(view, "abc123") || !strings.Contains(view, "author") {
 		t.Fatalf("unsafe or missing colorless commit tree: %q", view)
 	}
+	m.Theme = theme.New(theme.Dark, false)
+	view = m.statusView()
+	if !strings.Contains(view, "\x1b[") {
+		t.Fatal("colored theme did not render semantic commit-tree styles")
+	}
 }
 
 func TestCommitTreeInitKeepsAsyncRequestOnLiveModel(t *testing.T) {
