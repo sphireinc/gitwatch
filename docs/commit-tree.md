@@ -33,3 +33,12 @@ high-contrast theme roles. Git's palette is never passed through directly.
 `NO_COLOR` and colorless terminals retain graph glyphs and commit text without
 escape sequences. Unknown or malformed SGR, OSC, CSI, and control sequences
 are discarded. Repository-controlled text remains bounded and sanitized.
+
+## Inspecting a historical commit
+
+Focus the tree with `T`, move to a commit with `j`/`k`, and press Enter or click
+the commit row. gitwatch resolves the selected abbreviated hash without
+checkout, loads its changed files into the upper-left list, and keeps the
+commit's per-file diff in the right pane when a file is selected. Press `Esc`
+or `1` to return to the current worktree status; inspection is read-only,
+cancellable, and safely discarded when the repository changes.

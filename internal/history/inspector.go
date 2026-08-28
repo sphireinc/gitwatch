@@ -55,9 +55,9 @@ func InspectPath(ctx context.Context, runner git.Runner, sha, parent, path strin
 	if strings.HasPrefix(strings.TrimSpace(sha), "-") || strings.ContainsAny(path, "\r\n\x00") {
 		return Inspector{}, git.ErrCommandFailed
 	}
-	args := []string{"show", "--format=", "--numstat", "--no-renames", sha}
+	args := []string{"show", "--format=", "--numstat", "-z", "--no-renames", sha}
 	if parent != "" {
-		args = []string{"diff", "--numstat", "--no-renames", parent, sha}
+		args = []string{"diff", "--numstat", "-z", "--no-renames", parent, sha}
 	}
 	if path != "" {
 		args = append(args, "--", path)
@@ -91,9 +91,31 @@ func statPaths(data []byte) []string {
 }
 
 func parseStats(data []byte) []FileStat {
+	if strings.IndexByte(string(data), 0) >= 0 {
+		return parseStatsZ(data)
+	}
 	var stats []FileStat
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		fields := strings.SplitN(line, "\t", 3)
+		if len(fields) != 3 {
+			continue
+		}
+		stat := FileStat{Path: fields[2]}
+		if fields[0] == "-" || fields[1] == "-" {
+			stat.Binary = true
+		} else {
+			stat.Added = int(parseInt(fields[0]))
+			stat.Deleted = int(parseInt(fields[1]))
+		}
+		stats = append(stats, stat)
+	}
+	return stats
+}
+
+func parseStatsZ(data []byte) []FileStat {
+	var stats []FileStat
+	for _, record := range strings.Split(string(data), "\x00") {
+		fields := strings.SplitN(record, "\t", 3)
 		if len(fields) != 3 {
 			continue
 		}

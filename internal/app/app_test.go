@@ -543,6 +543,71 @@ func TestCommitTreeShortcutEnablesOnDemand(t *testing.T) {
 	}
 }
 
+func TestStatusCommitInspectionPopulatesHistoricalFiles(t *testing.T) {
+	m := New()
+	m.Width, m.Height = 160, 30
+	m.Discovery.Root = t.TempDir()
+	m.StatusCommitRequest = 1
+	updated, _ := m.Update(StatusCommitInspectorReadyMsg{
+		Generation: 0,
+		Request:    1,
+		Inspector: history.Inspector{
+			Commit: history.Commit{SHA: "abcdef1234567890", Short: "abcdef1"},
+			Stats:  []history.FileStat{{Path: "historical.txt", Added: 2, Deleted: 1}},
+		},
+	})
+	m = updated.(Model)
+	if !m.StatusCommitActive || m.StatusCommitSHA != "abcdef1234567890" || m.Files.SelectedPath() != "historical.txt" {
+		t.Fatalf("historical inspection = active=%v sha=%q path=%q", m.StatusCommitActive, m.StatusCommitSHA, m.Files.SelectedPath())
+	}
+	m.applySnapshot(repo.Snapshot{Branch: repo.Branch{Name: "main"}})
+	if m.Files.SelectedPath() != "historical.txt" {
+		t.Fatal("authoritative worktree refresh replaced historical file list")
+	}
+	updated, _ = m.Update(key("esc"))
+	m = updated.(Model)
+	if m.StatusCommitActive {
+		t.Fatal("escape did not return from historical inspection")
+	}
+}
+
+func TestStatusCommitInspectionLoadsRealCommitFiles(t *testing.T) {
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	ctx := context.Background()
+	if _, err := runner.Run(ctx, "init", "-b", "main", "--", root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "historical.txt"), []byte("first\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "add", "--", "historical.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "-c", "user.name=gitwatch", "-c", "user.email=gitwatch@example.com", "commit", "-m", "initial"); err != nil {
+		t.Fatal(err)
+	}
+	shortResult, err := runner.Run(ctx, "rev-parse", "--short", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepository(git.Discovery{Root: root})
+	m.Width, m.Height = 160, 30
+	m.CommitTreeEnabled, m.LowerPane, m.CommitTreeFocused = true, "commit-tree", true
+	m.CommitTreeLines = []string{"* " + strings.TrimSpace(string(shortResult.Stdout)) + " - initial"}
+	m.StatusCommitSelectedLine = 0
+	updated, command := m.Update(key("enter"))
+	m = updated.(Model)
+	if command == nil {
+		t.Fatal("commit inspection command was nil")
+	}
+	updated, _ = m.Update(command())
+	m = updated.(Model)
+	if !m.StatusCommitActive || m.Files.SelectedPath() != "historical.txt" {
+		t.Fatalf("real inspection = active=%v path=%q err=%v", m.StatusCommitActive, m.Files.SelectedPath(), m.StatusCommitErr)
+	}
+}
+
 func key(text string) tea.KeyPressMsg {
 	if text == "esc" {
 		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape})

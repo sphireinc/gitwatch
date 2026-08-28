@@ -264,6 +264,13 @@ func (m Model) styleStatusDetailsLine(line string, heading bool) string {
 
 func (m Model) statusFileLines(width, height int) []string {
 	lines := make([]string, 0, height)
+	if m.StatusCommitActive || m.StatusCommitLoading || m.StatusCommitErr != nil {
+		label := m.StatusCommitSHA
+		if label == "" {
+			label = "selected commit"
+		}
+		lines = append(lines, "Commit: "+label)
+	}
 	for i := m.Files.Offset; i < len(m.Files.Visible) && len(lines) < height; i++ {
 		entry := m.Files.Entries[m.Files.Visible[i]]
 		wrapped := fitSafeDisplayLines(m.statusFileText(entry, i == m.Files.Selected), width)

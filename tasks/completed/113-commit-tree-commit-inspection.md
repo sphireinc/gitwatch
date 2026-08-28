@@ -54,4 +54,15 @@ The feature must never perform checkout, reset, revert, stage, commit, or any
 other mutation. Document the interaction and record native mouse/keyboard and
 resize evidence separately from automated checks.
 
-**Status:** Planned
+**Status:** Complete
+
+## Completion summary
+
+The Status commit tree now supports keyboard and mouse commit selection,
+abbreviated-hash resolution, asynchronous read-only historical inspection, and
+loading changed files into the upper-left list. Selecting those files loads a
+historical per-file diff in the right pane; `Esc` and `1` restore worktree
+status. Historical requests are generation/request scoped and cancellable, and
+authoritative worktree refreshes preserve active historical files. NUL-safe
+numstat parsing preserves unusual path bytes. App/history integration and
+colorless safety tests pass.

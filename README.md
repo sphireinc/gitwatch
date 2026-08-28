@@ -129,6 +129,11 @@ the configured upstream, and `B` opens the read-only branch summary. These are
 built-in shortcuts and can be overridden through the safe keymap configuration;
 `b` continues to open the full branch-management workspace.
 
+While the commit tree is focused, press Enter or click a commit to inspect its
+changed files and view a historical per-file diff. Press `Esc` or `1` to return
+to the current worktree status; inspection never checks out or mutates a
+commit.
+
 ## Documentation
 
 - [Architecture](ARCHITECTURE.md)

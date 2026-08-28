@@ -18,6 +18,13 @@ func TestParseStats(t *testing.T) {
 	}
 }
 
+func TestParseStatsZPreservesUnusualPathBytes(t *testing.T) {
+	stats := parseStats([]byte("2\t1\tpath with\t tab.txt\x00-\t-\tline\nname.bin\x00"))
+	if len(stats) != 2 || stats[0].Path != "path with\t tab.txt" || !stats[1].Binary || stats[1].Path != "line\nname.bin" {
+		t.Fatalf("unexpected NUL stats: %#v", stats)
+	}
+}
+
 func TestResolveRefRejectsOptionLikeInput(t *testing.T) {
 	if _, err := ResolveRef(context.Background(), git.Runner{}, "-bad"); !errors.Is(err, ErrInvalidRef) {
 		t.Fatalf("expected invalid ref, got %v", err)

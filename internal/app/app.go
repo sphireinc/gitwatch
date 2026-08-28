@@ -25,6 +25,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
+	"github.com/sphireinc/git-watch/internal/ui/committree"
 	"github.com/sphireinc/git-watch/internal/ui/commitview"
 	"github.com/sphireinc/git-watch/internal/ui/details"
 	"github.com/sphireinc/git-watch/internal/ui/githubview"
@@ -143,6 +144,12 @@ type HistoryReadyMsg struct {
 type HistoryInspectorReadyMsg struct {
 	Inspector history.Inspector
 	Err       error
+}
+type StatusCommitInspectorReadyMsg struct {
+	Inspector  history.Inspector
+	Generation uint64
+	Request    uint64
+	Err        error
 }
 type HistoryRefReadyMsg struct {
 	Ref, SHA string
@@ -294,6 +301,14 @@ type Model struct {
 	UnpushedErr              error
 	UnpushedRequest          uint64
 	UnpushedCancel           context.CancelFunc
+	StatusCommitActive       bool
+	StatusCommitInspector    history.Inspector
+	StatusCommitSHA          string
+	StatusCommitSelectedLine int
+	StatusCommitLoading      bool
+	StatusCommitErr          error
+	StatusCommitRequest      uint64
+	StatusCommitCancel       context.CancelFunc
 	Restore                  Confirmation
 	RestoreInput             string
 	HunkContext              int
@@ -618,10 +633,15 @@ func (m *Model) setRepository(discovery git.Discovery) error {
 		m.UnpushedCancel()
 		m.UnpushedCancel = nil
 	}
+	if m.StatusCommitCancel != nil {
+		m.StatusCommitCancel()
+		m.StatusCommitCancel = nil
+	}
 	m.Discovery = discovery
 	m.LowerPane = ""
 	m.CommitTreeLines, m.CommitTreeHead, m.CommitTreeOffset, m.CommitTreeErr = nil, "", 0, nil
 	m.UnpushedLines, m.UnpushedHead, m.UnpushedUpstream, m.UnpushedOffset, m.UnpushedCount, m.UnpushedErr = nil, "", "", 0, 0, nil
+	m.StatusCommitActive, m.StatusCommitInspector, m.StatusCommitSHA, m.StatusCommitSelectedLine, m.StatusCommitLoading, m.StatusCommitErr = false, history.Inspector{}, "", -1, false, nil
 	if discovery.Root != "" {
 		m.repositoryCtx, m.repositoryCancel = context.WithCancel(m.ctx)
 		m.RefreshCoordinator = git.NewRefreshCoordinator(func(ctx context.Context, generation uint64) (repo.Snapshot, error) {
@@ -654,11 +674,13 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 			m.ActivityLog.Add(event)
 		}
 	}
-	if m.DiffPath != "" && !snapshotContainsPath(snapshot.Entries, m.DiffPath) {
+	if m.DiffPath != "" && !m.StatusCommitActive && !snapshotContainsPath(snapshot.Entries, m.DiffPath) {
 		m.closeDiff()
 	}
 	m.Snapshot = snapshot
-	m.Files.SetEntries(snapshot.Entries)
+	if !m.StatusCommitActive {
+		m.Files.SetEntries(snapshot.Entries)
+	}
 	if snapshot.Counts.Conflicted > 0 {
 		m.notify(notifications.Conflict, notifications.Error, "repository conflicts", fmt.Sprintf("%d conflicted file(s)", snapshot.Counts.Conflicted), true)
 	}
@@ -736,6 +758,10 @@ func (m Model) showUnpushedPane() bool { return m.LowerPane == "unpushed" }
 
 func (m Model) showBranchSummaryPane() bool { return m.LowerPane == "branches" }
 
+func (m Model) contextPaneFocused() bool {
+	return m.showBranchSummaryPane() || m.CommitTreeFocused || m.UnpushedFocused
+}
+
 func (m *Model) selectLowerPane(name string) tea.Cmd {
 	if name == "commit-tree" && !m.CommitTreeEnabled {
 		m.CommitTreeEnabled = true
@@ -744,6 +770,9 @@ func (m *Model) selectLowerPane(name string) tea.Cmd {
 	m.CommitTreeFocused, m.UnpushedFocused = name == "commit-tree", name == "unpushed"
 	switch name {
 	case "commit-tree":
+		if m.StatusCommitSelectedLine < 0 {
+			m.StatusCommitSelectedLine = 0
+		}
 		m.Status = "commit tree focused"
 		return m.refreshCommitTreeIfNeeded()
 	case "unpushed":
@@ -1118,12 +1147,90 @@ func (m *Model) openDiffMode(staged bool) tea.Cmd {
 	if contextLines <= 0 {
 		contextLines = 3
 	}
+	if m.StatusCommitActive {
+		sha, parent := m.StatusCommitSHA, m.StatusCommitInspector.Parent
+		return func() tea.Msg {
+			inspector, err := history.InspectPath(loadCtx, r, sha, parent, string(path))
+			text, truncated := limitDiffText(inspector.Diff, m.DiffMaxBytes, m.DiffMaxLines)
+			added, deleted := diffStat(text)
+			return DiffReadyMsg{Path: string(path), Text: text, Staged: false, Binary: false, Added: added, Deleted: deleted, Request: request, Err: err, Truncated: truncated}
+		}
+	}
 	return func() tea.Msg {
 		d, err := r.DiffWithContext(loadCtx, path, staged, contextLines)
 		text, truncated := limitDiffText(string(d.Text), m.DiffMaxBytes, m.DiffMaxLines)
 		added, deleted := diffStat(text)
 		return DiffReadyMsg{Path: string(path), Text: text, Staged: d.Staged, Binary: d.Binary, Added: added, Deleted: deleted, Request: request, Err: err, Truncated: truncated}
 	}
+}
+
+func (m *Model) inspectStatusCommit(line int) tea.Cmd {
+	if !m.showCommitTreePane() || line < 0 || line >= len(m.CommitTreeLines) {
+		return nil
+	}
+	plain := committree.Plain(m.CommitTreeLines[line])
+	short := firstCommitToken(plain)
+	if short == "" {
+		m.Status = "no commit at selected tree row"
+		return nil
+	}
+	if m.StatusCommitCancel != nil {
+		m.StatusCommitCancel()
+	}
+	ctx, cancel := context.WithCancel(m.commandContext())
+	m.StatusCommitCancel = cancel
+	m.StatusCommitRequest++
+	request, generation := m.StatusCommitRequest, m.repositoryGeneration
+	m.StatusCommitSelectedLine, m.StatusCommitLoading, m.StatusCommitErr = line, true, nil
+	m.Status = "loading commit " + short
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		sha, err := history.ResolveRef(ctx, runner, short)
+		if err == nil {
+			inspector, inspectErr := history.InspectPath(ctx, runner, sha, "", "")
+			if inspectErr != nil {
+				err = inspectErr
+			} else {
+				inspector.Commit = history.Commit{SHA: sha, Short: short, Subject: plain}
+				return StatusCommitInspectorReadyMsg{Inspector: inspector, Generation: generation, Request: request}
+			}
+		}
+		return StatusCommitInspectorReadyMsg{Generation: generation, Request: request, Err: err}
+	}
+}
+
+func firstCommitToken(line string) string {
+	for _, token := range strings.Fields(line) {
+		token = strings.Trim(token, "|*\\/()[],")
+		if len(token) < 7 || len(token) > 40 {
+			continue
+		}
+		valid := true
+		for _, r := range token {
+			if !isHexRune(r) {
+				valid = false
+				break
+			}
+		}
+		if valid {
+			return token
+		}
+	}
+	return ""
+}
+
+func isHexRune(r rune) bool {
+	return r >= '0' && r <= '9' || r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F'
+}
+
+func (m *Model) clearStatusCommitInspection() {
+	if m.StatusCommitCancel != nil {
+		m.StatusCommitCancel()
+		m.StatusCommitCancel = nil
+	}
+	m.StatusCommitActive, m.StatusCommitInspector, m.StatusCommitSHA, m.StatusCommitSelectedLine, m.StatusCommitLoading, m.StatusCommitErr = false, history.Inspector{}, "", -1, false, nil
+	m.Files.SetEntries(m.Snapshot.Entries)
+	m.closeDiff()
 }
 
 func limitDiffText(text string, maxBytes int64, maxLines int) (string, bool) {
@@ -2448,6 +2555,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.currentView() == workspace.Status && m.DiffPath != "" {
 				m.closeDiff()
 				m.Status = "diff closed"
+			} else if m.currentView() == workspace.Status && m.StatusCommitActive {
+				m.clearStatusCommitInspection()
+				m.Status = "returned to worktree status"
 			} else if m.currentView() != workspace.Status {
 				if m.currentView() == workspace.Log && m.HistoryCancel != nil {
 					m.HistoryCancel()
@@ -2456,6 +2566,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Workspace.Back()
 			}
 		case "1":
+			if m.StatusCommitActive {
+				m.clearStatusCommitInspection()
+			}
 			m.Workspace.Navigate(workspace.Status, "Status")
 		case "b":
 			if m.currentView() == workspace.Status {
@@ -2782,11 +2895,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.State, m.Status = StateOperationPending, "loading commit details"
 				return m, m.inspectSelectedCommit()
 			}
+			if m.currentView() == workspace.Status && m.showCommitTreePane() && m.CommitTreeFocused {
+				return m, m.inspectStatusCommit(m.StatusCommitSelectedLine)
+			}
 			return m, m.openDiff()
 		case "j", "down":
-			if m.currentView() == workspace.Status && m.LowerPane != "" {
+			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				if m.showBranchSummaryPane() {
 					m.Branches.Move(1)
+				} else if m.showCommitTreePane() {
+					m.StatusCommitSelectedLine = min(len(m.CommitTreeLines)-1, max(0, m.StatusCommitSelectedLine+1))
+					m.scrollCommitTree(1)
 				} else {
 					m.scrollContextPane(1)
 				}
@@ -2814,9 +2933,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "k", "up":
-			if m.currentView() == workspace.Status && m.LowerPane != "" {
+			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				if m.showBranchSummaryPane() {
 					m.Branches.Move(-1)
+				} else if m.showCommitTreePane() {
+					m.StatusCommitSelectedLine = max(0, m.StatusCommitSelectedLine-1)
+					m.scrollCommitTree(-1)
 				} else {
 					m.scrollContextPane(-1)
 				}
@@ -2844,25 +2966,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "pgup":
-			if m.currentView() == workspace.Status && m.LowerPane != "" {
+			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				m.scrollContextPane(-m.statusLayout().CommitTree.Height)
 				return m, nil
 			}
 			m.scrollDiff(-m.statusRowCount())
 		case "pgdown":
-			if m.currentView() == workspace.Status && m.LowerPane != "" {
+			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				m.scrollContextPane(m.statusLayout().CommitTree.Height)
 				return m, nil
 			}
 			m.scrollDiff(m.statusRowCount())
 		case "home":
-			if m.currentView() == workspace.Status && m.LowerPane != "" {
+			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				m.CommitTreeOffset = 0
 				m.UnpushedOffset = 0
 				return m, nil
 			}
 		case "end":
-			if m.currentView() == workspace.Status && m.LowerPane != "" {
+			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				m.CommitTreeOffset = len(m.CommitTreeLines)
 				m.UnpushedOffset = len(m.UnpushedLines)
 				m.scrollCommitTree(0)
@@ -2898,7 +3020,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseWheelMsg:
 		statusLayout := m.statusLayout()
-		if m.currentView() == workspace.Status && m.LowerPane != "" && statusLayout.CommitTree.Contains(v.X, v.Y) {
+		if m.currentView() == workspace.Status && m.contextPaneFocused() && statusLayout.CommitTree.Contains(v.X, v.Y) {
 			m.CommitTreeFocused, m.UnpushedFocused = m.showCommitTreePane(), m.showUnpushedPane()
 			switch v.Button {
 			case tea.MouseWheelUp:
@@ -2979,8 +3101,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			statusLayout := m.statusLayout()
-			if m.currentView() == workspace.Status && m.LowerPane != "" && statusLayout.CommitTree.Contains(v.X, v.Y) {
+			if m.currentView() == workspace.Status && m.contextPaneFocused() && statusLayout.CommitTree.Contains(v.X, v.Y) {
 				m.CommitTreeFocused, m.UnpushedFocused = m.showCommitTreePane(), m.showUnpushedPane()
+				if m.showCommitTreePane() {
+					line := v.Y - statusLayout.CommitTree.Y - 2 + m.CommitTreeOffset
+					if line >= 0 && line < len(m.CommitTreeLines) {
+						m.StatusCommitSelectedLine = line
+						return m, m.inspectStatusCommit(line)
+					}
+				}
 				return m, nil
 			}
 			if statusLayout.Mode != layout.Wide && m.DiffPath != "" {
@@ -3177,6 +3306,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.CommitTreeLines, m.CommitTreeHead, m.CommitTreeErr = append([]string(nil), v.Tree.Lines...), v.Tree.Head, nil
 			m.CommitTreeOffset = min(m.CommitTreeOffset, max(0, len(m.CommitTreeLines)-1))
 		}
+	case StatusCommitInspectorReadyMsg:
+		if v.Generation != m.repositoryGeneration || v.Request != m.StatusCommitRequest {
+			return m, nil
+		}
+		m.StatusCommitCancel, m.StatusCommitLoading = nil, false
+		if v.Err != nil {
+			m.StatusCommitErr = v.Err
+			m.Status = "commit inspection: " + v.Err.Error()
+			return m, nil
+		}
+		m.StatusCommitActive, m.StatusCommitInspector, m.StatusCommitSHA, m.StatusCommitErr = true, v.Inspector, v.Inspector.Commit.SHA, nil
+		entries := make([]repo.Entry, 0, len(v.Inspector.Stats))
+		for _, stat := range v.Inspector.Stats {
+			kind := byte('M')
+			if stat.Binary {
+				kind = 'B'
+			}
+			entries = append(entries, repo.Entry{Path: repo.Path([]byte(stat.Path)), Kind: kind, Unstaged: true, Deleted: stat.Deleted > 0 && stat.Added == 0})
+		}
+		m.Files.SetEntries(entries)
+		m.Files.Selected = 0
+		m.CommitTreeFocused, m.UnpushedFocused = false, false
+		m.Status = "inspecting commit " + v.Inspector.Commit.Short
 	case UnpushedReadyMsg:
 		if v.Generation != m.repositoryGeneration || v.Request != m.UnpushedRequest {
 			return m, nil
