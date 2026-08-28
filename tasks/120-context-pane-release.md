@@ -19,4 +19,9 @@ backward compatibility for users who leave it disabled.
   resize, keyboard/mouse operation, no-upstream and unpushed states.
 - Remaining operator-owned evidence is explicitly recorded before release.
 
-**Status:** Planned
+**Status:** In progress — implementation and documentation are complete; the
+`VERSION=1.0.6 ./scripts/release-check.sh` candidate gate passed locally,
+including tests, race tests, security/performance checks, five-target archive
+verification, checksums, SBOM/dependency packaging, and build identity. Native
+macOS, Linux, and Windows terminal evidence remains operator-owned and is not
+claimed here.
