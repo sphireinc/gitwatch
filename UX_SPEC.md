@@ -33,11 +33,13 @@ precedence over maintaining the wide split. A blank or padded cell is not
 allowed to hide a required heading, status message, error, or footer binding.
 
 When enabled, the left status panel reserves approximately its lower quarter
-for a `Commit tree` region and keeps the status-file list above it. `T` toggles
-focus between the file list and tree; the focused tree supports `j/k`,
-Page Up/Page Down, Home/End, and mouse-wheel scrolling. The tree is context
-only: selecting it never performs a Git mutation. Narrow layouts may collapse
-the tree to the lower switchable region when space is constrained.
+for a read-only context region and keeps the status-file list above it. The
+region can show the commit tree (`T`), commits ahead of the configured upstream
+(`P`), or a branch summary (`B`) without changing the right panel. Lowercase
+`b` remains the full branch-management workspace. The focused region supports
+`j/k`, Page Up/Page Down, Home/End, and mouse-wheel scrolling. Selecting a
+context pane never performs a Git mutation. Narrow layouts may collapse the
+region when space is constrained.
 
 ## Interaction
 - Arrow keys / j,k move selection.

@@ -33,6 +33,7 @@ provenance and local playback instructions.
 - Long file paths and diff/details lines wrap to the active panel width instead of being silently truncated.
 - Read-only staged/unstaged diff switching, bounded scrolling/search, and explicit large-diff truncation notices.
 - Optional bottom-pane commit graph with bounded history (`--with-commit-tree` or `show_commit_tree`).
+- Lower-left context panes for the commit tree, unpushed commits, and a read-only branch summary.
 - Mouse or keyboard file selection that opens the selected file's diff without mutating the repository.
 - Guarded stage, unstage, restore, hunk, commit, stash, branch, worktree, remote, and history workflows.
 - Optional read-only GitHub pull-request/check visibility, multi-repository dashboards, and capability-bounded out-of-process plugins.
@@ -118,15 +119,22 @@ gitwatch --config-inspect
 
 See [docs/configuration.md](docs/configuration.md) and the [configuration schema](docs/configuration.schema.json). The configuration schema version is independent of the gitwatch release version.
 
-The optional commit tree is disabled by default. Enable it with
+The optional commit tree is disabled by default at startup. Enable it with
 `gitwatch --with-commit-tree` or `"show_commit_tree": true`; it shows the most
 recent 100 commits by default and can be bounded with `commit_tree.max_commits`.
+Press `T` to open it on demand for the current session.
+
+From the Status workspace, `T` opens the commit tree, `P` opens commits ahead of
+the configured upstream, and `B` opens the read-only branch summary. These are
+built-in shortcuts and can be overridden through the safe keymap configuration;
+`b` continues to open the full branch-management workspace.
 
 ## Documentation
 
 - [Architecture](ARCHITECTURE.md)
 - [Default keymap](KEYMAP.md)
 - [Advanced workflows](docs/advanced-workflows.md)
+- [Status context panes](docs/context-panes.md)
 - [Plugin contract](docs/plugins.md) and [SDK](docs/plugin-sdk.md)
 - [Performance](docs/performance.md) and [edge cases](docs/edge-cases.md)
 - [Troubleshooting](docs/troubleshooting.md)

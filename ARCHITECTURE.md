@@ -66,6 +66,12 @@ commit graph. Its request is cancellable and generation-scoped; HEAD/ref
 identity prevents unnecessary reloads, and a graph failure never blocks the
 authoritative status snapshot.
 
+The lower-left status context region can switch between the optional commit
+graph, bounded commits ahead of the configured upstream, and a read-only branch
+summary. Built-in context shortcuts work without configuration and are merged
+with safe keymap overrides. Unpushed and branch-summary data are loaded through
+the same cancellable, generation-scoped model flow and never perform mutations.
+
 ## Process boundaries
 
 The primary status command is:

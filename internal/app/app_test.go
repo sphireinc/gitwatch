@@ -492,6 +492,39 @@ func TestCommitTreeInitKeepsAsyncRequestOnLiveModel(t *testing.T) {
 	}
 }
 
+func TestStatusContextPaneShortcutsSelectUnpushedAndBranches(t *testing.T) {
+	m := New()
+	m.Width, m.Height = 160, 30
+	m.Discovery.Root = t.TempDir()
+	m.Snapshot.Branch = repo.Branch{Name: "main", Upstream: "origin/main"}
+	m.UnpushedLines = []string{"* abc123 local work"}
+	m.UnpushedCount = 1
+	updated, command := m.Update(key("P"))
+	m = updated.(Model)
+	if command == nil || m.LowerPane != "unpushed" || !strings.Contains(m.statusView(), "Unpushed commits") {
+		t.Fatalf("unpushed shortcut: commandnil=%v pane=%q", command == nil, m.LowerPane)
+	}
+	updated, _ = m.Update(key("B"))
+	m = updated.(Model)
+	if m.LowerPane != "branches" || !strings.Contains(m.statusView(), "Branches") {
+		t.Fatalf("branch summary shortcut: pane=%q", m.LowerPane)
+	}
+}
+
+func TestCommitTreeShortcutEnablesOnDemand(t *testing.T) {
+	m := New()
+	m.Width, m.Height = 160, 30
+	m.Discovery.Root = t.TempDir()
+	updated, command := m.Update(key("T"))
+	m = updated.(Model)
+	if command == nil || !m.CommitTreeEnabled || m.LowerPane != "commit-tree" || !m.CommitTreeLoading || m.CommitTreeRequest != 1 {
+		t.Fatalf("on-demand commit tree: commandnil=%v enabled=%v pane=%q loading=%v request=%d", command == nil, m.CommitTreeEnabled, m.LowerPane, m.CommitTreeLoading, m.CommitTreeRequest)
+	}
+	if strings.Contains(m.Status, "disabled") {
+		t.Fatalf("on-demand shortcut reported disabled: %q", m.Status)
+	}
+}
+
 func key(text string) tea.KeyPressMsg {
 	if text == "esc" {
 		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape})

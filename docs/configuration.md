@@ -77,6 +77,12 @@ The CLI flag `--with-commit-tree` also enables it and takes precedence over the
 file value. The graph is loaded with a bounded Git log request and refreshes
 when HEAD/ref state changes.
 
+The Status workspace also provides built-in lower-left context-pane shortcuts:
+`T` for the commit tree, `P` for commits ahead of the configured upstream, and
+`B` for a read-only branch summary. These shortcuts work without configuration
+and may be overridden by the existing `keymap` or `keymap_profiles` settings.
+The lowercase `b` shortcut continues to open the full branch-management view.
+
 The machine-readable schema is available at
 [`docs/configuration.schema.json`](configuration.schema.json). Duration values
 use the same JSON nanosecond representation as the Go configuration type.

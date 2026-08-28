@@ -6,6 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
+	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/operations"
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/repo"
@@ -27,7 +28,7 @@ func (m Model) statusLayout() layout.Layout {
 	if height <= 0 {
 		height = defaultStatusHeight
 	}
-	return layout.ComputeWithSplitAndCommitTree(width, height, m.PanelSplit, m.CommitTreeEnabled)
+	return layout.ComputeWithSplitAndCommitTree(width, height, m.PanelSplit, m.contextPaneEnabled())
 }
 
 func (m Model) statusRowCount() int {
@@ -72,6 +73,23 @@ func (m *Model) scrollCommitTree(delta int) {
 	m.CommitTreeOffset = max(0, min(maximum, m.CommitTreeOffset+delta))
 }
 
+func (m *Model) scrollUnpushed(delta int) {
+	if !m.showUnpushedPane() {
+		return
+	}
+	viewport := max(1, m.statusLayout().CommitTree.Height-2)
+	maximum := max(0, len(m.UnpushedLines)-viewport)
+	m.UnpushedOffset = max(0, min(maximum, m.UnpushedOffset+delta))
+}
+
+func (m *Model) scrollContextPane(delta int) {
+	if m.showCommitTreePane() {
+		m.scrollCommitTree(delta)
+	} else if m.showUnpushedPane() {
+		m.scrollUnpushed(delta)
+	}
+}
+
 func (m Model) statusView() string {
 	statusLayout := m.statusLayout()
 	width := statusLayout.Header.Width
@@ -99,7 +117,7 @@ func (m Model) statusView() string {
 		fileWidth = max(1, fileWidth-1)
 	}
 	files := m.statusFileLines(fileWidth, statusLayout.Files.Height)
-	tree := m.statusCommitTreeLines(statusLayout.CommitTree.Width, statusLayout.CommitTree.Height)
+	tree := m.statusContextPaneLines(statusLayout.CommitTree.Width, statusLayout.CommitTree.Height)
 	diff := m.statusDiffLines(statusLayout.Details.Width, statusLayout.Details.Height)
 	left := append(files, tree...)
 	if statusLayout.Mode == layout.Wide {
@@ -117,7 +135,7 @@ func (m Model) statusView() string {
 		notice = "NOTICE: " + m.Toast.Text
 	}
 	lines = append(lines, fitSafeDisplay(notice, width))
-	footer := "[j/k] move  [space] stage  [a/U] all  [enter/d] diff  [/] filter  [S] sort  [R] restore  [?] help  [q] quit"
+	footer := "[j/k] move  [space] stage  [a/U] all  [enter/d] diff  [/] filter  [S] sort  [R] restore  [T/P/B] context panes  [?] help  [q] quit"
 	if m.OperationEngine != nil {
 		active := 0
 		for _, operation := range m.OperationEngine.Snapshot() {
@@ -257,7 +275,7 @@ func (m Model) statusFileLines(width, height int) []string {
 }
 
 func (m Model) statusCommitTreeLines(width, height int) []string {
-	if !m.CommitTreeEnabled || height <= 0 || width <= 0 {
+	if !m.showCommitTreePane() || height <= 0 || width <= 0 {
 		return nil
 	}
 	lines := []string{fmt.Sprintf("Commit tree · last %d", m.CommitTreeMaxCommits)}
@@ -271,6 +289,69 @@ func (m Model) statusCommitTreeLines(width, height int) []string {
 	default:
 		start := min(m.CommitTreeOffset, len(m.CommitTreeLines))
 		lines = append(lines, m.CommitTreeLines[start:]...)
+	}
+	return padStatusPanelWithTopBorder(lines, width, height)
+}
+
+func (m Model) statusContextPaneLines(width, height int) []string {
+	switch {
+	case m.showUnpushedPane():
+		return m.statusUnpushedLines(width, height)
+	case m.showBranchSummaryPane():
+		return m.statusBranchSummaryLines(width, height)
+	default:
+		return m.statusCommitTreeLines(width, height)
+	}
+}
+
+func (m Model) statusUnpushedLines(width, height int) []string {
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	lines := []string{"Unpushed commits"}
+	switch {
+	case m.UnpushedLoading:
+		lines = append(lines, "Loading unpushed commits…")
+	case m.UnpushedErr != nil:
+		lines = append(lines, "Unable to load unpushed commits: "+m.UnpushedErr.Error())
+	case m.Snapshot.Branch.Detached:
+		lines = append(lines, "Detached HEAD; no upstream commit range")
+	case m.Snapshot.Branch.Unborn:
+		lines = append(lines, "Unborn branch; no commits to push")
+	case m.Snapshot.Branch.Upstream == "":
+		lines = append(lines, "No upstream configured for "+m.Snapshot.Branch.Name)
+	case m.UnpushedCount == 0:
+		lines = append(lines, "No unpushed commits · ahead 0")
+	default:
+		lines = append(lines, fmt.Sprintf("%d ahead of %s · last %d", m.UnpushedCount, m.UnpushedUpstream, git.DefaultUnpushedCommits))
+		start := min(m.UnpushedOffset, len(m.UnpushedLines))
+		lines = append(lines, m.UnpushedLines[start:]...)
+	}
+	return padStatusPanelWithTopBorder(lines, width, height)
+}
+
+func (m Model) statusBranchSummaryLines(width, height int) []string {
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	lines := []string{"Branches"}
+	if len(m.Branches.Entries) == 0 {
+		lines = append(lines, "No branches loaded")
+	} else {
+		for index, branch := range m.Branches.Entries {
+			prefix := "  "
+			if index == m.Branches.Selected {
+				prefix = "> "
+			}
+			line := prefix + branch.Name
+			if branch.Current {
+				line += " *"
+			}
+			if branch.Upstream != "" {
+				line += fmt.Sprintf(" · ahead %d/behind %d", branch.Ahead, branch.Behind)
+			}
+			lines = append(lines, platform.SafeText(line))
+		}
 	}
 	return padStatusPanelWithTopBorder(lines, width, height)
 }

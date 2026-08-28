@@ -96,11 +96,11 @@ func Defaults() Config {
 }
 
 func DefaultKeymap() map[string]string {
-	return map[string]string{"quit": "q", "help": "?", "status": "1", "branches": "b", "stashes": "s", "history": "l", "remotes": "n", "worktrees": "w", "repositories": "v", "commit": "c", "refresh": "r"}
+	return map[string]string{"quit": "q", "help": "?", "status": "1", "branches": "b", "stashes": "s", "history": "l", "remotes": "n", "worktrees": "w", "repositories": "v", "commit": "c", "refresh": "r", "commit_tree": "T", "unpushed": "P", "branch_summary": "B"}
 }
 
 // KnownKeymapActions is the non-dangerous action surface that may be rebound.
-var KnownKeymapActions = map[string]bool{"quit": true, "help": true, "status": true, "branches": true, "stashes": true, "history": true, "remotes": true, "worktrees": true, "repositories": true, "commit": true, "refresh": true}
+var KnownKeymapActions = map[string]bool{"quit": true, "help": true, "status": true, "branches": true, "stashes": true, "history": true, "remotes": true, "worktrees": true, "repositories": true, "commit": true, "refresh": true, "commit_tree": true, "unpushed": true, "branch_summary": true}
 
 // EffectiveKeymap merges defaults, the selected profile, and direct overrides.
 func EffectiveKeymap(c Config) map[string]string {

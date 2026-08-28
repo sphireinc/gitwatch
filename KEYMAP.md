@@ -55,7 +55,9 @@
 | / | Filter status files |
 | r | Force refresh |
 | T | Focus the optional commit tree in Status view |
-| j/k, PgUp/PgDn, Home/End | Scroll the focused commit tree |
+| P | Open unpushed commits in the lower-left Status pane |
+| B | Open the read-only branch summary in the lower-left Status pane |
+| j/k, PgUp/PgDn, Home/End | Scroll the focused lower-left context pane |
 | ? | Help |
 | Ctrl-P | Open command palette |
 | Ctrl-N | Dismiss newest notification attention |

@@ -20,6 +20,14 @@ Open `E`, inspect the manifest error and declared capabilities, then press `r`
 to reload. Plugins are separate processes and output is bounded. Run
 `./scripts/security-check.sh` when validating a local plugin installation.
 
+## The lower-left context pane is empty or unavailable
+
+Press `P` to inspect commits ahead of the configured upstream or `B` to inspect
+the branch summary. A branch without an upstream, a detached or unborn branch,
+missing objects, and shallow-history limitations are reported in the pane
+instead of being treated as zero commits. Press `r` after changing refs outside
+gitwatch; authoritative refreshes also update the pane automatically.
+
 ## A multi-repository row is inactive or shows warnings
 
 Inactive repositories use the configured group refresh policy and cached data.

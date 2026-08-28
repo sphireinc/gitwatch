@@ -3,6 +3,8 @@ package branches
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sphireinc/git-watch/internal/git"
@@ -33,5 +35,29 @@ func TestListWithOccupancy(t *testing.T) {
 	AttachOccupancy(entries, occupancy)
 	if entries[0].OccupiedPath != "/tmp/main" || entries[1].OccupiedPath != "" {
 		t.Fatalf("occupancy = %#v", entries)
+	}
+}
+
+func TestListUsesGitNulFormatAtom(t *testing.T) {
+	dir := t.TempDir()
+	runner := git.NewRunner(dir)
+	if _, err := runner.Run(context.Background(), "init", "-b", "main", "--", dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "file.txt"), []byte("content\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(context.Background(), "add", "--", "file.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(context.Background(), "-c", "user.name=gitwatch", "-c", "user.email=gitwatch@example.com", "commit", "-m", "initial"); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := List(context.Background(), runner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name != "main" || !entries[0].Current {
+		t.Fatalf("entries = %#v", entries)
 	}
 }

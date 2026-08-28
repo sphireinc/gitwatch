@@ -115,6 +115,12 @@ type CommitTreeReadyMsg struct {
 	Request    uint64
 	Err        error
 }
+type UnpushedReadyMsg struct {
+	Commits    git.UnpushedCommits
+	Generation uint64
+	Request    uint64
+	Err        error
+}
 type PartialOperationFinishedMsg struct {
 	Name       string
 	Repository uint64
@@ -277,6 +283,17 @@ type Model struct {
 	CommitTreeErr            error
 	CommitTreeRequest        uint64
 	CommitTreeCancel         context.CancelFunc
+	LowerPane                string
+	UnpushedLines            []string
+	UnpushedHead             string
+	UnpushedUpstream         string
+	UnpushedCount            int
+	UnpushedOffset           int
+	UnpushedFocused          bool
+	UnpushedLoading          bool
+	UnpushedErr              error
+	UnpushedRequest          uint64
+	UnpushedCancel           context.CancelFunc
 	Restore                  Confirmation
 	RestoreInput             string
 	HunkContext              int
@@ -409,6 +426,9 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "worktrees", Label: "Open worktrees", Shortcut: "w", Enabled: m.Discovery.Root != ""},
 		{ID: "repositories", Label: "Open repositories", Shortcut: "v", Enabled: len(m.RepositoryRoots) > 0 || m.Discovery.Root != ""},
 		{ID: "refresh", Label: "Refresh repository", Shortcut: "r", Enabled: m.Discovery.Root != ""},
+		{ID: "commit_tree", Label: "Open commit tree", Shortcut: m.Keymap["commit_tree"], Enabled: m.Discovery.Root != ""},
+		{ID: "unpushed", Label: "Show unpushed commits", Shortcut: m.Keymap["unpushed"], Enabled: m.Discovery.Root != ""},
+		{ID: "branch_summary", Label: "Show branch summary", Shortcut: m.Keymap["branch_summary"], Enabled: m.Discovery.Root != ""},
 	}
 	return append(actions, m.PaletteActions...)
 }
@@ -496,6 +516,15 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 	case "refresh":
 		m.State, m.Status = StateRefreshing, "refreshing"
 		return m.refresh()
+	case "commit_tree":
+		m.Workspace.Navigate(workspace.Status, "Status")
+		return m.selectLowerPane("commit-tree")
+	case "unpushed":
+		m.Workspace.Navigate(workspace.Status, "Status")
+		return m.selectLowerPane("unpushed")
+	case "branch_summary":
+		m.Workspace.Navigate(workspace.Status, "Status")
+		return m.selectLowerPane("branches")
 	}
 	return nil
 }
@@ -585,8 +614,14 @@ func (m *Model) setRepository(discovery git.Discovery) error {
 		m.CommitTreeCancel()
 		m.CommitTreeCancel = nil
 	}
+	if m.UnpushedCancel != nil {
+		m.UnpushedCancel()
+		m.UnpushedCancel = nil
+	}
 	m.Discovery = discovery
+	m.LowerPane = ""
 	m.CommitTreeLines, m.CommitTreeHead, m.CommitTreeOffset, m.CommitTreeErr = nil, "", 0, nil
+	m.UnpushedLines, m.UnpushedHead, m.UnpushedUpstream, m.UnpushedOffset, m.UnpushedCount, m.UnpushedErr = nil, "", "", 0, 0, nil
 	if discovery.Root != "" {
 		m.repositoryCtx, m.repositoryCancel = context.WithCancel(m.ctx)
 		m.RefreshCoordinator = git.NewRefreshCoordinator(func(ctx context.Context, generation uint64) (repo.Snapshot, error) {
@@ -691,6 +726,82 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(commands...)
 }
 
+func (m Model) contextPaneEnabled() bool { return m.CommitTreeEnabled || m.LowerPane != "" }
+
+func (m Model) showCommitTreePane() bool {
+	return m.LowerPane == "" && m.CommitTreeEnabled || m.LowerPane == "commit-tree"
+}
+
+func (m Model) showUnpushedPane() bool { return m.LowerPane == "unpushed" }
+
+func (m Model) showBranchSummaryPane() bool { return m.LowerPane == "branches" }
+
+func (m *Model) selectLowerPane(name string) tea.Cmd {
+	if name == "commit-tree" && !m.CommitTreeEnabled {
+		m.CommitTreeEnabled = true
+	}
+	m.LowerPane = name
+	m.CommitTreeFocused, m.UnpushedFocused = name == "commit-tree", name == "unpushed"
+	switch name {
+	case "commit-tree":
+		m.Status = "commit tree focused"
+		return m.refreshCommitTreeIfNeeded()
+	case "unpushed":
+		m.Status = "unpushed commits focused"
+		return m.loadUnpushed()
+	case "branches":
+		m.Status = "branch summary focused"
+		return m.loadBranches()
+	default:
+		m.CommitTreeFocused, m.UnpushedFocused = false, false
+		m.Status = "status files focused"
+		return nil
+	}
+}
+
+func (m *Model) loadUnpushed() tea.Cmd {
+	if m.Discovery.Root == "" || m.LowerPane != "unpushed" {
+		return nil
+	}
+	if m.UnpushedCancel != nil {
+		m.UnpushedCancel()
+	}
+	ctx, cancel := context.WithCancel(m.commandContext())
+	m.UnpushedCancel = cancel
+	m.UnpushedRequest++
+	request, generation, limit, upstream := m.UnpushedRequest, m.repositoryGeneration, git.DefaultUnpushedCommits, m.Snapshot.Branch.Upstream
+	runner := git.NewRunner(m.Discovery.Root)
+	m.UnpushedLoading, m.UnpushedErr = true, nil
+	return func() tea.Msg {
+		commits, err := git.LoadUnpushed(ctx, runner, upstream, limit)
+		return UnpushedReadyMsg{Commits: commits, Generation: generation, Request: request, Err: err}
+	}
+}
+
+func (m *Model) refreshUnpushedIfNeeded() tea.Cmd {
+	if !m.showUnpushedPane() || m.UnpushedLoading {
+		return nil
+	}
+	if m.Snapshot.Branch.Upstream == "" && m.UnpushedRequest > 0 && m.UnpushedUpstream == "" {
+		return nil
+	}
+	if m.Snapshot.Branch.OID == m.UnpushedHead && m.Snapshot.Branch.Upstream == m.UnpushedUpstream && m.UnpushedHead != "" {
+		return nil
+	}
+	return m.loadUnpushed()
+}
+
+func (m *Model) refreshStatusContextIfNeeded() tea.Cmd {
+	return tea.Batch(m.refreshCommitTreeIfNeeded(), m.refreshUnpushedIfNeeded(), m.refreshBranchSummaryIfNeeded())
+}
+
+func (m *Model) refreshBranchSummaryIfNeeded() tea.Cmd {
+	if !m.showBranchSummaryPane() || m.Discovery.Root == "" {
+		return nil
+	}
+	return m.loadBranches()
+}
+
 // loadCommitTreeAtInit starts the first tree load without mutating a value
 // receiver. Subsequent loads run through loadCommitTree and advance the live
 // model's request counter in Update.
@@ -756,7 +867,7 @@ func (m *Model) loadCommitTree() tea.Cmd {
 	}
 }
 
-func (m Model) refreshCommitTreeIfNeeded() tea.Cmd {
+func (m *Model) refreshCommitTreeIfNeeded() tea.Cmd {
 	if !m.CommitTreeEnabled || m.CommitTreeLoading || m.Snapshot.Branch.OID == m.CommitTreeHead && m.CommitTreeHead != "" {
 		return nil
 	}
@@ -2347,6 +2458,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "1":
 			m.Workspace.Navigate(workspace.Status, "Status")
 		case "b":
+			if m.currentView() == workspace.Status {
+				return m, m.navigate(workspace.Branches, "Branches")
+			}
 			return m, m.navigate(workspace.Branches, "Branches")
 		case "s":
 			if m.currentView() == workspace.Repositories {
@@ -2476,15 +2590,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "confirm push with upstream tracking to selected remote? (y/n)"
 			}
 		case "T":
-			if m.currentView() == workspace.Status && m.CommitTreeEnabled {
-				m.CommitTreeFocused = !m.CommitTreeFocused
-				m.Status = map[bool]string{true: "commit tree focused", false: "status files focused"}[m.CommitTreeFocused]
+			if m.currentView() == workspace.Status {
+				return m, m.selectLowerPane("commit-tree")
 			} else if m.currentView() == workspace.Remotes {
 				m.RemoteTagMode, m.RemoteTag = true, ""
 				m.Status = "tag name: "
 			}
 		case "P":
-			if m.currentView() == workspace.Worktrees {
+			if m.currentView() == workspace.Status {
+				return m, m.selectLowerPane("unpushed")
+			} else if m.currentView() == workspace.Worktrees {
 				m.WorktreeConfirmAction, m.WorktreeConfirmTarget = "prune", "repository"
 				m.Status = "confirm prune stale worktrees? (y/n)"
 			} else if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
@@ -2553,6 +2668,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "B":
+			if m.currentView() == workspace.Status {
+				return m, m.selectLowerPane("branches")
+			}
 			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
 				m.HistoryBranchTarget = m.History.Rows[m.History.Selected].Commit.SHA
 				m.HistoryBranchName, m.HistoryBranchCreating = "", true
@@ -2666,8 +2784,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.openDiff()
 		case "j", "down":
-			if m.currentView() == workspace.Status && m.CommitTreeFocused {
-				m.scrollCommitTree(1)
+			if m.currentView() == workspace.Status && m.LowerPane != "" {
+				if m.showBranchSummaryPane() {
+					m.Branches.Move(1)
+				} else {
+					m.scrollContextPane(1)
+				}
 				return m, nil
 			}
 			switch m.currentView() {
@@ -2692,8 +2814,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "k", "up":
-			if m.currentView() == workspace.Status && m.CommitTreeFocused {
-				m.scrollCommitTree(-1)
+			if m.currentView() == workspace.Status && m.LowerPane != "" {
+				if m.showBranchSummaryPane() {
+					m.Branches.Move(-1)
+				} else {
+					m.scrollContextPane(-1)
+				}
 				return m, nil
 			}
 			switch m.currentView() {
@@ -2718,26 +2844,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "pgup":
-			if m.currentView() == workspace.Status && m.CommitTreeFocused {
-				m.scrollCommitTree(-m.statusLayout().CommitTree.Height)
+			if m.currentView() == workspace.Status && m.LowerPane != "" {
+				m.scrollContextPane(-m.statusLayout().CommitTree.Height)
 				return m, nil
 			}
 			m.scrollDiff(-m.statusRowCount())
 		case "pgdown":
-			if m.currentView() == workspace.Status && m.CommitTreeFocused {
-				m.scrollCommitTree(m.statusLayout().CommitTree.Height)
+			if m.currentView() == workspace.Status && m.LowerPane != "" {
+				m.scrollContextPane(m.statusLayout().CommitTree.Height)
 				return m, nil
 			}
 			m.scrollDiff(m.statusRowCount())
 		case "home":
-			if m.currentView() == workspace.Status && m.CommitTreeFocused {
+			if m.currentView() == workspace.Status && m.LowerPane != "" {
 				m.CommitTreeOffset = 0
+				m.UnpushedOffset = 0
 				return m, nil
 			}
 		case "end":
-			if m.currentView() == workspace.Status && m.CommitTreeFocused {
+			if m.currentView() == workspace.Status && m.LowerPane != "" {
 				m.CommitTreeOffset = len(m.CommitTreeLines)
+				m.UnpushedOffset = len(m.UnpushedLines)
 				m.scrollCommitTree(0)
+				m.scrollUnpushed(0)
 				return m, nil
 			}
 		case "space":
@@ -2769,13 +2898,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseWheelMsg:
 		statusLayout := m.statusLayout()
-		if m.currentView() == workspace.Status && m.CommitTreeEnabled && statusLayout.CommitTree.Contains(v.X, v.Y) {
-			m.CommitTreeFocused = true
+		if m.currentView() == workspace.Status && m.LowerPane != "" && statusLayout.CommitTree.Contains(v.X, v.Y) {
+			m.CommitTreeFocused, m.UnpushedFocused = m.showCommitTreePane(), m.showUnpushedPane()
 			switch v.Button {
 			case tea.MouseWheelUp:
-				m.scrollCommitTree(-3)
+				m.scrollContextPane(-3)
 			case tea.MouseWheelDown:
-				m.scrollCommitTree(3)
+				m.scrollContextPane(3)
 			}
 			return m, nil
 		}
@@ -2850,8 +2979,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			statusLayout := m.statusLayout()
-			if m.currentView() == workspace.Status && m.CommitTreeEnabled && statusLayout.CommitTree.Contains(v.X, v.Y) {
-				m.CommitTreeFocused = true
+			if m.currentView() == workspace.Status && m.LowerPane != "" && statusLayout.CommitTree.Contains(v.X, v.Y) {
+				m.CommitTreeFocused, m.UnpushedFocused = m.showCommitTreePane(), m.showUnpushedPane()
 				return m, nil
 			}
 			if statusLayout.Mode != layout.Wide && m.DiffPath != "" {
@@ -2891,7 +3020,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.applySnapshot(v.Result.Snapshot)
 			m.State = StateReady
 		}
-		return m, tea.Batch(waitForRefresh(v.Coordinator), m.refreshCommitTreeIfNeeded())
+		return m, tea.Batch(waitForRefresh(v.Coordinator), m.refreshStatusContextIfNeeded())
 	case refreshRequestedMsg:
 		if v.Coordinator != m.RefreshCoordinator {
 			return m, nil
@@ -2901,7 +3030,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SnapshotMsg:
 		m.applySnapshot(v.Snapshot)
 		m.State = StateReady
-		return m, m.refreshCommitTreeIfNeeded()
+		return m, m.refreshStatusContextIfNeeded()
 	case RefreshStartedMsg:
 		m.State = StateRefreshing
 	case RefreshFinishedMsg:
@@ -2912,7 +3041,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if m.State == StateRefreshing {
 			m.State = StateReady
 		}
-		return m, m.refreshCommitTreeIfNeeded()
+		return m, m.refreshStatusContextIfNeeded()
 	case TickMsg:
 		if !m.Motion.Ticks() {
 			return m, nil
@@ -3047,6 +3176,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.CommitTreeLines, m.CommitTreeHead, m.CommitTreeErr = append([]string(nil), v.Tree.Lines...), v.Tree.Head, nil
 			m.CommitTreeOffset = min(m.CommitTreeOffset, max(0, len(m.CommitTreeLines)-1))
+		}
+	case UnpushedReadyMsg:
+		if v.Generation != m.repositoryGeneration || v.Request != m.UnpushedRequest {
+			return m, nil
+		}
+		m.UnpushedCancel, m.UnpushedLoading = nil, false
+		if v.Err != nil {
+			m.UnpushedErr = v.Err
+			m.Status = "unpushed commits: " + v.Err.Error()
+		} else {
+			m.UnpushedLines = append([]string(nil), v.Commits.Lines...)
+			m.UnpushedHead, m.UnpushedUpstream, m.UnpushedCount, m.UnpushedErr = v.Commits.Head, v.Commits.Upstream, v.Commits.Count, nil
+			viewport := max(1, m.statusLayout().CommitTree.Height-2)
+			m.UnpushedOffset = min(m.UnpushedOffset, max(0, len(m.UnpushedLines)-viewport))
 		}
 	case BranchesReadyMsg:
 		if v.Err != nil {

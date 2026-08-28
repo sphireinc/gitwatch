@@ -55,7 +55,15 @@ func Parse(lines []byte) []Branch {
 
 // List returns local branches and their upstream metadata.
 func List(ctx context.Context, r git.Runner) ([]Branch, error) {
-	res, err := r.Run(ctx, "for-each-ref", "--format=%(refname:short)\x00%(objectname)\x00%(upstream:short)\x00%(HEAD)\x00%(upstream:trackshort)\x00%(creatordate:unix)\x00%(subject)", "refs/heads", "refs/remotes")
+	// %00 asks Git to emit NUL separators while keeping the argv argument NUL-free.
+	format := "%(refname:short)%00%(objectname)%00%(upstream:short)%00%(HEAD)%00%(upstream:trackshort)%00%(creatordate:unix)%00%(subject)"
+	res, err := r.Run(ctx, "for-each-ref", "--format="+format, "refs/heads", "refs/remotes")
+	if err != nil {
+		// Older Git installations may reject one of the optional display atoms.
+		// Retry with the fields required to identify and compare branches.
+		fallback := "%(refname:short)%00%(objectname)%00%(upstream:short)%00%(HEAD)"
+		res, err = r.Run(ctx, "for-each-ref", "--format="+fallback, "refs/heads", "refs/remotes")
+	}
 	if err != nil {
 		return nil, err
 	}

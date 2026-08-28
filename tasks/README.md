@@ -20,6 +20,7 @@ than adding v1 scope. Task 103 may follow once release evidence is complete.
 | v2 preparation | 105 | Freeze contracts and design migrations without pulling breaking behavior into v1.x |
 | v1.x colorized commit tree | 108, 109, 110, 111, 112 | Add safe semantic color rendering to the optional commit graph |
 | v1.x commit inspection | 113 | Inspect a selected historical commit and its per-file diffs |
+| v1.x context panes | 115, 116, 117, 118, 119, 120 | Track unpushed commits and switch lower-left read-only context panes |
 
 ## Dependency shape
 
@@ -34,6 +35,8 @@ than adding v1 scope. Task 103 may follow once release evidence is complete.
 87/98/99/101/103/104 ──────────────> 105
 105/107 ──> 108 ──> 109 ──> 110 ──> 111 ──> 112
 105/107/111 ───────────────────────────────────> 113
+105/107 ──> 115 ──> 116 ──> 117
+             └──────> 118 ──> 119 ──> 120
 ```
 
 Dependencies are planning boundaries, not permission to skip the repository's
