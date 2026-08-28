@@ -15,6 +15,12 @@ full-history secret scan. This does not change any native matrix cell below;
 native interaction and clean-machine evidence must be recorded on the exact
 candidate by a maintainer.
 
+The reproducible fixture harness was also run on 2026-08-28 on Darwin arm64
+with Git 2.33.0. Its bounded capture covered mixed index/worktree changes, a
+rename containing Unicode, spaces, and an untracked path, and reset cleanly.
+This validates the fixture and Git-state assertions only; it does not close
+the native gitwatch rendering, input, resize, or terminal-restoration rows.
+
 | Area | macOS | Linux | Windows | Evidence required |
 | --- | --- | --- | --- | --- |
 | Clean install, build, launch, version/help | pending | pending | pending | archive and source install transcript; exact tool versions |
