@@ -15,6 +15,22 @@ GitHub Release or weakening repository controls. A maintainer must own the
 manifest, update cadence, rollback procedure, and independent install test
 before adding a new channel.
 
+## Signed release tags
+
+Maintainers can create an annotated, locally verified release tag from the
+current checkout with:
+
+```sh
+./scripts/signed-release.sh
+```
+
+The helper defaults to `v1.0.6` and `HEAD`. Select another version or an exact
+commit with `VERSION=2.0.0 COMMIT=<commit>`, select a signing key with
+`SIGNING_KEY=<key-id>`, and use `PUSH=0` to create and verify the tag without
+pushing it. The checkout must be clean and the tag must not already exist.
+After local verification, a pushed tag starts the protected release workflow;
+publication still requires its CI checks and release-environment approval.
+
 ## Verification and upgrade safety
 
 Every release emits `gitwatch_<version>_release.json` from the checked-out
