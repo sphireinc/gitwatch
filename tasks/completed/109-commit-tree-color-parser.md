@@ -30,4 +30,12 @@ sequences, injection attempts in subjects/ref names/authors, truncation, and
 display-width calculations. The parser must never panic, emit unbounded output,
 or return unsafe terminal controls.
 
-**Status:** Planned
+**Status:** Complete
+
+## Completion summary
+
+Added the pure `internal/ui/committree` parser. It converts Git SGR markers to
+semantic hash, decoration, date, author, and plain segments while preserving
+graph/text order and Unicode. OSC, CSI, C0/C1, unknown, and malformed control
+sequences are removed. Table-driven and fuzz tests cover normal, hostile, and
+malformed inputs without terminal I/O or Bubble Tea coupling.
