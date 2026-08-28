@@ -29,4 +29,13 @@ leak, and shutdown coverage. A repository with commits must show the graph
 immediately after enabled startup, with bounded and generation-safe history
 work.
 
-**Status:** Planned
+**Status:** Complete
+
+## Completion summary
+
+Integrated the colorized Git contract and safe semantic parser into the status
+commit-tree path without changing pane geometry, separator placement, scrolling,
+mouse coordinates, or right-panel behavior. Existing asynchronous request and
+repository-generation guards remain authoritative for startup, on-demand,
+refresh, cancellation, and repository switching. Colorless rendering and
+on-demand `T` activation are covered by app regression tests.
