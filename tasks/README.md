@@ -7,9 +7,10 @@ is satisfied and its verification evidence is recorded.
 
 ## Current release boundary
 
-Tasks 34, 35, 89, and 90 remain explicitly in progress. Tasks 92 and 102 are
-the next release-quality lane; they close evidence and native validation rather
-than adding v1 scope. Task 103 may follow once release evidence is complete.
+Tasks 34, 35, 89, 90, and 120 remain explicitly in progress. Tasks 34, 35, 89,
+and 90 are release and beta evidence lanes; Task 120 is the current v1.x
+context-pane release gate. The implementation lanes through Task 113 are
+complete and remain in `tasks/completed/` as the public implementation record.
 
 ## Planned execution lanes
 
