@@ -20,11 +20,11 @@ func TestLoadCommitTreeUsesBoundedGraphArguments(t *testing.T) {
 	}
 	runner := Runner{Binary: script, Dir: dir}
 	result, err := LoadCommitTree(context.Background(), runner, 100)
-	if err != nil || result.Head != "abc123" || len(result.Lines) != 2 {
+	if err != nil || result.Head != "abc123" || !result.Colorized || len(result.Lines) != 2 {
 		t.Fatalf("tree=%#v err=%v", result, err)
 	}
 	args, err := os.ReadFile(filepath.Join(dir, "args"))
-	if err != nil || !strings.Contains(string(args), "log --oneline --graph --decorate --all -n 100") {
+	if err != nil || !strings.Contains(string(args), "--no-pager log --color=always --graph --all --decorate --pretty=format:") || !strings.Contains(string(args), "-n 100") {
 		t.Fatalf("arguments=%q err=%v", args, err)
 	}
 }

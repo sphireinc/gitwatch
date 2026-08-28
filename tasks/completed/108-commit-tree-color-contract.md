@@ -39,4 +39,13 @@ decorations, no commits, output bounds, and cancellation. The loader must return
 bounded graph data with identifiable semantic color information, and no raw
 repository-controlled escape sequence may reach the final view.
 
-**Status:** Planned
+**Status:** Complete
+
+## Completion summary
+
+`git.LoadCommitTree` now uses an argv-only, bounded color contract with
+`--no-pager`, `--color=always`, graph/decorations/all refs, and the documented
+hash, decoration, subject, relative-date, and author format. The loader retains
+the existing byte/line bounds and exposes that the captured lines are an
+intermediate colorized representation for the safe parser. Exact argument and
+bound tests pass; rendering remains colorless until Tasks 109–111 complete.

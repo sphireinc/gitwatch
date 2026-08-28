@@ -14,8 +14,9 @@ const CommitTreeMaxBytes = 256 << 10
 
 // CommitTree contains presentation lines and the HEAD identity used for refresh coalescing.
 type CommitTree struct {
-	Head  string
-	Lines []string
+	Head      string
+	Lines     []string
+	Colorized bool
 }
 
 // LoadCommitTree loads a bounded, human-readable graph without mutating Git state.
@@ -34,7 +35,8 @@ func LoadCommitTree(ctx context.Context, runner Runner, limit int) (CommitTree, 
 		}
 		return CommitTree{}, err
 	}
-	result, err := runner.Run(ctx, "log", "--oneline", "--graph", "--decorate", "--all", "-n", fmt.Sprint(limit))
+	format := "%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset"
+	result, err := runner.Run(ctx, "--no-pager", "log", "--color=always", "--graph", "--all", "--decorate", "--pretty=format:"+format, "-n", fmt.Sprint(limit))
 	if err != nil {
 		return CommitTree{}, err
 	}
@@ -43,11 +45,11 @@ func LoadCommitTree(ctx context.Context, runner Runner, limit int) (CommitTree, 
 	}
 	text := strings.TrimSuffix(string(result.Stdout), "\n")
 	if text == "" {
-		return CommitTree{Head: strings.TrimSpace(string(head.Stdout))}, nil
+		return CommitTree{Head: strings.TrimSpace(string(head.Stdout)), Colorized: true}, nil
 	}
 	lines := strings.Split(text, "\n")
 	if len(lines) > limit*4+8 {
 		lines = lines[:limit*4+8]
 	}
-	return CommitTree{Head: strings.TrimSpace(string(head.Stdout)), Lines: lines}, nil
+	return CommitTree{Head: strings.TrimSpace(string(head.Stdout)), Lines: lines, Colorized: true}, nil
 }
