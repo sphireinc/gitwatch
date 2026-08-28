@@ -30,3 +30,22 @@ func TestResolveRefRejectsOptionLikeInput(t *testing.T) {
 		t.Fatalf("expected invalid ref, got %v", err)
 	}
 }
+
+func TestLoadCommitMetadataFromRealRepository(t *testing.T) {
+	dir := t.TempDir()
+	runner := git.NewRunner(dir)
+	ctx := context.Background()
+	if _, err := runner.Run(ctx, "init", "-b", "main", "--", dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "-c", "user.name=gitwatch", "-c", "user.email=gitwatch@example.com", "commit", "--allow-empty", "-m", "initial"); err != nil {
+		t.Fatal(err)
+	}
+	commit, err := LoadCommit(ctx, runner, "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if commit.SHA == "" || commit.Short == "" || commit.Author != "gitwatch" || commit.Subject != "initial" {
+		t.Fatalf("commit = %#v", commit)
+	}
+}

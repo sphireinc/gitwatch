@@ -38,6 +38,29 @@ type FileStat struct {
 	Binary         bool
 }
 
+// LoadCommit resolves a ref and loads bounded metadata for historical
+// inspection without changing repository state.
+func LoadCommit(ctx context.Context, runner git.Runner, ref string) (Commit, error) {
+	sha, err := ResolveRef(ctx, runner, ref)
+	if err != nil {
+		return Commit{}, err
+	}
+	result, err := runner.Run(ctx, "show", "-s", "--format=%H%x00%h%x00%an%x00%at%x00%P%x00%D%x00%s", sha)
+	if err != nil {
+		return Commit{}, err
+	}
+	fields := strings.SplitN(strings.TrimSuffix(string(result.Stdout), "\n"), "\x00", 7)
+	if len(fields) != 7 || fields[0] == "" {
+		return Commit{}, errors.New("invalid commit metadata")
+	}
+	commit := Commit{SHA: fields[0], Short: fields[1], Author: fields[2], Unix: parseInt(fields[3]), Subject: fields[6]}
+	if fields[4] != "" {
+		commit.Parents = strings.Fields(fields[4])
+	}
+	commit.Refs = splitRefs(fields[5])
+	return commit, nil
+}
+
 func (i Inspector) Summary() string {
 	return i.Commit.Short + " · " + i.Commit.Author + " · " + i.Commit.Subject
 }

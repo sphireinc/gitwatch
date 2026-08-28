@@ -40,8 +40,9 @@ func (m Model) statusRowCount() int {
 	}
 	width = max(1, width-1)
 	rows := 0
+	available := max(1, statusLayout.Files.Height-1-m.statusFileHeaderRows(width))
 	for _, height := range m.statusFileRowHeights(width) {
-		if rows+height > max(1, statusLayout.Files.Height-1) {
+		if rows+height > available {
 			break
 		}
 		rows++
@@ -269,6 +270,9 @@ func (m Model) statusFileLines(width, height int) []string {
 		if label == "" {
 			label = "selected commit"
 		}
+		if m.StatusCommitActive && m.StatusCommitInspector.Commit.SHA != "" {
+			label = m.StatusCommitInspector.Summary()
+		}
 		lines = append(lines, "Commit: "+label)
 	}
 	for i := m.Files.Offset; i < len(m.Files.Visible) && len(lines) < height; i++ {
@@ -280,6 +284,23 @@ func (m Model) statusFileLines(width, height int) []string {
 		lines = append(lines, fitSafeDisplay("  clean worktree", width))
 	}
 	return padStatusPanel(lines, width, height)
+}
+
+// statusFileHeaderRows reports the wrapped rows consumed by the historical
+// commit label in the files panel. The panel's leading blank row is excluded;
+// callers add it when translating terminal coordinates.
+func (m Model) statusFileHeaderRows(width int) int {
+	if !m.StatusCommitActive && !m.StatusCommitLoading && m.StatusCommitErr == nil {
+		return 0
+	}
+	label := m.StatusCommitSHA
+	if label == "" {
+		label = "selected commit"
+	}
+	if m.StatusCommitActive && m.StatusCommitInspector.Commit.SHA != "" {
+		label = m.StatusCommitInspector.Summary()
+	}
+	return len(fitSafeDisplayLines("Commit: "+label, max(1, width-1)))
 }
 
 func (m Model) statusCommitTreeLines(width, height int) []string {

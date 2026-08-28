@@ -1187,11 +1187,19 @@ func (m *Model) inspectStatusCommit(line int) tea.Cmd {
 	return func() tea.Msg {
 		sha, err := history.ResolveRef(ctx, runner, short)
 		if err == nil {
-			inspector, inspectErr := history.InspectPath(ctx, runner, sha, "", "")
+			commit, metadataErr := history.LoadCommit(ctx, runner, sha)
+			if metadataErr != nil {
+				return StatusCommitInspectorReadyMsg{Generation: generation, Request: request, Err: metadataErr}
+			}
+			parent := ""
+			if len(commit.Parents) > 0 {
+				parent = commit.Parents[0]
+			}
+			inspector, inspectErr := history.InspectPath(ctx, runner, sha, parent, "")
 			if inspectErr != nil {
 				err = inspectErr
 			} else {
-				inspector.Commit = history.Commit{SHA: sha, Short: short, Subject: plain}
+				inspector.Commit = commit
 				return StatusCommitInspectorReadyMsg{Inspector: inspector, Generation: generation, Request: request}
 			}
 		}
@@ -3120,7 +3128,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				files.Width = max(1, files.Width-1)
 			}
 			files.Width = max(1, files.Width-1)
-			hit := uimouse.HitMap{Files: files, RowTop: files.Y + 1, RowHeight: 1, Offset: m.Files.Offset, RowHeights: m.statusFileRowHeights(files.Width), StageX: files.X + 1, StageWidth: 3, RowCount: len(m.Files.Visible)}
+			hit := uimouse.HitMap{Files: files, RowTop: files.Y + 1 + m.statusFileHeaderRows(files.Width), RowHeight: 1, Offset: m.Files.Offset, RowHeights: m.statusFileRowHeights(files.Width), StageX: files.X + 1, StageWidth: 3, RowCount: len(m.Files.Visible)}
 			action, row, ok := hit.Hit(v.X, v.Y, 0)
 			if ok {
 				m.Files.Selected = row
