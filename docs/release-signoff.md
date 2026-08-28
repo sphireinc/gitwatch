@@ -61,6 +61,6 @@ Evidence links/recordings: see `docs/beta-validation-matrix.md` and
 
 **BLOCKED — not approved for public v1 publication.** Automated repository
 quality gates and the full-history secret scan pass for the recorded candidate.
-The release remains blocked until Tasks 34, 35, and 89 have exact-candidate
+The release remains blocked until Tasks 34, 35, 89, and 120 have exact-candidate
 macOS, Linux, and Windows operator evidence, clean-install/upgrade evidence,
 release artifact verification, and publication approvals.

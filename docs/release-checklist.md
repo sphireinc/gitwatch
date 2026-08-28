@@ -76,7 +76,7 @@ CI runtime smoke tests prove startup and basic Git discovery on each runner OS. 
 Use the [native harness](native-harness.md) for those operator-owned checks;
 capture only sanitized evidence and remove temporary fixtures after each run.
 
-Tasks 34, 35, 89, and 90 remain explicitly in progress. This checklist and the [beta validation matrix](beta-validation-matrix.md) record their outstanding operator evidence; documentation changes alone do not complete those tasks.
+Tasks 34, 35, 89, 90, and 120 remain explicitly in progress. This checklist and the [beta validation matrix](beta-validation-matrix.md) record their outstanding operator evidence; documentation changes alone do not complete those tasks.
 
 ## Publication
 
