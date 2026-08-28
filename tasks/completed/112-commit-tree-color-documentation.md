@@ -29,4 +29,12 @@ Public documentation is internally consistent, reproducible validation commands
 and expected results are recorded, all quality gates pass, and remaining human
 visual QA is explicitly identified.
 
-**Status:** Planned
+**Status:** Complete
+
+## Completion summary
+
+Synchronized README-adjacent architecture, UX, commit-tree, beta-matrix, and
+release-checklist guidance with the explicit color contract, semantic parser,
+theme mappings, safe malformed-control fallback, `NO_COLOR`, and native visual
+evidence requirements. Automated evidence is explicitly separated from
+maintainer-run visual validation, which remains required for release sign-off.

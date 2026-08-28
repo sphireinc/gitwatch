@@ -20,3 +20,16 @@ yet`; malformed, unavailable, or canceled history requests leave local status
 usable and show a bounded error message. Native release evidence should cover
 the feature disabled/enabled, wide/narrow layouts, resize, scrolling, external
 commits, and keyboard/mouse parity.
+
+## Color and safety contract
+
+gitwatch requests Git's captured graph with explicit color and the equivalent
+of `--pretty=format:'%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'`.
+The captured SGR stream is an intermediate format only. A pure parser converts
+hashes, decorations, dates, authors, graph text, and subjects into semantic
+segments; the renderer maps those segments to gitwatch's dark, light, or
+high-contrast theme roles. Git's palette is never passed through directly.
+
+`NO_COLOR` and colorless terminals retain graph glyphs and commit text without
+escape sequences. Unknown or malformed SGR, OSC, CSI, and control sequences
+are discarded. Repository-controlled text remains bounded and sanitized.

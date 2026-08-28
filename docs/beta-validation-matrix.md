@@ -50,6 +50,11 @@ commit-tree/unpushed/branch-summary switching, wide/narrow, resize, scroll,
 external-commit/ref changes, and keyboard/mouse evidence. Use the bounded
 100-commit defaults unless a configured limit is explicitly recorded.
 
+Colorized commit-tree evidence must additionally cover dark, light,
+high-contrast, and `NO_COLOR` terminals, decorated merge graphs, malformed
+fixture output, visible-width bounds, and absence of raw controls. Automated
+parser/theme tests do not replace native visual evidence.
+
 For repeatable native evidence, use [`native-harness.md`](native-harness.md),
 `scripts/native-fixture.sh`, and `scripts/native-capture.sh`. The fixture
 asserts Git state through porcelain output; the operator records rendering,

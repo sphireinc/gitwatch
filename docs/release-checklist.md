@@ -65,6 +65,7 @@ Record the commit/tag, OS and architecture, terminal and dimensions, Git version
 - [ ] Keyboard and mouse parity, command help, responsive resizing, supported minimum size, color and `NO_COLOR`, high-contrast-safe semantics, and full/reduced/off motion.
 - [ ] Linked worktree, submodule, detached HEAD, unborn branch, no upstream, conflict, rename, Unicode, spaces, tabs, quotes, leading hyphen, long supported path, symlink, nested repository, and large-worktree cases.
 - [ ] Configuration validation/inspection, environment and CLI precedence, schema migration, invalid/future configuration diagnostics, and keybinding-collision rejection.
+- [ ] Optional commit-tree color contract, semantic parser, theme mapping, malformed-control fallback, `NO_COLOR`, and wide/narrow visual evidence.
 - [ ] Clean-machine archive installation and source installation, including version/help output and the packaged license/notices.
 - [ ] Missing Git, bare repository, non-repository, unavailable provider/plugin, cancellation, timeout, and recoverable Git failure diagnostics.
 - [ ] No orphan watcher, plugin, provider, or Git child process and no altered terminal state after normal quit, Ctrl-C, repository switch, cancellation, startup failure, or operation failure.

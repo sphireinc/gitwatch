@@ -41,6 +41,11 @@ region can show the commit tree (`T`), commits ahead of the configured upstream
 context pane never performs a Git mutation. Narrow layouts may collapse the
 region when space is constrained.
 
+Commit-tree color is semantic rather than terminal-palette passthrough: hashes,
+decorations, dates, authors, subjects, and graph topology receive theme roles.
+The same bounded parser is used for colorless, high-contrast, and `NO_COLOR`
+runs; color is never required to understand graph structure or commit meaning.
+
 ## Interaction
 - Arrow keys / j,k move selection.
 - Space toggles staged state for selected path according to current status.

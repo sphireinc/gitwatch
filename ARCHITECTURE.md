@@ -72,6 +72,12 @@ summary. Built-in context shortcuts work without configuration and are merged
 with safe keymap overrides. Unpushed and branch-summary data are loaded through
 the same cancellable, generation-scoped model flow and never perform mutations.
 
+Commit-tree capture uses an explicit colorized Git format, then passes the
+bounded output through `internal/ui/committree` before rendering. Semantic
+segments are styled with theme roles; raw Git SGR, OSC, CSI, and other control
+sequences never become terminal output. `NO_COLOR` uses the same parser and
+returns safe colorless text.
+
 ## Process boundaries
 
 The primary status command is:
