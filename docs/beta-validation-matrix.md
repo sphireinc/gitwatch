@@ -9,7 +9,7 @@ Use Go 1.25.10 and golangci-lint v2.12.0 for candidate-gate evidence. Each
 manual cell applies only to the exact candidate commit recorded with its
 evidence; an observation from another or unidentified build remains pending.
 
-Automated evidence for candidate `5df17b9` (2026-08-22) passes Go 1.27 pinned
+Automated evidence for candidate `c0a7d46` (2026-08-28) passes the pinned
 lint, tests, race tests, vet, security checks, performance budgets, and the
 full-history secret scan. This does not change any native matrix cell below;
 native interaction and clean-machine evidence must be recorded on the exact
