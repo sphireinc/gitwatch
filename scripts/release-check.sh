@@ -2,6 +2,7 @@
 set -eu
 
 cache=${GOCACHE:-/tmp/git-watch-release-cache}
+candidate_version=${VERSION:-1.0.0}
 export GOCACHE="$cache"
 export GOPROXY="${GOPROXY:-off}"
 export GOSUMDB="${GOSUMDB:-off}"
@@ -44,12 +45,12 @@ test -n "$status"
 
 release_dir=$(mktemp -d "${TMPDIR:-/tmp}/gitwatch-release-artifacts.XXXXXX")
 sbom_input_dir=$(mktemp -d "${TMPDIR:-/tmp}/gitwatch-release-sbom-input.XXXXXX")
-VERSION=1.0.0 OUT_DIR="$release_dir" SBOM_INPUT_DIR="$sbom_input_dir" ./scripts/release.sh
+VERSION="$candidate_version" OUT_DIR="$release_dir" SBOM_INPUT_DIR="$sbom_input_dir" ./scripts/release.sh
 test -x "$sbom_input_dir/gitwatch"
 dependency_count=$(go version -m "$sbom_input_dir/gitwatch" | awk '$1 == "dep" { count++ } END { print count + 0 }')
 if [ "$dependency_count" -lt 5 ]; then
 	echo "release binary exposes only $dependency_count Go dependencies for SBOM generation" >&2
 	exit 1
 fi
-VERSION=1.0.0 ./scripts/verify-release-artifacts.sh "$release_dir"
+VERSION="$candidate_version" ./scripts/verify-release-artifacts.sh "$release_dir"
 echo "release checks passed"
