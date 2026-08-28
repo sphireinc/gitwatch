@@ -473,6 +473,7 @@ func TestCommitTreeStatusPaneIsBoundedAndScrollable(t *testing.T) {
 }
 
 func TestCommitTreeRenderingUsesSafeThemeSegments(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
 	m := New()
 	m.Width, m.Height = 160, 30
 	m.CommitTreeEnabled = true
