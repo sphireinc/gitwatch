@@ -334,6 +334,23 @@ func TestStatusEnterOpensDiffAndEscapeCancelsIt(t *testing.T) {
 	}
 }
 
+func TestSnapshotClosesDiffWhenPathLeavesStatus(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	t.Cleanup(func() { _ = m.Close() })
+	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("notes.txt"), Unstaged: true}}
+	m.Files.SetEntries(m.Snapshot.Entries)
+	updated, _ := m.Update(key("enter"))
+	m = updated.(Model)
+	if m.DiffPath != "notes.txt" || !m.DiffLoading {
+		t.Fatalf("diff was not opened: path=%q loading=%v", m.DiffPath, m.DiffLoading)
+	}
+	request := m.DiffRequest
+	m.applySnapshot(repo.Snapshot{Entries: []repo.Entry{{Path: repo.Path("other.txt"), Unstaged: true}}})
+	if m.DiffPath != "" || m.DiffText != "" || m.DiffLoading || m.DiffRequest <= request {
+		t.Fatalf("stale diff remained after path disappeared: path=%q text=%q loading=%v request=%d", m.DiffPath, m.DiffText, m.DiffLoading, m.DiffRequest)
+	}
+}
+
 func TestStatusMouseClickOpensSelectedFileDiff(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	t.Cleanup(func() { _ = m.Close() })

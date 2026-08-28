@@ -619,11 +619,23 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 			m.ActivityLog.Add(event)
 		}
 	}
+	if m.DiffPath != "" && !snapshotContainsPath(snapshot.Entries, m.DiffPath) {
+		m.closeDiff()
+	}
 	m.Snapshot = snapshot
 	m.Files.SetEntries(snapshot.Entries)
 	if snapshot.Counts.Conflicted > 0 {
 		m.notify(notifications.Conflict, notifications.Error, "repository conflicts", fmt.Sprintf("%d conflicted file(s)", snapshot.Counts.Conflicted), true)
 	}
+}
+
+func snapshotContainsPath(entries []repo.Entry, path string) bool {
+	for _, entry := range entries {
+		if string(entry.Path) == path {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Model) recordActivity(kind history.Kind, path, message string) {
