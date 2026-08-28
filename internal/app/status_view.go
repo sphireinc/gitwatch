@@ -10,6 +10,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/operations"
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/ui/committree"
 	"github.com/sphireinc/git-watch/internal/ui/details"
 	"github.com/sphireinc/git-watch/internal/ui/layout"
 	"github.com/sphireinc/git-watch/internal/ui/theme"
@@ -363,7 +364,31 @@ func (m Model) styleStatusTreeLine(line string) string {
 	if strings.HasPrefix(strings.TrimSpace(line), "Commit tree") {
 		return m.Theme.Header.Render(line)
 	}
+	if m.showCommitTreePane() {
+		return m.renderCommitTreeLine(line)
+	}
 	return line
+}
+
+func (m Model) renderCommitTreeLine(line string) string {
+	var rendered strings.Builder
+	for _, segment := range committree.Parse(line) {
+		style := m.Theme.CommitSubject
+		switch segment.Role {
+		case committree.RoleGraph:
+			style = m.Theme.CommitGraph
+		case committree.RoleHash:
+			style = m.Theme.CommitHash
+		case committree.RoleDecoration:
+			style = m.Theme.CommitDecoration
+		case committree.RoleDate:
+			style = m.Theme.CommitDate
+		case committree.RoleAuthor:
+			style = m.Theme.CommitAuthor
+		}
+		rendered.WriteString(style.Render(segment.Text))
+	}
+	return rendered.String()
 }
 
 func (m Model) statusFileRowHeights(width int) []int {

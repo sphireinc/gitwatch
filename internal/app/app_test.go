@@ -472,6 +472,18 @@ func TestCommitTreeStatusPaneIsBoundedAndScrollable(t *testing.T) {
 	}
 }
 
+func TestCommitTreeRenderingUsesSafeThemeSegments(t *testing.T) {
+	m := New()
+	m.Width, m.Height = 160, 30
+	m.CommitTreeEnabled = true
+	m.CommitTreeLines = []string{"* \x1b[31mabc123\x1b[0m - subject \x1b[32m(2 days ago)\x1b[0m \x1b[1;34m<author>\x1b[0m\x1b]8;;https://evil.example\a"}
+	m.Theme = theme.New(theme.Dark, true)
+	view := m.statusView()
+	if strings.Contains(view, "\x1b") || !strings.Contains(view, "abc123") || !strings.Contains(view, "author") {
+		t.Fatalf("unsafe or missing colorless commit tree: %q", view)
+	}
+}
+
 func TestCommitTreeInitKeepsAsyncRequestOnLiveModel(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: t.TempDir()}, config.Config{
 		ShowCommitTree: true,

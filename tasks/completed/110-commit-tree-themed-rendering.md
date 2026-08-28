@@ -31,4 +31,13 @@ Colorized trees are readable and theme-consistent, colorless/high-contrast
 output remains semantically useful, and wrapping, scrolling, the separator, and
 pane sizing are unchanged.
 
-**Status:** Planned
+**Status:** Complete
+
+## Completion summary
+
+Added semantic commit-tree theme roles for graph topology, hashes, decorations,
+subjects, dates, and authors across dark, light, and high-contrast themes.
+Colorless mode remains readable and strips captured Git controls; the renderer
+preserves the existing separator, wrapping, scrolling, and pane dimensions.
+App, parser, theme, and safety regression tests pass. Integration refresh
+coverage is completed by Task 111.

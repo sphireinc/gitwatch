@@ -32,6 +32,7 @@ type Segment struct {
 func Parse(line string) []Segment {
 	var out []Segment
 	role := RolePlain
+	seenHash := false
 	var text strings.Builder
 	flush := func() {
 		if text.Len() > 0 {
@@ -71,7 +72,13 @@ func Parse(line string) []Segment {
 			i += size
 			continue
 		}
+		if !seenHash && role == RolePlain {
+			role = RoleGraph
+		}
 		text.WriteRune(r)
+		if role == RoleHash {
+			seenHash = true
+		}
 		i += size
 	}
 	flush()

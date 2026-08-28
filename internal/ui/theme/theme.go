@@ -19,6 +19,7 @@ const (
 
 type Roles struct {
 	Clean, Modified, Staged, Untracked, Conflict, Deleted, Muted, Selection, Success, Warning, Error, Header, Border lipgloss.Style
+	CommitGraph, CommitHash, CommitDecoration, CommitSubject, CommitDate, CommitAuthor                               lipgloss.Style
 	Colorless                                                                                                        bool
 }
 
@@ -57,6 +58,8 @@ func New(name Name, noColor bool) Roles {
 		roles.Error = style("#ff7b72")
 		roles.Header = style("#79c0ff")
 		roles.Border = style("#484f58")
+		roles.CommitGraph, roles.CommitHash, roles.CommitDecoration = roles.Muted, roles.Staged, roles.Header
+		roles.CommitSubject, roles.CommitDate, roles.CommitAuthor = roles.Clean, roles.Muted, roles.Header
 	} else {
 		roles.Clean = style("#1a7f37")
 		roles.Modified = style("#9a6700")
@@ -71,6 +74,8 @@ func New(name Name, noColor bool) Roles {
 		roles.Error = style("#cf222e")
 		roles.Header = style("#0550ae")
 		roles.Border = style("#8c959f")
+		roles.CommitGraph, roles.CommitHash, roles.CommitDecoration = roles.Muted, roles.Staged, roles.Header
+		roles.CommitSubject, roles.CommitDate, roles.CommitAuthor = roles.Clean, roles.Muted, roles.Header
 	}
 	if name == HighContrast {
 		roles.Selection = lipgloss.NewStyle().Bold(true).Underline(true)
