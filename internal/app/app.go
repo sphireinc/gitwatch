@@ -523,6 +523,7 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
 		{ID: "clear_commit_basket", Label: fmt.Sprintf("Clear commit basket (%d)", m.History.Basket.Count()), Shortcut: "C", Enabled: m.History.Basket.Count() > 0},
 		{ID: "rebase", Label: "Open interactive rebase", Shortcut: "I", Enabled: m.Discovery.Root != "" && len(m.HistoryCommits) > 0},
+		{ID: "cherry_pick_recovery", Label: "Reopen active cherry-pick", Shortcut: "C", Enabled: m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindCherryPick},
 		{ID: "remotes", Label: "Open remotes", Shortcut: "n", Enabled: m.Discovery.Root != ""},
 		{ID: "github", Label: "Open GitHub", Shortcut: "G", Enabled: m.GitHubEnabled && m.Discovery.Root != ""},
 		{ID: "plugins", Label: "Open plugins", Shortcut: "E", Enabled: m.PluginsEnabled},
@@ -628,6 +629,12 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		return nil
 	case "rebase":
 		return m.openRebaseWorkspace()
+	case "cherry_pick_recovery":
+		m.Workspace.Navigate(workspace.Conflict, "Cherry-pick progress")
+		if len(m.Snapshot.Conflicts) > 0 {
+			return m.loadConflictContent()
+		}
+		return nil
 	case "remotes":
 		return m.navigate(workspace.Remotes, "Remotes")
 	case "github":
@@ -3583,7 +3590,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.currentView() == workspace.Stashes {
 				m.StashCreateMode, m.StashCreateMessage, m.StashIncludeUntracked = true, "", true
 				m.Status = "stash message: "
-			} else if m.currentView() == workspace.Status && (len(m.Snapshot.Conflicts) > 0 || (m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindRebase)) {
+			} else if m.currentView() == workspace.Status && (len(m.Snapshot.Conflicts) > 0 || (m.Snapshot.Operation != nil && (m.Snapshot.Operation.Kind() == sequencer.KindRebase || m.Snapshot.Operation.Kind() == sequencer.KindCherryPick))) {
 				m.Workspace.Navigate(workspace.Conflict, "Conflicts")
 				if len(m.Snapshot.Conflicts) > 0 {
 					return m, m.loadConflictContent()

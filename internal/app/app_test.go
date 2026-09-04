@@ -222,6 +222,33 @@ func TestActiveRebaseWithoutConflictsHasRecoveryRoute(t *testing.T) {
 	}
 }
 
+func TestActiveCherryPickCanReopenProgressFromPalette(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	state, err := sequencer.NewState("repo", 1, sequencer.KindCherryPick, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state = state.WithObservation("head", "current", 1, 1, nil, time.Now())
+	state, err = state.WithDetails(sequencer.Details{CherryPick: &sequencer.CherryPickDetails{Commits: []string{"first", "current"}, CurrentIndex: 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "feature"}, Operation: &state})
+	updated, cmd := m.Update(key("ctrl+p"))
+	m = updated.(Model)
+	if cmd != nil || !m.PaletteMode {
+		t.Fatalf("palette open = mode=%v cmdnil=%v", m.PaletteMode, cmd != nil)
+	}
+	if !contains(m.paletteView().Content, "Reopen active cherry-pick") {
+		t.Fatalf("palette missing cherry-pick recovery: %s", m.paletteView().Content)
+	}
+	cmd = m.executePaletteAction("cherry_pick_recovery")
+	if cmd != nil || m.currentView() != workspace.Conflict || m.Conflict.Operation != sequencer.KindCherryPick {
+		t.Fatalf("palette recovery route = view=%q operation=%s cmdnil=%v", m.currentView(), m.Conflict.Operation, cmd != nil)
+	}
+}
+
 func TestHistoricalRebaseEntryBuildsExplicitEditPlan(t *testing.T) {
 	m := New()
 	m.Snapshot.Branch.Name = "feature"
