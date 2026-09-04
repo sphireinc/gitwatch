@@ -52,3 +52,11 @@ This is a source-control tool; modifying `.gitignore` can hide files from `git s
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added structured/unified previews through `PreviewPlan`, including repository, mutation kind, selected IDs, warnings, and byte-level before/after diff data.
+- Added transaction records with repository/path, mutation kind, selected templates, before/after hashes, exact undo bytes, and success state.
+- Added atomic execution and guarded undo with regular-file/symlink checks, before/after hash protection, temp-file cleanup, mode preservation, fsync, and same-directory rename.
+- Added tests for previews, atomic failure cleanup, before-hash protection, symlink refusal, undo success, and undo refusal after external edits.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
