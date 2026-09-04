@@ -54,7 +54,7 @@ Add a first-class TUI for choosing the base, previewing commits, editing the pla
 
 **Status:** Complete
 
-- Implementation commit: recorded after this completion note is staged; the workspace is in `internal/ui/rebaseview`, routed through `internal/app` and `internal/workspace`.
+- Implementation commit: `343eaef` (`feat: complete interactive rebase workspace`). The workspace is in `internal/ui/rebaseview`, routed through `internal/app` and `internal/workspace`.
 - Exact tested revision: `3b1b0cf` plus the working-tree Task 128 interaction changes.
 - Focused tests: `GOCACHE=/tmp/gitwatch-go-cache go test ./internal/ui/rebaseview ./internal/app` passed, including base selection, plan ordering, warning visibility, start-state validation, and mouse hit-testing.
 - Repository tests: `go test ./...` passed.
