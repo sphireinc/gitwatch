@@ -57,8 +57,8 @@ independent broken-repository rows.
 
 ## Completion record
 
-- [ ] Implementation commit recorded; to be filled with the focused commit
-  after the task is moved.
+- [x] Implementation commit recorded: `f05eda9` (`feat: surface
+  multi-repository operation attention`).
 - [x] Exact tested baseline recorded: current `main` at `45f621b` plus the
   Task 125 working-tree changes.
 - [x] Focused tests: registry dashboard priority/filter tests, 20-repository
