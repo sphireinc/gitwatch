@@ -37,3 +37,27 @@ ID, source, upstream commit, and content hash; the end marker repeats the ID.
 Unknown versions and crossed IDs are not editable. Duplicate rules across
 blocks are intentionally tolerated so each selected template remains exactly
 reversible and independently removable.
+
+## User workflow and recovery
+
+Open the manager with `I`. Search with `/`, move with arrows or `j/k`, select
+multiple templates with `Space`, and use `a`, `m`, `u`, or `d` to build a
+preview for append/create, adopt, update, or remove. Press `y` only after
+reviewing the byte diff; `n` or `Esc` cancels. The `*` indicator means a full
+match, not ownership. `~` is partial, `+` is selected, `-` is a selected owned
+match, and `!` indicates edited or invalid managed metadata.
+
+Only valid managed blocks are automatically removable. A manually pasted
+template may show `*` or `~` but remains user-authored; shared or ambiguous
+rules stay in place. An external edit, symlink target, malformed block, NUL or
+invalid-text document, or file larger than `gitignore_max_bytes` stops the
+mutation flow. Reopen or refresh the manager after the displayed guidance.
+
+The bundled catalog is always available offline. `r` attempts an optional
+commit-pinned upstream refresh and `b` selects the embedded catalog again. The
+lower-level transaction API can record a successful operation for undo; that
+undo path also rechecks the after-content hash and refuses to overwrite a later
+external edit. The interactive manager currently relies on its preview,
+concurrency check, and normal Git/filesystem recovery rather than exposing a
+separate undo key. Git status is never inferred from the catalog: the usual
+authoritative porcelain refresh updates the workbench.

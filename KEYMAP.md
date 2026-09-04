@@ -35,6 +35,7 @@
 | v / Enter | Repositories dashboard / open selected repository |
 | G | GitHub workspace (when enabled) |
 | E | Plugin workspace (when enabled) |
+| I | Open the repository-scoped `.gitignore` manager |
 | o / y | Open GitHub PR / copy its URL (in GitHub view) |
 | c | Open the first check URL (in GitHub view) |
 | A / D / P | Add / remove / prune worktrees (in Worktrees view) |
@@ -63,6 +64,18 @@
 | Ctrl-N | Dismiss newest notification attention |
 | Esc | Close overlay / cancel |
 | q | Quit |
+
+## `.gitignore` manager
+
+While the manager is open, `j/k` or arrows move, `Space` selects a template,
+`/` searches, `Tab` changes catalog tabs, `c` clears the search, and `Esc`
+returns to the prior workspace. `a` previews an append (or creates a missing
+file), `p` previews the selected operation, `d` previews exact owned-block
+removal, `u` previews an owned-block update, and `m` previews adoption of a
+matching unmanaged template. Confirm a displayed preview with `y`; cancel
+with `n` or `Esc`. `r` refreshes the optional upstream catalog and `b` returns
+to the embedded offline catalog. Mouse clicks select rows and the visible
+selection control; destructive actions still require the keyboard confirmation.
 
 Destructive actions must use deliberately distinct bindings and confirmation dialogs.
 

@@ -38,12 +38,20 @@ Because removal behavior differs between managed and pre-existing files, documen
 
 ## Acceptance criteria
 
-- [ ] Users can understand the asterisk and ownership distinction.
-- [ ] Upstream source and license are disclosed.
-- [ ] Maintainers can deterministically update bundled templates.
-- [ ] Every UI action has discoverable help.
-- [ ] Safety limitations are documented rather than hidden.
+- [x] Users can understand the asterisk and ownership distinction.
+- [x] Upstream source and license are disclosed.
+- [x] Maintainers can deterministically update bundled templates.
+- [x] Every UI action has discoverable help.
+- [x] Safety limitations are documented rather than hidden.
 
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Documented the repository-scoped manager workflow, search and multi-select controls, exact indicators, ownership distinction, preview/confirmation flow, mouse and keyboard behavior, offline/cache provenance, CC0 1.0 license, and recovery limitations.
+- Added deterministic maintainer instructions for syncing a commit-pinned upstream catalog, reviewing generated diffs, validating archive boundaries, hashes, manifests, and licenses, and running focused gates.
+- Added troubleshooting guidance for malformed blocks, symlinked or oversized/binary files, concurrent edits, offline fallback, and hash-guarded lower-level undo.
+- Validation: full `go test ./...`, full `go test -race ./...`, `go vet ./...`, formatter check, and `git diff --check` pass.
+- Exception: `make check` reaches the pinned golangci-lint run but reports 21 pre-existing repository findings outside this documentation task.

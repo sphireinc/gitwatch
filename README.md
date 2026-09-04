@@ -40,6 +40,31 @@ provenance and local playback instructions.
 - Keyboard and mouse parity, `NO_COLOR`, semantic themes, high-contrast-safe text, and reduced/off motion.
 - No telemetry.
 
+### `.gitignore` manager
+
+Press `I` from the status workspace to open the repository-scoped gitignore
+catalog. The manager searches and multi-selects templates without changing the
+worktree until you review and confirm a preview with `y` (cancel with `n` or
+`Esc`). It can create a missing `.gitignore`, append a template, adopt an
+existing matching template into a managed block, update an owned block, or
+remove only content that gitwatch can prove it owns. A concise screen capture
+of this workflow should be added here when a feature recording is available.
+
+The catalog uses these indicators: `*` means the complete template matches,
+`~` means a partial match, `+` means selected for an operation, `-` means an
+owned/full match selected for removal, and `!` means an edited or invalid
+managed block. A `*` is not an ownership claim: manually pasted rules remain
+user-owned and are not automatically removed.
+
+Templates are bundled from the pinned `github/gitignore` catalog snapshot and
+remain available offline. The bundled commit is shown in the manager; an
+optional `r` refresh downloads a commit-pinned snapshot, while `b` returns to
+the bundled catalog. The upstream assets are distributed under CC0 1.0.
+Changes are written atomically only after a preview and a before-content hash
+check. External edits invalidate an open preview. Status remains the normal
+authoritative Git porcelain refresh, including in the multi-repository view.
+
+
 ### Colorized static view
 
 The animated demo above shows the terminal interaction over time. This static

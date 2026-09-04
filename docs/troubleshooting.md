@@ -35,6 +35,19 @@ Open the repository to make it active, or press `v` then `r` to refresh the
 dashboard. A warning count indicates that an auxiliary stash/remote summary
 failed while the authoritative status snapshot was still available.
 
+## The gitignore manager is read-only or a preview was rejected
+
+An oversized, NUL-containing, invalid-text, symlinked, or malformed
+`.gitignore` is intentionally not mutated. Set `gitignore_max_bytes` only as
+high as the interactive workflow needs, then reopen the manager. If the file
+changed after a preview, refresh the preview and confirm the new diff; the
+before-content hash prevents stale plans from overwriting external edits.
+
+If an exact managed block was removed accidentally, use the operation undo
+entry while the file still has the recorded after hash. Handwritten or shared
+rules are not automatically restored or removed because a full match does not
+prove gitwatch ownership.
+
 ## Release validation
 
 Run `make check`, `./scripts/secret-scan.sh --history`, and
