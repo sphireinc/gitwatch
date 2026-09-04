@@ -51,3 +51,12 @@ gitwatch’s identity includes multi-repository dashboards. `.gitignore` managem
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added repository-scoped `.gitignore` health projections to registry refresh results and dashboard rows, covering absent, managed, unmanaged, partial, attention, and update states without filesystem work in rendering.
+- Added `internal/multirepo` explicit batch planning and bounded-concurrency execution. Each selected repository receives an independent previewable plan and result; symlink/read-only/concurrent failures are isolated, and successful repositories invoke only their own refresh callback.
+- Preserved repository identity/path throughout planning and execution with no process working-directory changes.
+- Added tests for stale manager generations during repository switching, dashboard health projection, batch success/read-only/symlink/concurrent-modification isolation, explicit previews, and per-repository refresh behavior.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
+- `make check` reached lint but could not run because the sandbox denied the Go build cache path under `/Users/JuanSanchez/Library/Caches/go-build`; this remains an environment exception.

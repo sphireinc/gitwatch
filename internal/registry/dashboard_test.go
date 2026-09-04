@@ -35,6 +35,13 @@ func TestRowsPreserveWarnings(t *testing.T) {
 	}
 }
 
+func TestRowsExposeGitignoreHealth(t *testing.T) {
+	rows := Rows([]StatusResult{{Repository: Repository{Name: "repo"}, Gitignore: GitignoreHealth{Exists: true, Managed: 2, Partial: 1, Updates: 1}}})
+	if rows[0].Gitignore.Managed != 2 || !rows[0].Gitignore.Exists {
+		t.Fatalf("gitignore health = %#v", rows[0].Gitignore)
+	}
+}
+
 func TestRowsExposeOperationAndAttentionPriority(t *testing.T) {
 	operation, err := sequencer.NewState("/conflicted", 1, sequencer.KindRebase, sequencer.PhaseActive)
 	if err != nil {

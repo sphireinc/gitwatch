@@ -114,6 +114,7 @@ func (m Model) View() string {
 		if row.Attention != "" {
 			line += " attention:" + platform.SafeText(row.Attention)
 		}
+		line += " gitignore:" + gitignoreLabel(row.Gitignore)
 		if len(row.Warnings) > 0 {
 			line += fmt.Sprintf(" warnings:%d", len(row.Warnings))
 		}
@@ -124,4 +125,11 @@ func (m Model) View() string {
 		lines = append(lines, "  No repositories")
 	}
 	return strings.Join(lines, "\n")
+}
+
+func gitignoreLabel(health registry.GitignoreHealth) string {
+	if !health.Exists {
+		return "absent"
+	}
+	return fmt.Sprintf("managed:%d partial:%d unmanaged:%d attention:%d updates:%d", health.Managed, health.Partial, health.Unmanaged, health.Attention, health.Updates)
 }

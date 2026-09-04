@@ -274,10 +274,11 @@ type PluginsReadyMsg struct {
 	Err     error
 }
 type GitignoreReadyMsg struct {
-	Model   gitignoreview.RepositoryModel
-	Err     error
-	Missing bool
-	Reload  bool
+	Model      gitignoreview.RepositoryModel
+	Err        error
+	Missing    bool
+	Reload     bool
+	Generation uint64
 }
 type GitignoreCreatePreviewMsg struct {
 	Plan       domain.MutationPlan
@@ -647,15 +648,15 @@ func (m Model) openGitignore() tea.Cmd {
 	return func() tea.Msg {
 		cat, err := catalog.Default()
 		if err != nil {
-			return GitignoreReadyMsg{Err: err}
+			return GitignoreReadyMsg{Err: err, Generation: generation}
 		}
 		content, readErr := os.ReadFile(filepath.Join(root, ".gitignore"))
 		if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
-			return GitignoreReadyMsg{Err: readErr}
+			return GitignoreReadyMsg{Err: readErr, Generation: generation}
 		}
 		doc, parseErr := document.Parse(content)
 		if parseErr != nil {
-			return GitignoreReadyMsg{Err: parseErr}
+			return GitignoreReadyMsg{Err: parseErr, Generation: generation}
 		}
 		results := match.Match(doc, cat)
 		model := gitignoreview.New(domain.RepositoryID(root), cat, results)
@@ -664,8 +665,7 @@ func (m Model) openGitignore() tea.Cmd {
 			model.SetRecommendations(report.Recommendations)
 		}
 		model.SetSize(m.Width, m.Height)
-		_ = generation // repository identity is the path; refresh messages remain authoritative.
-		return GitignoreReadyMsg{Model: model, Missing: errors.Is(readErr, os.ErrNotExist)}
+		return GitignoreReadyMsg{Model: model, Missing: errors.Is(readErr, os.ErrNotExist), Generation: generation}
 	}
 }
 
@@ -3934,6 +3934,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.State = StateReady
 		return m, m.refreshStatusContextIfNeeded()
 	case GitignoreReadyMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
 		if v.Model.RepositoryID != "" {
 			m.Gitignore = v.Model
 			m.GitignoreMissing = v.Missing

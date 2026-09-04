@@ -2,11 +2,18 @@ package registry
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
+	"github.com/sphireinc/git-watch/internal/gitignore/document"
+	"github.com/sphireinc/git-watch/internal/gitignore/domain"
+	"github.com/sphireinc/git-watch/internal/gitignore/match"
 	"github.com/sphireinc/git-watch/internal/repo"
 )
 
@@ -28,6 +35,7 @@ type StatusResult struct {
 	ProviderAttention bool
 	Duration          time.Duration
 	Refreshed         time.Time
+	Gitignore         GitignoreHealth
 }
 
 // Engine refreshes repositories concurrently with a bounded worker pool.
@@ -128,12 +136,58 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 		}
 	}
 	result.Error = err
+	if err == nil {
+		result.Gitignore = inspectGitignore(discovery.Root)
+	}
 	result.Duration = time.Since(started)
 	result.Refreshed = time.Now()
 	e.mu.Lock()
 	e.cache[repository.Path] = result
 	e.mu.Unlock()
 	return result
+}
+
+func inspectGitignore(root string) GitignoreHealth {
+	path := filepath.Join(root, ".gitignore")
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return GitignoreHealth{}
+	}
+	if err != nil {
+		return GitignoreHealth{Attention: 1}
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return GitignoreHealth{Exists: true, Attention: 1}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return GitignoreHealth{Exists: true, Attention: 1}
+	}
+	doc, err := document.Parse(data)
+	if err != nil {
+		return GitignoreHealth{Exists: true, Attention: 1}
+	}
+	cat, err := catalog.Default()
+	if err != nil {
+		return GitignoreHealth{Exists: true, Attention: 1}
+	}
+	health := GitignoreHealth{Exists: true}
+	for _, result := range match.Match(doc, cat) {
+		switch result.Kind {
+		case domain.ManagedExact:
+			health.Managed++
+		case domain.UnmanagedFull:
+			health.Unmanaged++
+		case domain.Partial:
+			health.Partial++
+		case domain.ManagedEdited, domain.InvalidManagedBlock:
+			health.Attention++
+		}
+		if result.UpdateAvailable {
+			health.Updates++
+		}
+	}
+	return health
 }
 
 func stashCount(ctx context.Context, discovery git.Discovery) (int, error) {

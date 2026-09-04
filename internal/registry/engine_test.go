@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
+	"github.com/sphireinc/git-watch/internal/gitignore/managed"
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 )
@@ -47,6 +50,29 @@ func TestEngineUsesBoundedWorkersAndCachesInactiveRepositories(t *testing.T) {
 	engine.Refresh(context.Background(), entries, "one")
 	if calls.Load() != 4 {
 		t.Fatalf("inactive cache was not used: %d", calls.Load())
+	}
+}
+
+func TestInspectGitignoreHealthReportsManagedAndMissingStates(t *testing.T) {
+	root := t.TempDir()
+	if health := inspectGitignore(root); health.Exists || health.Managed != 0 {
+		t.Fatalf("missing health=%+v", health)
+	}
+	cat, err := catalog.Default()
+	if err != nil {
+		t.Fatal(err)
+	}
+	template, _ := cat.Get("root/Go")
+	content, err := managed.EncodeManagedBlock(template.ID, "github/gitignore", cat.Version(), template.ContentSHA256, template.Content, []byte("\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+	health := inspectGitignore(root)
+	if !health.Exists || health.Managed != 1 || health.Attention != 0 {
+		t.Fatalf("managed health=%+v", health)
 	}
 }
 

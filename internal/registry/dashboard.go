@@ -24,6 +24,14 @@ type Row struct {
 	Attention  string
 	Warnings   []string
 	State      string
+	Gitignore  GitignoreHealth
+}
+
+// GitignoreHealth is a compact dashboard projection of one repository's
+// authoritative .gitignore inspection.
+type GitignoreHealth struct {
+	Exists                                          bool
+	Managed, Unmanaged, Partial, Attention, Updates int
 }
 
 // Rows converts refresh results into independently owned dashboard rows.
@@ -31,7 +39,7 @@ func Rows(results []StatusResult) []Row {
 	rows := make([]Row, 0, len(results))
 	for _, result := range results {
 		snapshot := result.Snapshot
-		row := Row{Repository: result.Repository, Branch: snapshot.Branch.Name, Staged: snapshot.Counts.Staged, Unstaged: snapshot.Counts.Unstaged, Untracked: snapshot.Counts.Untracked, Conflicts: snapshot.Counts.Conflicted, Ahead: snapshot.Branch.Ahead, Behind: snapshot.Branch.Behind, Stashes: result.Stashes, Remotes: result.Remotes, Warnings: append([]string(nil), result.Warnings...)}
+		row := Row{Repository: result.Repository, Branch: snapshot.Branch.Name, Staged: snapshot.Counts.Staged, Unstaged: snapshot.Counts.Unstaged, Untracked: snapshot.Counts.Untracked, Conflicts: snapshot.Counts.Conflicted, Ahead: snapshot.Branch.Ahead, Behind: snapshot.Branch.Behind, Stashes: result.Stashes, Remotes: result.Remotes, Warnings: append([]string(nil), result.Warnings...), Gitignore: result.Gitignore}
 		row.Dirty = row.Staged + row.Unstaged + row.Untracked
 		if snapshot.Operation != nil {
 			row.Operation = snapshot.Operation.Kind().String()

@@ -26,6 +26,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
+	"github.com/sphireinc/git-watch/internal/ui/gitignoreview"
 	"github.com/sphireinc/git-watch/internal/ui/historyview"
 	"github.com/sphireinc/git-watch/internal/ui/hunkview"
 	"github.com/sphireinc/git-watch/internal/ui/pluginview"
@@ -111,6 +112,16 @@ func TestGitignoreNoFileCreationFlowRefreshesAuthoritativeStatus(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(m.Discovery.Root, ".gitignore")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestGitignoreLoaderIgnoresStaleRepositoryGeneration(t *testing.T) {
+	m := New()
+	m.repositoryGeneration = 2
+	m.GitignoreMissing = true
+	updated, cmd := m.Update(GitignoreReadyMsg{Model: gitignoreview.RepositoryModel{RepositoryID: "old-repo"}, Generation: 1})
+	if cmd != nil || updated.(Model).GitignoreMissing != true {
+		t.Fatal("stale gitignore result replaced current state")
 	}
 }
 
