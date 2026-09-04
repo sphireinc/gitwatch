@@ -65,4 +65,5 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 - Focused tests passed with host Git signing isolated using `GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false`.
 - The operation detector now ignores a transition-only `REBASE_HEAD` after Git has removed the durable rebase state directory; the continuation test covers the regression.
 - The continuation scenario starts the rebase outside the lifecycle call, resolves it through a newly configured runner, and verifies that a fresh authoritative snapshot reports no active operation.
+- Status explicitly labels a stopped rebase with no conflicted paths as an `edit-stop`, alongside the Git-derived current commit and completed/remaining counts.
 - The task is intentionally not moved to `tasks/completed` until restart recovery, edit-stop/skip behavior where applicable, and required native/manual evidence are proven.

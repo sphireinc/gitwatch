@@ -202,8 +202,9 @@ func TestActiveRebaseWithoutConflictsHasRecoveryRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "feature"}, Operation: &state})
+	m.Width = 200
 	status := m.statusView()
-	for _, want := range []string{"REBASE paused", "current: current-commit"} {
+	for _, want := range []string{"REBASE paused (edit-stop)", "current: current-commit"} {
 		if !strings.Contains(status, want) {
 			t.Fatalf("status view missing %q:\n%s", want, status)
 		}
