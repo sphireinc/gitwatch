@@ -46,9 +46,9 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 ## Completion record
 
 - [x] Initial progress workspace slice implemented in the repository-scoped conflict/recovery view: Git sequencer metadata now supplies the ordered selected commits, completed/current/pending position, original/current HEAD, and remaining count; Continue/Skip/Abort remain explicit lifecycle actions.
-- [x] Implementation commits recorded: `4a9dfd7` (progress projection/rendering) and `ee7764b` (palette/status recovery navigation).
+- [x] Implementation commits recorded: `4a9dfd7` (progress projection/rendering), `ee7764b` (palette/status recovery navigation), and the per-commit outcome refinement in the current slice.
 - [x] Exact tested revision recorded: `ee7764b`, with the preceding projection commit `4a9dfd7` included in the tested checkout.
-- [x] Focused tests recorded: `TestDetectOperationStateReportsCherryPickProgress` exercises a real multi-commit conflicted cherry-pick; `TestCherryPickViewShowsRepositoryScopedProgress` verifies wide progress rendering and recovery affordances; `TestActiveCherryPickCanReopenProgressFromPalette` verifies Ctrl-P recovery routing without conflict files.
+- [x] Focused tests recorded: `TestDetectOperationStateReportsCherryPickProgress` exercises a real multi-commit conflicted cherry-pick; `TestCherryPickViewShowsRepositoryScopedProgress` verifies wide progress rendering and recovery affordances; `TestActiveCherryPickCanReopenProgressFromPalette` verifies Ctrl-P recovery routing without conflict files; the detector now also preserves completed/skipped SHA sets from sequencer metadata.
 - [x] `go test ./...` recorded through `make check`.
 - [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` (lint reported 0 issues).
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
@@ -59,4 +59,5 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 - `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 with formatting, lint, full tests, race tests, vet, security, and performance checks.
 - The implementation deliberately reuses the existing repository-scoped conflict workspace and authoritative snapshot refresh path; no second status model or render-time Git work was introduced.
 - Active cherry-picks now appear in the status summary and can be reopened through the command palette as `Reopen active cherry-pick`, preserving the same repository-scoped snapshot.
+- Completed and skipped commit IDs are normalized against the sequencer's ordered todo backup, including abbreviated/full SHA forms, so the progress view can render exact per-commit outcomes without relying on toast history.
 - Task 135 is not moved to `tasks/completed` until the remaining workspace/navigation and platform acceptance criteria are proven.

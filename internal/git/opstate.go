@@ -218,13 +218,18 @@ func enrichMarker(paths map[string]string, marker operationMarker) operationMark
 			marker.details.Rebase = &sequencer.RebaseDetails{}
 		}
 	case sequencer.KindCherryPick:
-		commits, completed := readSequencerCommits(paths["sequencer"])
+		progress := readSequencerCommits(paths["sequencer"], marker.current)
+		commits, completed := progress.Commits, len(progress.Completed)
 		if len(commits) == 0 {
 			commits = nonEmpty(marker.current)
 		}
-		marker.details.CherryPick = &sequencer.CherryPickDetails{Commits: commits, CurrentIndex: completed}
+		currentIndex := progress.CurrentIndex
+		if currentIndex < 0 && marker.current != "" {
+			currentIndex = completed
+		}
+		marker.details.CherryPick = &sequencer.CherryPickDetails{Commits: commits, Completed: progress.Completed, Skipped: progress.Skipped, CurrentIndex: currentIndex}
 		marker.completed = completed
-		marker.remaining = len(commits) - completed
+		marker.remaining = len(commits) - completed - len(progress.Skipped)
 		if marker.remaining < 0 {
 			marker.remaining = 0
 		}
@@ -236,24 +241,99 @@ func enrichMarker(paths map[string]string, marker operationMarker) operationMark
 	return marker
 }
 
-func readSequencerCommits(path string) (commits []string, completed int) {
+type cherryPickProgress struct {
+	Commits      []string
+	Completed    []string
+	Skipped      []string
+	CurrentIndex int
+}
+
+func readSequencerCommits(path, current string) cherryPickProgress {
+	progress := cherryPickProgress{CurrentIndex: -1}
 	if !hasDirectory(path) {
-		return nil, 0
+		return progress
 	}
-	for _, name := range []string{"done", "todo"} {
-		lines := strings.Split(readMetadata(filepath.Join(path, name)), "\n")
-		for _, line := range lines {
-			fields := strings.Fields(line)
-			if len(fields) < 2 || (fields[0] != "pick" && fields[0] != "revert") {
-				continue
-			}
-			commits = append(commits, fields[1])
-			if name == "done" {
-				completed++
-			}
+	done := readSequencerActionSHAs(filepath.Join(path, "done"))
+	todo := readSequencerActionSHAs(filepath.Join(path, "todo"))
+	backup := readSequencerActionSHAs(filepath.Join(path, "todo.backup"))
+	if len(backup) == 0 {
+		backup = append(append([]string(nil), done...), todo...)
+		if current != "" {
+			backup = append(backup, current)
 		}
 	}
-	return commits, completed
+	progress.Commits = normalizeCommitList(backup, nil)
+	progress.Completed = normalizeCommitList(done, progress.Commits)
+	todo = normalizeCommitList(todo, progress.Commits)
+	current = canonicalCommit(current, progress.Commits)
+	remaining := make(map[string]struct{}, len(todo))
+	for _, sha := range todo {
+		remaining[sha] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(progress.Completed)+len(todo))
+	for _, sha := range progress.Completed {
+		seen[sha] = struct{}{}
+	}
+	for sha := range remaining {
+		seen[sha] = struct{}{}
+	}
+	for _, sha := range progress.Commits {
+		if sha == current {
+			for index, candidate := range progress.Commits {
+				if candidate == current {
+					progress.CurrentIndex = index
+					break
+				}
+			}
+			continue
+		}
+		if _, ok := seen[sha]; !ok {
+			progress.Skipped = append(progress.Skipped, sha)
+		}
+	}
+	return progress
+}
+
+func normalizeCommitList(values, known []string) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		candidates := append(append([]string(nil), known...), result...)
+		canonical := canonicalCommit(value, candidates)
+		if canonical == "" || containsString(result, canonical) {
+			continue
+		}
+		result = append(result, canonical)
+	}
+	return result
+}
+
+func canonicalCommit(value string, known []string) string {
+	for _, candidate := range known {
+		if candidate == value || strings.HasPrefix(candidate, value) || strings.HasPrefix(value, candidate) {
+			return candidate
+		}
+	}
+	return value
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func readSequencerActionSHAs(path string) []string {
+	var values []string
+	for _, line := range strings.Split(readMetadata(path), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && (fields[0] == "pick" || fields[0] == "revert") {
+			values = append(values, fields[1])
+		}
+	}
+	return values
 }
 
 func nonEmpty(value string) []string {

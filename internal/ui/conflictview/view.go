@@ -186,13 +186,25 @@ func (m Model) View(width, height int) string {
 			lines = append(lines, "Current commit: "+platform.SafeText(current))
 		}
 		if details := m.Progress.Details().CherryPick; details != nil && len(details.Commits) > 0 {
+			completed := make(map[string]struct{}, len(details.Completed))
+			for _, commit := range details.Completed {
+				completed[commit] = struct{}{}
+			}
+			skipped := make(map[string]struct{}, len(details.Skipped))
+			for _, commit := range details.Skipped {
+				skipped[commit] = struct{}{}
+			}
 			lines = append(lines, "", "Selected commits:")
 			for index, commit := range details.Commits {
 				state := "pending"
-				if index < details.CurrentIndex {
+				if _, ok := completed[commit]; ok {
 					state = "completed"
-				} else if index == details.CurrentIndex {
+				} else if _, ok := skipped[commit]; ok {
+					state = "skipped"
+				} else if commit == m.Progress.CurrentCommit() || index == details.CurrentIndex {
 					state = "current"
+				} else if len(details.Completed) == 0 && len(details.Skipped) == 0 && index < details.CurrentIndex {
+					state = "completed"
 				}
 				lines = append(lines, fmt.Sprintf("  %s %s", state, platform.SafeText(commit)))
 			}
