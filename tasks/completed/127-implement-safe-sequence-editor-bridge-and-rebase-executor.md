@@ -55,7 +55,7 @@ Start interactive rebase with a validated gitwatch plan without opening an exter
 
 **Status:** Complete
 
-- Implementation commit: recorded after this completion note is staged; the executor and helper boundary are in `internal/git/rebase.go`, with the CLI dispatch in `cmd/gitwatch/main.go` and tests in `internal/git/rebase_test.go`.
+- Implementation commit: `0b81151` (`feat: add safe interactive rebase executor`). The executor and helper boundary are in `internal/git/rebase.go`, with the CLI dispatch in `cmd/gitwatch/main.go` and tests in `internal/git/rebase_test.go`.
 - Exact tested revision: `bfc7e87` plus the working-tree Task 127 changes.
 - Focused tests: `GOCACHE=/tmp/gitwatch-go-cache go test ./internal/git ./cmd/gitwatch -v` passed, including private handoff, atomic replacement, invalid-plan, and operation-ID tests.
 - Repository tests: `go test ./...` passed.
