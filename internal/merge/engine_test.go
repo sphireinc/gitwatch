@@ -66,3 +66,66 @@ func TestInvalidMergeSourceAndStrategyAreRejected(t *testing.T) {
 		t.Fatal("invalid strategy was not rejected")
 	}
 }
+
+func TestConflictingMergeReturnsPausedStateAndAbortRestoresWorktree(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := setupMergeRepository(t, dir)
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	writeMergeFile(t, runner, dir, "feature\n", "feature")
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+	writeMergeFile(t, runner, dir, "main\n", "main")
+	engine := Engine{Runner: runner, Repository: dir}
+	outcome := engine.Execute(ctx, Request{Repository: dir, Source: "feature", Strategy: Regular})
+	if !outcome.Paused || outcome.State == nil || outcome.State.Kind().String() != "merge" {
+		t.Fatalf("conflict outcome = %#v", outcome)
+	}
+	aborted := engine.Abort(ctx)
+	if aborted.Err != nil || aborted.Paused {
+		t.Fatalf("abort outcome = %#v", aborted)
+	}
+	status, err := runner.Run(ctx, "status", "--porcelain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(status.Stdout)) != "" {
+		t.Fatalf("status after abort = %q", status.Stdout)
+	}
+}
+
+func setupMergeRepository(t *testing.T, dir string) git.Runner {
+	t.Helper()
+	runner := git.NewRunner(dir)
+	for _, args := range [][]string{{"init", "-b", "main", "--", dir}, {"config", "user.name", "test"}, {"config", "user.email", "test@example.com"}} {
+		if _, err := runner.Run(context.Background(), args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "shared"), []byte("base\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(context.Background(), []byte("shared")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(context.Background(), git.CommitOptions{Message: []byte("base\n")}); err != nil {
+		t.Fatal(err)
+	}
+	return runner
+}
+
+func writeMergeFile(t *testing.T, runner git.Runner, dir, contents, message string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, "shared"), []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(context.Background(), []byte("shared")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(context.Background(), git.CommitOptions{Message: []byte(message + "\n")}); err != nil {
+		t.Fatal(err)
+	}
+}

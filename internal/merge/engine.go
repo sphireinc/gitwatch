@@ -57,6 +57,22 @@ type Outcome struct {
 	State  *sequencer.State
 }
 
+// Abort restores the state recorded by Git for a paused merge.
+func (e Engine) Abort(ctx context.Context) Outcome {
+	result, err := e.Runner.Run(ctx, "merge", "--abort")
+	outcome := Outcome{Result: result, Err: err}
+	discovery := e.Discovery
+	if discovery.Root == "" {
+		discovery, _ = git.Discover(ctx, e.Runner.Dir)
+	}
+	if discovery.Root != "" {
+		if observed, detectErr := git.DetectOperationState(ctx, discovery, e.Generation); detectErr == nil && observed.Found && observed.State.Kind() == sequencer.KindMerge {
+			outcome.Paused, outcome.State = true, statePtr(observed.State)
+		}
+	}
+	return outcome
+}
+
 // Engine performs guarded merges in one repository.
 type Engine struct {
 	Runner     git.Runner
