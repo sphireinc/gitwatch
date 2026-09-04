@@ -2548,6 +2548,20 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		m.Conflict.MoveHunk(-1, 1)
 	case conflictview.ActionStatus:
 		m.Workspace.Navigate(workspace.Status, "Status")
+	case conflictview.ActionChooseOurs, conflictview.ActionChooseTheirs, conflictview.ActionMarkResolved, conflictview.ActionRestoreUnresolved:
+		selected, ok := m.Conflict.SelectedConflict()
+		if !ok {
+			m.Status = "no conflict selected"
+			return nil
+		}
+		choice := map[conflictview.Action]git.ConflictChoice{
+			conflictview.ActionChooseOurs:        git.ChooseOurs,
+			conflictview.ActionChooseTheirs:      git.ChooseTheirs,
+			conflictview.ActionMarkResolved:      git.MarkResolved,
+			conflictview.ActionRestoreUnresolved: git.RestoreUnresolved,
+		}[action]
+		m.State, m.Status = StateOperationPending, "applying conflict action: "+string(choice)
+		return m.resolveConflict(append([]byte(nil), selected.Path...), choice)
 	case conflictview.ActionNone:
 		return nil
 	default:
@@ -2557,6 +2571,14 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		m.Status = "conflict action pending coordinator: " + key
 	}
 	return nil
+}
+
+func (m Model) resolveConflict(path []byte, choice git.ConflictChoice) tea.Cmd {
+	runner, ctx, generation := git.NewRunner(m.Discovery.Root), m.commandContext(), m.repositoryGeneration
+	return func() tea.Msg {
+		_, err := runner.ResolveConflict(ctx, path, choice)
+		return OperationFinishedMsg{Name: "conflict " + string(choice), Repository: generation, Err: err}
+	}
 }
 
 func (m Model) currentView() workspace.View {
