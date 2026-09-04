@@ -1,0 +1,2170 @@
+{
+  "repository": "github/gitignore",
+  "commit": "52f5a2bf5785a851e69936a6f5c54a734b828046",
+  "synced_at": "1970-01-01T00:00:00Z",
+  "templates": [
+    {
+      "id": "community/AWS/CDK",
+      "source_path": "community/AWS/CDK.gitignore",
+      "category": "community",
+      "sha256": "552c05634903863e77cbaf340d5300b0751450063fb50f5e13d9ea48f1938a0a",
+      "bytes": 130
+    },
+    {
+      "id": "community/AWS/SAM",
+      "source_path": "community/AWS/SAM.gitignore",
+      "category": "community",
+      "sha256": "80416c71f9c7557d9bd24ff45e0f9f4089aed820b5c3cbdaf976fdfd8b09e314",
+      "bytes": 167
+    },
+    {
+      "id": "community/Alteryx",
+      "source_path": "community/Alteryx.gitignore",
+      "category": "community",
+      "sha256": "1f8622a4d4197042a0ed3e5c3477091dde2ceb0bf29bee41670f527121e4d7d1",
+      "bytes": 979
+    },
+    {
+      "id": "community/AltiumDesigner",
+      "source_path": "community/AltiumDesigner.gitignore",
+      "category": "community",
+      "sha256": "b69c9d387c0b553960e45cda6128c60a2770848573896c26de46dd336006945a",
+      "bytes": 388
+    },
+    {
+      "id": "community/AutoIt",
+      "source_path": "community/AutoIt.gitignore",
+      "category": "community",
+      "sha256": "4f7b3b8cb293e53162d4bc548d1f9250381d48c5b0f76513bca5f7d25bb6f136",
+      "bytes": 116
+    },
+    {
+      "id": "community/AutomationStudio",
+      "source_path": "community/AutomationStudio.gitignore",
+      "category": "community",
+      "sha256": "389e569cef6e001ce5688eb17687fbdd9fbc5939de96136c23c940c1ff1e6836",
+      "bytes": 458
+    },
+    {
+      "id": "community/B4X",
+      "source_path": "community/B4X.gitignore",
+      "category": "community",
+      "sha256": "721fddee433c8d3a2cb71f6d27b32d80392071188a642e5de53f48bce984569b",
+      "bytes": 33
+    },
+    {
+      "id": "community/Bazel",
+      "source_path": "community/Bazel.gitignore",
+      "category": "community",
+      "sha256": "4fa19a1224eaca97f0c948bc3dde00c6f03e76bbe05b808f0e6ecc7b829e60cf",
+      "bytes": 459
+    },
+    {
+      "id": "community/Beef",
+      "source_path": "community/Beef.gitignore",
+      "category": "community",
+      "sha256": "770be56b38a29d30888b8c8e1c83c91b67cbf2a9a25c8d4341313bb3e4f5e4c7",
+      "bytes": 37
+    },
+    {
+      "id": "community/BoxLang/ColdBox",
+      "source_path": "community/BoxLang/ColdBox.gitignore",
+      "category": "community",
+      "sha256": "9e247340edfd13835870865ffe33de8a3a3d75009792af2b4e8c771b21a2722a",
+      "bytes": 338
+    },
+    {
+      "id": "community/CFML/ColdBox",
+      "source_path": "community/CFML/ColdBox.gitignore",
+      "category": "community",
+      "sha256": "607a4b61c39a2513967b83a2d87c1105a099791d844b68578ba6cb8ac7af3734",
+      "bytes": 319
+    },
+    {
+      "id": "community/DotNet/InforCMS",
+      "source_path": "community/DotNet/InforCMS.gitignore",
+      "category": "community",
+      "sha256": "4a22267507e01f481746b0c26d2e6de563cde8c4c5d663a6fe9096649754d341",
+      "bytes": 414
+    },
+    {
+      "id": "community/DotNet/Kentico",
+      "source_path": "community/DotNet/Kentico.gitignore",
+      "category": "community",
+      "sha256": "727f6486fb19596e7ec7217ec5df7b3d724829fff4a98a90c484ac12746bc7ff",
+      "bytes": 1745
+    },
+    {
+      "id": "community/DotNet/Umbraco",
+      "source_path": "community/DotNet/Umbraco.gitignore",
+      "category": "community",
+      "sha256": "a50744ebb5d54503906216fa3ceba2f1fc7c92940eca71b690024a93361bc913",
+      "bytes": 1668
+    },
+    {
+      "id": "community/DotNet/core",
+      "source_path": "community/DotNet/core.gitignore",
+      "category": "community",
+      "sha256": "4188db14cbe308a86f32d0d2bd9d01ca3221592dc7e0399495d6b354aa01d7a7",
+      "bytes": 341
+    },
+    {
+      "id": "community/Dotter",
+      "source_path": "community/Dotter.gitignore",
+      "category": "community",
+      "sha256": "ee9b6c660be5a9a6898ffcb2d3e0cae71a076d509463ead75f97119c34f41c98",
+      "bytes": 115
+    },
+    {
+      "id": "community/Elixir/Phoenix",
+      "source_path": "community/Elixir/Phoenix.gitignore",
+      "category": "community",
+      "sha256": "2e4c95ff0d46d287aea17bdcc5a4f65b8b5ca00c97eeee2b63b3c9872d7b81c1",
+      "bytes": 457
+    },
+    {
+      "id": "community/Exercism",
+      "source_path": "community/Exercism.gitignore",
+      "category": "community",
+      "sha256": "913d47dc0c650fc2654e0fab0dee1bf5bdee30ba0e55045cb2f889d12948a78d",
+      "bytes": 140
+    },
+    {
+      "id": "community/FreeCAD",
+      "source_path": "community/FreeCAD.gitignore",
+      "category": "community",
+      "sha256": "b6d7f934b6a78500666f54b25dbe8b44c96ae61b2ef013bf2b6757cf0f35c688",
+      "bytes": 66
+    },
+    {
+      "id": "community/GNOME/GNOMEShellExtension",
+      "source_path": "community/GNOME/GNOMEShellExtension.gitignore",
+      "category": "community",
+      "sha256": "b9dc032275694b3fe307e679fd83ae98f69bbe6f66d12a7e50a97c11f8044235",
+      "bytes": 58
+    },
+    {
+      "id": "community/Golang/Go.AllowList",
+      "source_path": "community/Golang/Go.AllowList.gitignore",
+      "category": "community",
+      "sha256": "d725fdb6b0f5050c989269a423bafbb1856ba4a0e8fd0d6aa9f60d066738fa09",
+      "bytes": 389
+    },
+    {
+      "id": "community/Golang/Hugo",
+      "source_path": "community/Golang/Hugo.gitignore",
+      "category": "community",
+      "sha256": "40c3ebd49119adc242c9813a7d7ea3caf5da76dcc299303e9ae79c30a63bb246",
+      "bytes": 219
+    },
+    {
+      "id": "community/Gretl",
+      "source_path": "community/Gretl.gitignore",
+      "category": "community",
+      "sha256": "f8046b37ce6f35c8c2faafd0a43f32889d416570806d41ed450a63aa3f4d6d61",
+      "bytes": 222
+    },
+    {
+      "id": "community/HOL",
+      "source_path": "community/HOL.gitignore",
+      "category": "community",
+      "sha256": "370d361a9a4a047f1d475aefd11c8bd190845367b187567877ca4cedaa51d06b",
+      "bytes": 112
+    },
+    {
+      "id": "community/Hexo",
+      "source_path": "community/Hexo.gitignore",
+      "category": "community",
+      "sha256": "a2c6c2d7cc894f7cb61409c5a1875022da5dfbf64969398cd629dea8e2d030d4",
+      "bytes": 202
+    },
+    {
+      "id": "community/Java/JBoss4",
+      "source_path": "community/Java/JBoss4.gitignore",
+      "category": "community",
+      "sha256": "69deb3f028cc81730f07ff7f27c00ee0dcfaa7847f9f7219c15c2a9cbaae68ec",
+      "bytes": 427
+    },
+    {
+      "id": "community/Java/JBoss6",
+      "source_path": "community/Java/JBoss6.gitignore",
+      "category": "community",
+      "sha256": "0553a28477a02fe2cbd4c2ee30128c7f8a0a510472513cf834da7aef685eaf21",
+      "bytes": 936
+    },
+    {
+      "id": "community/JavaScript/Cordova",
+      "source_path": "community/JavaScript/Cordova.gitignore",
+      "category": "community",
+      "sha256": "e9fef45c976a633cfd1d66b44c787df16ebbdbd68d9e80716c7062a54395f6b8",
+      "bytes": 229
+    },
+    {
+      "id": "community/JavaScript/Expo",
+      "source_path": "community/JavaScript/Expo.gitignore",
+      "category": "community",
+      "sha256": "2805e209cf26f22a8cf207118eceb9193140e10f451d6846f96dd4f81b7ff3a4",
+      "bytes": 833
+    },
+    {
+      "id": "community/JavaScript/Meteor",
+      "source_path": "community/JavaScript/Meteor.gitignore",
+      "category": "community",
+      "sha256": "27b7a08cf3531bdb9475e3179d2791e5bed9c4ccbf86e953c7e4fb3ebc4d8689",
+      "bytes": 247
+    },
+    {
+      "id": "community/JavaScript/NWjs",
+      "source_path": "community/JavaScript/NWjs.gitignore",
+      "category": "community",
+      "sha256": "cb15b31c864062a25fe59f5ab73e1e962fd367db3f963b0c8afefe875600b22c",
+      "bytes": 424
+    },
+    {
+      "id": "community/JavaScript/Vue",
+      "source_path": "community/JavaScript/Vue.gitignore",
+      "category": "community",
+      "sha256": "5ee6da3ed97910756a82856c11577982baa416ec689a41739b310578617597d8",
+      "bytes": 181
+    },
+    {
+      "id": "community/LensStudio",
+      "source_path": "community/LensStudio.gitignore",
+      "category": "community",
+      "sha256": "364a12efc0b87e603245269d9d6c78040104e8374d9f974ca49502d2e7bcea06",
+      "bytes": 199
+    },
+    {
+      "id": "community/Linux/Snap",
+      "source_path": "community/Linux/Snap.gitignore",
+      "category": "community",
+      "sha256": "9da4c8e47b0286be495565e59f9edd2d95ac397814a09e7a414952df41fd6659",
+      "bytes": 363
+    },
+    {
+      "id": "community/Logtalk",
+      "source_path": "community/Logtalk.gitignore",
+      "category": "community",
+      "sha256": "b30a5831725de1a0f4417fbdff84700a31edc3faee9d65344997ea67834c4015",
+      "bytes": 373
+    },
+    {
+      "id": "community/MetaTrader5",
+      "source_path": "community/MetaTrader5.gitignore",
+      "category": "community",
+      "sha256": "9fa564ff4279365bcbe966526fcb84f582f6c365c39dba7047a71195a8972462",
+      "bytes": 2321
+    },
+    {
+      "id": "community/Move",
+      "source_path": "community/Move.gitignore",
+      "category": "community",
+      "sha256": "fe3009c612ceac41e359fb098fe7774416ddd6766fe47c7506dcf561ae9c7164",
+      "bytes": 122
+    },
+    {
+      "id": "community/NasaSpecsIntact",
+      "source_path": "community/NasaSpecsIntact.gitignore",
+      "category": "community",
+      "sha256": "a3ed7d05e56dc7c9328dd4e730ffd32739e9cf655d86140fba71a87f86f4d18b",
+      "bytes": 1100
+    },
+    {
+      "id": "community/Obsidian/NotesAndCoreConfiguration",
+      "source_path": "community/Obsidian/NotesAndCoreConfiguration.gitignore",
+      "category": "community",
+      "sha256": "8456d7cd89e6fac35fc53241697827a5aaa45c6fd334d9d3fb13f370bf4d7567",
+      "bytes": 805
+    },
+    {
+      "id": "community/Obsidian/NotesAndExtendedConfiguration",
+      "source_path": "community/Obsidian/NotesAndExtendedConfiguration.gitignore",
+      "category": "community",
+      "sha256": "57d1623a5ac5a3dd01d4fe023a20794cf73a3bbc7a875b4a02261c1b67e07bbd",
+      "bytes": 1723
+    },
+    {
+      "id": "community/Obsidian/NotesOnly",
+      "source_path": "community/Obsidian/NotesOnly.gitignore",
+      "category": "community",
+      "sha256": "14063d7540ce2b8a8ca74b6de5b9e5269f4fa5a1015b79a97401679aa97c6eff",
+      "bytes": 155
+    },
+    {
+      "id": "community/OpenSSL",
+      "source_path": "community/OpenSSL.gitignore",
+      "category": "community",
+      "sha256": "642dfa3264135da89fba68210782822a86287051973b2b65ff86c043d1d48f22",
+      "bytes": 348
+    },
+    {
+      "id": "community/OpenTofu",
+      "source_path": "community/OpenTofu.gitignore",
+      "category": "community",
+      "sha256": "7a6a0e874fc1517c4d4c3b2fecc7952cfd1c967ec93dba9c778dba57d0ae0c9a",
+      "bytes": 1059
+    },
+    {
+      "id": "community/PHP/Bitrix",
+      "source_path": "community/PHP/Bitrix.gitignore",
+      "category": "community",
+      "sha256": "f5193a00db0d0958d17501d1fbaa618703af98943a1585fbc576ec7c05cd1998",
+      "bytes": 556
+    },
+    {
+      "id": "community/PHP/CodeSniffer",
+      "source_path": "community/PHP/CodeSniffer.gitignore",
+      "category": "community",
+      "sha256": "4e5e505059459335762fa8d91179e35f3b569670e1b1f383cc3a227eb57b1fb9",
+      "bytes": 151
+    },
+    {
+      "id": "community/PHP/Drupal7",
+      "source_path": "community/PHP/Drupal7.gitignore",
+      "category": "community",
+      "sha256": "a3c043643b44d0ea74dd349ff57a452bde6a0ef7ef9941f9d9ba8bf3b5f846a2",
+      "bytes": 805
+    },
+    {
+      "id": "community/PHP/Jigsaw",
+      "source_path": "community/PHP/Jigsaw.gitignore",
+      "category": "community",
+      "sha256": "070208c9d20e37e749d13bca38a0b48aae4c436939f696f7ed1b1b5ddc7b32e7",
+      "bytes": 125
+    },
+    {
+      "id": "community/PHP/Magento1",
+      "source_path": "community/PHP/Magento1.gitignore",
+      "category": "community",
+      "sha256": "1c6b43ab2232417960022ce56c9a6e7b9051b97911affc1fdff030c1da394d4f",
+      "bytes": 757
+    },
+    {
+      "id": "community/PHP/Magento2",
+      "source_path": "community/PHP/Magento2.gitignore",
+      "category": "community",
+      "sha256": "731a9ce80a9a8efbff499f4a66dde69c4ddf5c2884699037238a9734d6962da5",
+      "bytes": 1292
+    },
+    {
+      "id": "community/PHP/Pimcore",
+      "source_path": "community/PHP/Pimcore.gitignore",
+      "category": "community",
+      "sha256": "82f1a74f2ef50a90c4b851c225e1cfc6ed2c8219fa69351c49092b3b3a12d45a",
+      "bytes": 973
+    },
+    {
+      "id": "community/PHP/ThinkPHP",
+      "source_path": "community/PHP/ThinkPHP.gitignore",
+      "category": "community",
+      "sha256": "287f3de8988db5b5bba813de6883aa076e3a022d671f375d0e20398bca989be5",
+      "bytes": 182
+    },
+    {
+      "id": "community/Puppet",
+      "source_path": "community/Puppet.gitignore",
+      "category": "community",
+      "sha256": "01a30bed1186684624a81bb17c4b9bf66a00d5c0d67ef98ff2b55ec47fcc5aff",
+      "bytes": 238
+    },
+    {
+      "id": "community/Python/JupyterNotebooks",
+      "source_path": "community/Python/JupyterNotebooks.gitignore",
+      "category": "community",
+      "sha256": "eb8c42912d341487baa9f2451bb91280ed5ef25ea071bb15abe39d317dd4181d",
+      "bytes": 373
+    },
+    {
+      "id": "community/Python/Nikola",
+      "source_path": "community/Python/Nikola.gitignore",
+      "category": "community",
+      "sha256": "394d2d0a37b3dcb5762be7445525b18979fbfb8348dce3173139fadf5f0361fa",
+      "bytes": 123
+    },
+    {
+      "id": "community/ROS2",
+      "source_path": "community/ROS2.gitignore",
+      "category": "community",
+      "sha256": "8ae7ed544d5c3a7bad9d7d0759fd5eb46785f0817ea10410729f1a602bd36512",
+      "bytes": 245
+    },
+    {
+      "id": "community/Racket",
+      "source_path": "community/Racket.gitignore",
+      "category": "community",
+      "sha256": "4e4f02d9987073165e5f417f23d5425aa9319734f8f9ec4c22e22da1b9554244",
+      "bytes": 226
+    },
+    {
+      "id": "community/Red",
+      "source_path": "community/Red.gitignore",
+      "category": "community",
+      "sha256": "94d38d49da4fc949b1190896b36811753bda1c0e1711aff8eb189f22c7f521ce",
+      "bytes": 304
+    },
+    {
+      "id": "community/SPFx",
+      "source_path": "community/SPFx.gitignore",
+      "category": "community",
+      "sha256": "25e410e0c4968bd6d7882f86045b1eb09270ae68094f36246cdba61174bbc6bf",
+      "bytes": 355
+    },
+    {
+      "id": "community/Splunk",
+      "source_path": "community/Splunk.gitignore",
+      "category": "community",
+      "sha256": "9eb9cdce450893a290227186d13de6e8d39569f7f5bd22b7c66bcdd92820cc8d",
+      "bytes": 192
+    },
+    {
+      "id": "community/Strapi",
+      "source_path": "community/Strapi.gitignore",
+      "category": "community",
+      "sha256": "f1ed0432fcad0400c223ed669027d7415d7dff83c57236132ed6ef0c0f3131a0",
+      "bytes": 1497
+    },
+    {
+      "id": "community/Tauri",
+      "source_path": "community/Tauri.gitignore",
+      "category": "community",
+      "sha256": "6f2f28223ee47a0586a75584a24ead0bbd162c78c8bb730e64d485f79ce88a7a",
+      "bytes": 268
+    },
+    {
+      "id": "community/Terragrunt",
+      "source_path": "community/Terragrunt.gitignore",
+      "category": "community",
+      "sha256": "d349052245438ef63162d747541aaa3cf88d0966d951cca8e2d8c3a1b33014e7",
+      "bytes": 123
+    },
+    {
+      "id": "community/Toit",
+      "source_path": "community/Toit.gitignore",
+      "category": "community",
+      "sha256": "5ef3df90e5e83141246845ca01133492752e0901ec63699f1b8cd32e4504063d",
+      "bytes": 20
+    },
+    {
+      "id": "community/UTAU",
+      "source_path": "community/UTAU.gitignore",
+      "category": "community",
+      "sha256": "d6ad644520a63c955e97c420707774f042d0eac9fe3b7b439b448c9680e81ef4",
+      "bytes": 414
+    },
+    {
+      "id": "community/UiPath",
+      "source_path": "community/UiPath.gitignore",
+      "category": "community",
+      "sha256": "d78bf437f1e973028580275ed8f1a560d95569e01d16570aa004334cc9c91d16",
+      "bytes": 261
+    },
+    {
+      "id": "community/V",
+      "source_path": "community/V.gitignore",
+      "category": "community",
+      "sha256": "b2408aca4121a58cb96770957ce4405763d62609b6fe128edab03249d14fef52",
+      "bytes": 65
+    },
+    {
+      "id": "community/Xilinx",
+      "source_path": "community/Xilinx.gitignore",
+      "category": "community",
+      "sha256": "9e9647b1be573b2df843fb8f0bd47e534f9681f871deff8c3a47cc018adfe85e",
+      "bytes": 1388
+    },
+    {
+      "id": "community/embedded/AtmelStudio",
+      "source_path": "community/embedded/AtmelStudio.gitignore",
+      "category": "community",
+      "sha256": "e078e7bc5da553129b90f9f4caf1d645af48303b4d84713345c7ea9da12369ae",
+      "bytes": 408
+    },
+    {
+      "id": "community/embedded/IAR_EWARM",
+      "source_path": "community/embedded/IAR_EWARM.gitignore",
+      "category": "community",
+      "sha256": "3edee1a1b3099cff15e46281e6579c52c566b86c8587d3f26c510a45742c4fb6",
+      "bytes": 462
+    },
+    {
+      "id": "community/embedded/Microchip_MPLAB_X_IDE",
+      "source_path": "community/embedded/Microchip_MPLAB_X_IDE.gitignore",
+      "category": "community",
+      "sha256": "748838ee4e37746bc35cb3786a31441032845e3285a1c8630a4a3776446d2983",
+      "bytes": 847
+    },
+    {
+      "id": "community/embedded/esp-idf",
+      "source_path": "community/embedded/esp-idf.gitignore",
+      "category": "community",
+      "sha256": "cb64c95b91db3afc3d0170e4f0434a22e197bd5048ad5d994eb0d980423b4c47",
+      "bytes": 150
+    },
+    {
+      "id": "community/embedded/uVision",
+      "source_path": "community/embedded/uVision.gitignore",
+      "category": "community",
+      "sha256": "7312db06c62c160e14874c248e543cb03f2ca465b4352d152d6d2958c9331fa9",
+      "bytes": 412
+    },
+    {
+      "id": "community/libogc",
+      "source_path": "community/libogc.gitignore",
+      "category": "community",
+      "sha256": "2e7f5d4361e76d359dd1e2820ddc87620dfc20e6bf0f3f4446569c42f71760ae",
+      "bytes": 881
+    },
+    {
+      "id": "global/AL",
+      "source_path": "Global/AL.gitignore",
+      "category": "global",
+      "sha256": "f05c79ca3a46ab4596e639c6aca07ab0e5630fbba53538e225c5c94ad938383e",
+      "bytes": 185
+    },
+    {
+      "id": "global/Agents",
+      "source_path": "Global/Agents.gitignore",
+      "category": "global",
+      "sha256": "b384fe294cab7102652aee515b9e009ad99d0665097880d507019b82aadc1cbd",
+      "bytes": 1052
+    },
+    {
+      "id": "global/Anjuta",
+      "source_path": "Global/Anjuta.gitignore",
+      "category": "global",
+      "sha256": "6ee69a700f0975f8f0545564da73f3ac0c46e9e5c5b3cc807851f2a3e9325006",
+      "bytes": 78
+    },
+    {
+      "id": "global/Ansible",
+      "source_path": "Global/Ansible.gitignore",
+      "category": "global",
+      "sha256": "71d0ff9a087f644674c6045801c6aad400d88ea61702b7dbf21dd73e5f179638",
+      "bytes": 143
+    },
+    {
+      "id": "global/Archives",
+      "source_path": "Global/Archives.gitignore",
+      "category": "global",
+      "sha256": "8aad38dc53bfe640bb6253b78fab36f0382addd6f82262bfea59c6d4064b95a4",
+      "bytes": 343
+    },
+    {
+      "id": "global/Backup",
+      "source_path": "Global/Backup.gitignore",
+      "category": "global",
+      "sha256": "8e6118febb93779e06afdf8d213551931b6265b01dab3affb6d2ca21a2e158b9",
+      "bytes": 182
+    },
+    {
+      "id": "global/Bazaar",
+      "source_path": "Global/Bazaar.gitignore",
+      "category": "global",
+      "sha256": "cdfbf2819d1d19a81820313a7b05f28b1266ebbbfb9fc75cce2b8f174e28d168",
+      "bytes": 17
+    },
+    {
+      "id": "global/BricxCC",
+      "source_path": "Global/BricxCC.gitignore",
+      "category": "global",
+      "sha256": "40255dbd217dbf47c27f32a5439985c416e4b00bda54bf2ab8f74998ad200630",
+      "bytes": 72
+    },
+    {
+      "id": "global/CVS",
+      "source_path": "Global/CVS.gitignore",
+      "category": "global",
+      "sha256": "8ee770eecf8c5703855463c53f78fbfd73aa0c9a2e0013a5bb9aca954625ac17",
+      "bytes": 40
+    },
+    {
+      "id": "global/Calabash",
+      "source_path": "Global/Calabash.gitignore",
+      "category": "global",
+      "sha256": "94dca798ca9455ed23426aa794b2908d2b1815647e75254f4e3e53d6d0e833f0",
+      "bytes": 107
+    },
+    {
+      "id": "global/Cloud9",
+      "source_path": "Global/Cloud9.gitignore",
+      "category": "global",
+      "sha256": "ecc67c1f4779fa0e1fb747921db8aeb1d76809668d0625ac9c19d473c715cca1",
+      "bytes": 45
+    },
+    {
+      "id": "global/CodeKit",
+      "source_path": "Global/CodeKit.gitignore",
+      "category": "global",
+      "sha256": "226bdb0e5d5d015318946c39dfb29d9e2caeff411176146e525521c218ca18cd",
+      "bytes": 70
+    },
+    {
+      "id": "global/Cursor",
+      "source_path": "Global/Cursor.gitignore",
+      "category": "global",
+      "sha256": "f58cb05bc1a16837e63c4759e013e2cc132a120198800982a3be39aa072350b3",
+      "bytes": 36
+    },
+    {
+      "id": "global/DartEditor",
+      "source_path": "Global/DartEditor.gitignore",
+      "category": "global",
+      "sha256": "d6c5a837d9bedf53b0748a40bc70cd5041555384e08436ae57b4f25658d8fd11",
+      "bytes": 19
+    },
+    {
+      "id": "global/Diff",
+      "source_path": "Global/Diff.gitignore",
+      "category": "global",
+      "sha256": "d492b6a308cc5317e8380b676fe52811b009139e0038d0efee7c505b0ae3a24e",
+      "bytes": 15
+    },
+    {
+      "id": "global/Dreamweaver",
+      "source_path": "Global/Dreamweaver.gitignore",
+      "category": "global",
+      "sha256": "8240387a57377b39ef8016e5a8d54358047fc380cca9c933e7d855ee7e53cfce",
+      "bytes": 101
+    },
+    {
+      "id": "global/Dropbox",
+      "source_path": "Global/Dropbox.gitignore",
+      "category": "global",
+      "sha256": "0c05169abc65e8859d4232e92a9d613b3025aa1b773dc78aa3de46d9ce31a7bd",
+      "bytes": 68
+    },
+    {
+      "id": "global/Eclipse",
+      "source_path": "Global/Eclipse.gitignore",
+      "category": "global",
+      "sha256": "da6465e5c24bc33673882b3efc248feb31a585b4701fd6fea8cd818a5e24b958",
+      "bytes": 948
+    },
+    {
+      "id": "global/EiffelStudio",
+      "source_path": "Global/EiffelStudio.gitignore",
+      "category": "global",
+      "sha256": "943ddf79c472ed492446367a53b26e3742604a430681db521dfc461b5c0ccdba",
+      "bytes": 36
+    },
+    {
+      "id": "global/Emacs",
+      "source_path": "Global/Emacs.gitignore",
+      "category": "global",
+      "sha256": "92e790f43ca182f0f376aa59533a5e38e67734ef15fbbf210876d647e0f275a4",
+      "bytes": 531
+    },
+    {
+      "id": "global/Ensime",
+      "source_path": "Global/Ensime.gitignore",
+      "category": "global",
+      "sha256": "745c912069e1ee2c0748c72c79f9124e5c7d617e764eaecc942108198a964a02",
+      "bytes": 57
+    },
+    {
+      "id": "global/Espresso",
+      "source_path": "Global/Espresso.gitignore",
+      "category": "global",
+      "sha256": "0718e158e82a28a290fad24c68bc5d34b541dc4f5a3168f1b071a984af57d69f",
+      "bytes": 9
+    },
+    {
+      "id": "global/FlexBuilder",
+      "source_path": "Global/FlexBuilder.gitignore",
+      "category": "global",
+      "sha256": "62d618d113f3d37bf50e1eea54a805009af607dac7e76e06e53ef981a0f9c7e1",
+      "bytes": 29
+    },
+    {
+      "id": "global/GPG",
+      "source_path": "Global/GPG.gitignore",
+      "category": "global",
+      "sha256": "960b2ede7483c724349d2cf0d5a66277cc40e3e166706dc749373e57b170974f",
+      "bytes": 10
+    },
+    {
+      "id": "global/Images",
+      "source_path": "Global/Images.gitignore",
+      "category": "global",
+      "sha256": "d941bab9f6e01b90739ded50876dafeba0e6ff695aa60ea9ed7235d9ae4f7519",
+      "bytes": 501
+    },
+    {
+      "id": "global/JDeveloper",
+      "source_path": "Global/JDeveloper.gitignore",
+      "category": "global",
+      "sha256": "674c8d8b62409a8e894b6f1d1704ac844d38c8479f7b9d089ab40be3d1da875f",
+      "bytes": 255
+    },
+    {
+      "id": "global/JEnv",
+      "source_path": "Global/JEnv.gitignore",
+      "category": "global",
+      "sha256": "1fc0bbe69599b35768cf0c3638aac89d46a300cddb00682c8118b5191d2c96d1",
+      "bytes": 110
+    },
+    {
+      "id": "global/JetBrains",
+      "source_path": "Global/JetBrains.gitignore",
+      "category": "global",
+      "sha256": "1fc379fda0dffe3060e1f444154c05425f2be2249ae3153d052435dc671a61b2",
+      "bytes": 2046
+    },
+    {
+      "id": "global/KDevelop4",
+      "source_path": "Global/KDevelop4.gitignore",
+      "category": "global",
+      "sha256": "c79b22f32907b9a18228eb366b1dbe49e45ecc2359f729e2b1d6f40edf572375",
+      "bytes": 16
+    },
+    {
+      "id": "global/Kate",
+      "source_path": "Global/Kate.gitignore",
+      "category": "global",
+      "sha256": "237cd7f4104698428ff8b9c0af4d86b7f8db127fa3496ae4250f55ffe7eaff31",
+      "bytes": 34
+    },
+    {
+      "id": "global/Lazarus",
+      "source_path": "Global/Lazarus.gitignore",
+      "category": "global",
+      "sha256": "82eb3a7605fcbba0ebb728a4f3c9e327117963e04767db06743658da7628a974",
+      "bytes": 407
+    },
+    {
+      "id": "global/Lefthook",
+      "source_path": "Global/Lefthook.gitignore",
+      "category": "global",
+      "sha256": "132a43d6cb969fe298e4026b90c88e16fdbe411cee1ee852b5247d507fd0d481",
+      "bytes": 418
+    },
+    {
+      "id": "global/LibreOffice",
+      "source_path": "Global/LibreOffice.gitignore",
+      "category": "global",
+      "sha256": "63fefb726ed0bc33b42497a50c6c2491b9571ca403f4e8d0904480f12b3a922f",
+      "bytes": 30
+    },
+    {
+      "id": "global/Linux",
+      "source_path": "Global/Linux.gitignore",
+      "category": "global",
+      "sha256": "b89ffa3ea066d00090cb108b6b7f74261146ddd80ec9c177d2d71b3a8938304b",
+      "bytes": 420
+    },
+    {
+      "id": "global/LyX",
+      "source_path": "Global/LyX.gitignore",
+      "category": "global",
+      "sha256": "d02ef0803105dd85030432c44e36d2e84c756510271af500608b31c3745d3438",
+      "bytes": 75
+    },
+    {
+      "id": "global/MATLAB",
+      "source_path": "Global/MATLAB.gitignore",
+      "category": "global",
+      "sha256": "8b310901ce749ff78cb9adee52eff02aaf581825b3816c606f24e716b689e61d",
+      "bytes": 381
+    },
+    {
+      "id": "global/Mercurial",
+      "source_path": "Global/Mercurial.gitignore",
+      "category": "global",
+      "sha256": "075c95c769058a20457169814a9d58e772a8f03fb313cfbbae83bb2b20ab0b62",
+      "bytes": 50
+    },
+    {
+      "id": "global/Metals",
+      "source_path": "Global/Metals.gitignore",
+      "category": "global",
+      "sha256": "c2b69efec9ee1aa20e528007d209265d7b279061b3b0a6f0818dc08c8ec1a3c9",
+      "bytes": 185
+    },
+    {
+      "id": "global/MicrosoftOffice",
+      "source_path": "Global/MicrosoftOffice.gitignore",
+      "category": "global",
+      "sha256": "093ae011a731ff28ec17b40d1c6419cd33b78a05f08137b2b25ad8d1b57f4973",
+      "bytes": 214
+    },
+    {
+      "id": "global/Momentics",
+      "source_path": "Global/Momentics.gitignore",
+      "category": "global",
+      "sha256": "6a84e7704e0f668efa544f7abfc360b1d033825d3616b20d30c36904ebbe63f1",
+      "bytes": 76
+    },
+    {
+      "id": "global/MonoDevelop",
+      "source_path": "Global/MonoDevelop.gitignore",
+      "category": "global",
+      "sha256": "acf916c2e03d0137b0bbcd47727d2230d7f0a4082d6a8acce36908cd5e8f9ee3",
+      "bytes": 93
+    },
+    {
+      "id": "global/NetBeans",
+      "source_path": "Global/NetBeans.gitignore",
+      "category": "global",
+      "sha256": "aad44c7220a731edcb93455dfc43546fcaffd55a9e450ed4cb617b8c55527a47",
+      "bytes": 119
+    },
+    {
+      "id": "global/Ninja",
+      "source_path": "Global/Ninja.gitignore",
+      "category": "global",
+      "sha256": "e7dea831e3b2999c3c5f25884fc0c89f36e3a4705a6fd27e4e60ea3a96c91eb6",
+      "bytes": 23
+    },
+    {
+      "id": "global/NotepadPP",
+      "source_path": "Global/NotepadPP.gitignore",
+      "category": "global",
+      "sha256": "508fca66581e418b5d9dfda56b426b22b26024bfb1fe2b25f7bd0eb49b7b5bda",
+      "bytes": 28
+    },
+    {
+      "id": "global/OhMyOpenAgent",
+      "source_path": "Global/OhMyOpenAgent.gitignore",
+      "category": "global",
+      "sha256": "cacc05b88737be12009efee141694078dbcb2159721919f56562b2ad48ab681a",
+      "bytes": 30
+    },
+    {
+      "id": "global/Otto",
+      "source_path": "Global/Otto.gitignore",
+      "category": "global",
+      "sha256": "b4a1f6845dfd5bf2f96de8d72ae7bb196d108c1790238beb52cc80c01ff14a69",
+      "bytes": 7
+    },
+    {
+      "id": "global/PSoCCreator",
+      "source_path": "Global/PSoCCreator.gitignore",
+      "category": "global",
+      "sha256": "accd8b593066c65f82ec3f82d1f0a5c9bd7750365ca5ed9755f3690201bc2051",
+      "bytes": 200
+    },
+    {
+      "id": "global/Patch",
+      "source_path": "Global/Patch.gitignore",
+      "category": "global",
+      "sha256": "b2e048718be29f7461a581a2c55fa5a77acd33be1550127cc2e73274d732039d",
+      "bytes": 13
+    },
+    {
+      "id": "global/PlatformIO",
+      "source_path": "Global/PlatformIO.gitignore",
+      "category": "global",
+      "sha256": "38031754d37d596c0ad0c96f6e54c40d3d7a722ae856b8c504dbac8fdc0c3437",
+      "bytes": 102
+    },
+    {
+      "id": "global/PuTTY",
+      "source_path": "Global/PuTTY.gitignore",
+      "category": "global",
+      "sha256": "f8d40b4427b8f0387ae5b4acae3d4126ca5ba8e0c2212e87c8ca8e8117b76411",
+      "bytes": 20
+    },
+    {
+      "id": "global/Redcar",
+      "source_path": "Global/Redcar.gitignore",
+      "category": "global",
+      "sha256": "cb53742b01915a5006116e50f34227788ffd4e0570f58ffe7d2154e189791f5b",
+      "bytes": 8
+    },
+    {
+      "id": "global/Redis",
+      "source_path": "Global/Redis.gitignore",
+      "category": "global",
+      "sha256": "9d7411d5272f4672c886f4210202b1f904df917d9394f18b5405d1d8b5d38c6e",
+      "bytes": 51
+    },
+    {
+      "id": "global/SBT",
+      "source_path": "Global/SBT.gitignore",
+      "category": "global",
+      "sha256": "615cc0319956c5d3e101eed9dcd6f4e93b0481eb9097fbdae0b8f557b82775fd",
+      "bytes": 230
+    },
+    {
+      "id": "global/STM32CubeIDE",
+      "source_path": "Global/STM32CubeIDE.gitignore",
+      "category": "global",
+      "sha256": "9f989ad6903fd8e8e68d20aa103b2cc5a2c357e12d55618cf768edcb36f1326a",
+      "bytes": 1295
+    },
+    {
+      "id": "global/SVN",
+      "source_path": "Global/SVN.gitignore",
+      "category": "global",
+      "sha256": "0c8b670851d6eb298c48bb58a70308767a153c7fd324f36c8d1acbb277aa1750",
+      "bytes": 6
+    },
+    {
+      "id": "global/SlickEdit",
+      "source_path": "Global/SlickEdit.gitignore",
+      "category": "global",
+      "sha256": "4975f7f29a5c32cd9a8feaf696abf7be39c29f4f33636155c57e1d94cc7238be",
+      "bytes": 323
+    },
+    {
+      "id": "global/Stata",
+      "source_path": "Global/Stata.gitignore",
+      "category": "global",
+      "sha256": "f04228bb993e8494d757035a84dce59754559f686a18f819ace4bd346a873d21",
+      "bytes": 540
+    },
+    {
+      "id": "global/SublimeText",
+      "source_path": "Global/SublimeText.gitignore",
+      "category": "global",
+      "sha256": "10457ff35ef28a3db4382887899d2b7d8c8b09057cdd36ffd2c6fe0c74962a5e",
+      "bytes": 820
+    },
+    {
+      "id": "global/Syncthing",
+      "source_path": "Global/Syncthing.gitignore",
+      "category": "global",
+      "sha256": "0ec9f63a1028d99417d1c122fa2539cf25c5738a8a6a98351721573ec1a18038",
+      "bytes": 31
+    },
+    {
+      "id": "global/SynopsysVCS",
+      "source_path": "Global/SynopsysVCS.gitignore",
+      "category": "global",
+      "sha256": "1fa30fd0bd062d9a0a98e9090944d23b2f2063dc8c1212723192cde50a14eb18",
+      "bytes": 967
+    },
+    {
+      "id": "global/Tags",
+      "source_path": "Global/Tags.gitignore",
+      "category": "global",
+      "sha256": "45b7faa6e7af7ab7aa013dc134fda3202ce6d402d67634fdc18f9d897aa25100",
+      "bytes": 194
+    },
+    {
+      "id": "global/TextMate",
+      "source_path": "Global/TextMate.gitignore",
+      "category": "global",
+      "sha256": "2bfc05e14952ce99725d9230c098d938319c62421b659cde80e8cb2ce9ebac68",
+      "bytes": 28
+    },
+    {
+      "id": "global/TortoiseGit",
+      "source_path": "Global/TortoiseGit.gitignore",
+      "category": "global",
+      "sha256": "9b7646617692556be8acd1396c9749cb0e8d7f33710e41979a9b6bc4f27d8416",
+      "bytes": 38
+    },
+    {
+      "id": "global/Vagrant",
+      "source_path": "Global/Vagrant.gitignore",
+      "category": "global",
+      "sha256": "5490a90c23b6fa8a6a562c6686c8d6eca0918ac8a81db27733636cb4ba9468ea",
+      "bytes": 98
+    },
+    {
+      "id": "global/Vim",
+      "source_path": "Global/Vim.gitignore",
+      "category": "global",
+      "sha256": "18b13a2811a42982c9a9872e83d75b38c7906d09b744a711d9d7b9879278104d",
+      "bytes": 274
+    },
+    {
+      "id": "global/VirtualEnv",
+      "source_path": "Global/VirtualEnv.gitignore",
+      "category": "global",
+      "sha256": "92c166a1bdbb03b275800a15553b568e9e4ca6e7d3eadbd8411f9231a9c551ea",
+      "bytes": 329
+    },
+    {
+      "id": "global/Virtuoso",
+      "source_path": "Global/Virtuoso.gitignore",
+      "category": "global",
+      "sha256": "7bea3599e940710f5afa57c7b3732713aee7ca7fda04bc4817746cf1820c9da9",
+      "bytes": 323
+    },
+    {
+      "id": "global/VisualStudioCode",
+      "source_path": "Global/VisualStudioCode.gitignore",
+      "category": "global",
+      "sha256": "bef49171bd006ca9f91568dc6680e5fbf085a5fe01ec9024d2513a6c235247d5",
+      "bytes": 209
+    },
+    {
+      "id": "global/WebMethods",
+      "source_path": "Global/WebMethods.gitignore",
+      "category": "global",
+      "sha256": "978d13bc2539395bb983376a9ed68a0a4bfe8e95ffa0c4bef9099b021ae7b1e1",
+      "bytes": 424
+    },
+    {
+      "id": "global/Windows",
+      "source_path": "Global/Windows.gitignore",
+      "category": "global",
+      "sha256": "d763006b3cb986d97d8d5d9081e3e82783060cb9afceaef1544c43f5e6bf796f",
+      "bytes": 290
+    },
+    {
+      "id": "global/Xcode",
+      "source_path": "Global/Xcode.gitignore",
+      "category": "global",
+      "sha256": "679a2cec086814db9780515b7c74ca53903ea79412fd61b4049393920c2642eb",
+      "bytes": 29
+    },
+    {
+      "id": "global/XilinxISE",
+      "source_path": "Global/XilinxISE.gitignore",
+      "category": "global",
+      "sha256": "b391cbe75fabb940a60f27537883b1c12e5296693596235b38bf6188d2460e01",
+      "bytes": 723
+    },
+    {
+      "id": "global/Zed",
+      "source_path": "Global/Zed.gitignore",
+      "category": "global",
+      "sha256": "37f9f13a175ec82d91fa15e9ad90c63ecca50aa1c065338e0f764847fa5bf9ca",
+      "bytes": 272
+    },
+    {
+      "id": "global/macOS",
+      "source_path": "Global/macOS.gitignore",
+      "category": "global",
+      "sha256": "840f2930209daaf1d3358c3b934a35c6d5b2dcfe15c56d9b7b469e4448b7e800",
+      "bytes": 904
+    },
+    {
+      "id": "global/mise",
+      "source_path": "Global/mise.gitignore",
+      "category": "global",
+      "sha256": "767d66a841df92645281f4fdb32e26ba16647d2bf0eedf0f121700441624d71e",
+      "bytes": 277
+    },
+    {
+      "id": "root/AL",
+      "source_path": "AL.gitignore",
+      "category": "root",
+      "sha256": "ba8edf8e347b9d6eb720ea0b67a5a14056f9af2a96a6f61a41d8cb46345fff10",
+      "bytes": 384
+    },
+    {
+      "id": "root/Actionscript",
+      "source_path": "Actionscript.gitignore",
+      "category": "root",
+      "sha256": "2ef767385125df7d546a79f251e267fab5c0e68a652128987a6982cb61d53584",
+      "bytes": 350
+    },
+    {
+      "id": "root/Ada",
+      "source_path": "Ada.gitignore",
+      "category": "root",
+      "sha256": "fdc17fd35182ca77a4888c8682f48ba5b57463ca5865b96eb8a652ba15c63664",
+      "bytes": 51
+    },
+    {
+      "id": "root/AdventureGameStudio",
+      "source_path": "AdventureGameStudio.gitignore",
+      "category": "root",
+      "sha256": "e98f38ef26d66ddd28fd1df5f72a755e1975ddb21949cf6eb6fff87c32e0287d",
+      "bytes": 495
+    },
+    {
+      "id": "root/Agda",
+      "source_path": "Agda.gitignore",
+      "category": "root",
+      "sha256": "582517f2308e16e2973057c3f25f5ccb77dbd01f7fc7137dbb4c7362c641104c",
+      "bytes": 22
+    },
+    {
+      "id": "root/Android",
+      "source_path": "Android.gitignore",
+      "category": "root",
+      "sha256": "35db089c9f4833fda4a6e5d8bd56f6014381909a6a17a23e8ed6e8b3cfd0407d",
+      "bytes": 446
+    },
+    {
+      "id": "root/Angular",
+      "source_path": "Angular.gitignore",
+      "category": "root",
+      "sha256": "c10a7675ee1b0c0c799a9ef0d12ba69a7981b67fc4aea0726aedca61c3b6f384",
+      "bytes": 350
+    },
+    {
+      "id": "root/AppEngine",
+      "source_path": "AppEngine.gitignore",
+      "category": "root",
+      "sha256": "cc64f9dffe4cbe9c88c0050bbb5d3e00f25d4b860ad0347a634f6c77a7dffe6f",
+      "bytes": 58
+    },
+    {
+      "id": "root/AppceleratorTitanium",
+      "source_path": "AppceleratorTitanium.gitignore",
+      "category": "root",
+      "sha256": "0c59c62ff626d77fd48d94eec2ee476d9057938769e5a12f60a2afdaf16a071e",
+      "bytes": 45
+    },
+    {
+      "id": "root/ArchLinuxPackages",
+      "source_path": "ArchLinuxPackages.gitignore",
+      "category": "root",
+      "sha256": "ee1f5658f3c69f75b054f2a14ee82a9b194b48b5746bb71fb5f9e0a82d0a0e38",
+      "bytes": 81
+    },
+    {
+      "id": "root/Autotools",
+      "source_path": "Autotools.gitignore",
+      "category": "root",
+      "sha256": "4a707f9ed24f28de3b4176ab1f3c6590b24ebed7cc4fda7dc9e124b95bf81210",
+      "bytes": 774
+    },
+    {
+      "id": "root/Ballerina",
+      "source_path": "Ballerina.gitignore",
+      "category": "root",
+      "sha256": "0540c8ab82f25b47e870226465a2add1391e4acfd7433971bafe5e0712be5cea",
+      "bytes": 232
+    },
+    {
+      "id": "root/C",
+      "source_path": "C.gitignore",
+      "category": "root",
+      "sha256": "1d12c3e3e1d5a30836fc5c5349701638765cd2601a356f2117104e15c555780d",
+      "bytes": 463
+    },
+    {
+      "id": "root/C++",
+      "source_path": "C++.gitignore",
+      "category": "root",
+      "sha256": "3f81ebc82c21e07e8da6423d679e6231d473d892a99d6335af49eea4c754ac27",
+      "bytes": 633
+    },
+    {
+      "id": "root/CFWheels",
+      "source_path": "CFWheels.gitignore",
+      "category": "root",
+      "sha256": "bc08e26b7032c3069fdca1293cb83b6b89d011fb8f5b67925aacb0668fd8d131",
+      "bytes": 205
+    },
+    {
+      "id": "root/CMake",
+      "source_path": "CMake.gitignore",
+      "category": "root",
+      "sha256": "8d34f5de6bece386131110afff2b7e046c3d1ebef4fe427e4e0cc8e41c2e7d9c",
+      "bytes": 571
+    },
+    {
+      "id": "root/CUDA",
+      "source_path": "CUDA.gitignore",
+      "category": "root",
+      "sha256": "b0980343aa1a40beba306fe9db6644a5268ab383b4544afccb9c3fd346d0b7be",
+      "bytes": 38
+    },
+    {
+      "id": "root/CakePHP",
+      "source_path": "CakePHP.gitignore",
+      "category": "root",
+      "sha256": "49ca50f966ddbcae84f7cacc26e7d4003708f350b2bd433cb53e7063550db660",
+      "bytes": 353
+    },
+    {
+      "id": "root/ChefCookbook",
+      "source_path": "ChefCookbook.gitignore",
+      "category": "root",
+      "sha256": "39eb1c0ba5f79760355a8be70577a0b25c6feb0c33db9a26b2191316934130b6",
+      "bytes": 77
+    },
+    {
+      "id": "root/CodeIgniter",
+      "source_path": "CodeIgniter.gitignore",
+      "category": "root",
+      "sha256": "8e50c68fe726b71752b55b8eab30d0fe5c3b1cc148ad6346feed9611b3555bd0",
+      "bytes": 352
+    },
+    {
+      "id": "root/CommonLisp",
+      "source_path": "CommonLisp.gitignore",
+      "category": "root",
+      "sha256": "d964edefd4325ae4533c87efdc8295981d09f61ef60d10a815e2baedf5f5d40e",
+      "bytes": 158
+    },
+    {
+      "id": "root/Composer",
+      "source_path": "Composer.gitignore",
+      "category": "root",
+      "sha256": "96cf522044b5bb4bde93bf199d15e63d3d7cd400c059fa8237fffceac4f96ccc",
+      "bytes": 274
+    },
+    {
+      "id": "root/Concrete5",
+      "source_path": "Concrete5.gitignore",
+      "category": "root",
+      "sha256": "da82ee4dd11e5011fd74e5c93c546a50901fd4f9f62cd308dcb551df71e23090",
+      "bytes": 326
+    },
+    {
+      "id": "root/Coq",
+      "source_path": "Coq.gitignore",
+      "category": "root",
+      "sha256": "3990802f2c9a495a278649fb7c1d1e865de7144ccb7777a9999e193ce7241bb8",
+      "bytes": 489
+    },
+    {
+      "id": "root/CraftCMS",
+      "source_path": "CraftCMS.gitignore",
+      "category": "root",
+      "sha256": "6897f4cc9cb19773ede6ee754c851765e8511ce50a832916749c0ed734ee5faa",
+      "bytes": 188
+    },
+    {
+      "id": "root/D",
+      "source_path": "D.gitignore",
+      "category": "root",
+      "sha256": "457bfa3e9d27098697ebd7beb629f52668fa4f911044ddbd61f026db59bcf809",
+      "bytes": 207
+    },
+    {
+      "id": "root/DM",
+      "source_path": "DM.gitignore",
+      "category": "root",
+      "sha256": "8e6216c7fbde93eec3ff67dae438c2066b35b3b88c943ac78a1a40e001a823c0",
+      "bytes": 29
+    },
+    {
+      "id": "root/Dart",
+      "source_path": "Dart.gitignore",
+      "category": "root",
+      "sha256": "3c595f036c815016a402184639ac4439478b2ade04680b4f756f5fe46ecf6f9d",
+      "bytes": 675
+    },
+    {
+      "id": "root/Delphi",
+      "source_path": "Delphi.gitignore",
+      "category": "root",
+      "sha256": "3e078df20cbb90767578f798daeb97593c3a3858a884b278aa570daacadb9961",
+      "bytes": 1965
+    },
+    {
+      "id": "root/Deno",
+      "source_path": "Deno.gitignore",
+      "category": "root",
+      "sha256": "ef061d2d1e2019f4b0c756ebc8650b2f618ac16e179ccb70f91479432f9ac068",
+      "bytes": 243
+    },
+    {
+      "id": "root/Dotnet",
+      "source_path": "Dotnet.gitignore",
+      "category": "root",
+      "sha256": "4c796a810b7d9595634d9a2277ecfc442341fcb542f2d7998fc6c901ad77142c",
+      "bytes": 974
+    },
+    {
+      "id": "root/Drupal",
+      "source_path": "Drupal.gitignore",
+      "category": "root",
+      "sha256": "c284190e88112ba448d99e304a76a49f99cc233ddfcb6673e5defbd684171532",
+      "bytes": 1399
+    },
+    {
+      "id": "root/EPiServer",
+      "source_path": "EPiServer.gitignore",
+      "category": "root",
+      "sha256": "66d82b275df3a8be3c8d6c16c1386a5352594529b284c483d8955c80250734d6",
+      "bytes": 81
+    },
+    {
+      "id": "root/Eagle",
+      "source_path": "Eagle.gitignore",
+      "category": "root",
+      "sha256": "d84713300f7c7549c032268ebca1a1dc64bacb5393c349638e3660329fd30eab",
+      "bytes": 517
+    },
+    {
+      "id": "root/Elisp",
+      "source_path": "Elisp.gitignore",
+      "category": "root",
+      "sha256": "fe09c98655d105b9fa06c45730820b9bb32b1820271a2f70d151d5a462872950",
+      "bytes": 142
+    },
+    {
+      "id": "root/Elixir",
+      "source_path": "Elixir.gitignore",
+      "category": "root",
+      "sha256": "9aa07ac3f74cdf6413b271baf7e586901f217e4a8886d11f1e7461c0d4d3a4b0",
+      "bytes": 94
+    },
+    {
+      "id": "root/Elm",
+      "source_path": "Elm.gitignore",
+      "category": "root",
+      "sha256": "973a5c0d1a9a47f93feab0399a7e5c2d47460771edd88fe9eb6f9f92a6697392",
+      "bytes": 79
+    },
+    {
+      "id": "root/Erlang",
+      "source_path": "Erlang.gitignore",
+      "category": "root",
+      "sha256": "43e3065303fa4c2943142d922f5e0629866108f73bd1e91743a50c082238527d",
+      "bytes": 154
+    },
+    {
+      "id": "root/ExpressionEngine",
+      "source_path": "ExpressionEngine.gitignore",
+      "category": "root",
+      "sha256": "ef0f83e36dbb94c293414fd38e78261e0d97c2ff525c612b59ebbe0e6e6d5d4c",
+      "bytes": 342
+    },
+    {
+      "id": "root/ExtJs",
+      "source_path": "ExtJs.gitignore",
+      "category": "root",
+      "sha256": "19064caf2b9198c361a6e4e4aab9d01b8bba49a186ca1bd05c1dd3fbffa5c762",
+      "bytes": 225
+    },
+    {
+      "id": "root/Fancy",
+      "source_path": "Fancy.gitignore",
+      "category": "root",
+      "sha256": "bc8873c86a281e69aa1d5e8a243e47b1d62accc351cb5355a15e2259ac1b9546",
+      "bytes": 12
+    },
+    {
+      "id": "root/Finale",
+      "source_path": "Finale.gitignore",
+      "category": "root",
+      "sha256": "c18d93db34f07648b4f77472d4ed18e99d5641c40a2d070546a5bdb9964c8f81",
+      "bytes": 184
+    },
+    {
+      "id": "root/Firebase",
+      "source_path": "Firebase.gitignore",
+      "category": "root",
+      "sha256": "bd26297571ab620d53280162f3aaa57e2c29326fa1606224727cc239ead49da5",
+      "bytes": 412
+    },
+    {
+      "id": "root/FlaxEngine",
+      "source_path": "FlaxEngine.gitignore",
+      "category": "root",
+      "sha256": "b050079c7895eeb4862c1aedd6fbb96850d6800995542a042c72c7bada097eec",
+      "bytes": 482
+    },
+    {
+      "id": "root/Flutter",
+      "source_path": "Flutter.gitignore",
+      "category": "root",
+      "sha256": "6141695de3693ec86a541367902db3b377f47fbccdfb7f95b56fb78be398b6c0",
+      "bytes": 2458
+    },
+    {
+      "id": "root/ForceDotCom",
+      "source_path": "ForceDotCom.gitignore",
+      "category": "root",
+      "sha256": "e94321a202166e303a54a84d6e3f15a9a4d60860fd794c2264da7e58c2024b86",
+      "bytes": 57
+    },
+    {
+      "id": "root/FuelPHP",
+      "source_path": "FuelPHP.gitignore",
+      "category": "root",
+      "sha256": "975eccb69b0e09df9b3395f62c69f9d435ae82eacd53f6bf6bb59080d19ef439",
+      "bytes": 648
+    },
+    {
+      "id": "root/GWT",
+      "source_path": "GWT.gitignore",
+      "category": "root",
+      "sha256": "cb3dd02b3cd87fb649ee7306760879177d1d739118ebbf9f4b19e00271dcadd3",
+      "bytes": 343
+    },
+    {
+      "id": "root/Gcov",
+      "source_path": "Gcov.gitignore",
+      "category": "root",
+      "sha256": "bf764688c2a7defd7ff5e82c6fd93d1e4678864e3c5f4ac54a70b85a0a74da2c",
+      "bytes": 56
+    },
+    {
+      "id": "root/GitBook",
+      "source_path": "GitBook.gitignore",
+      "category": "root",
+      "sha256": "63afe166951a7eea420b168273d1b9c8a872149406eb7324620548cebadad011",
+      "bytes": 353
+    },
+    {
+      "id": "root/GitHubPages",
+      "source_path": "GitHubPages.gitignore",
+      "category": "root",
+      "sha256": "f53523f34f7f9b015184f95dcc8509e7ac6f729c5105657e450652282e4f23dd",
+      "bytes": 665
+    },
+    {
+      "id": "root/Gleam",
+      "source_path": "Gleam.gitignore",
+      "category": "root",
+      "sha256": "aef64fb95bec23c34d0506eb4f5d64ddbfa3af4980972b8e34150d34ecf62e19",
+      "bytes": 34
+    },
+    {
+      "id": "root/Go",
+      "source_path": "Go.gitignore",
+      "category": "root",
+      "sha256": "63a6bdc727e45c5811e6a6d664205d2a07948f03881839831c2fa92434509da2",
+      "bytes": 559
+    },
+    {
+      "id": "root/Godot",
+      "source_path": "Godot.gitignore",
+      "category": "root",
+      "sha256": "99c5b2d34e8564a746f955f8c32dc10b93d9ea687ac7812fd971b3dd13ef9334",
+      "bytes": 296
+    },
+    {
+      "id": "root/Gradle",
+      "source_path": "Gradle.gitignore",
+      "category": "root",
+      "sha256": "a99cf450496a973f284a66ac7d4990b354dc5cd21acd5b693050a239a8e88936",
+      "bytes": 412
+    },
+    {
+      "id": "root/Grails",
+      "source_path": "Grails.gitignore",
+      "category": "root",
+      "sha256": "9b68f67ab15514b44062309d9bc6a29db64c797df22cfd766ab3eb56d4e1b061",
+      "bytes": 583
+    },
+    {
+      "id": "root/HIP",
+      "source_path": "HIP.gitignore",
+      "category": "root",
+      "sha256": "aeb77ee5a4834637ed27c035be4b0c2b9e8f2b406502d69b2768ba21d1ce8fdd",
+      "bytes": 1544
+    },
+    {
+      "id": "root/Haskell",
+      "source_path": "Haskell.gitignore",
+      "category": "root",
+      "sha256": "4e2c01e708551c842fc55d1b2cd9f3b629f743989cd9ec91d16b6ebb01ff0b63",
+      "bytes": 225
+    },
+    {
+      "id": "root/Haxe",
+      "source_path": "Haxe.gitignore",
+      "category": "root",
+      "sha256": "d67edcb3e9eb45ef96af6e4c73906c105e0e72e3a5974cb275c2f07634c5c4da",
+      "bytes": 36
+    },
+    {
+      "id": "root/IAR",
+      "source_path": "IAR.gitignore",
+      "category": "root",
+      "sha256": "192d1fb8fcfb2fe7b4ea09ddbabcd7535745f2981198f5bb8bc6191cc9f1b219",
+      "bytes": 542
+    },
+    {
+      "id": "root/IGORPro",
+      "source_path": "IGORPro.gitignore",
+      "category": "root",
+      "sha256": "79623a032c9c3a8055f61b3fddb163a0bd8d2aa8487032d06f8d09eb92854de9",
+      "bytes": 121
+    },
+    {
+      "id": "root/Idris",
+      "source_path": "Idris.gitignore",
+      "category": "root",
+      "sha256": "14cbce7796961f3dc681f5f69e50cc658c7b3f67ede6908d3e234f5462705933",
+      "bytes": 43
+    },
+    {
+      "id": "root/JBoss",
+      "source_path": "JBoss.gitignore",
+      "category": "root",
+      "sha256": "1b358ced734a287dd400aac524d4b31a64f04f331cd01d533db766a278a2e2c2",
+      "bytes": 509
+    },
+    {
+      "id": "root/JENKINS_HOME",
+      "source_path": "JENKINS_HOME.gitignore",
+      "category": "root",
+      "sha256": "60c0c83ee53a9e30c2b28a623ddf2e9818666d6ce4e69e5d393cecf41ce84c9b",
+      "bytes": 1816
+    },
+    {
+      "id": "root/Java",
+      "source_path": "Java.gitignore",
+      "category": "root",
+      "sha256": "affbdc2a83b7d656b98cb2f77f6c33e8ce8221919ea1a50d803b19647588f07d",
+      "bytes": 290
+    },
+    {
+      "id": "root/Jekyll",
+      "source_path": "Jekyll.gitignore",
+      "category": "root",
+      "sha256": "d52af0f80b768a627352ce3da91ad5af1396c77964587570d42b23fd9683bae6",
+      "bytes": 107
+    },
+    {
+      "id": "root/Joomla",
+      "source_path": "Joomla.gitignore",
+      "category": "root",
+      "sha256": "0accfe4e93e78ee6d35193ed3becca4a261e25064cd83e5cdca42fb0246b8934",
+      "bytes": 31043
+    },
+    {
+      "id": "root/Julia",
+      "source_path": "Julia.gitignore",
+      "category": "root",
+      "sha256": "c0f5702eba35fbabb114d5ca4840190eedb77537702bb32cef955fb88e455b90",
+      "bytes": 1030
+    },
+    {
+      "id": "root/Katalon",
+      "source_path": "Katalon.gitignore",
+      "category": "root",
+      "sha256": "e0189f517943d9246f7c2c5a3260d0311d43f23b771e6a593d347ee858367c05",
+      "bytes": 464
+    },
+    {
+      "id": "root/KiCad",
+      "source_path": "KiCad.gitignore",
+      "category": "root",
+      "sha256": "23b2218d34018828b48672629b83a439254efea73062c81a746cf55826b8f085",
+      "bytes": 607
+    },
+    {
+      "id": "root/Kohana",
+      "source_path": "Kohana.gitignore",
+      "category": "root",
+      "sha256": "3316bc17d92fad835a9847f61f038c69a94b58d8ff86ec0d54a8004d45ac2241",
+      "bytes": 39
+    },
+    {
+      "id": "root/Kotlin",
+      "source_path": "Kotlin.gitignore",
+      "category": "root",
+      "sha256": "fe29173561286de399f333ad2c753a9009cdfa0a283a939986239258c09aa694",
+      "bytes": 425
+    },
+    {
+      "id": "root/LabVIEW",
+      "source_path": "LabVIEW.gitignore",
+      "category": "root",
+      "sha256": "8f7268d22d6bf29ff0f07a2cd256d4de1c13fae0e746b5f8f6527e55fef3b294",
+      "bytes": 150
+    },
+    {
+      "id": "root/LangChain",
+      "source_path": "LangChain.gitignore",
+      "category": "root",
+      "sha256": "d48b7241fa246da019a838b8aafcf208e7aed323766bab18fc2509923a3d5cec",
+      "bytes": 186
+    },
+    {
+      "id": "root/Laravel",
+      "source_path": "Laravel.gitignore",
+      "category": "root",
+      "sha256": "aa74ee9235d9e2ff681335e85d4b1ab24082faa26e3b03eee83b85f3f2df573f",
+      "bytes": 437
+    },
+    {
+      "id": "root/Lasal",
+      "source_path": "Lasal.gitignore",
+      "category": "root",
+      "sha256": "2e972cf98398df067fde5b9c9ce6e4e0b46b8080f62defb23f9b71b699db7f7f",
+      "bytes": 852
+    },
+    {
+      "id": "root/Lean",
+      "source_path": "Lean.gitignore",
+      "category": "root",
+      "sha256": "98252e18cc52f154a43aada65d6e14c703d3a517a2661e4dbefc2bae214946d1",
+      "bytes": 70
+    },
+    {
+      "id": "root/Leiningen",
+      "source_path": "Leiningen.gitignore",
+      "category": "root",
+      "sha256": "d8f9c76ea8787c6a0f96be13b22db2e52fb2acc0857b72304c62abebb6607398",
+      "bytes": 157
+    },
+    {
+      "id": "root/LemonStand",
+      "source_path": "LemonStand.gitignore",
+      "category": "root",
+      "sha256": "d5e5bedabaf49e7a89de460596c3bdd592a560d7c7e759fcb3e5275c6e55d1ac",
+      "bytes": 348
+    },
+    {
+      "id": "root/Lilypond",
+      "source_path": "Lilypond.gitignore",
+      "category": "root",
+      "sha256": "3a66557fa3384aee22fef8cb539533658ccb59de3d1a4d9875a2829c7c9e7a99",
+      "bytes": 33
+    },
+    {
+      "id": "root/Lithium",
+      "source_path": "Lithium.gitignore",
+      "category": "root",
+      "sha256": "c574be837446fbb85ea87893b68525dcaee1aa6ba0706de6d108e025cc72118a",
+      "bytes": 28
+    },
+    {
+      "id": "root/Lua",
+      "source_path": "Lua.gitignore",
+      "category": "root",
+      "sha256": "69506cc380834fe9a916d479f4cd969e488c003e947ff1fc7cd74452c1021b90",
+      "bytes": 323
+    },
+    {
+      "id": "root/Luau",
+      "source_path": "Luau.gitignore",
+      "category": "root",
+      "sha256": "31f17a7f804d4bb0d2dffc3fbd280168c2ace844e255bfa3b3d8f7ef9a218ae1",
+      "bytes": 236
+    },
+    {
+      "id": "root/Magento",
+      "source_path": "Magento.gitignore",
+      "category": "root",
+      "sha256": "2bbbd184c482fa954420c232a02c04d944076956778fcfc408fae18383527490",
+      "bytes": 714
+    },
+    {
+      "id": "root/Maven",
+      "source_path": "Maven.gitignore",
+      "category": "root",
+      "sha256": "6d870134b5fc2c60265e0bcfe6b7697b7b52c1bb4ea690597e375174529569e4",
+      "bytes": 390
+    },
+    {
+      "id": "root/Mercury",
+      "source_path": "Mercury.gitignore",
+      "category": "root",
+      "sha256": "95478da1c91ff6c710f9752ab3c8bf063f5b05193603d3b470771971191f1b8d",
+      "bytes": 93
+    },
+    {
+      "id": "root/MetaProgrammingSystem",
+      "source_path": "MetaProgrammingSystem.gitignore",
+      "category": "root",
+      "sha256": "93890e1ffd89841259b189fc9b8bc41565df9ed6395c05ce4a2136d8dcd79e13",
+      "bytes": 391
+    },
+    {
+      "id": "root/ModelSim",
+      "source_path": "ModelSim.gitignore",
+      "category": "root",
+      "sha256": "3b5dd3309d56882aa1a10ab7b6406c76eda118d45305483ebce237c7fccae543",
+      "bytes": 282
+    },
+    {
+      "id": "root/Modelica",
+      "source_path": "Modelica.gitignore",
+      "category": "root",
+      "sha256": "d9394f1ab5b2a803620e279205448f1c6a6bf16ed1729f22d6d0cd2cc9fec01c",
+      "bytes": 476
+    },
+    {
+      "id": "root/MoonBit",
+      "source_path": "MoonBit.gitignore",
+      "category": "root",
+      "sha256": "8b532e65f85b6df784502ddd5f4377d7db6835c9e0dbdfe470193228055e07cf",
+      "bytes": 1138
+    },
+    {
+      "id": "root/Nanoc",
+      "source_path": "Nanoc.gitignore",
+      "category": "root",
+      "sha256": "b958a952c8abfefd612542f0e0a258908c37c39d8404aff96e45612e63ffc4c1",
+      "bytes": 203
+    },
+    {
+      "id": "root/Nestjs",
+      "source_path": "Nestjs.gitignore",
+      "category": "root",
+      "sha256": "1362b210a9e9323559f7608f325ffd09fe980de28f9a1b0add761d91b48c39c7",
+      "bytes": 263
+    },
+    {
+      "id": "root/Nextjs",
+      "source_path": "Nextjs.gitignore",
+      "category": "root",
+      "sha256": "62eeaecca8c1ce78c55ca96d01a74a2beb95d6fdeb3ceb866300a4203c6b69fe",
+      "bytes": 373
+    },
+    {
+      "id": "root/Nim",
+      "source_path": "Nim.gitignore",
+      "category": "root",
+      "sha256": "266b368f7338301d955d47786f742d5f2136d1c076ddbd64821b73251cceab47",
+      "bytes": 33
+    },
+    {
+      "id": "root/Nix",
+      "source_path": "Nix.gitignore",
+      "category": "root",
+      "sha256": "12936578f3277edc2ab615cb302c3e3542be51b3f7e212785bba7404637db729",
+      "bytes": 217
+    },
+    {
+      "id": "root/Node",
+      "source_path": "Node.gitignore",
+      "category": "root",
+      "sha256": "ae3ac05cd16b0f6c4251fd30d74c12866d1ba6daa365aacc2e32ddfc09a478f6",
+      "bytes": 2165
+    },
+    {
+      "id": "root/OCaml",
+      "source_path": "OCaml.gitignore",
+      "category": "root",
+      "sha256": "0c3a921ce8e5205048e7565e544c4d1e58993b91099ee1a3b31c9a1dc411e174",
+      "bytes": 545
+    },
+    {
+      "id": "root/Objective-C",
+      "source_path": "Objective-C.gitignore",
+      "category": "root",
+      "sha256": "493559871229099670ee7ef65518fab3c5650196c907e4d16b4144797b745aab",
+      "bytes": 1140
+    },
+    {
+      "id": "root/Opa",
+      "source_path": "Opa.gitignore",
+      "category": "root",
+      "sha256": "4628862c29a7105ec831162de34fb6c5b2c7db0a01f2f08112e6174666259dec",
+      "bytes": 90
+    },
+    {
+      "id": "root/OpenCart",
+      "source_path": "OpenCart.gitignore",
+      "category": "root",
+      "sha256": "df49484a922b5732e4593b94990ced40bd01c531fe1cf01d39b13a9eb713dc90",
+      "bytes": 237
+    },
+    {
+      "id": "root/OracleForms",
+      "source_path": "OracleForms.gitignore",
+      "category": "root",
+      "sha256": "206f4a27f146d557661675742a12d7f927290e7173e2063848a40f8e2e49230a",
+      "bytes": 100
+    },
+    {
+      "id": "root/Packer",
+      "source_path": "Packer.gitignore",
+      "category": "root",
+      "sha256": "0e13c1ae4f48c6bf400a9461736d50296db02a3c28f34acbd10a12029afdbe55",
+      "bytes": 427
+    },
+    {
+      "id": "root/Perl",
+      "source_path": "Perl.gitignore",
+      "category": "root",
+      "sha256": "9b3159aae087fa8b38dfee29eaf268a82c23b65b9be128ab95f12bc7e720cec3",
+      "bytes": 461
+    },
+    {
+      "id": "root/Phalcon",
+      "source_path": "Phalcon.gitignore",
+      "category": "root",
+      "sha256": "7ea6247b0e135cf871da999fe77ca6734e7730823b79aaf50f56a2510c607680",
+      "bytes": 29
+    },
+    {
+      "id": "root/PlayFramework",
+      "source_path": "PlayFramework.gitignore",
+      "category": "root",
+      "sha256": "b0e0e8fe8c07275ed9bbd19ec27c448b84b1d654efea813021502bd013792b47",
+      "bytes": 164
+    },
+    {
+      "id": "root/Plone",
+      "source_path": "Plone.gitignore",
+      "category": "root",
+      "sha256": "a37dd3d1999b7633a72b066b6b0d3c4645d48e54d1acd4005ba029699ad00600",
+      "bytes": 137
+    },
+    {
+      "id": "root/Prestashop",
+      "source_path": "Prestashop.gitignore",
+      "category": "root",
+      "sha256": "4ec781c03ab9526ac340778e25657dd469d6cbce1af789678287e14a7259ab84",
+      "bytes": 3329
+    },
+    {
+      "id": "root/Processing",
+      "source_path": "Processing.gitignore",
+      "category": "root",
+      "sha256": "79519393f25d7c1f4fe4f82394f01c2f94e33af4d2d478a31c2da648d76480c5",
+      "bytes": 174
+    },
+    {
+      "id": "root/PureScript",
+      "source_path": "PureScript.gitignore",
+      "category": "root",
+      "sha256": "380c7ed58cddd93ee7c86f11aee57f52ab42c14d21620d67fd16ad3624d0df4c",
+      "bytes": 98
+    },
+    {
+      "id": "root/Python",
+      "source_path": "Python.gitignore",
+      "category": "root",
+      "sha256": "bd3551745ade4ac05d25e0ea719b8b9e1b5dff1d05325375802ad50a9b5d8f18",
+      "bytes": 4655
+    },
+    {
+      "id": "root/Qooxdoo",
+      "source_path": "Qooxdoo.gitignore",
+      "category": "root",
+      "sha256": "75d7a33ff59f78c4de3dad9482b663bf4177757cbc8a36a96f0f656470200888",
+      "bytes": 58
+    },
+    {
+      "id": "root/Qt",
+      "source_path": "Qt.gitignore",
+      "category": "root",
+      "sha256": "dec188b42c2ff537c5639ee8262e58b2dee5a841b622916b9c0bd0343283af0f",
+      "bytes": 642
+    },
+    {
+      "id": "root/R",
+      "source_path": "R.gitignore",
+      "category": "root",
+      "sha256": "5748fdfee6509a429dc841563e14713907524ca919767160d51403c0a41b9d83",
+      "bytes": 671
+    },
+    {
+      "id": "root/ROS",
+      "source_path": "ROS.gitignore",
+      "category": "root",
+      "sha256": "96d784df3a0f3b65236da259de566eda40cdd224a526d5c957959d3a80e1bbf1",
+      "bytes": 538
+    },
+    {
+      "id": "root/Racket",
+      "source_path": "Racket.gitignore",
+      "category": "root",
+      "sha256": "761fe604613de4556351954a4561bc38ccd1baff8eaa09631983b101ed433b5c",
+      "bytes": 44
+    },
+    {
+      "id": "root/Rails",
+      "source_path": "Rails.gitignore",
+      "category": "root",
+      "sha256": "f2cd60aec23682be64a933624e094f91ddccc61cc12d18ea5f064cb65ba56345",
+      "bytes": 1352
+    },
+    {
+      "id": "root/Raku",
+      "source_path": "Raku.gitignore",
+      "category": "root",
+      "sha256": "f254a7312a155744f523249787913dfc9fd998db80d66c66abc1d3dceda24b60",
+      "bytes": 132
+    },
+    {
+      "id": "root/ReScript",
+      "source_path": "ReScript.gitignore",
+      "category": "root",
+      "sha256": "ae7bd77c79834f638537a04942d65c96a914d12721aed1084683bb85508477b0",
+      "bytes": 31
+    },
+    {
+      "id": "root/RhodesRhomobile",
+      "source_path": "RhodesRhomobile.gitignore",
+      "category": "root",
+      "sha256": "2d96205d69be8079209fd1058fe1d2e7413ebb6141fd7216c8d334f2c6a0e34a",
+      "bytes": 77
+    },
+    {
+      "id": "root/Ruby",
+      "source_path": "Ruby.gitignore",
+      "category": "root",
+      "sha256": "f88885ba4c505a17cc766a113429b3203ee3736e2b26dbcfe26c928019bf7758",
+      "bytes": 1205
+    },
+    {
+      "id": "root/Rust",
+      "source_path": "Rust.gitignore",
+      "category": "root",
+      "sha256": "26431918e449693f4385438e3955a1e078dbc9a4c78e68d8e6caf7a21647b1ff",
+      "bytes": 779
+    },
+    {
+      "id": "root/SCons",
+      "source_path": "SCons.gitignore",
+      "category": "root",
+      "sha256": "c81020cfdb19d358b875b5ae0c8cc4239556237f1ca23a0157b44fe2f32fe14b",
+      "bytes": 158
+    },
+    {
+      "id": "root/SSDT-sqlproj",
+      "source_path": "SSDT-sqlproj.gitignore",
+      "category": "root",
+      "sha256": "7241104c6c88e4b214844fbc8e26a7e4ec35f10a3ab489231afd9aa80a990221",
+      "bytes": 471
+    },
+    {
+      "id": "root/Salesforce",
+      "source_path": "Salesforce.gitignore",
+      "category": "root",
+      "sha256": "889cb5f0e7a248769e31294525f06cb849507186f8d1690ef22433e56029abbf",
+      "bytes": 732
+    },
+    {
+      "id": "root/Sass",
+      "source_path": "Sass.gitignore",
+      "category": "root",
+      "sha256": "bc2e0a695b24d53eab69259f9a3f9bee82666663c59158d9f6a1e12c7f8e97b7",
+      "bytes": 45
+    },
+    {
+      "id": "root/Scala",
+      "source_path": "Scala.gitignore",
+      "category": "root",
+      "sha256": "cbffdc9244ff9cd3ae5336673afe72d2b1b3212aa4346417c0dff7018ba3b3f4",
+      "bytes": 124
+    },
+    {
+      "id": "root/Scheme",
+      "source_path": "Scheme.gitignore",
+      "category": "root",
+      "sha256": "0589eec00fee7aff151d4bc80a0916f0b5a902674f87cf886e932bb2550ece02",
+      "bytes": 44
+    },
+    {
+      "id": "root/Scrivener",
+      "source_path": "Scrivener.gitignore",
+      "category": "root",
+      "sha256": "3708b47672057fd49b930222fc22f5157fcbbc73579a19024792670006e9a4f6",
+      "bytes": 174
+    },
+    {
+      "id": "root/Sdcc",
+      "source_path": "Sdcc.gitignore",
+      "category": "root",
+      "sha256": "2713ab7931c0656dd85a55a1fb6c367d678a3fe222cc73428e4049036fb996b7",
+      "bytes": 55
+    },
+    {
+      "id": "root/SeamGen",
+      "source_path": "SeamGen.gitignore",
+      "category": "root",
+      "sha256": "922cb152e4356ff94f08c78d0d388bc2bf31ec45c782123593623d28bfff862b",
+      "bytes": 961
+    },
+    {
+      "id": "root/SketchUp",
+      "source_path": "SketchUp.gitignore",
+      "category": "root",
+      "sha256": "080e093bb9ab3a546a2255cb05f8066fe0215e70e88ad50a2f28c955feb333ca",
+      "bytes": 6
+    },
+    {
+      "id": "root/Smalltalk",
+      "source_path": "Smalltalk.gitignore",
+      "category": "root",
+      "sha256": "b83b5513287c3f6ac77a2c98c122d1e1be94fe680709fc833caf5852a7965387",
+      "bytes": 388
+    },
+    {
+      "id": "root/SolidWorks",
+      "source_path": "SolidWorks.gitignore",
+      "category": "root",
+      "sha256": "b4b925cba92bcad7074f61f9de7091be88392d3f88b4264278a0aae38735c0a5",
+      "bytes": 318
+    },
+    {
+      "id": "root/Solidity-Remix",
+      "source_path": "Solidity-Remix.gitignore",
+      "category": "root",
+      "sha256": "178c887411586c501948550d8d22ba4c7924701cc7c1c7e754a70ee260b7be21",
+      "bytes": 167
+    },
+    {
+      "id": "root/Stella",
+      "source_path": "Stella.gitignore",
+      "category": "root",
+      "sha256": "d82ebc0756bf904425ed989ef0150ef4fd9446bd7807b920fdee5cb8a7969370",
+      "bytes": 207
+    },
+    {
+      "id": "root/SugarCRM",
+      "source_path": "SugarCRM.gitignore",
+      "category": "root",
+      "sha256": "b7c69444777899b5ed16481b240a89d9d6a4f1628dadd649267cc778e72807f5",
+      "bytes": 775
+    },
+    {
+      "id": "root/Swift",
+      "source_path": "Swift.gitignore",
+      "category": "root",
+      "sha256": "c9981d2b6add12673e979f04c6a57abc1e1224ce4a0125ccea01f9084322ab0c",
+      "bytes": 1593
+    },
+    {
+      "id": "root/Symfony",
+      "source_path": "Symfony.gitignore",
+      "category": "root",
+      "sha256": "b940e1ca2cb0f8b86f615b6f76d1d76d421609880d729b8bb30c471b246c229b",
+      "bytes": 799
+    },
+    {
+      "id": "root/SymphonyCMS",
+      "source_path": "SymphonyCMS.gitignore",
+      "category": "root",
+      "sha256": "edf283bc2c42c7a0fb82c7bc6cc1ef1b10f77900ad3f6d50a49504bc465fb4eb",
+      "bytes": 90
+    },
+    {
+      "id": "root/TeX",
+      "source_path": "TeX.gitignore",
+      "category": "root",
+      "sha256": "78ee2a68555aaf3f2ea967e70972f0ddfaa95e787a78c9cadf61d148e0141ee8",
+      "bytes": 3392
+    },
+    {
+      "id": "root/Terraform",
+      "source_path": "Terraform.gitignore",
+      "category": "root",
+      "sha256": "8e5f13c68d32f4dcc3c8e1229132fb1dbd7bc3bd96026afd02fa194261128a84",
+      "bytes": 1200
+    },
+    {
+      "id": "root/TestComplete",
+      "source_path": "TestComplete.gitignore",
+      "category": "root",
+      "sha256": "055caaf5c0c2a038186632bb8e387fcbfdb78dd63e4be773e59aaf4e50c3c3f3",
+      "bytes": 209
+    },
+    {
+      "id": "root/Textpattern",
+      "source_path": "Textpattern.gitignore",
+      "category": "root",
+      "sha256": "1cd54e1bc011f1c765541883eee2ae39bfeb7af93d479666c9974f78d0560334",
+      "bytes": 177
+    },
+    {
+      "id": "root/TurboGears2",
+      "source_path": "TurboGears2.gitignore",
+      "category": "root",
+      "sha256": "6789d494fc1fa12a49cc91627c9bdac909221b709289003143fb7b3d9e2067b0",
+      "bytes": 202
+    },
+    {
+      "id": "root/TwinCAT3",
+      "source_path": "TwinCAT3.gitignore",
+      "category": "root",
+      "sha256": "757ddfe1696151d8bb3b7a5a9c3efc4cc3af80a4af70704c15e67e515c160c3e",
+      "bytes": 1038
+    },
+    {
+      "id": "root/Typo3",
+      "source_path": "Typo3.gitignore",
+      "category": "root",
+      "sha256": "b7aa143a155a2ff309e16ab772976bafe129ecaacaf7fe60230377dd92a27294",
+      "bytes": 514
+    },
+    {
+      "id": "root/Unity",
+      "source_path": "Unity.gitignore",
+      "category": "root",
+      "sha256": "46856ba8f636e3c0cf14361a36e0b4c08e13b22bfa0b6ce700eac42bef71bc80",
+      "bytes": 2558
+    },
+    {
+      "id": "root/UnrealEngine",
+      "source_path": "UnrealEngine.gitignore",
+      "category": "root",
+      "sha256": "886c4b93ae6e6092b00a109c2d6cb85f39704a988c692d6b205e39114d7f4e79",
+      "bytes": 958
+    },
+    {
+      "id": "root/VBA",
+      "source_path": "VBA.gitignore",
+      "category": "root",
+      "sha256": "9420974f2e4ef0668931f75cbb13b5b4610a58aaca75aa43b3aef0be0001358b",
+      "bytes": 885
+    },
+    {
+      "id": "root/VVVV",
+      "source_path": "VVVV.gitignore",
+      "category": "root",
+      "sha256": "0b6d89a37e608bebc4c680c37d62c68d5e7d8c3952a7605c5cf9db7a2378f6c8",
+      "bytes": 57
+    },
+    {
+      "id": "root/VisualStudio",
+      "source_path": "VisualStudio.gitignore",
+      "category": "root",
+      "sha256": "cbed134c8bc8b85079dd45fbeeab58a54b8b93746c7dabca21d512982320987d",
+      "bytes": 7454
+    },
+    {
+      "id": "root/Waf",
+      "source_path": "Waf.gitignore",
+      "category": "root",
+      "sha256": "7a2f032b54515d4017c45cd6d7d779dce901a65b71d176511ca6398e96a3f9b6",
+      "bytes": 204
+    },
+    {
+      "id": "root/WordPress",
+      "source_path": "WordPress.gitignore",
+      "category": "root",
+      "sha256": "5e9128808010abca47b6a080838180bd5819508550ecca0ce86c0cde6040b936",
+      "bytes": 850
+    },
+    {
+      "id": "root/Xojo",
+      "source_path": "Xojo.gitignore",
+      "category": "root",
+      "sha256": "6d5b434f13161268d5f3260abb6bd429b62ed7531a4b31e8238d0266dc16ada9",
+      "bytes": 161
+    },
+    {
+      "id": "root/Yeoman",
+      "source_path": "Yeoman.gitignore",
+      "category": "root",
+      "sha256": "655fc7bbf61b76c2db6e0ca42f8ddf28c964f531b7fb36f1af31f28c68fe8cb4",
+      "bytes": 52
+    },
+    {
+      "id": "root/Yii",
+      "source_path": "Yii.gitignore",
+      "category": "root",
+      "sha256": "1ddb06da611887839e4ac536dad9c3a093058496c197df9f10e96b5544cd3c3b",
+      "bytes": 120
+    },
+    {
+      "id": "root/ZendFramework",
+      "source_path": "ZendFramework.gitignore",
+      "category": "root",
+      "sha256": "07fffc980605f6a93a52cc81d37a7b4b6cfdf7bbf67676f626c59ec63c54bfac",
+      "bytes": 290
+    },
+    {
+      "id": "root/Zephir",
+      "source_path": "Zephir.gitignore",
+      "category": "root",
+      "sha256": "9976f9409a0f0786312e24611f90d573da669b9b31e87d1c95e906d3c904995d",
+      "bytes": 387
+    },
+    {
+      "id": "root/Zig",
+      "source_path": "Zig.gitignore",
+      "category": "root",
+      "sha256": "a2f22af855f82a7f617c0eb6f4cfa25b01c75ccfd459d46457aecc06e649bca6",
+      "bytes": 25
+    },
+    {
+      "id": "root/bun",
+      "source_path": "bun.gitignore",
+      "category": "root",
+      "sha256": "1a63c81fd090d26eb5fcb5a40b226c28e304d909aa0d1daf40104104522ecbec",
+      "bytes": 1701
+    },
+    {
+      "id": "root/ecu.test",
+      "source_path": "ecu.test.gitignore",
+      "category": "root",
+      "sha256": "a54ebf486ad332ab603b6a94fb5ca5b340d5871c319750b800a98e1795a1b62f",
+      "bytes": 2038
+    }
+  ]
+}

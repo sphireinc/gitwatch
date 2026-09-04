@@ -18,11 +18,12 @@ func main() {
 	repository := flag.String("repo", gitignoresync.DefaultRepository, "upstream repository")
 	archiveURL := flag.String("archive-url", "", "archive URL override, primarily for tests")
 	out := flag.String("out", "internal/gitignore/assets", "generated asset directory")
+	skipSymlinks := flag.Bool("skip-symlinks", false, "skip upstream symlink aliases")
 	flag.Parse()
 	if *commit == "" {
 		fatal("--commit is required")
 	}
-	assets, license, err := gitignoresync.Fetch(context.Background(), nil, gitignoresync.Config{Repository: *repository, Commit: *commit, ArchiveURL: *archiveURL, SyncedAt: syncTime()})
+	assets, license, err := gitignoresync.Fetch(context.Background(), nil, gitignoresync.Config{Repository: *repository, Commit: *commit, ArchiveURL: *archiveURL, SyncedAt: syncTime(), SkipSymlinks: *skipSymlinks})
 	if err != nil {
 		fatal("fetch archive: %v", err)
 	}

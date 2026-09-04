@@ -43,6 +43,7 @@ type Config struct {
 	MaxArchiveBytes int64
 	MaxEntryBytes   int64
 	SyncedAt        time.Time
+	SkipSymlinks    bool
 }
 
 type Asset struct {
@@ -147,6 +148,9 @@ func ParseZipArchive(data []byte, cfg Config) ([]Asset, []byte, error) {
 			continue
 		}
 		if entry.Mode()&os.ModeSymlink != 0 {
+			if cfg.SkipSymlinks {
+				continue
+			}
 			return nil, nil, fmt.Errorf("%w: %s", ErrUnsupportedArchiveEntry, clean)
 		}
 		if !entry.FileInfo().Mode().IsRegular() {
@@ -182,6 +186,7 @@ func ParseZipArchive(data []byte, cfg Config) ([]Asset, []byte, error) {
 		if err != nil {
 			return nil, nil, err
 		}
+		content = canonicalize(content)
 		assets = append(assets, Asset{Template: domain.Template{ID: id, Name: strings.TrimSuffix(path.Base(source), ".gitignore"), Category: category, SourcePath: clean, ContentSHA256: digest(content)}, Content: append([]byte(nil), content...)})
 	}
 	sort.Slice(assets, func(i, j int) bool { return assets[i].Template.ID < assets[j].Template.ID })
@@ -246,6 +251,7 @@ func ParseArchive(data []byte, cfg Config) ([]Asset, []byte, error) {
 		if err != nil {
 			return nil, nil, err
 		}
+		content = canonicalize(content)
 		assets = append(assets, Asset{Template: domain.Template{ID: id, Name: strings.TrimSuffix(path.Base(source), ".gitignore"), Category: category, SourcePath: clean, ContentSHA256: digest(content)}, Content: append([]byte(nil), content...)})
 	}
 	sort.Slice(assets, func(i, j int) bool { return assets[i].Template.ID < assets[j].Template.ID })
@@ -314,3 +320,19 @@ func classify(value string) (domain.TemplateCategory, string, bool) {
 }
 
 func digest(value []byte) string { sum := sha256.Sum256(value); return hex.EncodeToString(sum[:]) }
+
+// canonicalize makes generated vendor assets stable and compatible with the
+// repository's source whitespace checks. It does not touch user-authored
+// repository .gitignore documents.
+func canonicalize(value []byte) []byte {
+	value = bytes.ReplaceAll(value, []byte("\r\n"), []byte("\n"))
+	value = bytes.ReplaceAll(value, []byte("\r"), []byte("\n"))
+	lines := bytes.Split(value, []byte("\n"))
+	for i := range lines {
+		lines[i] = bytes.TrimRight(lines[i], " \t")
+	}
+	for len(lines) > 1 && len(lines[len(lines)-1]) == 0 && len(lines[len(lines)-2]) == 0 {
+		lines = lines[:len(lines)-1]
+	}
+	return bytes.Join(lines, []byte("\n"))
+}
