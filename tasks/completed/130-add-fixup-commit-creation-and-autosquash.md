@@ -52,7 +52,7 @@ Support the fast history-cleanup workflow: create `fixup!` commits from current 
 
 **Status:** Complete
 
-- Implementation commit: recorded after this completion note is staged; `internal/git/commit.go` now supports `git commit --fixup=<sha>`, while `internal/git/rebase.go` accepts controlled autosquash execution. History and rebaseview controls are wired through `internal/app`.
+- Implementation commit: `502152f` (`feat: add fixup commits and autosquash`). `internal/git/commit.go` now supports `git commit --fixup=<sha>`, while `internal/git/rebase.go` accepts controlled autosquash execution. History and rebaseview controls are wired through `internal/app`.
 - Exact tested revision: `74cda9f` plus the working-tree Task 130 changes.
 - Focused tests: Git fixup integration, rebase plan, rebaseview, and app tests passed; the fixup test verified a real `fixup!` subject and explicit staging.
 - Repository tests: `go test ./...` passed.
