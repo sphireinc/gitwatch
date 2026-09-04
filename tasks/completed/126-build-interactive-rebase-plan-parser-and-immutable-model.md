@@ -47,7 +47,7 @@ Represent Git’s todo plan safely and losslessly enough for reordering and acti
 
 **Status:** Complete
 
-- Implementation commit: recorded after this completion note is staged; the implementation is in `internal/rebase/plan.go` with tests in `internal/rebase/plan_test.go`.
+- Implementation commit: `293cfe3` (`feat: add interactive rebase plan model`). The implementation is in `internal/rebase/plan.go` with tests in `internal/rebase/plan_test.go`.
 - Exact tested revision: `bfc7e87` plus the working-tree Task 126 changes.
 - Focused tests: `GOCACHE=/tmp/gitwatch-go-cache go test ./internal/rebase -v` passed (5 tests).
 - Repository tests: `go test ./...` passed.
