@@ -3,6 +3,7 @@ package repo
 import (
 	"time"
 
+	"github.com/sphireinc/git-watch/internal/conflicts"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
@@ -77,6 +78,7 @@ type Snapshot struct {
 	GitDir          string
 	Branch          Branch
 	Entries         []Entry
+	Conflicts       []conflicts.Conflict
 	Counts          Counts
 	Generation      uint64
 	ObservedAt      time.Time
@@ -90,6 +92,10 @@ type Snapshot struct {
 // Clone returns an independent snapshot copy safe for model ownership.
 func (s Snapshot) Clone() Snapshot {
 	s.Entries = append([]Entry(nil), s.Entries...)
+	s.Conflicts = append([]conflicts.Conflict(nil), s.Conflicts...)
+	for i := range s.Conflicts {
+		s.Conflicts[i].Path = append([]byte(nil), s.Conflicts[i].Path...)
+	}
 	for i := range s.Entries {
 		s.Entries[i].Path = append(Path(nil), s.Entries[i].Path...)
 		s.Entries[i].Original = append(Path(nil), s.Entries[i].Original...)

@@ -48,10 +48,10 @@ Build precise conflict state from Git index stages rather than human-readable er
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commit recorded: `feat: add first-class unmerged index conflict model`.
+- [x] Exact tested revision recorded: implementation commit below.
+- [x] Focused unit/integration tests recorded: `go test ./internal/conflicts ./internal/git ./internal/repo`.
+- [x] `go test ./...` recorded: passed.
+- [x] Race/vet/lint/format evidence recorded where applicable: `go test -race ./...`, `go vet ./...`, `gofmt`, and `git diff --check` passed; `make check` reached lint but the environment denied `/Users/JuanSanchez/Library/Caches/go-build`, so golangci-lint could not start.
+- [x] Native/manual evidence recorded where this task changes terminal interaction: not applicable; this is a parser/snapshot boundary.
+- [x] Known limitations/deferred work documented: blob contents remain on-demand; conflict UI/resolution actions belong to the common resolver tasks.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/sphireinc/git-watch/internal/conflicts"
 	"github.com/sphireinc/git-watch/internal/repo"
 )
 
@@ -23,11 +24,20 @@ func Snapshot(ctx context.Context, d Discovery, generation uint64) (repo.Snapsho
 	if err != nil {
 		return repo.Snapshot{}, err
 	}
+	indexResult, err := runner.Run(ctx, "ls-files", "-u", "-z")
+	if err != nil {
+		return repo.Snapshot{}, err
+	}
+	indexConflicts, err := conflicts.ParseIndex(indexResult.Stdout)
+	if err != nil {
+		return repo.Snapshot{}, err
+	}
 	operation, err := DetectOperationState(ctx, d, generation)
 	if err != nil {
 		return repo.Snapshot{}, err
 	}
 	s := repo.Snapshot{Root: d.Root, GitDir: d.GitDir, Generation: generation, ObservedAt: time.Now(), RefreshDuration: time.Since(start), Branch: repo.Branch{Name: status.BranchHead, OID: status.BranchOID, Upstream: status.Upstream, Ahead: status.Ahead, Behind: status.Behind, Detached: d.Detached, Unborn: d.Unborn}}
+	statusConflicts := make([]conflicts.Status, 0, len(status.Entries))
 	if operation.Found {
 		s.Operation = &operation.State
 		s.OperationDiagnostics = append([]string(nil), operation.Diagnostics...)
@@ -40,6 +50,9 @@ func Snapshot(ctx context.Context, d Discovery, generation uint64) (repo.Snapsho
 		}
 		e.Deleted = len(raw.XY) == 2 && (raw.XY[0] == 'D' || raw.XY[1] == 'D')
 		s.Entries = append(s.Entries, e)
+		if raw.Kind == 'u' {
+			statusConflicts = append(statusConflicts, conflicts.Status{Path: raw.Path, XY: raw.XY, Worktree: raw.XY})
+		}
 		if e.Staged {
 			s.Counts.Staged++
 		}
@@ -56,5 +69,6 @@ func Snapshot(ctx context.Context, d Discovery, generation uint64) (repo.Snapsho
 			s.Counts.Deleted++
 		}
 	}
+	s.Conflicts = conflicts.Correlate(indexConflicts, statusConflicts)
 	return s, nil
 }
