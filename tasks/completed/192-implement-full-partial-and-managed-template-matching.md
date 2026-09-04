@@ -50,3 +50,11 @@ A user may open gitwatch on a repository whose `.gitignore` predates gitwatch. T
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added `internal/gitignore/match` with one-pass document rule indexing and deterministic results for every catalog template.
+- Distinguished managed-current, managed-edited, managed-old/update-available, unmanaged-full, partial, and absent states with coverage counts and warnings.
+- Preserved exact rule spelling and escape sequences while tolerating reordered and overlapping unmanaged rules.
+- Added tests covering current/old/edited managed blocks, unmanaged full/partial matches, and overlap behavior.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.

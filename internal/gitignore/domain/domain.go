@@ -104,6 +104,7 @@ type MatchKind string
 
 const (
 	ManagedExact        MatchKind = "managed_exact"
+	ManagedEdited       MatchKind = "managed_edited"
 	UnmanagedFull       MatchKind = "unmanaged_full"
 	Partial             MatchKind = "partial"
 	Absent              MatchKind = "absent"
