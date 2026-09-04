@@ -4,6 +4,8 @@ package sync
 
 import (
 	"archive/tar"
+	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
@@ -13,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path"
 	"sort"
 	"strings"
@@ -82,7 +85,7 @@ func Fetch(ctx context.Context, client *http.Client, cfg Config) ([]Asset, []byt
 		cfg.Repository = DefaultRepository
 	}
 	if cfg.ArchiveURL == "" {
-		cfg.ArchiveURL = "https://github.com/" + cfg.Repository + "/archive/" + cfg.Commit + ".tar.gz"
+		cfg.ArchiveURL = "https://github.com/" + cfg.Repository + "/archive/" + cfg.Commit + ".zip"
 	}
 	if cfg.MaxArchiveBytes <= 0 {
 		cfg.MaxArchiveBytes = 64 << 20
@@ -113,7 +116,79 @@ func Fetch(ctx context.Context, client *http.Client, cfg Config) ([]Asset, []byt
 	if int64(len(archive)) > cfg.MaxArchiveBytes {
 		return nil, nil, ErrArchiveTooLarge
 	}
+	if bytes.HasPrefix(archive, []byte("PK\x03\x04")) {
+		return ParseZipArchive(archive, cfg)
+	}
 	return ParseArchive(archive, cfg)
+}
+
+// ParseZipArchive imports a commit archive whose entries are regular files.
+// GitHub's ZIP endpoint materializes upstream aliases as file contents; any
+// archive entry explicitly marked as a symlink remains rejected.
+func ParseZipArchive(data []byte, cfg Config) ([]Asset, []byte, error) {
+	if err := ValidateCommit(cfg.Commit); err != nil {
+		return nil, nil, err
+	}
+	if cfg.MaxEntryBytes <= 0 {
+		cfg.MaxEntryBytes = 4 << 20
+	}
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, nil, err
+	}
+	var assets []Asset
+	var license []byte
+	for _, entry := range zr.File {
+		clean, err := archivePath(entry.Name)
+		if err != nil {
+			return nil, nil, err
+		}
+		if entry.FileInfo().IsDir() || clean == "" {
+			continue
+		}
+		if entry.Mode()&os.ModeSymlink != 0 {
+			return nil, nil, fmt.Errorf("%w: %s", ErrUnsupportedArchiveEntry, clean)
+		}
+		if !entry.FileInfo().Mode().IsRegular() {
+			return nil, nil, fmt.Errorf("%w: %s", ErrUnsupportedArchiveEntry, clean)
+		}
+		if entry.UncompressedSize64 > uint64(cfg.MaxEntryBytes) {
+			return nil, nil, ErrArchiveTooLarge
+		}
+		reader, err := entry.Open()
+		if err != nil {
+			return nil, nil, err
+		}
+		content, readErr := io.ReadAll(io.LimitReader(reader, cfg.MaxEntryBytes+1))
+		closeErr := reader.Close()
+		if readErr != nil {
+			return nil, nil, readErr
+		}
+		if closeErr != nil {
+			return nil, nil, closeErr
+		}
+		if int64(len(content)) != int64(entry.UncompressedSize64) || int64(len(content)) > cfg.MaxEntryBytes {
+			return nil, nil, ErrArchiveTooLarge
+		}
+		if clean == "LICENSE" {
+			license = append([]byte(nil), content...)
+			continue
+		}
+		category, source, ok := classify(clean)
+		if !ok {
+			continue
+		}
+		id, err := domain.NewTemplateID(category, strings.TrimSuffix(source, ".gitignore"))
+		if err != nil {
+			return nil, nil, err
+		}
+		assets = append(assets, Asset{Template: domain.Template{ID: id, Name: strings.TrimSuffix(path.Base(source), ".gitignore"), Category: category, SourcePath: clean, ContentSHA256: digest(content)}, Content: append([]byte(nil), content...)})
+	}
+	sort.Slice(assets, func(i, j int) bool { return assets[i].Template.ID < assets[j].Template.ID })
+	if license == nil {
+		return nil, nil, ErrMissingLicense
+	}
+	return assets, license, nil
 }
 
 func ParseArchive(data []byte, cfg Config) ([]Asset, []byte, error) {
