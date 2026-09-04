@@ -236,7 +236,11 @@ func (m Model) View(width, height int) string {
 	} else {
 		lines = append(lines, "", "No active conflicts.")
 	}
-	lines = append(lines, "", "[j/k] conflict  [n/p] hunk  [o/t/b] whole-file  [O/T/B/M] region  [e] edit  [m] mark  [u] restore  [c] continue  [s] skip  [x] abort  [1] status  [esc] back")
+	recovery := "[c] continue  [x] abort"
+	if m.Operation == sequencer.KindRebase || m.Operation == sequencer.KindCherryPick || m.Operation == sequencer.KindRevert {
+		recovery = "[c] continue  [s] skip  [x] abort"
+	}
+	lines = append(lines, "", "[j/k] conflict  [n/p] hunk  [o/t/b] whole-file  [O/T/B/M] region  [e] edit  [m] mark  [u] restore  "+recovery+"  [1] status  [esc] back")
 	if height > 0 && len(lines) > height {
 		lines = lines[:height]
 	}

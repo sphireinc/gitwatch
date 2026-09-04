@@ -99,3 +99,17 @@ func TestCherryPickViewShowsRepositoryScopedProgress(t *testing.T) {
 		}
 	}
 }
+
+func TestRecoveryFooterOnlyShowsSupportedActions(t *testing.T) {
+	m := New()
+	m.SetSnapshot(sequencer.KindMerge, "main", nil)
+	view := m.View(80, 24)
+	if strings.Contains(view, "[s] skip") {
+		t.Fatalf("merge footer exposed unsupported skip:\n%s", view)
+	}
+	m.SetSnapshot(sequencer.KindRebase, "main", nil)
+	view = m.View(80, 24)
+	if !strings.Contains(view, "[s] skip") {
+		t.Fatalf("rebase footer omitted skip:\n%s", view)
+	}
+}
