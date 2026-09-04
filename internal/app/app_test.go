@@ -767,6 +767,28 @@ func TestPaletteAcceptsProviderOrPluginActions(t *testing.T) {
 	}
 }
 
+func TestPaletteAddsRepositoryAttentionJumpTarget(t *testing.T) {
+	m := New()
+	m.Repositories = repoview.New([]registry.Row{
+		{Repository: registry.Repository{Name: "healthy", Path: "/healthy"}},
+		{Repository: registry.Repository{Name: "needs-attention", Path: "/needs-attention"}, Operation: "cherry-pick", Attention: "cherry-pick"},
+	})
+	m.openPalette()
+	found := ""
+	for _, result := range m.PaletteResults {
+		if strings.Contains(result.Label, "needs-attention") {
+			found = result.ID
+			break
+		}
+	}
+	if found == "" {
+		t.Fatal("repository attention palette target missing")
+	}
+	if cmd := m.executePaletteAction(found); m.currentView() != workspace.Repositories || m.Repositories.Selected != 1 {
+		t.Fatalf("attention target execution = cmdnil=%v view=%q selected=%d", cmd == nil, m.currentView(), m.Repositories.Selected)
+	}
+}
+
 func TestSelectedWorktreeOpensThroughRepositoryDiscovery(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Worktrees, "Worktrees")

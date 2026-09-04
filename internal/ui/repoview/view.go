@@ -108,6 +108,12 @@ func (m Model) View() string {
 		}
 		state := row.State
 		line := fmt.Sprintf("%s%s · %s [%s] dirty:%d +%d/-%d stashes:%d remotes:%d", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), state, row.Dirty, row.Ahead, row.Behind, row.Stashes, row.Remotes)
+		if row.Operation != "" {
+			line += " op:" + platform.SafeText(row.Operation)
+		}
+		if row.Attention != "" {
+			line += " attention:" + platform.SafeText(row.Attention)
+		}
 		if len(row.Warnings) > 0 {
 			line += fmt.Sprintf(" warnings:%d", len(row.Warnings))
 		}

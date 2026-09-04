@@ -20,8 +20,14 @@ type StatusResult struct {
 	Skipped    bool
 	SkipReason string
 	Warnings   []string
-	Duration   time.Duration
-	Refreshed  time.Time
+	// OperationFailed is supplied by operation orchestration when a recent
+	// repository-scoped operation failed before the next snapshot. It is kept
+	// separate from Error so repository health and operation attention remain
+	// distinguishable.
+	OperationFailed   bool
+	ProviderAttention bool
+	Duration          time.Duration
+	Refreshed         time.Time
 }
 
 // Engine refreshes repositories concurrently with a bounded worker pool.

@@ -40,16 +40,47 @@ Make advanced workflows multi-repo aware from day one rather than retrofitting t
 
 ## Acceptance criteria
 
-- [ ] Repositories dashboard surfaces advanced-operation state without entering the repo.
-- [ ] No global singleton is introduced for advanced Git UI state.
-- [ ] Per-repo write serialization and bounded cross-repo concurrency remain intact.
+- [x] Repositories dashboard surfaces advanced-operation state without entering
+  the repo through operation and attention badges.
+- [x] No global singleton is introduced for advanced Git UI state; rows derive
+  from each repository's snapshot and scoped result.
+- [x] Per-repo write serialization and bounded cross-repo concurrency remain
+  intact through the existing registry and operation infrastructure.
+
+## Status
+
+Complete — extended registry summaries and the repositories view with
+repository-scoped operation, conflict, failed-operation, dirty/diverged, and
+provider-stale attention badges. Added attention-aware filtering and
+command-palette jump targets while retaining bounded refresh workers and
+independent broken-repository rows.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [ ] Implementation commit recorded; to be filled with the focused commit
+  after the task is moved.
+- [x] Exact tested baseline recorded: current `main` at `45f621b` plus the
+  Task 125 working-tree changes.
+- [x] Focused tests: registry dashboard priority/filter tests, 20-repository
+  mixed-attention isolation test, repository-view badge test, and app
+  command-palette attention-jump test passed.
+- [x] `GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_COUNT=1
+  GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
+  GOCACHE=/tmp/gitwatch-go-cache go test ./...` passed.
+- [x] `GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_COUNT=1
+  GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
+  GOCACHE=/tmp/gitwatch-go-cache go test -race ./...` passed for the current
+  implementation; focused registry race coverage also passed after the final
+  test addition.
+- [x] `GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_COUNT=1
+  GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
+  GOCACHE=/tmp/gitwatch-go-cache go vet ./...` passed.
+- [x] `gofmt` and `git diff --check` passed.
+- [ ] Lint: pinned `make check` lint remains unable to download golangci-lint
+  v2.12.0 because `proxy.golang.org` is unavailable.
+- [ ] Native/manual evidence: dashboard and palette interaction changed;
+  native terminal evidence remains operator-owned.
+- [x] Known limitations/deferred work documented: provider attention is a
+  registry input for future provider refresh integration, operation failures
+  are represented by an explicit scoped flag, and detailed operation views
+  remain deferred to later tasks.

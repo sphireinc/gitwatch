@@ -20,6 +20,8 @@ type Row struct {
 	Behind     int
 	Stashes    int
 	Remotes    int
+	Operation  string
+	Attention  string
 	Warnings   []string
 	State      string
 }
@@ -31,6 +33,21 @@ func Rows(results []StatusResult) []Row {
 		snapshot := result.Snapshot
 		row := Row{Repository: result.Repository, Branch: snapshot.Branch.Name, Staged: snapshot.Counts.Staged, Unstaged: snapshot.Counts.Unstaged, Untracked: snapshot.Counts.Untracked, Conflicts: snapshot.Counts.Conflicted, Ahead: snapshot.Branch.Ahead, Behind: snapshot.Branch.Behind, Stashes: result.Stashes, Remotes: result.Remotes, Warnings: append([]string(nil), result.Warnings...)}
 		row.Dirty = row.Staged + row.Unstaged + row.Untracked
+		if snapshot.Operation != nil {
+			row.Operation = snapshot.Operation.Kind().String()
+		}
+		switch {
+		case row.Conflicts > 0:
+			row.Attention = "conflict"
+		case row.Operation != "":
+			row.Attention = row.Operation
+		case result.OperationFailed:
+			row.Attention = "operation failed"
+		case row.Dirty > 0 || row.Ahead > 0 || row.Behind > 0:
+			row.Attention = "dirty/diverged"
+		case result.ProviderAttention:
+			row.Attention = "provider stale"
+		}
 		if result.Skipped {
 			row.State = "inactive"
 		} else if result.Error != nil {
@@ -51,12 +68,16 @@ func FilterRows(rows []Row, query string) []Row {
 	}
 	filtered := make([]Row, 0, len(rows))
 	for _, row := range rows {
-		if strings.Contains(strings.ToLower(row.Repository.Name), query) || strings.Contains(strings.ToLower(row.Repository.Path), query) || strings.Contains(strings.ToLower(row.Branch), query) {
+		if strings.Contains(strings.ToLower(row.Repository.Name), query) || strings.Contains(strings.ToLower(row.Repository.Path), query) || strings.Contains(strings.ToLower(row.Branch), query) || strings.Contains(strings.ToLower(row.Operation), query) || strings.Contains(strings.ToLower(row.Attention), query) {
 			filtered = append(filtered, row)
 		}
 	}
 	return filtered
 }
+
+// NeedsAttention reports whether a row has an actionable local or provider
+// condition worth exposing as a command-palette jump target.
+func (r Row) NeedsAttention() bool { return r.Attention != "" }
 
 // SortKey identifies the field used to order repository rows.
 type SortKey string

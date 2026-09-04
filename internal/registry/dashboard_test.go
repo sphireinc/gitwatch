@@ -1,9 +1,11 @@
 package registry
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sphireinc/git-watch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
 func TestRowsFilterAndSort(t *testing.T) {
@@ -30,5 +32,24 @@ func TestRowsPreserveWarnings(t *testing.T) {
 	rows := Rows([]StatusResult{{Repository: Repository{Name: "repo"}, Warnings: []string{"slow stash"}}})
 	if len(rows) != 1 || len(rows[0].Warnings) != 1 {
 		t.Fatalf("warnings = %#v", rows)
+	}
+}
+
+func TestRowsExposeOperationAndAttentionPriority(t *testing.T) {
+	operation, err := sequencer.NewState("/conflicted", 1, sequencer.KindRebase, sequencer.PhaseActive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := []StatusResult{
+		{Repository: Repository{Name: "conflicted", Path: "/conflicted"}, Snapshot: repo.Snapshot{Operation: &operation, Counts: repo.Counts{Conflicted: 1}}},
+		{Repository: Repository{Name: "failed", Path: "/failed"}, OperationFailed: true, Snapshot: repo.Snapshot{Counts: repo.Counts{Untracked: 1}}},
+		{Repository: Repository{Name: "provider", Path: "/provider"}, ProviderAttention: true, Snapshot: repo.Snapshot{}},
+	}
+	rows := Rows(results)
+	if rows[0].Operation != "rebase" || rows[0].Attention != "conflict" || rows[1].Attention != "operation failed" || rows[2].Attention != "provider stale" {
+		t.Fatalf("attention rows = %#v", rows)
+	}
+	if got := FilterRows(rows, "rebase"); len(got) != 1 || !strings.Contains(got[0].Attention, "conflict") {
+		t.Fatalf("operation filter = %#v", got)
 	}
 }

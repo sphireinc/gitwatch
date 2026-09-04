@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -445,6 +446,12 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "unpushed", Label: "Show unpushed commits", Shortcut: m.Keymap["unpushed"], Enabled: m.Discovery.Root != ""},
 		{ID: "branch_summary", Label: "Show branch summary", Shortcut: m.Keymap["branch_summary"], Enabled: m.Discovery.Root != ""},
 	}
+	for index, row := range m.Repositories.Rows {
+		if !row.NeedsAttention() {
+			continue
+		}
+		actions = append(actions, commands.Action{ID: fmt.Sprintf("repository_attention_%d", index), Label: "Open repository attention: " + platform.SafeText(row.Repository.Name), Shortcut: "v", Enabled: true})
+	}
 	return append(actions, m.PaletteActions...)
 }
 
@@ -508,6 +515,14 @@ func (m *Model) updatePaletteKey(key string) tea.Cmd {
 func (m *Model) executePaletteAction(id string) tea.Cmd {
 	if command := m.PaletteCommands[id]; command != nil {
 		return command()
+	}
+	if strings.HasPrefix(id, "repository_attention_") {
+		index, err := strconv.Atoi(strings.TrimPrefix(id, "repository_attention_"))
+		if err == nil && index >= 0 && index < len(m.Repositories.Rows) {
+			m.Repositories.Selected = index
+			return m.navigate(workspace.Repositories, "Repositories")
+		}
+		return nil
 	}
 	switch id {
 	case "status":

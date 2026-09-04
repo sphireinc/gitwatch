@@ -34,3 +34,11 @@ func TestViewShowsRepositoryWarnings(t *testing.T) {
 		t.Fatalf("warning count missing: %s", m.View())
 	}
 }
+
+func TestViewShowsOperationAttentionBadges(t *testing.T) {
+	m := New([]registry.Row{{Repository: registry.Repository{Name: "repo"}, Operation: "rebase", Attention: "conflict"}})
+	view := m.View()
+	if !strings.Contains(view, "op:rebase") || !strings.Contains(view, "attention:conflict") {
+		t.Fatalf("operation badges missing: %s", view)
+	}
+}
