@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/sphireinc/git-watch/internal/conflicts"
+	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
@@ -126,10 +127,5 @@ func (r Runner) ExternalMergeToolCommand(path []byte) (*exec.Cmd, error) {
 	if binary == "" {
 		binary = "git"
 	}
-	command := exec.Command(binary, "mergetool", "--no-prompt", "--", string(path))
-	command.Dir = r.Dir
-	if len(r.Env) > 0 {
-		command.Env = append(os.Environ(), r.Env...)
-	}
-	return command, nil
+	return (platform.ExternalTool{Executable: binary, Args: []string{"mergetool", "--no-prompt", "--", "{path}"}}).Command(string(path), r.Dir, r.Env)
 }

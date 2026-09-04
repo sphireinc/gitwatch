@@ -47,10 +47,10 @@ Support configured external tools without losing operation context or weakening 
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: typed Git mergetool handoff, platform executable/argv template boundary, and authoritative post-tool refresh routing.
+- [x] Exact tested revision recorded: final implementation revision is recorded by the completion commit below.
+- [x] Focused unit/integration tests recorded: platform path-with-spaces/token tests, Git command construction tests, and app mergetool routing coverage.
+- [x] `go test ./...` recorded: passed.
+- [x] Race/vet/lint/format evidence recorded where applicable: `go test -race ./...`, `go vet ./...`, `gofmt`, and `git diff --check` passed; pinned `make check` lint remains blocked by denied Go build-cache access.
+- [x] Native/manual evidence recorded where this task changes terminal interaction: Bubble Tea external-process handoff is covered by typed command and completion-path tests; human full-screen editor QA remains a documented release-gate limitation.
+- [x] Known limitations/deferred work documented: configured tool persistence/UI selection and shared operation timeline/coordinator behavior remain downstream work; Git-native mergetool remains the default handoff.
