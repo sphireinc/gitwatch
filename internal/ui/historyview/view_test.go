@@ -41,3 +41,24 @@ func TestPulseOnlyChangesGraphMarker(t *testing.T) {
 		t.Fatalf("pulse did not update marker: base=%q pulsed=%q", base, pulsed)
 	}
 }
+
+func TestBasketSurvivesPaginationAndClearsOnScopeSwitch(t *testing.T) {
+	m := New([]history.Commit{{SHA: "one", Short: "one", Subject: "one"}, {SHA: "two", Short: "two", Subject: "two"}})
+	if err := m.SetScope("repo-a", "main", 1); err != nil {
+		t.Fatal(err)
+	}
+	m.Selected = 1
+	if err := m.ToggleBasket(); err != nil {
+		t.Fatal(err)
+	}
+	m.SetCommits([]history.Commit{{SHA: "one", Short: "one", Subject: "one"}, {SHA: "two", Short: "two", Subject: "updated"}, {SHA: "three", Short: "three", Subject: "three"}})
+	if m.Basket.Count() != 1 || m.Basket.SHAs()[0] != "two" || !strings.Contains(m.View(), "Basket: 1") {
+		t.Fatalf("basket after pagination = %#v view=%q", m.Basket, m.View())
+	}
+	if err := m.SetScope("repo-b", "main", 2); err != nil {
+		t.Fatal(err)
+	}
+	if m.Basket.Count() != 0 {
+		t.Fatal("basket crossed repository scope")
+	}
+}

@@ -463,6 +463,7 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "branches", Label: "Open branches", Shortcut: "b", Enabled: m.Discovery.Root != ""},
 		{ID: "stashes", Label: "Open stashes", Shortcut: "s", Enabled: m.Discovery.Root != ""},
 		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
+		{ID: "clear_commit_basket", Label: fmt.Sprintf("Clear commit basket (%d)", m.History.Basket.Count()), Shortcut: "C", Enabled: m.History.Basket.Count() > 0},
 		{ID: "rebase", Label: "Open interactive rebase", Shortcut: "I", Enabled: m.Discovery.Root != "" && len(m.HistoryCommits) > 0},
 		{ID: "remotes", Label: "Open remotes", Shortcut: "n", Enabled: m.Discovery.Root != ""},
 		{ID: "github", Label: "Open GitHub", Shortcut: "G", Enabled: m.GitHubEnabled && m.Discovery.Root != ""},
@@ -561,6 +562,9 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		return m.navigate(workspace.Stashes, "Stashes")
 	case "history":
 		return m.navigate(workspace.Log, "History")
+	case "clear_commit_basket":
+		m.History.ClearBasket()
+		return nil
 	case "rebase":
 		return m.openRebaseWorkspace()
 	case "remotes":
@@ -723,6 +727,9 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 		m.closeDiff()
 	}
 	m.Snapshot = snapshot
+	if err := m.History.SetScope(snapshot.Root, snapshot.Branch.Name, m.repositoryGeneration); err != nil {
+		m.Status = "history selection: " + err.Error()
+	}
 	if !m.StatusCommitActive {
 		m.Files.SetEntries(snapshot.Entries)
 	}
@@ -3141,7 +3148,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.loadHistoryTags()
 			}
 		case "C":
-			if m.currentView() == workspace.Stashes {
+			if m.currentView() == workspace.Log {
+				m.History.ClearBasket()
+				m.Status = "commit basket cleared"
+			} else if m.currentView() == workspace.Stashes {
 				m.StashCreateMode, m.StashCreateMessage, m.StashIncludeUntracked = true, "", true
 				m.Status = "stash message: "
 			}
@@ -3306,6 +3316,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case "space":
+			if m.currentView() == workspace.Log {
+				if err := m.History.ToggleBasket(); err != nil {
+					m.Status = "commit basket: " + err.Error()
+				} else {
+					m.Status = fmt.Sprintf("commit basket: %d selected", m.History.Basket.Count())
+				}
+				return m, nil
+			}
 			if m.currentView() == workspace.Plugins && m.Plugins.Selected >= 0 && m.Plugins.Selected < len(m.Plugins.Entries) {
 				entry := m.Plugins.Entries[m.Plugins.Selected]
 				m.Plugins.SetEntries(plugins.SetEnabled(m.Plugins.Entries, entry.Manifest.ID, !entry.Enabled))
@@ -3878,7 +3896,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryCommits = append(m.HistoryCommits, v.Commits...)
 			}
 			if v.Skip == 0 {
+				basket := m.History.Basket
 				m.History = historyview.New(m.HistoryCommits)
+				m.History.Basket = basket
 			} else {
 				m.History.SetCommits(m.HistoryCommits)
 			}
@@ -4230,7 +4250,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
 	}
 	if view == workspace.Log {
-		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Branches {
 		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"

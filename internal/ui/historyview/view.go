@@ -16,7 +16,37 @@ type Model struct {
 	Selected int
 	Filter   string
 	Pulse    uint8
+	Basket   history.Selection
 }
+
+// SetScope binds the basket to the current repository and ref. A scope switch
+// clears prior selection so SHAs cannot leak into another repository.
+func (m *Model) SetScope(repository, ref string, generation uint64) error {
+	if m.Basket.Repository() == repository && m.Basket.Ref() == ref {
+		return nil
+	}
+	basket, err := history.NewSelection(repository, ref, generation)
+	if err != nil {
+		return err
+	}
+	m.Basket = basket
+	return nil
+}
+
+// ToggleBasket toggles the selected history row in the scoped basket.
+func (m *Model) ToggleBasket() error {
+	if m.Selected < 0 || m.Selected >= len(m.Rows) {
+		return nil
+	}
+	basket, err := m.Basket.Toggle(m.Rows[m.Selected].Commit.SHA)
+	if err == nil {
+		m.Basket = basket
+	}
+	return err
+}
+
+// ClearBasket clears selected commits without changing scope.
+func (m *Model) ClearBasket() { m.Basket = m.Basket.Clear() }
 
 // New creates a history view from commits ordered by the history service.
 func New(commits []history.Commit) Model { return Model{Rows: history.BuildGraph(commits)} }
@@ -64,6 +94,9 @@ func (m *Model) Move(delta int) {
 // View renders the history graph and selected commit metadata.
 func (m Model) View() string {
 	lines := []string{"History"}
+	if m.Basket.Count() > 0 {
+		lines = append(lines, fmt.Sprintf("Basket: %d commit(s), application order oldest first", m.Basket.Count()))
+	}
 	if m.Filter != "" {
 		lines = append(lines, "Filter: "+m.Filter)
 	}
@@ -71,6 +104,9 @@ func (m Model) View() string {
 		prefix := "  "
 		if i == m.Selected {
 			prefix = "> "
+		}
+		if containsSHA(m.Basket.SHAs(), row.Commit.SHA) {
+			prefix = "* "
 		}
 		lane := "│"
 		if row.Lane == 0 {
@@ -97,4 +133,13 @@ func (m Model) View() string {
 		lines = append(lines, "  No commits")
 	}
 	return strings.Join(lines, "\n")
+}
+
+func containsSHA(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }

@@ -39,15 +39,18 @@ Create reusable commit selection for cherry-pick, compare, batch history actions
 
 ## Acceptance criteria
 
-- [ ] Selection is repository-scoped and reusable.
-- [ ] No selection can accidentally target the wrong repository.
+- [x] Selection is repository-scoped and reusable.
+- [x] No selection can accidentally target the wrong repository.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+**Status:** Complete
+
+- Implementation commit: recorded after this completion note is staged; the reusable selection model is in `internal/history/selection.go`, with History integration in `internal/ui/historyview` and `internal/app`.
+- Exact tested revision: `31ada9a` plus the working-tree Task 133 changes.
+- Focused tests: selection and history-view tests passed for repository/ref isolation, pagination, filtering, range normalization, explicit multi-select, and clear behavior.
+- Repository tests: `go test ./...` passed.
+- Race/vet/format: `go test -race ./...`, `go vet ./...`, `test -z "$(gofmt -l .)"`, and `git diff --check` passed.
+- Lint: the pinned `golangci-lint@v2.12.0` remains unavailable because the environment denies Go build-cache access; no analyzer failure was reported.
+- Native/manual evidence: keyboard basket/clear paths and safe History rendering are covered by automated tests. Native terminal snapshots remain an explicit manual-QA exception.
+- Known limitations/deferred work: cherry-pick execution and range mutation consumers are implemented by later tasks. The basket preserves explicit application order and is cleared whenever repository or ref scope changes; generation guards reject stale history use.
