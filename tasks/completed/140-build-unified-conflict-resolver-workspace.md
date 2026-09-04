@@ -49,10 +49,10 @@ Create a dedicated htop-style conflict workspace used by merge, rebase, cherry-p
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: conflict workspace foundation, app routing, typed whole-file actions, external tool/lifecycle actions, mouse parity, and bounded detail loading.
+- [x] Exact tested revision recorded: final implementation revision is recorded by the completion commit below.
+- [x] Focused unit/integration tests recorded: `go test ./internal/git ./internal/app ./internal/ui/conflictview`, including a real two-file merge-conflict resolution fixture.
+- [x] `go test ./...` recorded: passed.
+- [x] Race/vet/lint/format evidence recorded where applicable: `go test -race ./...`, `go vet ./...`, `gofmt`, and `git diff --check` passed; pinned `make check` reaches lint but golangci-lint is blocked by the environment's denied Go build-cache path.
+- [x] Native/manual evidence recorded where this task changes terminal interaction: automated wide/80x24 rendering and keyboard/mouse parity tests passed; interactive human terminal QA remains deferred and is documented as a release-gate limitation.
+- [x] Known limitations/deferred work documented: unified cross-operation coordinator and hunk-level/manual edit semantics remain in Tasks 141 and 143; the Both action restores Git's two-sided merge presentation without implicitly staging it.

@@ -65,3 +65,14 @@ func TestViewShowsBoundedContentMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestWideViewShowsOperationAndSideColumns(t *testing.T) {
+	m := New()
+	m.SetSnapshot(sequencer.KindMerge, "feature", []conflicts.Conflict{{Path: []byte("file"), Ours: conflicts.Stage{OID: "ours"}, Theirs: conflicts.Stage{OID: "theirs"}}})
+	view := m.View(140, 30)
+	for _, want := range []string{"Operation: merge", "Target: feature", "Ours                 Theirs               Result", "ours", "theirs"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("wide view missing %q:\n%s", want, view)
+		}
+	}
+}

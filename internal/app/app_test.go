@@ -13,6 +13,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/branches"
 	"github.com/sphireinc/git-watch/internal/commands"
 	"github.com/sphireinc/git-watch/internal/config"
+	"github.com/sphireinc/git-watch/internal/conflicts"
 	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/notifications"
@@ -64,6 +65,22 @@ func TestStateTransitions(t *testing.T) {
 	m = updated.(Model)
 	if m.State != StateModal || m.Modal != "help" {
 		t.Fatal(m)
+	}
+}
+
+func TestConflictWorkspaceRouteAndResolutionIntent(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "main"}, Conflicts: []conflicts.Conflict{{Path: []byte("one")}, {Path: []byte("two")}}})
+	updated, cmd := m.Update(key("C"))
+	m = updated.(Model)
+	if cmd == nil || m.currentView() != workspace.Conflict || len(m.Conflict.Conflicts) != 2 {
+		t.Fatalf("conflict route = cmdnil=%v view=%q conflicts=%d", cmd == nil, m.currentView(), len(m.Conflict.Conflicts))
+	}
+	updated, cmd = m.Update(key("o"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending {
+		t.Fatalf("conflict resolution intent = cmdnil=%v state=%v", cmd == nil, m.State)
 	}
 }
 
