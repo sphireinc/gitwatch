@@ -51,7 +51,7 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 ## Completion record
 
 - [x] Recovery entry point and progress presentation are implemented; an active rebase discovered by the live snapshot can be opened from Status with `C`, including when no conflict file is present. Continue and abort remain typed lifecycle intents in the existing conflict/recovery workspace.
-- [ ] Implementation commit recorded.
+- [x] Implementation commits recorded: `224362f` (active recovery route) and `2374459` (continuation coverage and stale-marker fix).
 - [ ] Exact tested revision recorded.
 - [x] Focused tests recorded: `TestActiveRebaseWithoutConflictsHasRecoveryRoute`, `TestOperationLifecycleAbortsRebaseAndRefreshesOperationState`, and `TestOperationLifecycleContinuesResolvedRebase`; the real disposable-repository tests create a rebase conflict, exercise typed abort/continue, and verify authoritative post-operation snapshots and worktree content.
 - [x] `go test ./...` recorded through `make check`.
@@ -64,4 +64,5 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 - `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 with formatting, lint, full tests, race tests, vet, security, and performance checks.
 - Focused tests passed with host Git signing isolated using `GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false`.
 - The operation detector now ignores a transition-only `REBASE_HEAD` after Git has removed the durable rebase state directory; the continuation test covers the regression.
+- The continuation scenario starts the rebase outside the lifecycle call, resolves it through a newly configured runner, and verifies that a fresh authoritative snapshot reports no active operation.
 - The task is intentionally not moved to `tasks/completed` until restart recovery, edit-stop/skip behavior where applicable, and required native/manual evidence are proven.
