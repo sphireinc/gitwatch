@@ -40,16 +40,36 @@ Create one domain model for multi-step Git operations so rebase, cherry-pick, re
 
 ## Acceptance criteria
 
-- [ ] All planned multi-step operations fit one repository-scoped state model.
-- [ ] `internal/operations` remains the execution coordinator.
-- [ ] No UI package owns a parallel Git operation state machine.
+- [x] All planned multi-step operations fit one repository-scoped state model.
+- [x] `internal/operations` remains the execution coordinator.
+- [x] No UI package owns a parallel Git operation state machine.
+
+## Status
+
+Complete — added the immutable, repository-scoped `internal/sequencer` state
+projection, typed details for rebase/cherry-pick/revert/merge/bisect, explicit
+lifecycle transitions, and refresh-generation message validation. Git and UI
+integration remain intentionally deferred to Tasks 123 onward.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [ ] Implementation commit recorded; to be filled with the focused commit
+  after the task is moved.
+- [x] Exact tested baseline recorded: current `main` at `ba62811` plus the
+  Task 122 working-tree changes.
+- [x] Focused tests: `go test ./internal/sequencer` and
+  `go test -race ./internal/sequencer` passed, including interleaved
+  repository-generation message coverage.
+- [x] `GOCACHE=/tmp/gitwatch-go-cache go test ./...` passed.
+- [x] `GOCACHE=/tmp/gitwatch-go-cache go test -race ./...` passed.
+- [x] `GOCACHE=/tmp/gitwatch-go-cache go vet ./...` passed.
+- [x] `gofmt` and `git diff --check` passed.
+- [ ] Lint: pinned `make check` lint could not download golangci-lint v2.12.0
+  because `proxy.golang.org` is unavailable; the installed v2.11.3 binary is
+  not a valid substitute and failed module loading.
+- [x] Native/manual evidence not applicable: this task adds a pure domain
+  package and does not change terminal interaction.
+- [x] Known limitations/deferred work documented: Git metadata detection,
+  operation execution, UI messages, and persistence/recovery integration are
+  deferred to Tasks 123 onward; state remains a reconstructed projection, not
+  an authoritative store.
