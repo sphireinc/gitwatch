@@ -53,10 +53,11 @@ integration remain intentionally deferred to Tasks 123 onward.
 
 ## Completion record
 
-- [ ] Implementation commit recorded; to be filled with the focused commit
-  after the task is moved.
-- [x] Exact tested baseline recorded: current `main` at `ba62811` plus the
-  Task 122 working-tree changes.
+- [x] Implementation commit recorded: `eb68a4b` (`feat: add
+  repository-scoped sequencer domain`).
+- [x] Exact tested baseline recorded: `ba62811` plus the Task 122 working-tree
+  changes; the implementation commit contains those unchanged source/test
+  changes.
 - [x] Focused tests: `go test ./internal/sequencer` and
   `go test -race ./internal/sequencer` passed, including interleaved
   repository-generation message coverage.
