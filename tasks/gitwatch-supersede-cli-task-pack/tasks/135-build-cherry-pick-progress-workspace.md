@@ -46,8 +46,8 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 ## Completion record
 
 - [x] Initial progress workspace slice implemented in the repository-scoped conflict/recovery view: Git sequencer metadata now supplies the ordered selected commits, completed/current/pending position, original/current HEAD, and remaining count; Continue/Skip/Abort remain explicit lifecycle actions.
-- [x] Implementation commit recorded: `4a9dfd7` (progress projection/rendering) and the follow-up palette-navigation slice.
-- [ ] Exact tested revision recorded.
+- [x] Implementation commits recorded: `4a9dfd7` (progress projection/rendering) and `ee7764b` (palette/status recovery navigation).
+- [x] Exact tested revision recorded: `ee7764b`, with the preceding projection commit `4a9dfd7` included in the tested checkout.
 - [x] Focused tests recorded: `TestDetectOperationStateReportsCherryPickProgress` exercises a real multi-commit conflicted cherry-pick; `TestCherryPickViewShowsRepositoryScopedProgress` verifies wide progress rendering and recovery affordances; `TestActiveCherryPickCanReopenProgressFromPalette` verifies Ctrl-P recovery routing without conflict files.
 - [x] `go test ./...` recorded through `make check`.
 - [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` (lint reported 0 issues).
