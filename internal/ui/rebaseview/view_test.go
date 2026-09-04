@@ -57,3 +57,26 @@ func TestStartDisabledWhileLoadingOrInvalid(t *testing.T) {
 		t.Fatal("invalid workspace enabled start")
 	}
 }
+
+func TestClickProvidesMouseParityForBasePlanAndFooter(t *testing.T) {
+	m, err := New("main", "origin/main", []Base{{Label: "upstream", Ref: "origin/main"}, {Label: "parent", Ref: "HEAD~3"}}, []history.Commit{{SHA: "abc", Subject: "subject"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action, index := m.Click(2, 3, 80, 20); action != MouseChooseBase || index != -1 {
+		t.Fatalf("base click = %v, %d", action, index)
+	}
+	if action, index := m.Click(2, 9, 80, 20); action != MouseSelectPlan || index != 0 {
+		t.Fatalf("plan click = %v, %d", action, index)
+	}
+	m.BaseMode = true
+	if action, index := m.Click(2, 10, 80, 20); action != MouseChooseBase || index != 1 {
+		t.Fatalf("base choice click = %v, %d", action, index)
+	}
+	if action, _ := m.Click(2, 19, 80, 20); action != MouseCancel {
+		t.Fatalf("cancel click = %v", action)
+	}
+	if action, _ := m.Click(70, 19, 80, 20); action != MouseStart {
+		t.Fatalf("start click = %v", action)
+	}
+}

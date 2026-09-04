@@ -39,6 +39,17 @@ type Model struct {
 	ReachableRemote  bool
 }
 
+// MouseAction identifies a rebase workspace click.
+type MouseAction uint8
+
+const (
+	MouseNone MouseAction = iota
+	MouseChooseBase
+	MouseSelectPlan
+	MouseStart
+	MouseCancel
+)
+
 // New constructs an explicit planning workspace from history metadata.
 func New(branch, upstream string, choices []Base, commits []history.Commit) (Model, error) {
 	m := Model{Branch: branch, Upstream: upstream, Bases: append([]Base(nil), choices...)}
@@ -136,8 +147,51 @@ func (m Model) View() string {
 	if m.StartEnabled() {
 		start = "ready"
 	}
-	lines = append(lines, "", "Start: "+start, "[b] choose base  [j/k] move  [enter] select/start  [esc] cancel")
+	lines = append(lines, "", "[Cancel]  Start: "+start+"  [b] choose base  [j/k] move  [enter] select/start")
 	return strings.Join(lines, "\n")
+}
+
+// Click maps a local view coordinate to the same actions exposed by the
+// keyboard controls. Coordinates are zero-based within Model.View.
+func (m Model) Click(x, y, width, height int) (MouseAction, int) {
+	if y < 0 || x < 0 {
+		return MouseNone, -1
+	}
+	if height > 0 && y == height-1 {
+		if x < width/2 {
+			return MouseCancel, -1
+		}
+		return MouseStart, -1
+	}
+	if y == 3 {
+		return MouseChooseBase, -1
+	}
+	if m.BaseMode {
+		baseStart := 9
+		if m.Upstream == "" {
+			baseStart--
+		}
+		if m.Published || m.ReachableRemote {
+			baseStart++
+		}
+		index := y - baseStart
+		if index >= 0 && index < len(m.Bases) {
+			return MouseChooseBase, index
+		}
+		return MouseNone, -1
+	}
+	planStart := 8
+	if m.Upstream != "" {
+		planStart++
+	}
+	if m.Published || m.ReachableRemote {
+		planStart++
+	}
+	index := y - planStart
+	if index >= 0 && index < len(m.Plan.Entries()) {
+		return MouseSelectPlan, index
+	}
+	return MouseNone, -1
 }
 
 func clamp(value, minimum, maximum int) int {

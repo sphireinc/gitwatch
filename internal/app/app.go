@@ -3152,6 +3152,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
+			if m.currentView() == workspace.Rebase {
+				action, index := m.Rebase.Click(v.X, v.Y-2, m.Width, m.Height-2)
+				switch action {
+				case rebaseview.MouseChooseBase:
+					if index >= 0 {
+						if err := m.Rebase.SetBase(index); err != nil {
+							m.Status = err.Error()
+						} else {
+							m.Rebase.BaseMode = false
+						}
+					} else {
+						m.Rebase.BaseMode = true
+					}
+					return m, nil
+				case rebaseview.MouseSelectPlan:
+					m.Rebase.Selected = index
+					return m, nil
+				case rebaseview.MouseStart:
+					m.State, m.Status = StateOperationPending, "starting interactive rebase"
+					return m, m.startRebase()
+				case rebaseview.MouseCancel:
+					m.Workspace.Back()
+					m.Status = "rebase cancelled"
+					return m, nil
+				}
+			}
 			if m.currentView() == workspace.Commit {
 				staged := 0
 				for _, file := range m.Composer.Draft.Files {
