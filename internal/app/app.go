@@ -178,6 +178,11 @@ type CommitFinishedMsg struct {
 	Repository uint64
 	Err        error
 }
+type FixupFinishedMsg struct {
+	SHA, Target string
+	Repository  uint64
+	Err         error
+}
 type CommitConfigReadyMsg struct{ Config git.CommitConfig }
 type BranchOperationFinishedMsg struct {
 	Operation  string
@@ -335,6 +340,7 @@ type Model struct {
 	History                  historyview.Model
 	Rebase                   rebaseview.Model
 	RebaseConfirmAction      rebase.Action
+	RebaseAutosquashConfirm  bool
 	HistoryCommits           []history.Commit
 	HistorySkip              int
 	HistoryHasMore           bool
@@ -2066,17 +2072,35 @@ func (m *Model) openRebaseWorkspace() tea.Cmd {
 	return nil
 }
 
-func (m *Model) startRebase() tea.Cmd {
+func (m *Model) startRebase(autosquash bool) tea.Cmd {
 	if !m.Rebase.StartEnabled() {
 		m.Status = "rebase plan is loading, invalid, or has no explicit base"
 		return nil
 	}
-	request := git.RebaseRequest{Base: m.Rebase.Base.Ref, Plan: m.Rebase.Plan}
+	request := git.RebaseRequest{Base: m.Rebase.Base.Ref, Autosquash: autosquash, Plan: m.Rebase.Plan}
 	runner := git.NewRunner(m.Discovery.Root)
 	generation := m.repositoryGeneration
 	return func() tea.Msg {
 		outcome, err := runner.StartInteractiveRebase(m.commandContext(), request)
 		return RebaseFinishedMsg{Repository: generation, Outcome: outcome, Err: err}
+	}
+}
+
+func (m *Model) createFixup() tea.Cmd {
+	if m.Snapshot.Counts.Staged == 0 {
+		m.Status = "stage changes before creating a fixup commit"
+		return nil
+	}
+	if m.History.Selected < 0 || m.History.Selected >= len(m.History.Rows) {
+		m.Status = "select a commit for the fixup"
+		return nil
+	}
+	target := m.History.Rows[m.History.Selected].Commit.SHA
+	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		result, err := runner.Commit(m.commandContext(), git.CommitOptions{FixupSHA: target})
+		return FixupFinishedMsg{SHA: result.SHA, Target: target, Repository: generation, Err: err}
 	}
 }
 
@@ -2341,6 +2365,18 @@ func (m *Model) updateBranchSearch(key string) tea.Cmd {
 }
 
 func (m *Model) updateRebaseKey(key string) tea.Cmd {
+	if m.RebaseAutosquashConfirm {
+		switch key {
+		case "y":
+			m.RebaseAutosquashConfirm = false
+			m.State, m.Status = StateOperationPending, "starting autosquash rebase"
+			return m.startRebase(true)
+		case "n", "esc":
+			m.RebaseAutosquashConfirm = false
+			m.Status = "autosquash cancelled"
+		}
+		return nil
+	}
 	if m.RebaseConfirmAction != "" {
 		switch key {
 		case "y":
@@ -2374,7 +2410,15 @@ func (m *Model) updateRebaseKey(key string) tea.Cmd {
 			break
 		}
 		m.State, m.Status = StateOperationPending, "starting interactive rebase"
-		return m.startRebase()
+		return m.startRebase(false)
+	case "a":
+		if (m.Rebase.Published || m.Rebase.ReachableRemote) && m.Rebase.Base.Ref != "" {
+			m.RebaseAutosquashConfirm = true
+			m.Status = "confirm autosquash rewrite of published history? (y/n)"
+			return nil
+		}
+		m.State, m.Status = StateOperationPending, "starting autosquash rebase"
+		return m.startRebase(true)
 	case "j", "down":
 		m.Rebase.Move(1)
 	case "k", "up":
@@ -2766,6 +2810,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Worktrees {
 				m.WorktreeAddMode, m.WorktreeAddPath = true, ""
 				m.Status = "worktree path: "
+			} else if m.currentView() == workspace.Rebase {
+				if (m.Rebase.Published || m.Rebase.ReachableRemote) && m.Rebase.Base.Ref != "" {
+					m.RebaseAutosquashConfirm = true
+					m.Status = "confirm autosquash rewrite of published history? (y/n)"
+					return m, nil
+				}
+				m.State, m.Status = StateOperationPending, "starting autosquash rebase"
+				return m, m.startRebase(true)
+			}
+		case "F":
+			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+				if m.Snapshot.Counts.Staged == 0 {
+					m.Status = "stage changes before creating a fixup commit"
+					return m, nil
+				}
+				m.State, m.Status = StateOperationPending, "creating fixup commit"
+				return m, m.createFixup()
 			}
 		case "U":
 			if m.currentView() == workspace.Status {
@@ -3048,7 +3109,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				m.State, m.Status = StateOperationPending, "starting interactive rebase"
-				return m, m.startRebase()
+				return m, m.startRebase(false)
 			}
 			if m.currentView() == workspace.Repositories {
 				m.State, m.Status = StateOperationPending, "opening repository"
@@ -3241,7 +3302,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				case rebaseview.MouseStart:
 					m.State, m.Status = StateOperationPending, "starting interactive rebase"
-					return m, m.startRebase()
+					return m, m.startRebase(false)
 				case rebaseview.MouseCancel:
 					m.Workspace.Back()
 					m.Status = "rebase cancelled"
@@ -3622,6 +3683,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivity(history.OperationSuccess, "", m.Status)
 		}
 		return m, m.refresh()
+	case FixupFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+			m.recordActivity(history.OperationFailure, v.Target, "fixup: "+v.Err.Error())
+		} else {
+			m.State, m.Status = StateReady, "fixup commit "+v.SHA+" for "+v.Target
+			m.recordActivity(history.OperationSuccess, v.Target, m.Status)
+		}
+		return m, tea.Batch(m.refresh(), m.loadHistory())
 	case CommitConfigReadyMsg:
 		m.CommitConfig, m.CommitConfigReady = v.Config, true
 		identity := strings.TrimSpace(strings.TrimSpace(v.Config.UserName) + " <" + strings.TrimSpace(v.Config.UserEmail) + ">")

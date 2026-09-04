@@ -11,6 +11,7 @@ type CommitOptions struct {
 	Message                      []byte
 	Amend, NoEdit, Signoff, Sign bool
 	Author                       string
+	FixupSHA                     string
 }
 
 // CommitResult contains the command result and the new commit ID.
@@ -47,14 +48,22 @@ func (r Runner) CommitConfig(ctx context.Context) CommitConfig {
 
 // Commit creates a commit using opts and returns its resulting object ID.
 func (r Runner) Commit(ctx context.Context, opts CommitOptions) (CommitResult, error) {
-	if len(opts.Message) == 0 && !opts.NoEdit {
+	if len(opts.Message) == 0 && !opts.NoEdit && opts.FixupSHA == "" {
 		return CommitResult{}, fmt.Errorf("commit message is empty")
 	}
 	args := []string{"commit"}
+	if opts.FixupSHA != "" {
+		if strings.ContainsAny(opts.FixupSHA, "\r\n \t") {
+			return CommitResult{}, fmt.Errorf("fixup target must be one ref")
+		}
+		args = append(args, "--fixup="+opts.FixupSHA)
+	}
 	if opts.Amend {
 		args = append(args, "--amend")
 	}
-	if opts.NoEdit {
+	if opts.FixupSHA != "" {
+		// Git derives the fixup message from the target commit.
+	} else if opts.NoEdit {
 		args = append(args, "--no-edit")
 	} else {
 		args = append(args, "-F", "-")

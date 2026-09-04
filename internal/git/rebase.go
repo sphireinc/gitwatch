@@ -27,6 +27,7 @@ type RebaseRequest struct {
 	OperationID string
 	Base        string
 	Root        bool
+	Autosquash  bool
 	Plan        rebase.Plan
 	Editor      string
 }
@@ -112,6 +113,9 @@ func (r Runner) StartInteractiveRebase(ctx context.Context, request RebaseReques
 	runner := r
 	runner.Env = env
 	args := []string{"rebase", "-i"}
+	if request.Autosquash {
+		args = append(args, "--autosquash")
+	}
 	if request.Root {
 		args = append(args, "--root")
 	} else {

@@ -44,16 +44,19 @@ Support the fast history-cleanup workflow: create `fixup!` commits from current 
 
 ## Acceptance criteria
 
-- [ ] Create and autosquash fixup commits entirely inside gitwatch.
-- [ ] Staging stays explicit.
-- [ ] Remote rewrite warnings are enforced.
+- [x] Create and autosquash fixup commits entirely inside gitwatch.
+- [x] Staging stays explicit.
+- [x] Remote rewrite warnings are enforced.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+**Status:** Complete
+
+- Implementation commit: recorded after this completion note is staged; `internal/git/commit.go` now supports `git commit --fixup=<sha>`, while `internal/git/rebase.go` accepts controlled autosquash execution. History and rebaseview controls are wired through `internal/app`.
+- Exact tested revision: `74cda9f` plus the working-tree Task 130 changes.
+- Focused tests: Git fixup integration, rebase plan, rebaseview, and app tests passed; the fixup test verified a real `fixup!` subject and explicit staging.
+- Repository tests: `go test ./...` passed.
+- Race/vet/format: `go test -race ./...`, `go vet ./...`, `test -z "$(gofmt -l .)"`, and `git diff --check` passed.
+- Lint: the pinned `golangci-lint@v2.12.0` remains unable to execute under the environment's Go build-cache permission boundary; no analyzer failure was reported.
+- Native/manual evidence: keyboard and mouse workspace paths are covered by automated app/view tests. Native terminal snapshots and signing-provider-specific manual verification remain unavailable in this environment and are recorded as an explicit QA exception.
+- Known limitations/deferred work: capability-specific amend/reword variants and broader sequencer recovery remain later-task work. Fixup creation never stages files automatically; autosquash requires an explicit base and confirmation for remote-reachable rewrites.

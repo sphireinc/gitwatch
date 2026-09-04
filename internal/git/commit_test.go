@@ -42,6 +42,47 @@ func TestCommitRejectsMultilineAuthor(t *testing.T) {
 	}
 }
 
+func TestCommitFixupUsesTypedTargetAndLeavesStagingExplicit(t *testing.T) {
+	dir := t.TempDir()
+	runner := NewRunner(dir)
+	for _, args := range [][]string{
+		{"init", "--", dir},
+		{"config", "user.name", "gitwatch test"},
+		{"config", "user.email", "gitwatch-test@example.com"},
+	} {
+		if _, err := runner.Run(context.Background(), args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "a"), []byte("one\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(context.Background(), []byte("a")); err != nil {
+		t.Fatal(err)
+	}
+	base, err := runner.Commit(context.Background(), CommitOptions{Message: []byte("base\n")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "a"), []byte("one\ntwo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(context.Background(), []byte("a")); err != nil {
+		t.Fatal(err)
+	}
+	fixup, err := runner.Commit(context.Background(), CommitOptions{FixupSHA: base.SHA})
+	if err != nil {
+		t.Fatal(err)
+	}
+	message, err := runner.Run(context.Background(), "show", "-s", "--format=%s", fixup.SHA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(message.Stdout)); got != "fixup! base" {
+		t.Fatalf("fixup subject = %q", got)
+	}
+}
+
 func TestCommitConfigReadsOptionalSettings(t *testing.T) {
 	dir := t.TempDir()
 	runner := NewRunner(dir)
