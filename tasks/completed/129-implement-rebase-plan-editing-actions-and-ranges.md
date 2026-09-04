@@ -47,7 +47,7 @@ Reach LZ-level core rebase ergonomics: pick, squash, fixup, reword, edit, drop, 
 
 **Status:** Complete
 
-- Implementation commit: recorded after this completion note is staged; multi-selection plan operations are in `internal/rebase/plan.go`, with TUI state and controls in `internal/ui/rebaseview` and `internal/app`.
+- Implementation commit: `98ec0d4` (`feat: add interactive rebase plan editing`). Multi-selection plan operations are in `internal/rebase/plan.go`, with TUI state and controls in `internal/ui/rebaseview` and `internal/app`.
 - Exact tested revision: `e5c19ba` plus the working-tree Task 129 changes.
 - Focused tests: `go test ./internal/rebase ./internal/ui/rebaseview ./internal/app -v` passed, covering multi-action application, invalid selections, boundary/range movement, grouping targets, published-history confirmation, and mouse hit-testing.
 - Repository tests: `go test ./...` passed.
