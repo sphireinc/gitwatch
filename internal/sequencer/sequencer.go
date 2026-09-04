@@ -92,6 +92,8 @@ type RebaseDetails struct {
 // CherryPickDetails describes the selected commits and current position.
 type CherryPickDetails struct {
 	Commits      []string
+	Completed    []string
+	Skipped      []string
 	CurrentIndex int
 	Mainline     int
 }
@@ -378,6 +380,8 @@ func cloneDetails(details Details) Details {
 	if details.CherryPick != nil {
 		value := *details.CherryPick
 		value.Commits = append([]string(nil), value.Commits...)
+		value.Completed = append([]string(nil), value.Completed...)
+		value.Skipped = append([]string(nil), value.Skipped...)
 		copyDetails.CherryPick = &value
 	}
 	if details.Revert != nil {
