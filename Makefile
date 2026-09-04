@@ -1,6 +1,10 @@
 APP := gitwatch
 GOFLAGS ?=
 GOLANGCI_LINT_VERSION := $(shell cat .golangci-lint-version)
+# Repository tests create disposable commits. Keep host-wide signing settings
+# from changing deterministic test behavior; production Git runners retain the
+# user's normal configuration.
+GIT_TEST_ENV := GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
 
 .PHONY: check test race vet fmt lint diff-check security performance build release \
 	secrets secrets-history install-hooks clean
@@ -8,10 +12,10 @@ GOLANGCI_LINT_VERSION := $(shell cat .golangci-lint-version)
 check: fmt lint test race vet diff-check security performance
 
 test:
-	go test ./...
+	$(GIT_TEST_ENV) go test ./...
 
 race:
-	go test -race ./...
+	$(GIT_TEST_ENV) go test -race ./...
 
 vet:
 	go vet ./...

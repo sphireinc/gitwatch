@@ -133,7 +133,7 @@ func (e Engine) parents(ctx context.Context, sha string) ([]string, error) {
 	}
 	fields := strings.Fields(string(result.Stdout))
 	if len(fields) == 0 || fields[0] != sha {
-		return nil, errors.New("Git returned an unexpected commit record")
+		return nil, errors.New("git returned an unexpected commit record")
 	}
 	return fields[1:], nil
 }

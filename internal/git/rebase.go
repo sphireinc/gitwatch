@@ -96,7 +96,7 @@ func (r Runner) StartInteractiveRebase(ctx context.Context, request RebaseReques
 	if err != nil {
 		return RebaseOutcome{}, fmt.Errorf("create rebase handoff: %w", err)
 	}
-	defer os.RemoveAll(workspace)
+	defer func() { _ = os.RemoveAll(workspace) }()
 	if err := os.Chmod(workspace, 0o700); err != nil {
 		return RebaseOutcome{}, fmt.Errorf("protect rebase handoff: %w", err)
 	}

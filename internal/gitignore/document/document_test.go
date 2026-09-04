@@ -42,7 +42,12 @@ func TestBinaryRejected(t *testing.T) {
 }
 
 func FuzzParseRender(f *testing.F) {
-	for _, seed := range [][]byte{nil, []byte("a\r\nb\n"), []byte{0xef, 0xbb, 0xbf, '#', 'x'}} {
+	seeds := [][]byte{
+		nil,
+		[]byte("a\r\nb\n"),
+		{0xef, 0xbb, 0xbf, '#', 'x'},
+	}
+	for _, seed := range seeds {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, input []byte) {

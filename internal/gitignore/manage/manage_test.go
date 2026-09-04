@@ -50,13 +50,17 @@ func TestApplyRejectsConcurrentEdit(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, ".gitignore")
 	before := []byte("# original")
-	os.WriteFile(path, before, 0644)
+	if err := os.WriteFile(path, before, 0644); err != nil {
+		t.Fatal(err)
+	}
 	snapshot, _ := domain.NewDocumentSnapshot("repo", root, ".gitignore", before, 0644)
 	plan, err := PlanAddTemplates(snapshot, cat, []domain.TemplateID{"root/Go"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(path, []byte("# external"), 0644)
+	if err := os.WriteFile(path, []byte("# external"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	if err := Apply(plan); !errors.Is(err, domain.ErrConcurrentModification) {
 		t.Fatalf("error=%v", err)
 	}

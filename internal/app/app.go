@@ -781,28 +781,6 @@ func (m Model) executeGitignoreMutation(plan domain.MutationPlan, action string)
 	}
 }
 
-func (m Model) executeGitignoreCreate(plan domain.MutationPlan) tea.Cmd {
-	generation := m.repositoryGeneration
-	return func() tea.Msg {
-		// Re-load the target before planning so external creation becomes an
-		// existing-file flow instead of an append or overwrite.
-		path, targetErr := security.Target(plan.Root)
-		if targetErr != nil {
-			return OperationFinishedMsg{Name: "gitignore create", Repository: generation, Err: targetErr}
-		}
-		if info, err := os.Lstat(path); err == nil || !errors.Is(err, os.ErrNotExist) {
-			if err != nil || info.Mode()&os.ModeSymlink != 0 {
-				return OperationFinishedMsg{Name: "gitignore create", Repository: generation, Err: domain.ErrConcurrentModification}
-			}
-			return OperationFinishedMsg{Name: "gitignore create", Repository: generation, Err: domain.ErrConcurrentModification}
-		}
-		if err := manage.Create(plan); err != nil {
-			return OperationFinishedMsg{Name: "gitignore create", Repository: generation, Err: err}
-		}
-		return OperationFinishedMsg{Name: "gitignore create", Repository: generation}
-	}
-}
-
 func selectedGitignoreIDs(model gitignoreview.RepositoryModel) []domain.TemplateID {
 	entries := model.SelectedEntries()
 	ids := make([]domain.TemplateID, 0, len(entries))

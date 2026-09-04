@@ -71,11 +71,15 @@ func ValidateCommit(commit string) error {
 		return ErrInvalidCommit
 	}
 	for _, r := range commit {
-		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+		if !isHexRune(r) {
 			return ErrInvalidCommit
 		}
 	}
 	return nil
+}
+
+func isHexRune(r rune) bool {
+	return (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
 }
 
 func Fetch(ctx context.Context, client *http.Client, cfg Config) ([]Asset, []byte, error) {
@@ -105,7 +109,7 @@ func Fetch(ctx context.Context, client *http.Client, cfg Config) ([]Asset, []byt
 	if err != nil {
 		return nil, nil, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
 		return nil, nil, fmt.Errorf("%w: %s", ErrHTTPStatus, res.Status)
 	}
@@ -207,7 +211,7 @@ func ParseArchive(data []byte, cfg Config) ([]Asset, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 	tr := tar.NewReader(zr)
 	var assets []Asset
 	var license []byte

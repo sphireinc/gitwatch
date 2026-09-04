@@ -171,9 +171,7 @@ func tabMatch(tab Tab, e Entry) bool {
 
 func fuzzyScore(e Entry, q string) int {
 	values := []string{e.Template.Name, e.Template.ID.String(), string(e.Template.Category), e.Template.SourcePath}
-	for _, alias := range e.Template.Aliases {
-		values = append(values, alias)
-	}
+	values = append(values, e.Template.Aliases...)
 	best := -1
 	for _, value := range values {
 		if score := subsequence(normalize(value), q); score > best {

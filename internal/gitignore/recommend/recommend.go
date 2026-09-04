@@ -33,8 +33,6 @@ type Report struct {
 	Truncated       bool
 }
 
-type signal struct{ name, path string }
-
 var markerIDs = map[string]domain.TemplateID{
 	"go.mod": "root/Go", "package.json": "root/Node", "composer.json": "root/Composer",
 	"pyproject.toml": "root/Python", "requirements.txt": "root/Python", "cargo.toml": "root/Rust",

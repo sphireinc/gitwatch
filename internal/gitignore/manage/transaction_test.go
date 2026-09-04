@@ -25,7 +25,9 @@ func TestPreviewAndUndoGuardAgainstExternalEdit(t *testing.T) {
 	if !strings.Contains(preview.Diff, "gitwatch:gitignore") || len(preview.Selected) != 1 {
 		t.Fatalf("preview=%+v", preview)
 	}
-	os.WriteFile(path, before, 0644)
+	if err := os.WriteFile(path, before, 0644); err != nil {
+		t.Fatal(err)
+	}
 	record, err := ApplyTransaction(plan)
 	if err != nil {
 		t.Fatal(err)
@@ -40,8 +42,12 @@ func TestPreviewAndUndoGuardAgainstExternalEdit(t *testing.T) {
 	if string(restored) != string(before) {
 		t.Fatalf("restored=%q", restored)
 	}
-	ApplyTransaction(plan)
-	os.WriteFile(path, []byte("external"), 0644)
+	if _, err := ApplyTransaction(plan); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("external"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	if err := Undo(record); !errors.Is(err, ErrUndoConflict) {
 		t.Fatalf("undo error=%v", err)
 	}
@@ -51,7 +57,9 @@ func TestApplyRefusesSymlinkAndCleansFailedTempCreation(t *testing.T) {
 	cat, _ := catalog.Default()
 	root := t.TempDir()
 	target := filepath.Join(root, "real")
-	os.WriteFile(target, []byte("safe"), 0644)
+	if err := os.WriteFile(target, []byte("safe"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	link := filepath.Join(root, ".gitignore")
 	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)

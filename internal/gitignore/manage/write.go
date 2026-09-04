@@ -43,21 +43,21 @@ func Apply(plan domain.MutationPlan) error {
 		return fmt.Errorf("create temporary gitignore: %w", err)
 	}
 	temporaryPath := temporary.Name()
-	defer os.Remove(temporaryPath)
+	defer func() { _ = os.Remove(temporaryPath) }()
 	permissions := os.FileMode(0644)
 	if info != nil {
 		permissions = info.Mode().Perm()
 	}
 	if err := temporary.Chmod(permissions); err != nil {
-		temporary.Close()
+		_ = temporary.Close()
 		return fmt.Errorf("chmod temporary gitignore: %w", err)
 	}
 	if _, err := temporary.Write(plan.ResultBytes); err != nil {
-		temporary.Close()
+		_ = temporary.Close()
 		return fmt.Errorf("write temporary gitignore: %w", err)
 	}
 	if err := temporary.Sync(); err != nil {
-		temporary.Close()
+		_ = temporary.Close()
 		return fmt.Errorf("sync temporary gitignore: %w", err)
 	}
 	if err := temporary.Close(); err != nil {

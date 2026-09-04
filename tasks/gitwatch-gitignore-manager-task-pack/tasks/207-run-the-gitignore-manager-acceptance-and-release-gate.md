@@ -55,5 +55,5 @@ This task is not done when the UI merely looks correct. It is done only when the
 
 - `VERSION=1.0.0 ./scripts/release-check.sh` passed on macOS arm64 with Go 1.27.0, including full tests, race tests, vet, performance, security, isolated install/config smoke, demo-repository status, cross-target archive generation, SBOM packaging, and artifact verification.
 - `./scripts/secret-scan.sh --history` passed with no leaks found across 369 commits.
-- `make check` still reports the repository's known 21 golangci-lint findings, so the lint gate is not green.
+- `make check` passed on macOS arm64 with Go 1.27.0 after fixing all 21 golangci-lint findings and making disposable-commit tests independent of host-wide Git signing configuration. This includes formatting, lint (0 issues), full tests, race tests, vet, security, and performance gates.
 - Native operator acceptance and CI evidence for Linux, macOS, and Windows remain required by `docs/release-checklist.md`, including terminal/UI, filesystem notification, resize, installation, and shutdown checks. This task is intentionally not moved to `tasks/completed` until those platform-scoped requirements have authoritative evidence.

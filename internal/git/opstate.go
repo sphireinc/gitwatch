@@ -260,7 +260,7 @@ func readMetadata(path string) string {
 	if err != nil {
 		return ""
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	data, err := io.ReadAll(io.LimitReader(file, metadataLimit))
 	if err != nil {
 		return ""

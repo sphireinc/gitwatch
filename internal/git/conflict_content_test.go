@@ -40,7 +40,7 @@ func TestLoadConflictContentUsesStagesAndBoundsResult(t *testing.T) {
 }
 
 func TestClassifyContent(t *testing.T) {
-	var bounded boundedBuffer = boundedBuffer{limit: 4}
+	bounded := boundedBuffer{limit: 4}
 	if _, err := bounded.Write([]byte("0123456789")); err != nil || string(bounded.data) != "0123" || !bounded.over {
 		t.Fatalf("bounded buffer failed: %+v", bounded)
 	}

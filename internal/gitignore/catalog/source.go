@@ -167,7 +167,7 @@ func ResolveCommit(ctx context.Context, client *http.Client, repository string) 
 	if err != nil {
 		return "", err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("resolve upstream commit: %s", response.Status)
 	}
@@ -193,7 +193,7 @@ func writeCache(path string, manifest []byte, commit string, syncedAt time.Time,
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(temporary)
+	defer func() { _ = os.RemoveAll(temporary) }()
 	if err := os.MkdirAll(filepath.Join(temporary, "catalog"), 0700); err != nil {
 		return err
 	}
