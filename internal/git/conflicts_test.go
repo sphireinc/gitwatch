@@ -2,11 +2,13 @@ package git
 
 import (
 	"context"
+	"crypto/sha256"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/sphireinc/git-watch/internal/conflicts"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
@@ -42,6 +44,46 @@ func TestOperationLifecycleRejectsUnsupportedSkip(t *testing.T) {
 	}
 	if _, err := NewRunner(t.TempDir()).OperationLifecycle(context.Background(), sequencer.KindUnknown, "continue"); err == nil {
 		t.Fatal("unknown operation should be rejected")
+	}
+}
+
+func TestResolveConflictRegionRejectsStaleAndDoesNotStage(t *testing.T) {
+	dir := t.TempDir()
+	runner := NewRunner(dir)
+	if _, err := runner.Run(context.Background(), "init", "--quiet"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "file")
+	data := []byte("before\n<<<<<<< ours\none\n=======\ntwo\n>>>>>>> theirs\nafter\n")
+	if err := os.WriteFile(path, data, 0o751); err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.Sum256(data)
+	if err := os.WriteFile(path, []byte("external\n"), 0o751); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.ResolveConflictRegion(context.Background(), []byte("file"), hash, 0, conflicts.ChoiceOurs, nil); err != conflicts.ErrStaleDocument {
+		t.Fatalf("stale error = %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o751); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.ResolveConflictRegion(context.Background(), []byte("file"), hash, 0, conflicts.ChoiceTheirs, nil); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(updated) != "before\ntwo\nafter\n" {
+		t.Fatalf("updated file = %q", updated)
+	}
+	status, err := runner.Run(context.Background(), "status", "--porcelain=v1", "-z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(status.Stdout), "A  ") {
+		t.Fatalf("region edit implicitly staged: %q", status.Stdout)
 	}
 }
 

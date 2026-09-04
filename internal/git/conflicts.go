@@ -2,10 +2,13 @@ package git
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
+	"github.com/sphireinc/git-watch/internal/conflicts"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
@@ -18,6 +21,50 @@ const (
 	MarkResolved      ConflictChoice = "resolved"
 	RestoreUnresolved ConflictChoice = "unresolved"
 )
+
+// ResolveConflictRegion applies one working-file region without staging it.
+// expectedHash must be the hash used to build the visible region model.
+func (r Runner) ResolveConflictRegion(ctx context.Context, path []byte, expectedHash [32]byte, region int, choice conflicts.Choice, manual []byte) (OperationResult, error) {
+	if len(path) == 0 {
+		return OperationResult{Name: "conflict region"}, fmt.Errorf("conflict path is required")
+	}
+	fullPath := filepath.Join(r.Dir, filepath.FromSlash(string(path)))
+	root, err := filepath.Abs(r.Dir)
+	if err != nil {
+		return OperationResult{}, err
+	}
+	resolved, err := filepath.Abs(fullPath)
+	if err != nil {
+		return OperationResult{}, err
+	}
+	relative, err := filepath.Rel(root, resolved)
+	if err != nil || relative == ".." || (len(relative) >= 3 && relative[:3] == ".."+string(filepath.Separator)) {
+		return OperationResult{}, fmt.Errorf("conflict path escapes repository root")
+	}
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		return OperationResult{}, err
+	}
+	current, err := os.ReadFile(fullPath)
+	if err != nil {
+		return OperationResult{}, err
+	}
+	if sha256.Sum256(current) != expectedHash {
+		return OperationResult{}, conflicts.ErrStaleDocument
+	}
+	document, err := conflicts.ParseRegions(current, 1024)
+	if err != nil {
+		return OperationResult{}, err
+	}
+	updated, err := document.Apply(region, choice, manual, current)
+	if err != nil {
+		return OperationResult{}, err
+	}
+	if err := conflicts.AtomicWrite(fullPath, updated, info.Mode()); err != nil {
+		return OperationResult{}, err
+	}
+	return OperationResult{Name: "conflict region", Paths: [][]byte{append([]byte(nil), path...)}}, nil
+}
 
 // ResolveConflict performs one explicit whole-file conflict action. It does
 // not stage choose-ours/theirs content; staging is a separate deliberate
