@@ -51,3 +51,11 @@ The user may select PHP + Composer + macOS + JetBrains in one operation. Each se
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added `internal/gitignore/manage` with pure `PlanAddTemplates` preview generation and atomic `Apply` execution.
+- Added deterministic multi-select ordering, managed duplicate rejection, unmanaged-full adopt/leave warnings, exact prefix preservation, and LF/CRLF boundary handling.
+- Added immediate before-hash comparison, symlink rejection, temporary-file sync, atomic rename, and directory sync protection.
+- Added tests for new/multi-template creation, existing comments and negation rules, CRLF/no-final-newline append behavior, duplicate prevention, and concurrent external edits.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
