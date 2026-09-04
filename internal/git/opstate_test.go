@@ -56,6 +56,31 @@ func TestDetectOperationStateMergeCherryPickRevertAndRebase(t *testing.T) {
 	}
 }
 
+func TestDetectOperationStateSurvivesRunnerReconstructionDuringRebase(t *testing.T) {
+	runner, discovery := operationFixture(t)
+	startRebase(t, runner, discovery.Root)
+
+	// Simulate gitwatch restarting: no in-memory operation state is reused.
+	restartedRunner := NewRunner(discovery.Root)
+	restartedDiscovery, err := Discover(context.Background(), restartedRunner.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := DetectOperationState(context.Background(), restartedDiscovery, 52)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Found || got.State.Kind() != sequencer.KindRebase || got.State.RepositoryID() != sequencer.RepositoryID(discovery.Root) || got.State.Generation() != 52 {
+		t.Fatalf("restarted rebase state = %#v", got)
+	}
+	if got.State.Phase() != sequencer.PhaseActive || got.State.Details().Rebase == nil {
+		t.Fatalf("restarted rebase projection = phase=%s details=%#v", got.State.Phase(), got.State.Details())
+	}
+	if _, err := restartedRunner.OperationLifecycle(context.Background(), sequencer.KindRebase, "abort"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestDetectOperationStateBisect(t *testing.T) {
 	runner, discovery := operationFixture(t)
 	commitFile(t, runner, discovery.Root, "one\n", "one")

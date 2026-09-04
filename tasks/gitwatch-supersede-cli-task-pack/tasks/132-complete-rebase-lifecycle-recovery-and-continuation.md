@@ -53,11 +53,11 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 - [x] Recovery entry point and progress presentation are implemented; an active rebase discovered by the live snapshot can be opened from Status with `C`, including when no conflict file is present. Continue and abort remain typed lifecycle intents in the existing conflict/recovery workspace.
 - [x] Implementation commits recorded: `224362f` (active recovery route), `2374459` (continuation coverage and stale-marker fix), and the follow-up skip-support slice.
 - [ ] Exact tested revision recorded.
-- [x] Focused tests recorded: `TestActiveRebaseWithoutConflictsHasRecoveryRoute`, `TestOperationLifecycleAbortsRebaseAndRefreshesOperationState`, `TestOperationLifecycleContinuesResolvedRebase`, and `TestOperationLifecycleSkipsRebase`; the real disposable-repository tests create a rebase conflict, exercise typed abort/continue/skip, and verify authoritative post-operation snapshots and worktree content.
+- [x] Focused tests recorded: `TestActiveRebaseWithoutConflictsHasRecoveryRoute`, `TestOperationLifecycleAbortsRebaseAndRefreshesOperationState`, `TestOperationLifecycleContinuesResolvedRebase`, `TestOperationLifecycleSkipsRebase`, and `TestDetectOperationStateSurvivesRunnerReconstructionDuringRebase`; the real disposable-repository tests create a rebase conflict, exercise typed abort/continue/skip, verify fresh-runner rediscovery, and verify authoritative post-operation snapshots and worktree content.
 - [x] `go test ./...` recorded through `make check`.
 - [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` (lint reported 0 issues).
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [x] Known limitations/deferred work documented: restart-mid-rebase, edit-stop scenarios beyond the status projection, and native Linux/macOS/Windows operator evidence still require dedicated acceptance coverage.
+- [x] Known limitations/deferred work documented: edit-stop scenarios beyond the status projection and native Linux/macOS/Windows operator evidence still require dedicated acceptance coverage.
 
 ## Local progress evidence (task remains active)
 
@@ -67,4 +67,5 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 - The continuation scenario starts the rebase outside the lifecycle call, resolves it through a newly configured runner, and verifies that a fresh authoritative snapshot reports no active operation.
 - Status explicitly labels a stopped rebase with no conflicted paths as an `edit-stop`, alongside the Git-derived current commit and completed/remaining counts.
 - Rebase recovery now accepts `skip` in the typed lifecycle boundary and exposes it as `s` in the recovery workspace; the real-repository test verifies Git completes the skipped rebase and clears the operation projection.
+- Explicit restart coverage reconstructs a new runner/discovery against the paused repository, confirms the repository-scoped active rebase projection, and aborts it successfully.
 - The task is intentionally not moved to `tasks/completed` until restart recovery, edit-stop/skip behavior where applicable, and required native/manual evidence are proven.
