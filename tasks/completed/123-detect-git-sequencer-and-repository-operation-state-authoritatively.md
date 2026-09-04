@@ -64,10 +64,11 @@ linked worktrees with real repositories.
 
 ## Completion record
 
-- [ ] Implementation commit recorded; to be filled with the focused commit
-  after the task is moved.
-- [x] Exact tested baseline recorded: current `main` at `0e81d3c` plus the
-  Task 123 working-tree changes.
+- [x] Implementation commit recorded: `5394560` (`feat: detect durable git
+  operation state`).
+- [x] Exact tested baseline recorded: `0e81d3c` plus the Task 123 working-tree
+  changes; the implementation commit contains those unchanged source/test
+  changes.
 - [x] Focused real-repository tests: `go test ./internal/git -run
   'TestDetectOperationState'` and `go test -race ./internal/git ./internal/repo`
   passed for merge, cherry-pick, revert, rebase, bisect, unknown metadata,
