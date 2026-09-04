@@ -47,16 +47,19 @@ Implement resumable cherry-pick for single commits, ordered commit sets, ranges,
 
 ## Acceptance criteria
 
-- [ ] Cherry-pick is argv-based and resumable.
-- [ ] Merge commits always require mainline selection.
-- [ ] Every state transition returns to authoritative refresh.
+- [x] Cherry-pick is argv-based and resumable.
+- [x] Merge commits always require mainline selection.
+- [x] Every state transition returns to authoritative refresh.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+**Status:** Complete
+
+- Implementation commit: recorded after this completion note is staged; the typed adapter is in `internal/cherrypick/engine.go` with Git integration in `internal/git`.
+- Exact tested revision: `0266b2b` plus the working-tree Task 134 changes.
+- Focused tests: real-repository tests passed for ordered multi-commit cherry-pick, original-HEAD journaling, and mandatory merge-mainline selection.
+- Repository tests: `go test ./...` passed.
+- Race/vet/format: `go test -race ./...`, `go vet ./...`, `test -z "$(gofmt -l .)"`, and `git diff --check` passed.
+- Lint: the pinned `golangci-lint@v2.12.0` remains unavailable because the environment denies Go build-cache access; no analyzer failure was reported.
+- Native/manual evidence: no new terminal workspace was introduced; native conflict UI verification remains deferred to Tasks 135 and 138-143.
+- Known limitations/deferred work: the progress workspace and unified conflict resolver are later tasks. The engine exposes continue/skip/abort and probes authoritative Git state after each command; UI scheduling and operation-history presentation remain downstream integration work.
