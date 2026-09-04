@@ -2548,7 +2548,7 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		m.Conflict.MoveHunk(-1, 1)
 	case conflictview.ActionStatus:
 		m.Workspace.Navigate(workspace.Status, "Status")
-	case conflictview.ActionChooseOurs, conflictview.ActionChooseTheirs, conflictview.ActionMarkResolved, conflictview.ActionRestoreUnresolved:
+	case conflictview.ActionChooseOurs, conflictview.ActionChooseTheirs, conflictview.ActionChooseBoth, conflictview.ActionMarkResolved, conflictview.ActionRestoreUnresolved:
 		selected, ok := m.Conflict.SelectedConflict()
 		if !ok {
 			m.Status = "no conflict selected"
@@ -2557,6 +2557,7 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		choice := map[conflictview.Action]git.ConflictChoice{
 			conflictview.ActionChooseOurs:        git.ChooseOurs,
 			conflictview.ActionChooseTheirs:      git.ChooseTheirs,
+			conflictview.ActionChooseBoth:        git.ChooseBoth,
 			conflictview.ActionMarkResolved:      git.MarkResolved,
 			conflictview.ActionRestoreUnresolved: git.RestoreUnresolved,
 		}[action]

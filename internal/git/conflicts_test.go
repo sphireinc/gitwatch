@@ -24,3 +24,9 @@ func TestExternalMergeToolCommandUsesTypedPath(t *testing.T) {
 		t.Fatalf("command args = %#v", got)
 	}
 }
+
+func TestResolveConflictSupportsBothChoice(t *testing.T) {
+	if ChooseBoth != ConflictChoice("both") {
+		t.Fatal("both choice identity changed")
+	}
+}

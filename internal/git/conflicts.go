@@ -12,6 +12,7 @@ type ConflictChoice string
 const (
 	ChooseOurs        ConflictChoice = "ours"
 	ChooseTheirs      ConflictChoice = "theirs"
+	ChooseBoth        ConflictChoice = "both"
 	MarkResolved      ConflictChoice = "resolved"
 	RestoreUnresolved ConflictChoice = "unresolved"
 )
@@ -30,6 +31,10 @@ func (r Runner) ResolveConflict(ctx context.Context, path []byte, choice Conflic
 		args = []string{"checkout", "--ours", "--"}
 	case ChooseTheirs:
 		args = []string{"checkout", "--theirs", "--"}
+	case ChooseBoth:
+		// Retain both sides' merge presentation; the user must review/edit and
+		// explicitly mark the result resolved.
+		args = []string{"checkout", "--conflict=merge", "--"}
 	case MarkResolved:
 		args = []string{"add", "--"}
 	case RestoreUnresolved:
