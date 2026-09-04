@@ -29,6 +29,7 @@ const (
 	ActionRestoreUnresolved
 	ActionContinue
 	ActionAbort
+	ActionSkip
 	ActionStatus
 	ActionRegionOurs
 	ActionRegionTheirs
@@ -163,7 +164,7 @@ func (m Model) View(width, height int) string {
 		fmt.Sprintf("Conflicts: %d total, %d resolved", len(m.Conflicts), m.ResolvedCount()),
 	}
 	if m.Operation == sequencer.KindRebase {
-		lines = append(lines, "Rebase recovery: [c] continue  [x] abort")
+		lines = append(lines, "Rebase recovery: [c] continue  [s] skip  [x] abort")
 	}
 	if selected, ok := m.SelectedConflict(); ok {
 		lines = append(lines, "Selected: "+platform.SafeText(string(selected.Path)), "")
@@ -188,7 +189,7 @@ func (m Model) View(width, height int) string {
 	} else {
 		lines = append(lines, "", "No active conflicts.")
 	}
-	lines = append(lines, "", "[j/k] conflict  [n/p] hunk  [o/t/b] whole-file  [O/T/B/M] region  [e] edit  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back")
+	lines = append(lines, "", "[j/k] conflict  [n/p] hunk  [o/t/b] whole-file  [O/T/B/M] region  [e] edit  [m] mark  [u] restore  [c] continue  [s] skip  [x] abort  [1] status  [esc] back")
 	if height > 0 && len(lines) > height {
 		lines = lines[:height]
 	}
@@ -252,6 +253,8 @@ func Key(key string) Action {
 		return ActionContinue
 	case "x":
 		return ActionAbort
+	case "s":
+		return ActionSkip
 	case "1":
 		return ActionStatus
 	case "O":

@@ -2794,14 +2794,17 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		return m.openConflictEditor()
 	case conflictview.ActionRegionManual:
 		return m.openConflictEditor()
-	case conflictview.ActionContinue, conflictview.ActionAbort:
+	case conflictview.ActionContinue, conflictview.ActionAbort, conflictview.ActionSkip:
 		if m.Conflict.Operation == sequencer.KindUnknown {
 			m.Status = "operation lifecycle is unavailable"
 			return nil
 		}
 		actionName := "continue"
-		if action == conflictview.ActionAbort {
+		switch action {
+		case conflictview.ActionAbort:
 			actionName = "abort"
+		case conflictview.ActionSkip:
+			actionName = "skip"
 		}
 		m.State, m.Status = StateOperationPending, actionName+" "+m.Conflict.Operation.String()
 		return m.conflictLifecycle(actionName)

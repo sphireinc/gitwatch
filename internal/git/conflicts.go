@@ -106,7 +106,7 @@ func (r Runner) OperationLifecycle(ctx context.Context, kind sequencer.Kind, act
 	switch action {
 	case "continue", "abort":
 	case "skip":
-		if kind != sequencer.KindCherryPick && kind != sequencer.KindRevert {
+		if kind != sequencer.KindRebase && kind != sequencer.KindCherryPick && kind != sequencer.KindRevert {
 			return OperationResult{Name: action + " " + command}, fmt.Errorf("operation %s does not support skip", command)
 		}
 	default:

@@ -135,6 +135,28 @@ func TestSnapshotCarriesOperationAtSameGeneration(t *testing.T) {
 	}
 }
 
+func TestOperationLifecycleSkipsRebase(t *testing.T) {
+	runner, discovery := operationFixture(t)
+	startRebase(t, runner, discovery.Root)
+	if _, err := runner.OperationLifecycle(context.Background(), sequencer.KindRebase, "skip"); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := Snapshot(context.Background(), discovery, 34)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Operation != nil || snapshot.Branch.Name != "feature" {
+		t.Fatalf("post-skip snapshot = %+v", snapshot)
+	}
+	content, err := os.ReadFile(filepath.Join(discovery.Root, "file.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "main\n" {
+		t.Fatalf("post-skip content = %q", content)
+	}
+}
+
 func operationFixture(t *testing.T) (Runner, Discovery) {
 	t.Helper()
 	dir := t.TempDir()
