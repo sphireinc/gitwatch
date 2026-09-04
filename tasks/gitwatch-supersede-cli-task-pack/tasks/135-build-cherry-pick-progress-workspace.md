@@ -46,13 +46,13 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 ## Completion record
 
 - [x] Initial progress workspace slice implemented in the repository-scoped conflict/recovery view: Git sequencer metadata now supplies the ordered selected commits, completed/current/pending position, original/current HEAD, and remaining count; Continue/Skip/Abort remain explicit lifecycle actions.
-- [x] Implementation commits recorded: `4a9dfd7` (progress projection/rendering), `ee7764b` (palette/status recovery navigation), and the per-commit outcome refinement in the current slice.
-- [x] Exact tested revision recorded: `ee7764b`, with the preceding projection commit `4a9dfd7` included in the tested checkout.
+- [x] Implementation commits recorded: `4a9dfd7` (progress projection/rendering), `ee7764b` (palette/status recovery navigation), `fa554d2` (per-commit outcome projection), and `83f4726` (outcome model fields).
+- [x] Exact tested revision recorded: `83f4726`, with all preceding cherry-pick progress commits included in the tested checkout.
 - [x] Focused tests recorded: `TestDetectOperationStateReportsCherryPickProgress` exercises a real multi-commit conflicted cherry-pick; `TestCherryPickViewShowsRepositoryScopedProgress` verifies wide progress rendering and recovery affordances; `TestActiveCherryPickCanReopenProgressFromPalette` verifies Ctrl-P recovery routing without conflict files; the detector now also preserves completed/skipped SHA sets from sequencer metadata.
 - [x] `go test ./...` recorded through `make check`.
 - [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` (lint reported 0 issues).
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [x] Known limitations/deferred work documented: full standalone workspace navigation, command-palette reopen, per-commit skipped/conflicted history beyond Git's current sequencer projection, and native/manual acceptance remain outstanding.
+- [x] Known limitations/deferred work documented: full standalone workspace navigation, richer conflicted-history presentation beyond Git's current sequencer projection, and native/manual acceptance remain outstanding.
 
 ## Local progress evidence (task remains active)
 
