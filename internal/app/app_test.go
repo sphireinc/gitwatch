@@ -249,6 +249,32 @@ func TestActiveCherryPickCanReopenProgressFromPalette(t *testing.T) {
 	}
 }
 
+func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	state, err := sequencer.NewState("repo", 1, sequencer.KindCherryPick, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state = state.WithObservation("head", "current", 0, 0, nil, time.Now())
+	state, err = state.WithDetails(sequencer.Details{CherryPick: &sequencer.CherryPickDetails{Commits: []string{"current"}, CurrentIndex: 0}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "feature"}, Operation: &state})
+	if cmd := m.executePaletteAction("cherry_pick_recovery"); cmd != nil || m.currentView() != workspace.Conflict {
+		t.Fatalf("initial progress route = view=%q cmdnil=%v", m.currentView(), cmd != nil)
+	}
+	updated, cmd := m.Update(key("1"))
+	m = updated.(Model)
+	if cmd != nil || m.currentView() != workspace.Status {
+		t.Fatalf("status navigation = view=%q cmdnil=%v", m.currentView(), cmd != nil)
+	}
+	if cmd := m.executePaletteAction("cherry_pick_recovery"); cmd != nil || m.currentView() != workspace.Conflict {
+		t.Fatalf("progress reopen = view=%q cmdnil=%v", m.currentView(), cmd != nil)
+	}
+}
+
 func TestHistoricalRebaseEntryBuildsExplicitEditPlan(t *testing.T) {
 	m := New()
 	m.Snapshot.Branch.Name = "feature"

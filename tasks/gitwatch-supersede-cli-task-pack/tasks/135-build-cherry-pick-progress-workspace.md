@@ -61,4 +61,5 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 - Active cherry-picks now appear in the status summary and can be reopened through the command palette as `Reopen active cherry-pick`, preserving the same repository-scoped snapshot.
 - Completed and skipped commit IDs are normalized against the sequencer's ordered todo backup, including abbreviated/full SHA forms, so the progress view can render exact per-commit outcomes without relying on toast history.
 - Recovery controls are now operation-specific: Skip is shown only for rebase, cherry-pick, and revert, while unsupported operations such as Merge expose only Continue and Abort.
+- A current cherry-picked commit is labeled `conflicted` when Git reports conflicted paths; the progress view can be left for Status and reopened through Ctrl-P without losing the operation projection.
 - Task 135 is not moved to `tasks/completed` until the remaining workspace/navigation and platform acceptance criteria are proven.

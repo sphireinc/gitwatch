@@ -93,7 +93,7 @@ func TestCherryPickViewShowsRepositoryScopedProgress(t *testing.T) {
 	m.SetSnapshot(sequencer.KindCherryPick, "feature", []conflicts.Conflict{{Path: []byte("file")}})
 	m.SetOperationState(&state)
 	view := m.View(120, 30)
-	for _, want := range []string{"Cherry-pick progress", "Original HEAD: before", "Progress: 1 completed · 1 remaining", "completed first", "current current", "[s] skip"} {
+	for _, want := range []string{"Cherry-pick progress", "Original HEAD: before", "Progress: 1 completed · 1 remaining", "completed first", "conflicted current", "[s] skip"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("view missing %q:\n%s", want, view)
 		}

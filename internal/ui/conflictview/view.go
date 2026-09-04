@@ -203,6 +203,9 @@ func (m Model) View(width, height int) string {
 					state = "skipped"
 				} else if commit == m.Progress.CurrentCommit() || index == details.CurrentIndex {
 					state = "current"
+					if len(m.Conflicts) > 0 {
+						state = "conflicted"
+					}
 				} else if len(details.Completed) == 0 && len(details.Skipped) == 0 && index < details.CurrentIndex {
 					state = "completed"
 				}
