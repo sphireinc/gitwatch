@@ -53,3 +53,12 @@ The embedded snapshot is the guaranteed baseline. A runtime refresh may provide 
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added a validated catalog source layer with guaranteed embedded fallback, optional cached snapshots, immutable commit metadata, and a bundled-source reset operation.
+- Added explicit asynchronous refresh support that resolves GitHub `main` to a concrete commit, fetches exactly that commit archive, reuses the maintainer sync parser/security validators, bounds response sizes, and atomically replaces a user-cache directory outside repositories.
+- Added manager actions for manual catalog refresh and use of the bundled catalog, with active source display and retention of the current catalog on refresh failure. Startup remains offline and does not phone home.
+- Added tests for offline embedded behavior, corrupt-cache fallback, immutable refresh commit/cache loading, repository-file preservation, and cancellation before network access.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
+- `make check` reached lint but could not run because the sandbox denied the Go build cache path under `/Users/JuanSanchez/Library/Caches/go-build`; this remains an environment exception.

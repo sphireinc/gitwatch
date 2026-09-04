@@ -291,6 +291,11 @@ type GitignoreMutationFinishedMsg struct {
 	Repository uint64
 	Err        error
 }
+type GitignoreCatalogReadyMsg struct {
+	Source     catalog.Source
+	Generation uint64
+	Err        error
+}
 type PluginStateSavedMsg struct{ Err error }
 
 type Model struct {
@@ -461,6 +466,8 @@ type Model struct {
 	GitignoreCreateConfirm   bool
 	GitignoreCreatePlan      domain.MutationPlan
 	GitignoreMutationAction  string
+	GitignoreCatalog         *catalog.Catalog
+	GitignoreCatalogSource   catalog.SourceKind
 	PluginsEnabled           bool
 	PluginDirectories        []string
 	PluginStatePath          string
@@ -642,11 +649,18 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 	return nil
 }
 
+func (m Model) activeGitignoreCatalog() (*catalog.Catalog, error) {
+	if m.GitignoreCatalog != nil {
+		return m.GitignoreCatalog, nil
+	}
+	return catalog.Default()
+}
+
 func (m Model) openGitignore() tea.Cmd {
 	root := m.Discovery.Root
 	generation := m.repositoryGeneration
 	return func() tea.Msg {
-		cat, err := catalog.Default()
+		cat, err := m.activeGitignoreCatalog()
 		if err != nil {
 			return GitignoreReadyMsg{Err: err, Generation: generation}
 		}
@@ -666,6 +680,18 @@ func (m Model) openGitignore() tea.Cmd {
 		}
 		model.SetSize(m.Width, m.Height)
 		return GitignoreReadyMsg{Model: model, Missing: errors.Is(readErr, os.ErrNotExist), Generation: generation}
+	}
+}
+
+func (m Model) refreshGitignoreCatalog() tea.Cmd {
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		cachePath, err := catalog.DefaultCacheDir()
+		if err != nil {
+			return GitignoreCatalogReadyMsg{Generation: generation, Err: err}
+		}
+		result, err := catalog.Refresh(m.commandContext(), catalog.RefreshConfig{CachePath: cachePath})
+		return GitignoreCatalogReadyMsg{Source: result.Source, Generation: generation, Err: err}
 	}
 }
 
@@ -2915,6 +2941,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
+			if v.String() == "r" {
+				m.State, m.Status = StateOperationPending, "refreshing gitignore catalog"
+				return m, m.refreshGitignoreCatalog()
+			}
+			if v.String() == "b" {
+				source, err := catalog.UseBundled()
+				if err != nil {
+					m.Status = "bundled catalog: " + err.Error()
+					return m, nil
+				}
+				m.GitignoreCatalog, m.GitignoreCatalogSource = source.Catalog, source.Kind
+				m.Status = "using bundled gitignore catalog"
+				return m, m.openGitignore()
+			}
 			if v.String() == "a" || v.String() == "p" || v.String() == "d" || v.String() == "u" || v.String() == "m" {
 				action := map[string]string{"a": "add", "p": "add", "d": "remove", "u": "update", "m": "adopt"}[v.String()]
 				if v.String() == "p" && m.GitignoreMissing {
@@ -3947,6 +3987,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.State, m.Status = StateReady, "gitignore catalog ready"
 		return m, nil
+	case GitignoreCatalogReadyMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		if v.Err != nil {
+			m.State, m.Status = StateReady, "gitignore catalog refresh failed; retaining current catalog: "+v.Err.Error()
+			return m, nil
+		}
+		m.GitignoreCatalog, m.GitignoreCatalogSource = v.Source.Catalog, v.Source.Kind
+		m.State, m.Status = StateReady, "gitignore catalog refreshed from "+string(v.Source.Kind)
+		return m, m.openGitignore()
 	case GitignoreCreatePreviewMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
@@ -4719,7 +4770,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
 		}
 	case workspace.Gitignore:
-		title, content = "gitwatch · gitignore catalog", m.Gitignore.View()
+		title, content = "gitwatch · gitignore catalog", "catalog source: "+string(m.GitignoreCatalogSource)+"\n"+m.Gitignore.View()
 	}
 	title += " · watch:" + watchModeName(m.WatchMode)
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
@@ -4736,7 +4787,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Gitignore {
-		lines[len(lines)-1] = "[j/k] move  [space] select  [tab] filter  [type] search  [a/d] preview/apply  [p] preview  [r] refresh  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [space] select  [tab] filter  [type] search  [a/d] preview/apply  [p] preview  [r] refresh  [b] bundled  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
 		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push preview  [P] force-with-lease  [esc] back  [q] quit"

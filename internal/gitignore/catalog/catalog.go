@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -52,6 +53,15 @@ func Default() (*Catalog, error) {
 	defaultOnce.Do(func() { defaultCatalog, defaultErr = load(assets.Files) })
 	return defaultCatalog, defaultErr
 }
+
+// LoadFS loads and validates a catalog laid out like the embedded assets.
+// It is used for immutable cache snapshots and intentionally shares the same
+// manifest, path, and content-hash validation as the bundled source.
+func LoadFS(files fs.FS) (*Catalog, error) { return load(fsReader{FS: files}) }
+
+type fsReader struct{ fs.FS }
+
+func (r fsReader) ReadFile(name string) ([]byte, error) { return fs.ReadFile(r.FS, name) }
 
 func load(files interface{ ReadFile(string) ([]byte, error) }) (*Catalog, error) {
 	manifestBytes, err := files.ReadFile("manifest.json")
