@@ -2595,21 +2595,9 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		m.State, m.Status = StateOperationPending, "applying conflict region action"
 		return m.resolveConflictRegion(append([]byte(nil), selected.Path...), expectedHash, region, choice)
 	case conflictview.ActionEditExternal:
-		selected, ok := m.Conflict.SelectedConflict()
-		if !ok {
-			m.Status = "no conflict selected"
-			return nil
-		}
-		command, err := git.NewRunner(m.Discovery.Root).ExternalMergeToolCommand(append([]byte(nil), selected.Path...))
-		if err != nil {
-			m.Status = err.Error()
-			return nil
-		}
-		m.Status = "external merge tool active"
-		generation := m.repositoryGeneration
-		return tea.ExecProcess(command, func(processErr error) tea.Msg {
-			return OperationFinishedMsg{Name: "external merge tool", Repository: generation, Err: processErr}
-		})
+		return m.openConflictEditor()
+	case conflictview.ActionRegionManual:
+		return m.openConflictEditor()
 	case conflictview.ActionContinue, conflictview.ActionAbort:
 		if m.Conflict.Operation == sequencer.KindUnknown {
 			m.Status = "operation lifecycle is unavailable"
@@ -2630,6 +2618,24 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		m.Status = "conflict action pending coordinator: " + key
 	}
 	return nil
+}
+
+func (m *Model) openConflictEditor() tea.Cmd {
+	selected, ok := m.Conflict.SelectedConflict()
+	if !ok {
+		m.Status = "no conflict selected"
+		return nil
+	}
+	command, err := git.NewRunner(m.Discovery.Root).ExternalMergeToolCommand(append([]byte(nil), selected.Path...))
+	if err != nil {
+		m.Status = err.Error()
+		return nil
+	}
+	m.Status = "external merge tool active"
+	generation := m.repositoryGeneration
+	return tea.ExecProcess(command, func(processErr error) tea.Msg {
+		return OperationFinishedMsg{Name: "external merge tool", Repository: generation, Err: processErr}
+	})
 }
 
 func (m Model) conflictLifecycle(action string) tea.Cmd {

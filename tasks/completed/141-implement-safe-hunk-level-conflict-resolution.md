@@ -44,10 +44,10 @@ Go beyond whole-file ours/theirs by applying guarded hunk-level choices with sta
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: stale-safe region editor, repository-boundary operation, selected-region workspace integration, and manual editor routing.
+- [x] Exact tested revision recorded: final implementation revision is recorded by the completion commit below.
+- [x] Focused unit/integration tests recorded: `go test ./internal/conflicts ./internal/git ./internal/ui/conflictview ./internal/app`, including CRLF, stale-edit, atomic-mode, and explicit non-staging coverage.
+- [x] `go test ./...` recorded: passed.
+- [x] Race/vet/lint/format evidence recorded where applicable: `go test -race ./...` passed for changed packages; one unrelated watcher timing test failed in a repository-wide run and passed with `go test -race ./internal/watch -run TestWatcherDebouncesAndSeesCreatedDirectories -count=3`; `go vet ./...`, `gofmt`, and `git diff --check` passed. Pinned `make check` lint remains blocked by denied Go build-cache access.
+- [x] Native/manual evidence recorded where this task changes terminal interaction: automated keyboard/mouse and 80x24/wide coverage passed; human terminal QA remains a documented release-gate limitation.
+- [x] Known limitations/deferred work documented: hunk edits are intentionally unstaged; watcher-driven refresh and shared cross-operation lifecycle policy remain coordinated by the existing refresh path and later Task 143.
