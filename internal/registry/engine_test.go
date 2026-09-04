@@ -3,12 +3,15 @@ package registry
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
 func TestEngineUsesBoundedWorkersAndCachesInactiveRepositories(t *testing.T) {
@@ -95,5 +98,57 @@ func TestEngineRecordsAuxiliaryWarningsAndRefreshMetadata(t *testing.T) {
 	results := engine.Refresh(context.Background(), []Repository{{Path: "/repo", Name: "repo"}}, "/repo")
 	if len(results) != 1 || len(results[0].Warnings) != 2 || results[0].Refreshed.IsZero() || results[0].Duration < 0 {
 		t.Fatalf("refresh metadata = %#v", results)
+	}
+}
+
+func TestEngineKeepsMixedAdvancedAttentionAcrossTwentyRepositories(t *testing.T) {
+	engine := NewEngine(4)
+	engine.Stashes, engine.Remotes = nil, nil
+	root := t.TempDir()
+	repositories := make([]Repository, 20)
+	for i := range repositories {
+		path := root + fmt.Sprintf("/repo-%02d", i)
+		if err := os.Mkdir(path, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		repositories[i] = Repository{Path: path, Name: fmt.Sprintf("repo-%02d", i)}
+	}
+	engine.Discover = func(_ context.Context, path string) (git.Discovery, error) {
+		if path == repositories[7].Path {
+			return git.Discovery{}, errors.New("repository disappeared")
+		}
+		return git.Discovery{Root: path}, nil
+	}
+	engine.Snapshot = func(_ context.Context, discovery git.Discovery, _ uint64) (repo.Snapshot, error) {
+		snapshot := repo.Snapshot{Root: discovery.Root, Branch: repo.Branch{Name: "main"}}
+		if discovery.Root == repositories[3].Path {
+			operation, err := sequencer.NewState(sequencer.RepositoryID(discovery.Root), 0, sequencer.KindRebase, sequencer.PhaseActive)
+			if err != nil {
+				return repo.Snapshot{}, err
+			}
+			snapshot.Operation = &operation
+		}
+		if discovery.Root == repositories[5].Path {
+			snapshot.Counts.Conflicted = 1
+		}
+		if discovery.Root == repositories[9].Path {
+			snapshot.Counts.Untracked = 1
+		}
+		return snapshot, nil
+	}
+	results := engine.Refresh(context.Background(), repositories, repositories[0].Path)
+	rows := Rows(results)
+	if len(rows) != len(repositories) {
+		t.Fatalf("mixed attention row count = %d", len(rows))
+	}
+	byPath := make(map[string]Row, len(rows))
+	for _, row := range rows {
+		byPath[row.Repository.Path] = row
+	}
+	if byPath[repositories[3].Path].Attention != "rebase" || byPath[repositories[5].Path].Attention != "conflict" || byPath[repositories[9].Path].Attention != "dirty/diverged" {
+		t.Fatalf("mixed attention rows = %#v", rows)
+	}
+	if byPath[repositories[7].Path].State != "error" || byPath[repositories[0].Path].State == "error" {
+		t.Fatalf("broken repository isolation = %#v", rows)
 	}
 }
