@@ -1,6 +1,7 @@
 package match
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
@@ -8,6 +9,22 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/gitignore/managed"
 )
+
+func BenchmarkMatchTenThousandLines(b *testing.B) {
+	cat, err := catalog.Default()
+	if err != nil {
+		b.Fatal(err)
+	}
+	doc, err := document.Parse(bytes.Repeat([]byte("handwritten-rule\n"), 10_000))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = Match(doc, cat)
+	}
+}
 
 func TestMatchUnmanagedFullPartialAndOverlap(t *testing.T) {
 	cat, err := catalog.Default()

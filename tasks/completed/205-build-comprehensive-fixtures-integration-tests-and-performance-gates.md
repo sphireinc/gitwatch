@@ -38,12 +38,20 @@ The feature combines parsing, matching, file mutation, async UI, network/cache, 
 
 ## Acceptance criteria
 
-- [ ] Real Git integration tests prove ignore effects.
-- [ ] Large files/catalog search do not introduce visible TUI stalls.
-- [ ] Multi-repo tests cover mixed success/failure.
-- [ ] Golden tests protect lossless editing.
-- [ ] Race/concurrent modification behavior is tested.
+- [x] Real Git integration tests prove ignore effects.
+- [x] Large files/catalog search do not introduce visible TUI stalls.
+- [x] Multi-repo tests cover mixed success/failure.
+- [x] Golden tests protect lossless editing.
+- [x] Race/concurrent modification behavior is tested.
 
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added real-repository coverage for canonical ignore/unignore effects and a 25-repository mixed batch with deterministic repository scoping and stale-plan isolation.
+- Added catalog search, 10,000-line match, and TUI filter benchmarks. Baseline on Apple M1 Pro: catalog search 2.03 ms, 10k-line match 1.34 ms, and filter update 0.80 ms per operation (single-iteration smoke run; CI should track trends rather than enforce these machine-specific values).
+- Added a lossless mutation-preview golden assertion and retained concurrent-modification tests for race-protected writes. Embedded/cache source behavior remains covered by catalog source tests.
+- Validation: full `go test ./...`, full `go test -race ./...`, `go vet ./...`, formatter check, `git diff --check`, and benchmark smoke run pass.
+- Exception: `make check` reaches the pinned golangci-lint run but reports 21 pre-existing repository findings outside this task; no new findings were introduced by the task changes.

@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -140,6 +141,76 @@ func TestMultiRepositoryRefreshTransitionScenario(t *testing.T) {
 	}
 	if len(byPath[paths[1]].Snapshot.Entries) != 1 || !byPath[paths[1]].Snapshot.Entries[0].Unstaged {
 		t.Fatalf("changed repository transition = %#v", byPath[paths[1]].Snapshot.Entries)
+	}
+}
+
+func TestGitignoreBatchAcrossTwentyFiveRepositoriesIsScopedAndDeterministic(t *testing.T) {
+	ctx := context.Background()
+	const repositoryCount = 25
+	roots := make([]string, repositoryCount)
+	discoveries := make([]git.Discovery, repositoryCount)
+	plans := make([]domain.MutationPlan, repositoryCount)
+	for i := 0; i < repositoryCount; i++ {
+		root := filepath.Join(t.TempDir(), "repo")
+		roots[i] = root
+		if err := os.MkdirAll(root, 0700); err != nil {
+			t.Fatal(err)
+		}
+		runner := git.NewRunner(root)
+		if _, err := runner.Run(ctx, "init", "--", root); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "generated.out"), []byte("generated\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		discovery, err := git.Discover(ctx, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		discoveries[i] = discovery
+		if i%2 == 0 {
+			snapshot, err := domain.NewDocumentSnapshot(domain.RepositoryID(root), root, ".gitignore", nil, 0644)
+			if err != nil {
+				t.Fatal(err)
+			}
+			plans[i], err = domain.NewMutationPlan(snapshot, domain.MutationCreate, nil, nil, []byte("generated.out\n"), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	// One repository changes after planning and must fail without affecting any
+	// other repository's plan or status.
+	if err := os.WriteFile(filepath.Join(roots[0], ".gitignore"), []byte("external\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < repositoryCount; i += 2 {
+		if i == 0 {
+			if err := manage.Apply(plans[i]); !errors.Is(err, domain.ErrConcurrentModification) {
+				t.Fatalf("stale repository apply error = %v", err)
+			}
+			continue
+		}
+		if err := manage.Apply(plans[i]); err != nil {
+			t.Fatalf("repository %d apply: %v", i, err)
+		}
+	}
+	for i, discovery := range discoveries {
+		snapshot, err := git.Snapshot(ctx, discovery, uint64(i+1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		reported := false
+		for _, entry := range snapshot.Entries {
+			if string(entry.Path) == "generated.out" {
+				reported = true
+			}
+		}
+		wantReported := i%2 == 1 || i == 0
+		if reported == wantReported {
+			continue
+		}
+		t.Fatalf("repository %d reported=%v want=%v entries=%#v", i, reported, wantReported, snapshot.Entries)
 	}
 }
 

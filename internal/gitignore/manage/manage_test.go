@@ -131,3 +131,19 @@ func TestPlanRemoveTamperedManagedBlockRequiresConfirmation(t *testing.T) {
 		t.Fatalf("error=%v", err)
 	}
 }
+
+func TestPreviewGoldenPreservesUnrelatedBytes(t *testing.T) {
+	snapshot, err := domain.NewDocumentSnapshot("repo", t.TempDir(), ".gitignore", []byte("handwritten\t# keep\r\n# user\r\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := append(append([]byte(nil), snapshot.Bytes...), []byte("added\r\n")...)
+	plan, err := domain.NewMutationPlan(snapshot, domain.MutationAppend, []domain.TemplateID{"root/Go"}, nil, result, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "--- .gitignore (before)\n+++ .gitignore (after)\n@@ byte 28,0 -> 28,7 @@\n-+added\r\n"
+	if got := PreviewPlan(plan).Diff; got != want {
+		t.Fatalf("golden preview diff = %q, want %q", got, want)
+	}
+}

@@ -90,6 +90,24 @@ func TestViewSanitizesUntrustedTemplateAndPreviewText(t *testing.T) {
 	}
 }
 
+func BenchmarkFilterUpdates(b *testing.B) {
+	m := testModelForBenchmark(b)
+	queries := []string{"java", "python", "go", "", "community"}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.SetQuery(queries[i%len(queries)])
+	}
+}
+
+func testModelForBenchmark(b *testing.B) RepositoryModel {
+	b.Helper()
+	cat, err := catalog.Default()
+	if err != nil {
+		b.Fatal(err)
+	}
+	return New(domain.RepositoryID("benchmark"), cat, nil)
+}
+
 func TestRecommendationsExplainWithoutAutoSelecting(t *testing.T) {
 	m := testModel(t)
 	m.SetRecommendations([]recommend.Recommendation{{TemplateID: "root/CakePHP", Confidence: .9, Reasons: []string{"composer.json detected"}}})
