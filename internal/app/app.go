@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +17,10 @@ import (
 	"github.com/sphireinc/git-watch/internal/config"
 	"github.com/sphireinc/git-watch/internal/conflicts"
 	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
+	"github.com/sphireinc/git-watch/internal/gitignore/document"
+	"github.com/sphireinc/git-watch/internal/gitignore/domain"
+	"github.com/sphireinc/git-watch/internal/gitignore/match"
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/notifications"
 	"github.com/sphireinc/git-watch/internal/operations"
@@ -34,6 +40,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/conflictview"
 	"github.com/sphireinc/git-watch/internal/ui/details"
 	"github.com/sphireinc/git-watch/internal/ui/githubview"
+	"github.com/sphireinc/git-watch/internal/ui/gitignoreview"
 	"github.com/sphireinc/git-watch/internal/ui/historyview"
 	"github.com/sphireinc/git-watch/internal/ui/hunkview"
 	"github.com/sphireinc/git-watch/internal/ui/layout"
@@ -264,6 +271,10 @@ type PluginsReadyMsg struct {
 	Entries []plugins.Entry
 	Err     error
 }
+type GitignoreReadyMsg struct {
+	Model gitignoreview.RepositoryModel
+	Err   error
+}
 type PluginStateSavedMsg struct{ Err error }
 
 type Model struct {
@@ -429,6 +440,7 @@ type Model struct {
 	GitHubChecksCache        *provider.Cache[provider.ChecksSnapshot]
 	GitHubReviewsCache       *provider.Cache[provider.ReviewSnapshot]
 	Plugins                  pluginview.Model
+	Gitignore                gitignoreview.RepositoryModel
 	PluginsEnabled           bool
 	PluginDirectories        []string
 	PluginStatePath          string
@@ -465,7 +477,7 @@ func New() Model {
 		ctx: ctx, cancel: cancel, RefreshInterval: 2 * time.Second,
 		ReconciliationInterval: 30 * time.Second, WatchDebounce: 75 * time.Millisecond,
 		DiffMaxBytes: 4 << 20, DiffMaxLines: 20_000, CommitTreeMaxCommits: config.DefaultCommitTreeCommits,
-		WatchRequested: watch.RequestedAuto, Workspace: workspace.New(), Conflict: conflictview.New(),
+		WatchRequested: watch.RequestedAuto, Workspace: workspace.New(), Conflict: conflictview.New(), Gitignore: gitignoreview.RepositoryModel{RepositoryID: domain.RepositoryID(""), Width: 80, Height: 24},
 		Notifications: notifications.New(100, false), OperationEngine: operations.New(4),
 	}
 }
@@ -473,6 +485,7 @@ func New() Model {
 func (m Model) paletteActions() []commands.Action {
 	actions := []commands.Action{
 		{ID: "status", Label: "Show status", Shortcut: "1", Enabled: m.Discovery.Root != ""},
+		{ID: "gitignore", Label: "Open gitignore catalog", Shortcut: "I", Enabled: m.Discovery.Root != ""},
 		{ID: "branches", Label: "Open branches", Shortcut: "b", Enabled: m.Discovery.Root != ""},
 		{ID: "stashes", Label: "Open stashes", Shortcut: "s", Enabled: m.Discovery.Root != ""},
 		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
@@ -569,6 +582,9 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 	switch id {
 	case "status":
 		m.Workspace.Navigate(workspace.Status, "Status")
+	case "gitignore":
+		m.Workspace.Navigate(workspace.Gitignore, "Gitignore catalog")
+		return m.openGitignore()
 	case "branches":
 		return m.navigate(workspace.Branches, "Branches")
 	case "stashes":
@@ -604,6 +620,30 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		return m.selectLowerPane("branches")
 	}
 	return nil
+}
+
+func (m Model) openGitignore() tea.Cmd {
+	root := m.Discovery.Root
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		cat, err := catalog.Default()
+		if err != nil {
+			return GitignoreReadyMsg{Err: err}
+		}
+		content, readErr := os.ReadFile(filepath.Join(root, ".gitignore"))
+		if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+			return GitignoreReadyMsg{Err: readErr}
+		}
+		doc, parseErr := document.Parse(content)
+		if parseErr != nil {
+			return GitignoreReadyMsg{Err: parseErr}
+		}
+		results := match.Match(doc, cat)
+		model := gitignoreview.New(domain.RepositoryID(root), cat, results)
+		model.SetSize(m.Width, m.Height)
+		_ = generation // repository identity is the path; refresh messages remain authoritative.
+		return GitignoreReadyMsg{Model: model}
+	}
 }
 func NewRepository(d git.Discovery) Model {
 	m := New()
@@ -2723,6 +2763,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Conflict {
 			return m, m.updateConflictKey(v.String())
 		}
+		if m.currentView() == workspace.Gitignore {
+			if v.String() == "esc" {
+				m.Workspace.Back()
+				m.Status = "gitignore browser closed"
+				return m, nil
+			}
+			m.Gitignore.UpdateKey(v.String())
+			return m, nil
+		}
 		if m.currentView() == workspace.Commit && m.CommitAmendConfirm {
 			switch v.String() {
 			case "y", "Y":
@@ -3277,6 +3326,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Log {
 				return m, m.openRebaseWorkspace()
 			}
+			if m.Discovery.Root != "" {
+				m.Workspace.Navigate(workspace.Gitignore, "Gitignore catalog")
+				return m, m.openGitignore()
+			}
 		case "M":
 			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" && len(m.HistoryInspector.Commit.Parents) > 0 {
 				parent := ""
@@ -3683,6 +3736,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width, m.Height = v.Width, v.Height
 		m.Hunks.SetHeight(max(1, v.Height-8))
+		m.Gitignore.SetSize(v.Width, v.Height)
 	case refreshResultMsg:
 		if v.Coordinator != m.RefreshCoordinator {
 			return m, nil
@@ -3708,6 +3762,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applySnapshot(v.Snapshot)
 		m.State = StateReady
 		return m, m.refreshStatusContextIfNeeded()
+	case GitignoreReadyMsg:
+		if v.Err != nil {
+			m.Status = "gitignore catalog: " + v.Err.Error()
+			return m, nil
+		}
+		m.Gitignore = v.Model
+		m.State, m.Status = StateReady, "gitignore catalog ready"
+		return m, nil
 	case ConflictContentReadyMsg:
 		if v.Generation != m.repositoryGeneration || v.Request != m.ConflictContentRequest {
 			return m, nil
@@ -4356,7 +4418,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Gitignore {
 		return m.featureView(view)
 	}
 	if m.Modal == "help" {
@@ -4453,6 +4515,8 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.Status != "" {
 			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
 		}
+	case workspace.Gitignore:
+		title, content = "gitwatch · gitignore catalog", m.Gitignore.View()
 	}
 	title += " · watch:" + watchModeName(m.WatchMode)
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
@@ -4467,6 +4531,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.BranchSearching {
 			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Branches.Query) + "  [enter] apply  [esc] cancel"
 		}
+	}
+	if view == workspace.Gitignore {
+		lines[len(lines)-1] = "[j/k] move  [space] select  [tab] filter  [type] search  [a/d] preview/apply  [p] preview  [r] refresh  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
 		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push preview  [P] force-with-lease  [esc] back  [q] quit"

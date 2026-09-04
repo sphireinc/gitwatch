@@ -53,3 +53,11 @@ The user requirement is explicit: type `php` instead of scrolling; select multip
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added the repository-scoped `internal/ui/gitignoreview` model with embedded-catalog search, alias/category/source matching, deterministic full/partial/recommended ordering, tabs, persistent multi-selection, semantic indicators, keyboard controls, mouse row parity, and bounded details/preview rendering.
+- Added Bubble Tea routing through the existing workspace and command palette, with direct `I` access and an asynchronous `.gitignore` read/match command. Rendering remains free of filesystem, Git, and network work.
+- Added tests covering PHP search, selection persistence, match ordering and indicators, repository isolation, and mouse/keyboard parity.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
+- `make check` reached lint but could not run because the sandbox denied the Go build cache path under `/Users/JuanSanchez/Library/Caches/go-build`; this is an environment exception, not a lint result.
