@@ -14,3 +14,13 @@ func TestResolveConflictValidatesActionAndPath(t *testing.T) {
 		t.Fatal("expected unsupported action error")
 	}
 }
+
+func TestExternalMergeToolCommandUsesTypedPath(t *testing.T) {
+	command, err := NewRunner("/repo").ExternalMergeToolCommand([]byte("space name"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := command.Args; len(got) != 5 || got[1] != "mergetool" || got[4] != "space name" {
+		t.Fatalf("command args = %#v", got)
+	}
+}

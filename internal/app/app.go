@@ -2562,6 +2562,22 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		}[action]
 		m.State, m.Status = StateOperationPending, "applying conflict action: "+string(choice)
 		return m.resolveConflict(append([]byte(nil), selected.Path...), choice)
+	case conflictview.ActionEditExternal:
+		selected, ok := m.Conflict.SelectedConflict()
+		if !ok {
+			m.Status = "no conflict selected"
+			return nil
+		}
+		command, err := git.NewRunner(m.Discovery.Root).ExternalMergeToolCommand(append([]byte(nil), selected.Path...))
+		if err != nil {
+			m.Status = err.Error()
+			return nil
+		}
+		m.Status = "external merge tool active"
+		generation := m.repositoryGeneration
+		return tea.ExecProcess(command, func(processErr error) tea.Msg {
+			return OperationFinishedMsg{Name: "external merge tool", Repository: generation, Err: processErr}
+		})
 	case conflictview.ActionNone:
 		return nil
 	default:

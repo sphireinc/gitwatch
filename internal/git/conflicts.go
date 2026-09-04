@@ -3,6 +3,8 @@ package git
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 )
 
 type ConflictChoice string
@@ -37,4 +39,23 @@ func (r Runner) ResolveConflict(ctx context.Context, path []byte, choice Conflic
 	}
 	result, err := r.Run(ctx, append(args, string(path))...)
 	return OperationResult{Name: name, Paths: [][]byte{append([]byte(nil), path...)}, Result: result}, err
+}
+
+// ExternalMergeToolCommand returns a typed Git command for the user's
+// configured mergetool. The command is only started after an explicit UI
+// action; returning it does not mutate repository state.
+func (r Runner) ExternalMergeToolCommand(path []byte) (*exec.Cmd, error) {
+	if len(path) == 0 {
+		return nil, fmt.Errorf("conflict path is required")
+	}
+	binary := r.Binary
+	if binary == "" {
+		binary = "git"
+	}
+	command := exec.Command(binary, "mergetool", "--no-prompt", "--", string(path))
+	command.Dir = r.Dir
+	if len(r.Env) > 0 {
+		command.Env = append(os.Environ(), r.Env...)
+	}
+	return command, nil
 }
