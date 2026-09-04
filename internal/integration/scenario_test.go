@@ -10,6 +10,9 @@ import (
 
 	"github.com/sphireinc/git-watch/internal/branches"
 	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
+	"github.com/sphireinc/git-watch/internal/gitignore/domain"
+	"github.com/sphireinc/git-watch/internal/gitignore/manage"
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/hunks"
 	"github.com/sphireinc/git-watch/internal/patch"
@@ -137,6 +140,92 @@ func TestMultiRepositoryRefreshTransitionScenario(t *testing.T) {
 	}
 	if len(byPath[paths[1]].Snapshot.Entries) != 1 || !byPath[paths[1]].Snapshot.Entries[0].Unstaged {
 		t.Fatalf("changed repository transition = %#v", byPath[paths[1]].Snapshot.Entries)
+	}
+}
+
+func TestGitignoreMutationFeedsCanonicalStatusForIgnoreAndUnignore(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	for _, args := range [][]string{{"init", "--", root}, {"config", "user.name", "gitwatch-ignore"}, {"config", "user.email", "gitwatch-ignore@example.com"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tracked := filepath.Join(root, "tracked.txt")
+	if err := os.WriteFile(tracked, []byte("baseline\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("tracked.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("baseline\n")}); err != nil {
+		t.Fatal(err)
+	}
+	ignored := filepath.Join(root, "coverage.out")
+	if err := os.WriteFile(ignored, []byte("debug\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cat, err := catalog.Default()
+	if err != nil {
+		t.Fatal(err)
+	}
+	templateID := domain.TemplateID("root/Go")
+	before, err := domain.NewDocumentSnapshot(domain.RepositoryID(root), root, ".gitignore", nil, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addPlan, err := manage.PlanCreateTemplates(before, cat, []domain.TemplateID{templateID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manage.Apply(addPlan); err != nil {
+		t.Fatal(err)
+	}
+	ignoredSnapshot, err := git.Snapshot(ctx, discovery, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range ignoredSnapshot.Entries {
+		if string(entry.Path) == "coverage.out" {
+			t.Fatalf("canonical status still reports ignored file: %#v", ignoredSnapshot.Entries)
+		}
+	}
+	content, err := os.ReadFile(filepath.Join(root, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(filepath.Join(root, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing, err := domain.NewDocumentSnapshot(domain.RepositoryID(root), root, ".gitignore", content, uint32(info.Mode().Perm()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	removePlan, err := manage.PlanRemoveTemplates(existing, cat, []domain.TemplateID{templateID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manage.Apply(removePlan); err != nil {
+		t.Fatal(err)
+	}
+	unignoredSnapshot, err := git.Snapshot(ctx, discovery, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, entry := range unignoredSnapshot.Entries {
+		if string(entry.Path) == "coverage.out" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("canonical status did not restore unignored file: %#v", unignoredSnapshot.Entries)
 	}
 }
 

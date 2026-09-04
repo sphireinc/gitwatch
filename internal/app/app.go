@@ -466,6 +466,7 @@ type Model struct {
 	GitignoreCreateConfirm   bool
 	GitignoreCreatePlan      domain.MutationPlan
 	GitignoreMutationAction  string
+	GitignoreReturnToStatus  bool
 	GitignoreCatalog         *catalog.Catalog
 	GitignoreCatalogSource   catalog.SourceKind
 	PluginsEnabled           bool
@@ -2930,6 +2931,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.GitignoreCreateConfirm = false
 					m.Gitignore.SetPreview("")
 					if m.GitignoreMissing && m.GitignoreMutationAction == "add" {
+						m.GitignoreReturnToStatus = true
 						m.Workspace.Navigate(workspace.Status, "Status")
 					}
 					m.State, m.Status = StateOperationPending, "applying gitignore "+m.GitignoreMutationAction
@@ -4023,6 +4025,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.State, m.Status = StateReady, "gitignore "+v.Action+" complete"
+		if m.GitignoreReturnToStatus {
+			m.GitignoreReturnToStatus = false
+			return m, m.refresh()
+		}
 		return m, tea.Batch(m.openGitignore(), m.refresh())
 	case ConflictContentReadyMsg:
 		if v.Generation != m.repositoryGeneration || v.Request != m.ConflictContentRequest {
@@ -4105,6 +4111,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Event.Err != nil {
 			m.Status = "watcher fallback: " + v.Event.Err.Error()
 			m.recordActivity(history.WatchFallback, v.Event.Path, v.Event.Err.Error())
+		}
+		if m.currentView() == workspace.Gitignore && m.GitignoreCreateConfirm && gitignoreWatchHint(v.Event.Path, m.Discovery.Root) {
+			m.GitignoreCreateConfirm = false
+			m.GitignoreCreatePlan = domain.MutationPlan{}
+			m.Gitignore.SetPreview("")
+			m.State, m.Status = StateReady, "file changed externally; refresh preview"
+			return m, tea.Batch(m.refresh(), m.openGitignore(), waitForWatcher(v.Manager))
 		}
 		return m, tea.Batch(m.refresh(), waitForWatcher(v.Manager))
 	case WatcherStateMsg:
@@ -4589,6 +4602,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.refresh(), m.loadRemotes())
 	}
 	return m, nil
+}
+
+func gitignoreWatchHint(path, root string) bool {
+	if path == "" || root == "" {
+		return false
+	}
+	cleanPath := filepath.Clean(path)
+	gitignorePath := filepath.Join(filepath.Clean(root), ".gitignore")
+	if cleanPath == gitignorePath {
+		return true
+	}
+	// Polling and reconciliation events identify the repository root rather
+	// than the changed file. While a preview is open, treat that broad hint as
+	// a possible external edit; the subsequent reload re-establishes Gitignore
+	// state from disk.
+	return cleanPath == filepath.Clean(root)
 }
 
 func remoteConflict(err error) bool {

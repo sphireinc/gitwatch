@@ -43,12 +43,19 @@ Changing `.gitignore` can immediately change which untracked files Git reports. 
 
 ## Acceptance criteria
 
-- [ ] Ignored/unignored file changes appear through canonical Git status.
-- [ ] Atomic `.gitignore` writes are detected on all supported OSes.
-- [ ] No synthetic status filtering is added.
-- [ ] External edits invalidate stale plans.
-- [ ] Refresh storms are avoided.
+- [x] Ignored/unignored file changes appear through canonical Git status.
+- [x] Atomic `.gitignore` writes are detected on all supported OSes.
+- [x] No synthetic status filtering is added.
+- [x] External edits invalidate stale plans.
+- [x] Refresh storms are avoided.
 
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Implemented repository-root `.gitignore` atomic replacement coverage, canonical refresh triggering, preview invalidation/reload, and Status return for creation.
+- Added watcher, app, and real-repository integration tests for atomic replacement, external edits, ignored/unignored status transitions, and refresh coalescing through `RefreshCoordinator`.
+- Validation: `go test ./...`, `go test -race ./...`, `go vet ./...`, `git diff --check`, and formatter check pass.
+- Exception: `make check` reaches the pinned golangci-lint run but reports 21 pre-existing repository lint findings outside this task; no new finding is reported for the changed production paths.

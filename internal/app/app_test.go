@@ -15,6 +15,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/config"
 	"github.com/sphireinc/git-watch/internal/conflicts"
 	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/notifications"
 	"github.com/sphireinc/git-watch/internal/patch"
@@ -122,6 +123,36 @@ func TestGitignoreLoaderIgnoresStaleRepositoryGeneration(t *testing.T) {
 	updated, cmd := m.Update(GitignoreReadyMsg{Model: gitignoreview.RepositoryModel{RepositoryID: "old-repo"}, Generation: 1})
 	if cmd != nil || updated.(Model).GitignoreMissing != true {
 		t.Fatal("stale gitignore result replaced current state")
+	}
+}
+
+func TestGitignoreWatcherInvalidatesOpenPreview(t *testing.T) {
+	root := t.TempDir()
+	m := NewRepositoryWithConfig(git.Discovery{Root: root}, config.Defaults())
+	m.Workspace.Navigate(workspace.Gitignore, "Gitignore catalog")
+	manager := &watch.Manager{}
+	m.WatchManager = manager
+	m.GitignoreCreateConfirm = true
+	m.GitignoreCreatePlan = domain.MutationPlan{Root: root, Path: ".gitignore"}
+	m.Gitignore.SetPreview("preview")
+	updated, cmd := m.Update(watcherEventMsg{Manager: manager, Open: true, Event: watch.Event{Mode: watch.ModeFS, Path: filepath.Join(root, ".gitignore"), Operation: "WRITE"}})
+	got := updated.(Model)
+	if got.GitignoreCreateConfirm || got.GitignoreCreatePlan.Path != "" || got.Gitignore.PreviewText != "" {
+		t.Fatalf("external edit left stale preview: confirm=%v plan=%#v preview=%q", got.GitignoreCreateConfirm, got.GitignoreCreatePlan, got.Gitignore.PreviewText)
+	}
+	if got.Status != "file changed externally; refresh preview" || cmd == nil {
+		t.Fatalf("external edit handling: status=%q cmdnil=%v", got.Status, cmd == nil)
+	}
+}
+
+func TestGitignoreCreationReturnsToStatusAfterMutation(t *testing.T) {
+	m := New()
+	m.GitignoreReturnToStatus = true
+	m.Workspace.Navigate(workspace.Status, "Status")
+	updated, cmd := m.Update(GitignoreMutationFinishedMsg{Action: "add", Repository: m.repositoryGeneration})
+	got := updated.(Model)
+	if got.currentView() != workspace.Status || got.GitignoreReturnToStatus || cmd == nil {
+		t.Fatalf("creation completion: view=%q return=%v cmdnil=%v", got.currentView(), got.GitignoreReturnToStatus, cmd == nil)
 	}
 }
 

@@ -52,6 +52,34 @@ func TestWatcherDebouncesAndSeesCreatedDirectories(t *testing.T) {
 	awaitFilesystemEvent(t, events)
 }
 
+func TestWatcherSeesAtomicGitignoreReplacement(t *testing.T) {
+	root := t.TempDir()
+	w, err := New(root, 5*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = w.Close() })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	events := w.Events(ctx)
+	path := filepath.Join(root, ".gitignore")
+	temporary := filepath.Join(root, ".gitignore.gitwatch.tmp")
+	if err := os.WriteFile(temporary, []byte("*.log\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(temporary, path); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case event := <-events:
+		if event.Err != nil || event.Mode != ModeFS {
+			t.Fatalf("gitignore replacement event: %#v", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("watcher did not emit atomic gitignore replacement")
+	}
+}
+
 func TestWatcherSeesExternalGitMetadataAndRecreatedDirectory(t *testing.T) {
 	root := t.TempDir()
 	metadataParent := t.TempDir()
