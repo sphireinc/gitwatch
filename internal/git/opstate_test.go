@@ -81,6 +81,37 @@ func TestDetectOperationStateSurvivesRunnerReconstructionDuringRebase(t *testing
 	}
 }
 
+func TestDetectOperationStateReportsCherryPickProgress(t *testing.T) {
+	runner, discovery := operationFixture(t)
+	if _, err := runner.Run(context.Background(), "checkout", "-b", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	commitFile(t, runner, discovery.Root, "feature one\n", "feature one")
+	first := rev(t, runner, "HEAD")
+	commitFile(t, runner, discovery.Root, "feature two\n", "feature two")
+	second := rev(t, runner, "HEAD")
+	if _, err := runner.Run(context.Background(), "checkout", "main"); err != nil {
+		t.Fatal(err)
+	}
+	commitFile(t, runner, discovery.Root, "main\n", "main")
+	if _, err := runner.Run(context.Background(), "checkout", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(context.Background(), "cherry-pick", first, second); err == nil {
+		t.Fatal("cherry-pick unexpectedly completed")
+	}
+	defer func() { _, _ = runner.Run(context.Background(), "cherry-pick", "--abort") }()
+
+	got, err := DetectOperationState(context.Background(), discovery, 53)
+	if err != nil {
+		t.Fatal(err)
+	}
+	details := got.State.Details().CherryPick
+	if !got.Found || got.State.Kind() != sequencer.KindCherryPick || details == nil || len(details.Commits) != 2 || details.CurrentIndex != 0 || got.State.Remaining() != 2 {
+		t.Fatalf("cherry-pick progress = found=%v kind=%s details=%#v remaining=%d", got.Found, got.State.Kind(), details, got.State.Remaining())
+	}
+}
+
 func TestDetectOperationStateBisect(t *testing.T) {
 	runner, discovery := operationFixture(t)
 	commitFile(t, runner, discovery.Root, "one\n", "one")

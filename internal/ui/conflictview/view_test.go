@@ -3,6 +3,7 @@ package conflictview
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sphireinc/git-watch/internal/conflicts"
 	"github.com/sphireinc/git-watch/internal/sequencer"
@@ -73,6 +74,28 @@ func TestWideViewShowsOperationAndSideColumns(t *testing.T) {
 	for _, want := range []string{"Operation: merge", "Target: feature", "Ours                 Theirs               Result", "ours", "theirs"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("wide view missing %q:\n%s", want, view)
+		}
+	}
+}
+
+func TestCherryPickViewShowsRepositoryScopedProgress(t *testing.T) {
+	m := New()
+	state, err := sequencer.NewState("repo", 4, sequencer.KindCherryPick, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state = state.WithHistory("before", sequencer.Recovery{}, time.Time{})
+	state = state.WithObservation("after", "current", 1, 1, []string{"file"}, time.Now())
+	state, err = state.WithDetails(sequencer.Details{CherryPick: &sequencer.CherryPickDetails{Commits: []string{"first", "current"}, CurrentIndex: 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.SetSnapshot(sequencer.KindCherryPick, "feature", []conflicts.Conflict{{Path: []byte("file")}})
+	m.SetOperationState(&state)
+	view := m.View(120, 30)
+	for _, want := range []string{"Cherry-pick progress", "Original HEAD: before", "Progress: 1 completed · 1 remaining", "completed first", "current current", "[s] skip"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("view missing %q:\n%s", want, view)
 		}
 	}
 }

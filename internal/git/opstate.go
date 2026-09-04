@@ -218,13 +218,42 @@ func enrichMarker(paths map[string]string, marker operationMarker) operationMark
 			marker.details.Rebase = &sequencer.RebaseDetails{}
 		}
 	case sequencer.KindCherryPick:
-		marker.details.CherryPick = &sequencer.CherryPickDetails{Commits: nonEmpty(marker.current)}
+		commits, completed := readSequencerCommits(paths["sequencer"])
+		if len(commits) == 0 {
+			commits = nonEmpty(marker.current)
+		}
+		marker.details.CherryPick = &sequencer.CherryPickDetails{Commits: commits, CurrentIndex: completed}
+		marker.completed = completed
+		marker.remaining = len(commits) - completed
+		if marker.remaining < 0 {
+			marker.remaining = 0
+		}
 	case sequencer.KindRevert:
 		marker.details.Revert = &sequencer.RevertDetails{Commits: nonEmpty(marker.current)}
 	case sequencer.KindMerge:
 		marker.details.Merge = &sequencer.MergeDetails{Other: marker.current, Strategy: "default"}
 	}
 	return marker
+}
+
+func readSequencerCommits(path string) (commits []string, completed int) {
+	if !hasDirectory(path) {
+		return nil, 0
+	}
+	for _, name := range []string{"done", "todo"} {
+		lines := strings.Split(readMetadata(filepath.Join(path, name)), "\n")
+		for _, line := range lines {
+			fields := strings.Fields(line)
+			if len(fields) < 2 || (fields[0] != "pick" && fields[0] != "revert") {
+				continue
+			}
+			commits = append(commits, fields[1])
+			if name == "done" {
+				completed++
+			}
+		}
+	}
+	return commits, completed
 }
 
 func nonEmpty(value string) []string {

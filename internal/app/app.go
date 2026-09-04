@@ -946,6 +946,7 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 		operationKind, operationTarget = snapshot.Operation.Kind(), snapshot.Operation.Target()
 	}
 	m.Conflict.SetSnapshot(operationKind, operationTarget, snapshot.Conflicts)
+	m.Conflict.SetOperationState(snapshot.Operation)
 	if err := m.History.SetScope(snapshot.Root, snapshot.Branch.Name, m.repositoryGeneration); err != nil {
 		m.Status = "history selection: " + err.Error()
 	}

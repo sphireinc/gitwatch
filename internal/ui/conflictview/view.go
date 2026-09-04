@@ -53,6 +53,7 @@ const (
 type Model struct {
 	Operation sequencer.Kind
 	Target    string
+	Progress  *sequencer.State
 	Conflicts []conflicts.Conflict
 	Selected  int
 	Hunk      int
@@ -108,6 +109,17 @@ func (m *Model) SetSnapshot(operation sequencer.Kind, target string, values []co
 	}
 }
 
+// SetOperationState attaches the latest immutable Git-derived operation
+// projection without allowing the view to mutate repository state.
+func (m *Model) SetOperationState(state *sequencer.State) {
+	if state == nil {
+		m.Progress = nil
+		return
+	}
+	copyState := *state
+	m.Progress = &copyState
+}
+
 // SetDetail accepts detail only for the currently selected conflict. A stale
 // asynchronous load therefore cannot replace a newer selection.
 func (m *Model) SetDetail(detail Detail) bool {
@@ -158,10 +170,33 @@ func (m Model) View(width, height int) string {
 	if width <= 0 {
 		width = 80
 	}
+	title := "Conflict resolver"
+	if m.Operation == sequencer.KindCherryPick {
+		title = "Cherry-pick progress"
+	}
 	lines := []string{
-		"Conflict resolver",
+		title,
 		fmt.Sprintf("Operation: %s  Target: %s", m.Operation.String(), platform.SafeText(m.Target)),
 		fmt.Sprintf("Conflicts: %d total, %d resolved", len(m.Conflicts), m.ResolvedCount()),
+	}
+	if m.Operation == sequencer.KindCherryPick && m.Progress != nil {
+		lines = append(lines, fmt.Sprintf("Original HEAD: %s  Current HEAD: %s", platform.SafeText(m.Progress.HeadBefore()), platform.SafeText(m.Progress.HeadCurrent())))
+		lines = append(lines, fmt.Sprintf("Progress: %d completed · %d remaining", m.Progress.Completed(), m.Progress.Remaining()))
+		if current := m.Progress.CurrentCommit(); current != "" {
+			lines = append(lines, "Current commit: "+platform.SafeText(current))
+		}
+		if details := m.Progress.Details().CherryPick; details != nil && len(details.Commits) > 0 {
+			lines = append(lines, "", "Selected commits:")
+			for index, commit := range details.Commits {
+				state := "pending"
+				if index < details.CurrentIndex {
+					state = "completed"
+				} else if index == details.CurrentIndex {
+					state = "current"
+				}
+				lines = append(lines, fmt.Sprintf("  %s %s", state, platform.SafeText(commit)))
+			}
+		}
 	}
 	if m.Operation == sequencer.KindRebase {
 		lines = append(lines, "Rebase recovery: [c] continue  [s] skip  [x] abort")
