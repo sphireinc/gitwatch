@@ -113,6 +113,73 @@ func TestOperationLifecycleAbortsRebaseAndRefreshesOperationState(t *testing.T) 
 	}
 }
 
+func TestOperationLifecycleContinuesResolvedRebase(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := NewRunner(dir)
+	for _, args := range [][]string{{"init", "-b", "main", "--", dir}, {"config", "user.name", "test"}, {"config", "user.email", "test@example.com"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	commit := func(content, message string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, "file"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Run(ctx, "add", "--", "file"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Run(ctx, "commit", "-m", message); err != nil {
+			t.Fatal(err)
+		}
+	}
+	commit("base\n", "base")
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	commit("feature\n", "feature")
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+	commit("main\n", "main")
+	if _, err := runner.Run(ctx, "switch", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "rebase", "main"); err == nil {
+		t.Fatal("rebase unexpectedly completed")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "file"), []byte("resolved\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "add", "--", "file"); err != nil {
+		t.Fatal(err)
+	}
+	continueRunner := runner
+	continueRunner.Env = []string{"GIT_EDITOR=true"}
+	if _, err := continueRunner.OperationLifecycle(ctx, sequencer.KindRebase, "continue"); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := Snapshot(ctx, discovery, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Operation != nil || snapshot.Branch.Name != "feature" {
+		t.Fatalf("post-continue snapshot = %+v", snapshot)
+	}
+	content, err := os.ReadFile(filepath.Join(dir, "file"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "resolved\n" {
+		t.Fatalf("post-continue content = %q", content)
+	}
+}
+
 func TestResolveConflictRegionRejectsStaleAndDoesNotStage(t *testing.T) {
 	dir := t.TempDir()
 	runner := NewRunner(dir)

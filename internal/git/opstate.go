@@ -118,6 +118,11 @@ func operationMarkers(ctx context.Context, runner Runner) ([]operationMarker, er
 			} else {
 				markers = append(markers, marker)
 			}
+		} else {
+			// REBASE_HEAD may survive as a transition-only pseudo-ref after Git
+			// has removed the rebase state directory. It is not an active
+			// operation without the durable rebase metadata.
+			markers = removeKind(markers, sequencer.KindRebase)
 		}
 	}
 	if hasDirectory(paths["sequencer"]) && len(markers) == 0 {
@@ -205,6 +210,13 @@ func enrichMarker(paths map[string]string, marker operationMarker) operationMark
 		marker.headBefore = readMetadata(paths["ORIG_HEAD"])
 	}
 	switch marker.kind {
+	case sequencer.KindRebase:
+		// REBASE_HEAD can remain the only marker during a non-interactive or
+		// just-completed transition. Keep the projection valid even when Git's
+		// rebase directory no longer exposes interactive details.
+		if marker.details.Rebase == nil {
+			marker.details.Rebase = &sequencer.RebaseDetails{}
+		}
 	case sequencer.KindCherryPick:
 		marker.details.CherryPick = &sequencer.CherryPickDetails{Commits: nonEmpty(marker.current)}
 	case sequencer.KindRevert:
@@ -234,6 +246,16 @@ func replaceKind(markers *[]operationMarker, kind sequencer.Kind, replacement op
 		}
 	}
 	return false
+}
+
+func removeKind(markers []operationMarker, kind sequencer.Kind) []operationMarker {
+	filtered := markers[:0]
+	for _, marker := range markers {
+		if marker.kind != kind {
+			filtered = append(filtered, marker)
+		}
+	}
+	return filtered
 }
 
 func hasFile(path string) bool {
