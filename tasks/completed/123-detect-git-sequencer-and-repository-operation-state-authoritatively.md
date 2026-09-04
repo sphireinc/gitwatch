@@ -46,16 +46,45 @@ Build one detector that reconstructs in-progress Git operations after startup, r
 
 ## Acceptance criteria
 
-- [ ] Every supported in-progress operation survives gitwatch restart.
-- [ ] External CLI operation state appears on watcher/reconciliation refresh.
-- [ ] No feature package hardcodes `.git` directory layout.
+- [x] Every supported in-progress operation survives gitwatch restart: fresh
+  detector calls reconstruct externally-created merge, cherry-pick, revert,
+  rebase, and bisect fixtures.
+- [x] External CLI operation state appears on watcher/reconciliation refresh:
+  `repo.Snapshot` carries the operation projection at the same generation as
+  porcelain-v2 status.
+- [x] No feature package hardcodes `.git` directory layout; Git resolves all
+  metadata paths through `rev-parse --git-path`.
+
+## Status
+
+Complete — added the authoritative Git-boundary operation detector, integrated
+its repository-scoped projection and diagnostics into `repo.Snapshot`, and
+covered known operations, unknown metadata, external operation recovery, and
+linked worktrees with real repositories.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [ ] Implementation commit recorded; to be filled with the focused commit
+  after the task is moved.
+- [x] Exact tested baseline recorded: current `main` at `0e81d3c` plus the
+  Task 123 working-tree changes.
+- [x] Focused real-repository tests: `go test ./internal/git -run
+  'TestDetectOperationState'` and `go test -race ./internal/git ./internal/repo`
+  passed for merge, cherry-pick, revert, rebase, bisect, unknown metadata,
+  snapshot-generation coupling, and linked worktrees.
+- [x] `GIT_CONFIG_GLOBAL=/dev/null GOCACHE=/tmp/gitwatch-go-cache go test ./...`
+  passed.
+- [x] `GIT_CONFIG_GLOBAL=/dev/null GOCACHE=/tmp/gitwatch-go-cache go test -race ./...`
+  passed.
+- [x] `GIT_CONFIG_GLOBAL=/dev/null GOCACHE=/tmp/gitwatch-go-cache go vet ./...`
+  passed.
+- [x] `gofmt` and `git diff --check` passed.
+- [ ] Lint: pinned `make check` lint could not download golangci-lint v2.12.0
+  because `proxy.golang.org` is unavailable; the installed v2.11.3 binary is
+  not a valid substitute and failed module loading.
+- [x] Native/manual evidence not applicable: this task changes the internal
+  refresh projection and does not add terminal interaction.
+- [x] Known limitations/deferred work documented: the detector reports active
+  projections and bounded diagnostics; UI presentation and lifecycle controls
+  remain deferred to later tasks, and Git remains authoritative after every
+  refresh.

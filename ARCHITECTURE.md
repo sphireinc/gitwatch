@@ -11,6 +11,7 @@ internal/git/            typed Git runner, discovery, porcelain parsing, diffs, 
 internal/repo/           immutable repository snapshot/domain models
 internal/watch/          fsnotify watcher, debounce, reconciliation, and polling fallback
 internal/operations/     bounded asynchronous operation engine
+internal/sequencer/      repository-scoped durable Git operation projections
 internal/workspace/      workspace navigation and background-job lifecycle
 
 internal/commitmodel/    commit draft and validation domain
@@ -52,10 +53,13 @@ examples/                buildable plugin examples
 
 1. Load and validate configuration.
 2. Resolve the repository root and Git metadata with typed Git arguments.
-3. Probe repository capabilities and obtain an initial authoritative snapshot.
+3. Probe repository capabilities and obtain an initial authoritative snapshot,
+   including a Git-derived durable operation projection when one is active.
 4. Start filesystem watching or polling according to configuration and platform availability.
 5. Coalesce refresh hints and permit one status operation per active repository.
-6. Parse machine-readable Git output into immutable domain snapshots.
+6. Parse machine-readable Git output into immutable domain snapshots and
+   reconstruct merge/rebase/cherry-pick/revert/bisect state through the Git
+   boundary using the same refresh generation.
 7. Diff old and new snapshots into typed activity and notification events.
 8. Deliver messages to Bubble Tea; render only in-memory state.
 9. Execute mutations asynchronously and force an authoritative refresh when they complete.

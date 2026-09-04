@@ -1,6 +1,10 @@
 package repo
 
-import "time"
+import (
+	"time"
+
+	"github.com/sphireinc/git-watch/internal/sequencer"
+)
 
 // Path preserves a repository path as bytes so unusual names survive parsing.
 type Path []byte
@@ -77,6 +81,10 @@ type Snapshot struct {
 	Generation      uint64
 	ObservedAt      time.Time
 	RefreshDuration time.Duration
+	// Operation is a Git-derived durable operation projection observed during
+	// this same refresh generation. It is nil when no operation is active.
+	Operation            *sequencer.State
+	OperationDiagnostics []string
 }
 
 // Clone returns an independent snapshot copy safe for model ownership.
@@ -86,6 +94,11 @@ func (s Snapshot) Clone() Snapshot {
 		s.Entries[i].Path = append(Path(nil), s.Entries[i].Path...)
 		s.Entries[i].Original = append(Path(nil), s.Entries[i].Original...)
 	}
+	if s.Operation != nil {
+		operation := *s.Operation
+		s.Operation = &operation
+	}
+	s.OperationDiagnostics = append([]string(nil), s.OperationDiagnostics...)
 	return s
 }
 
