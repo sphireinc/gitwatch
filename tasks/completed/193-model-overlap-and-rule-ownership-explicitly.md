@@ -49,3 +49,10 @@ Many GitHub templates share generic rules. Duplicated ignore rules are semantica
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added `internal/gitignore/ownership` with exact rule occurrence indexing, managed-block ownership, catalog references, overlap reporting, and conservative removal decisions.
+- Managed removal decisions target only selected managed blocks; unmanaged duplicates remain ambiguous, and shared rules required by unselected installed templates remain retained.
+- Added tests for selected/unselected managed blocks, duplicate handwritten rules, shared unmanaged owners, joint removal, and deterministic overlap exposure.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
