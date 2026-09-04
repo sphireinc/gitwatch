@@ -284,6 +284,11 @@ type GitignoreCreatePreviewMsg struct {
 	Err        error
 	Repository uint64
 }
+type GitignoreMutationFinishedMsg struct {
+	Action     string
+	Repository uint64
+	Err        error
+}
 type PluginStateSavedMsg struct{ Err error }
 
 type Model struct {
@@ -453,6 +458,7 @@ type Model struct {
 	GitignoreMissing         bool
 	GitignoreCreateConfirm   bool
 	GitignoreCreatePlan      domain.MutationPlan
+	GitignoreMutationAction  string
 	PluginsEnabled           bool
 	PluginDirectories        []string
 	PluginStatePath          string
@@ -675,6 +681,61 @@ func (m Model) previewGitignoreCreate() tea.Cmd {
 		}
 		preview := manage.PreviewPlan(plan)
 		return GitignoreCreatePreviewMsg{Plan: plan, Text: preview.Diff + "\nselected templates: " + strings.Join(templateIDStrings(ids), ", "), Repository: generation}
+	}
+}
+
+func (m Model) previewGitignoreMutation(action string) tea.Cmd {
+	root, ids, generation := m.Discovery.Root, selectedGitignoreIDs(m.Gitignore), m.repositoryGeneration
+	return func() tea.Msg {
+		cat, err := catalog.Default()
+		if err != nil {
+			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
+		}
+		path := filepath.Join(root, ".gitignore")
+		info, err := os.Lstat(path)
+		if err != nil {
+			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return GitignoreCreatePreviewMsg{Err: domain.ErrUnsafeTarget, Repository: generation}
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
+		}
+		snapshot, err := domain.NewDocumentSnapshot(domain.RepositoryID(root), root, ".gitignore", content, uint32(info.Mode().Perm()))
+		if err != nil {
+			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
+		}
+		var plan domain.MutationPlan
+		switch action {
+		case "add":
+			plan, err = manage.PlanAddTemplates(snapshot, cat, ids)
+		case "remove":
+			plan, err = manage.PlanRemoveTemplates(snapshot, cat, ids)
+		case "update":
+			plan, err = manage.PlanUpdateTemplates(snapshot, cat, ids)
+		case "adopt":
+			if len(ids) != 1 {
+				err = errors.New("adopt requires exactly one selected template")
+			} else {
+				plan, err = manage.PlanAdoptTemplate(snapshot, cat, ids[0])
+			}
+		default:
+			err = errors.New("unknown gitignore mutation")
+		}
+		if err != nil {
+			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
+		}
+		preview := manage.PreviewPlan(plan)
+		return GitignoreCreatePreviewMsg{Plan: plan, Text: preview.Diff + "\nselected templates: " + strings.Join(templateIDStrings(ids), ", "), Repository: generation}
+	}
+}
+
+func (m Model) executeGitignoreMutation(plan domain.MutationPlan, action string) tea.Cmd {
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		return GitignoreMutationFinishedMsg{Action: action, Repository: generation, Err: manage.Apply(plan)}
 	}
 }
 
@@ -2837,9 +2898,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "y":
 					m.GitignoreCreateConfirm = false
 					m.Gitignore.SetPreview("")
-					m.Workspace.Navigate(workspace.Status, "Status")
-					m.State, m.Status = StateOperationPending, "creating .gitignore"
-					return m, m.executeGitignoreCreate(m.GitignoreCreatePlan)
+					if m.GitignoreMissing && m.GitignoreMutationAction == "add" {
+						m.Workspace.Navigate(workspace.Status, "Status")
+					}
+					m.State, m.Status = StateOperationPending, "applying gitignore "+m.GitignoreMutationAction
+					return m, m.executeGitignoreMutation(m.GitignoreCreatePlan, m.GitignoreMutationAction)
 				case "n", "esc":
 					m.GitignoreCreateConfirm = false
 					m.Gitignore.SetPreview("")
@@ -2847,17 +2910,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
-			if v.String() == "a" || v.String() == "p" {
-				if !m.GitignoreMissing {
-					m.Status = "existing .gitignore flow; creation is only available when the file is absent"
+			if v.String() == "a" || v.String() == "p" || v.String() == "d" || v.String() == "u" || v.String() == "m" {
+				action := map[string]string{"a": "add", "p": "add", "d": "remove", "u": "update", "m": "adopt"}[v.String()]
+				if v.String() == "p" && m.GitignoreMissing {
+					action = "add"
+				}
+				if m.GitignoreMissing && action != "add" {
+					m.Status = "only add is available before .gitignore exists"
 					return m, nil
 				}
 				if len(m.Gitignore.SelectedEntries()) == 0 {
 					m.Status = "select at least one template"
 					return m, nil
 				}
+				m.GitignoreMutationAction = action
 				m.State, m.Status = StateOperationPending, "building gitignore creation preview"
-				return m, m.previewGitignoreCreate()
+				if m.GitignoreMissing {
+					return m, m.previewGitignoreCreate()
+				}
+				return m, m.previewGitignoreMutation(action)
 			}
 			if v.String() == "esc" {
 				m.Workspace.Back()
@@ -3878,8 +3949,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.GitignoreCreatePlan, m.GitignoreCreateConfirm = v.Plan, true
 		m.Gitignore.SetPreview(v.Text)
-		m.Status = "review gitignore creation preview; confirm with y or cancel with n"
+		m.Status = "review gitignore mutation preview; confirm with y or cancel with n"
 		return m, nil
+	case GitignoreMutationFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Err != nil {
+			if errors.Is(v.Err, domain.ErrConcurrentModification) {
+				m.State, m.Status = StateReady, "gitignore changed while preview was open; reloaded existing-file flow"
+				return m, m.openGitignore()
+			}
+			m.State, m.Status = StateError, "gitignore "+v.Action+": "+v.Err.Error()
+			return m, nil
+		}
+		m.State, m.Status = StateReady, "gitignore "+v.Action+" complete"
+		return m, tea.Batch(m.openGitignore(), m.refresh())
 	case ConflictContentReadyMsg:
 		if v.Generation != m.repositoryGeneration || v.Request != m.ConflictContentRequest {
 			return m, nil

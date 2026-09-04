@@ -52,3 +52,13 @@ Users need to append combinations, remove managed combinations, safely handle pr
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added safe contiguous legacy adoption that wraps the exact existing segment without changing its template bytes, and refuses scattered or reordered matches.
+- Added block-local stale managed-template updates with current catalog metadata/content while preserving handwritten content around the block.
+- Added typed mixed-action summaries for explicit preview planning across add, remove, update, and adopt selections.
+- Wired existing-file browser actions through preview and one confirmation: add, remove, update, and adopt. Successful mutations reload the manager and trigger the authoritative Git status refresh; concurrent changes reload the existing-file flow.
+- Added tests for contiguous adoption, scattered-match refusal, block-local stale update, and mixed action summaries.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
+- `make check` reached lint but could not run because the sandbox denied the Go build cache path under `/Users/JuanSanchez/Library/Caches/go-build`; this remains an environment exception.
