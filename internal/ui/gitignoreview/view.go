@@ -44,6 +44,7 @@ type RepositoryModel struct {
 	Selected       int
 	DetailsOffset  int
 	Width, Height  int
+	PreviewText    string
 }
 
 func New(repoID domain.RepositoryID, cat *catalog.Catalog, results []match.Result) RepositoryModel {
@@ -88,6 +89,8 @@ func (m *RepositoryModel) SetSize(width, height int) {
 		m.Height = height
 	}
 }
+
+func (m *RepositoryModel) SetPreview(preview string) { m.PreviewText = preview }
 
 func (m *RepositoryModel) apply() {
 	selected := make(map[domain.TemplateID]bool, len(m.AllEntries))
@@ -308,6 +311,9 @@ func (m *RepositoryModel) Click(x, y int) bool {
 
 func (m RepositoryModel) View() string {
 	lines := []string{fmt.Sprintf("Gitignore catalog · repository %s", m.RepositoryID), fmt.Sprintf("Search: %s · %d results · tab: %s · catalog: %s", m.Query, len(m.Entries), m.Tab, short(m.CatalogVersion)), "", "Tabs: [all] common global community installed recommended"}
+	if m.PreviewText != "" {
+		lines = append(lines, "", "CREATE PREVIEW (confirm with y, cancel with n/esc):", m.PreviewText)
+	}
 	for i, e := range m.Entries {
 		prefix := "  "
 		if i == m.Selected {

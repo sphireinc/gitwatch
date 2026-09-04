@@ -1,6 +1,7 @@
 package gitignoreview
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
@@ -63,6 +64,15 @@ func TestRepositoryScopeAndMouseParity(t *testing.T) {
 	}
 	if m.UpdateKey("space") != true {
 		t.Fatal("space was not consumed")
+	}
+}
+
+func TestPreviewIsVisibleAndSizeIsBounded(t *testing.T) {
+	m := testModel(t)
+	m.SetPreview("--- .gitignore (before)\n+++ .gitignore (after)\n# selected templates")
+	m.SetSize(80, 24)
+	if !strings.Contains(m.View(), "CREATE PREVIEW") {
+		t.Fatal("creation preview missing")
 	}
 }
 

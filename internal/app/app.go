@@ -20,6 +20,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
 	"github.com/sphireinc/git-watch/internal/gitignore/document"
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
+	"github.com/sphireinc/git-watch/internal/gitignore/manage"
 	"github.com/sphireinc/git-watch/internal/gitignore/match"
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/notifications"
@@ -272,8 +273,16 @@ type PluginsReadyMsg struct {
 	Err     error
 }
 type GitignoreReadyMsg struct {
-	Model gitignoreview.RepositoryModel
-	Err   error
+	Model   gitignoreview.RepositoryModel
+	Err     error
+	Missing bool
+	Reload  bool
+}
+type GitignoreCreatePreviewMsg struct {
+	Plan       domain.MutationPlan
+	Text       string
+	Err        error
+	Repository uint64
 }
 type PluginStateSavedMsg struct{ Err error }
 
@@ -441,6 +450,9 @@ type Model struct {
 	GitHubReviewsCache       *provider.Cache[provider.ReviewSnapshot]
 	Plugins                  pluginview.Model
 	Gitignore                gitignoreview.RepositoryModel
+	GitignoreMissing         bool
+	GitignoreCreateConfirm   bool
+	GitignoreCreatePlan      domain.MutationPlan
 	PluginsEnabled           bool
 	PluginDirectories        []string
 	PluginStatePath          string
@@ -642,8 +654,64 @@ func (m Model) openGitignore() tea.Cmd {
 		model := gitignoreview.New(domain.RepositoryID(root), cat, results)
 		model.SetSize(m.Width, m.Height)
 		_ = generation // repository identity is the path; refresh messages remain authoritative.
-		return GitignoreReadyMsg{Model: model}
+		return GitignoreReadyMsg{Model: model, Missing: errors.Is(readErr, os.ErrNotExist)}
 	}
+}
+
+func (m Model) previewGitignoreCreate() tea.Cmd {
+	root, ids, generation := m.Discovery.Root, selectedGitignoreIDs(m.Gitignore), m.repositoryGeneration
+	return func() tea.Msg {
+		cat, err := catalog.Default()
+		if err != nil {
+			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
+		}
+		snapshot, err := domain.NewDocumentSnapshot(domain.RepositoryID(root), root, ".gitignore", nil, 0644)
+		if err != nil {
+			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
+		}
+		plan, err := manage.PlanCreateTemplates(snapshot, cat, ids)
+		if err != nil {
+			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
+		}
+		preview := manage.PreviewPlan(plan)
+		return GitignoreCreatePreviewMsg{Plan: plan, Text: preview.Diff + "\nselected templates: " + strings.Join(templateIDStrings(ids), ", "), Repository: generation}
+	}
+}
+
+func (m Model) executeGitignoreCreate(plan domain.MutationPlan) tea.Cmd {
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		// Re-load the target before planning so external creation becomes an
+		// existing-file flow instead of an append or overwrite.
+		path := filepath.Join(plan.Root, ".gitignore")
+		if info, err := os.Lstat(path); err == nil || !errors.Is(err, os.ErrNotExist) {
+			if err != nil || info.Mode()&os.ModeSymlink != 0 {
+				return OperationFinishedMsg{Name: "gitignore create", Repository: generation, Err: domain.ErrConcurrentModification}
+			}
+			return OperationFinishedMsg{Name: "gitignore create", Repository: generation, Err: domain.ErrConcurrentModification}
+		}
+		if err := manage.Create(plan); err != nil {
+			return OperationFinishedMsg{Name: "gitignore create", Repository: generation, Err: err}
+		}
+		return OperationFinishedMsg{Name: "gitignore create", Repository: generation}
+	}
+}
+
+func selectedGitignoreIDs(model gitignoreview.RepositoryModel) []domain.TemplateID {
+	entries := model.SelectedEntries()
+	ids := make([]domain.TemplateID, 0, len(entries))
+	for _, entry := range entries {
+		ids = append(ids, entry.Template.ID)
+	}
+	return ids
+}
+
+func templateIDStrings(ids []domain.TemplateID) []string {
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id.String()
+	}
+	return out
 }
 func NewRepository(d git.Discovery) Model {
 	m := New()
@@ -2764,6 +2832,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.updateConflictKey(v.String())
 		}
 		if m.currentView() == workspace.Gitignore {
+			if m.GitignoreCreateConfirm {
+				switch v.String() {
+				case "y":
+					m.GitignoreCreateConfirm = false
+					m.Gitignore.SetPreview("")
+					m.Workspace.Navigate(workspace.Status, "Status")
+					m.State, m.Status = StateOperationPending, "creating .gitignore"
+					return m, m.executeGitignoreCreate(m.GitignoreCreatePlan)
+				case "n", "esc":
+					m.GitignoreCreateConfirm = false
+					m.Gitignore.SetPreview("")
+					m.Status = "gitignore creation cancelled"
+				}
+				return m, nil
+			}
+			if v.String() == "a" || v.String() == "p" {
+				if !m.GitignoreMissing {
+					m.Status = "existing .gitignore flow; creation is only available when the file is absent"
+					return m, nil
+				}
+				if len(m.Gitignore.SelectedEntries()) == 0 {
+					m.Status = "select at least one template"
+					return m, nil
+				}
+				m.State, m.Status = StateOperationPending, "building gitignore creation preview"
+				return m, m.previewGitignoreCreate()
+			}
 			if v.String() == "esc" {
 				m.Workspace.Back()
 				m.Status = "gitignore browser closed"
@@ -3763,12 +3858,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.State = StateReady
 		return m, m.refreshStatusContextIfNeeded()
 	case GitignoreReadyMsg:
+		if v.Model.RepositoryID != "" {
+			m.Gitignore = v.Model
+			m.GitignoreMissing = v.Missing
+		}
 		if v.Err != nil {
 			m.Status = "gitignore catalog: " + v.Err.Error()
 			return m, nil
 		}
-		m.Gitignore = v.Model
 		m.State, m.Status = StateReady, "gitignore catalog ready"
+		return m, nil
+	case GitignoreCreatePreviewMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Err != nil {
+			m.Status = "gitignore create preview: " + v.Err.Error()
+			return m, nil
+		}
+		m.GitignoreCreatePlan, m.GitignoreCreateConfirm = v.Plan, true
+		m.Gitignore.SetPreview(v.Text)
+		m.Status = "review gitignore creation preview; confirm with y or cancel with n"
 		return m, nil
 	case ConflictContentReadyMsg:
 		if v.Generation != m.repositoryGeneration || v.Request != m.ConflictContentRequest {

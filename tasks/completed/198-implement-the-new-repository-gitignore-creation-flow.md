@@ -50,3 +50,12 @@ A freshly initialized repository should not require leaving gitwatch to create `
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added `PlanCreateTemplates` and `Create` to make no-file creation explicit, multi-template, previewable, and refusal-safe when the target is no longer absent.
+- Added the app flow for the non-blocking missing-file affordance, asynchronous creation preview, one-time confirmation, atomic guarded write, focus return to Status, and the standard authoritative refresh command after success.
+- Added concurrent external-creation protection and reload-compatible error handling; an external `.gitignore` is never overwritten by the creation plan.
+- Added tests for multi-template no-file creation, external creation races, and the complete Bubble Tea route through preview, confirmation, write, and refresh emission.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
+- `make check` reached lint but could not run because the sandbox denied the Go build cache path under `/Users/JuanSanchez/Library/Caches/go-build`; this remains an environment exception.

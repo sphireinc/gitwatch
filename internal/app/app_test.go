@@ -68,6 +68,52 @@ func TestStateTransitions(t *testing.T) {
 	}
 }
 
+func TestGitignoreNoFileCreationFlowRefreshesAuthoritativeStatus(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	updated, cmd := m.Update(key("I"))
+	m = updated.(Model)
+	if cmd == nil || m.currentView() != workspace.Gitignore {
+		t.Fatalf("gitignore route = view=%q cmdnil=%v", m.currentView(), cmd == nil)
+	}
+	ready := cmd()
+	updated, _ = m.Update(ready)
+	m = updated.(Model)
+	if !m.GitignoreMissing {
+		t.Fatal("missing .gitignore was not recognized")
+	}
+	m.Gitignore.SetQuery("go")
+	if len(m.Gitignore.Entries) == 0 {
+		t.Fatal("Go template not available in creation browser")
+	}
+	m.Gitignore.Toggle()
+	updated, cmd = m.Update(key("a"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("creation preview command missing")
+	}
+	preview := cmd()
+	updated, _ = m.Update(preview)
+	m = updated.(Model)
+	if !m.GitignoreCreateConfirm || !strings.Contains(m.Gitignore.PreviewText, "after") {
+		t.Fatalf("creation preview state = confirm=%v preview=%q", m.GitignoreCreateConfirm, m.Gitignore.PreviewText)
+	}
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.currentView() != workspace.Status {
+		t.Fatalf("creation confirmation = view=%q cmdnil=%v", m.currentView(), cmd == nil)
+	}
+	finished := cmd()
+	updated, refresh := m.Update(finished)
+	m = updated.(Model)
+	if refresh == nil {
+		t.Fatal("successful creation did not emit authoritative refresh command")
+	}
+	if _, err := os.Stat(filepath.Join(m.Discovery.Root, ".gitignore")); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestConflictWorkspaceRouteAndResolutionIntent(t *testing.T) {
 	m := New()
 	m.Discovery.Root = t.TempDir()

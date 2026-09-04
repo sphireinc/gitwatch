@@ -113,6 +113,9 @@ func (m Model) statusView() string {
 	header := fmt.Sprintf("gitwatch · %s · %s · watch:%s", name, stateName(m.State), watchLabel)
 	metrics := fmt.Sprintf("STAGED %d  MODIFIED %d  UNTRACKED %d  CONFLICTS %d", m.Snapshot.Counts.Staged, m.Snapshot.Counts.Unstaged, m.Snapshot.Counts.Untracked, m.Snapshot.Counts.Conflicted)
 	lines := []string{fitSafeDisplay(header, width), fitSafeDisplay(metrics, width), strings.Repeat("─", width)}
+	if m.GitignoreMissing {
+		lines = append(lines, fitSafeDisplay("No .gitignore · press I to create", width))
+	}
 
 	fileWidth := statusLayout.Files.Width
 	if statusLayout.Mode == layout.Wide {
