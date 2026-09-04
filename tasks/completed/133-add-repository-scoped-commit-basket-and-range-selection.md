@@ -46,7 +46,7 @@ Create reusable commit selection for cherry-pick, compare, batch history actions
 
 **Status:** Complete
 
-- Implementation commit: recorded after this completion note is staged; the reusable selection model is in `internal/history/selection.go`, with History integration in `internal/ui/historyview` and `internal/app`.
+- Implementation commit: `781aa47` (`feat: add scoped history commit basket`). The reusable selection model is in `internal/history/selection.go`, with History integration in `internal/ui/historyview` and `internal/app`.
 - Exact tested revision: `31ada9a` plus the working-tree Task 133 changes.
 - Focused tests: selection and history-view tests passed for repository/ref isolation, pagination, filtering, range normalization, explicit multi-select, and clear behavior.
 - Repository tests: `go test ./...` passed.
