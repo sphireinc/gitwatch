@@ -54,7 +54,7 @@ Allow a selected historical commit to be reworded or edited through controlled r
 
 **Status:** Complete
 
-- Implementation commit: recorded after this completion note is staged; typed continue/abort operations are in `internal/git/rebase.go`, with history entry, paused amend-composer routing, and recovery handling in `internal/app`.
+- Implementation commit: `6d96a75` (`feat: support historical reword and edit`). Typed continue/abort operations are in `internal/git/rebase.go`, with history entry, paused amend-composer routing, and recovery handling in `internal/app`.
 - Exact tested revision: `31ada9a` plus the working-tree Task 131 changes.
 - Focused tests: historical rebase plan construction and real fixup/commit boundary tests passed; existing operation-state tests cover externally started and paused Git operations.
 - Repository tests: `go test ./...` passed.
