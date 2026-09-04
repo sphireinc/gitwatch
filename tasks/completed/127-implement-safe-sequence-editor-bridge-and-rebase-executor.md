@@ -47,16 +47,19 @@ Start interactive rebase with a validated gitwatch plan without opening an exter
 
 ## Acceptance criteria
 
-- [ ] Interactive rebase starts without external todo editor.
-- [ ] No shell interpolation is used.
-- [ ] Paused rebase is represented as in-progress rather than generic failure.
+- [x] Interactive rebase starts without external todo editor.
+- [x] No shell interpolation is used.
+- [x] Paused rebase is represented as in-progress rather than generic failure.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+**Status:** Complete
+
+- Implementation commit: recorded after this completion note is staged; the executor and helper boundary are in `internal/git/rebase.go`, with the CLI dispatch in `cmd/gitwatch/main.go` and tests in `internal/git/rebase_test.go`.
+- Exact tested revision: `bfc7e87` plus the working-tree Task 127 changes.
+- Focused tests: `GOCACHE=/tmp/gitwatch-go-cache go test ./internal/git ./cmd/gitwatch -v` passed, including private handoff, atomic replacement, invalid-plan, and operation-ID tests.
+- Repository tests: `go test ./...` passed.
+- Race/vet/format: `go test -race ./...`, `go vet ./...`, `test -z "$(gofmt -l .)"`, and `git diff --check` passed.
+- Lint: `make check` reached the pinned lint target, but the environment denied the Go build-cache access required to execute `golangci-lint@v2.12.0`; no analyzer failure was reported.
+- Native/manual evidence: not applicable; the task adds a process boundary and does not add terminal UI interaction.
+- Known limitations/deferred work: UI scheduling through the operation engine, explicit rebase workspace controls, and cross-platform packaged-binary/manual verification remain deferred. The executor probes Git operation state after process exit so a paused/conflicted rebase is exposed as `Paused` with its sequencer state. Handoff files are owner-only, operation-ID scoped, integrity checked, and removed when the executor returns.

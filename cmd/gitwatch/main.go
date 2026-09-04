@@ -16,6 +16,13 @@ import (
 )
 
 func main() {
+	if len(os.Args) >= 3 && os.Args[1] == "internal" && os.Args[2] == "sequence-editor" {
+		if err := git.HandleSequenceEditor(os.Args[3:], os.Environ()); err != nil {
+			fmt.Fprintf(os.Stderr, "gitwatch: sequence editor: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 	versionFlag := flag.Bool("version", false, "print gitwatch version")
 	helpFlag := flag.Bool("help", false, "show help")
 	configPath := flag.String("config", "", "configuration file path")
