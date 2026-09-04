@@ -55,7 +55,7 @@ Implement resumable cherry-pick for single commits, ordered commit sets, ranges,
 
 **Status:** Complete
 
-- Implementation commit: recorded after this completion note is staged; the typed adapter is in `internal/cherrypick/engine.go` with Git integration in `internal/git`.
+- Implementation commit: `f832c05` (`feat: add typed cherry-pick engine`). The typed adapter is in `internal/cherrypick/engine.go` with Git integration in `internal/git`.
 - Exact tested revision: `0266b2b` plus the working-tree Task 134 changes.
 - Focused tests: real-repository tests passed for ordered multi-commit cherry-pick, original-HEAD journaling, and mandatory merge-mainline selection.
 - Repository tests: `go test ./...` passed.
