@@ -51,9 +51,11 @@ not change the planned Supersede scope or claim rule.
 
 ## Completion record
 
-- [ ] Implementation commit recorded; repository commit writes are blocked by
-  the current sandbox's inability to create `.git/index.lock`.
-- [x] Exact tested baseline recorded: `main` at `71eaaff0793483ee3bdd8af6c1b8d8522362d867` when the documentation checks were run; changes remain uncommitted because the sandbox cannot create `.git/index.lock`.
+- [x] Implementation commit recorded: `7dc4315` (`docs: reset roadmap around
+  supersede objective`).
+- [x] Exact tested revision recorded: `7dc4315` is the implementation commit;
+  the repository-wide tests passed on the corresponding implementation
+  worktree before the completion-record metadata update.
 - [x] Focused documentation consistency search recorded: no stale governing-doc claim that interactive rebase is unplanned or that the new parity workflows are unsupported.
 - [x] `GIT_CONFIG_GLOBAL=/dev/null GOCACHE=/tmp/gitwatch-go-cache go test ./...` passed.
 - [x] `GIT_CONFIG_GLOBAL=/dev/null GOCACHE=/tmp/gitwatch-go-cache go test -race ./...` passed.
