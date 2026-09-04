@@ -37,3 +37,17 @@ func TestKeyMapsResolutionAndNavigationIntents(t *testing.T) {
 		}
 	}
 }
+
+func TestClickRequiresExplicitActionZone(t *testing.T) {
+	m := New()
+	m.SetSnapshot(sequencer.KindMerge, "main", []conflicts.Conflict{{Path: []byte("file")}})
+	if action, index := m.Click(2, 9, 80, 24); action != MouseSelectConflict || index != 0 {
+		t.Fatalf("list click = %v, %d", action, index)
+	}
+	if action, _ := m.Click(2, 23, 80, 24); action != MouseChooseOurs {
+		t.Fatalf("ours footer click = %v", action)
+	}
+	if action, _ := m.Click(70, 23, 80, 24); action != MouseStatus {
+		t.Fatalf("status footer click = %v", action)
+	}
+}

@@ -3458,6 +3458,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
+			if m.currentView() == workspace.Conflict {
+				action, index := m.Conflict.Click(v.X, v.Y-2, m.Width, m.Height-2)
+				if action == conflictview.MouseSelectConflict {
+					m.Conflict.Selected = index
+					return m, nil
+				}
+				mouseKeys := map[conflictview.MouseAction]string{
+					conflictview.MouseChooseOurs:        "o",
+					conflictview.MouseChooseTheirs:      "t",
+					conflictview.MouseChooseBoth:        "b",
+					conflictview.MouseMarkResolved:      "m",
+					conflictview.MouseRestoreUnresolved: "u",
+					conflictview.MouseStatus:            "1",
+				}
+				if key, ok := mouseKeys[action]; ok {
+					return m, m.updateConflictKey(key)
+				}
+				return m, nil
+			}
 			if m.currentView() == workspace.Rebase {
 				action, index := m.Rebase.Click(v.X, v.Y-2, m.Width, m.Height-2)
 				switch action {

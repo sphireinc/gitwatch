@@ -31,6 +31,19 @@ const (
 	ActionStatus
 )
 
+type MouseAction uint8
+
+const (
+	MouseNone MouseAction = iota
+	MouseSelectConflict
+	MouseChooseOurs
+	MouseChooseTheirs
+	MouseChooseBoth
+	MouseMarkResolved
+	MouseRestoreUnresolved
+	MouseStatus
+)
+
 type Model struct {
 	Operation sequencer.Kind
 	Target    string
@@ -177,4 +190,34 @@ func Key(key string) Action {
 		return ActionStatus
 	}
 	return ActionNone
+}
+
+// Click maps only explicit list rows and footer action zones. Resolution
+// actions are never inferred from a generic row click.
+func (m Model) Click(x, y, width, height int) (MouseAction, int) {
+	if x < 0 || y < 0 || width <= 0 || height <= 0 {
+		return MouseNone, -1
+	}
+	if y == height-1 {
+		switch {
+		case x < width/6:
+			return MouseChooseOurs, -1
+		case x < width/3:
+			return MouseChooseTheirs, -1
+		case x < width/2:
+			return MouseChooseBoth, -1
+		case x < width*2/3:
+			return MouseMarkResolved, -1
+		case x < width*5/6:
+			return MouseRestoreUnresolved, -1
+		default:
+			return MouseStatus, -1
+		}
+	}
+	listStart := 9
+	index := y - listStart
+	if index >= 0 && index < len(m.Conflicts) {
+		return MouseSelectConflict, index
+	}
+	return MouseNone, -1
 }
