@@ -7,6 +7,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/gitignore/match"
+	"github.com/sphireinc/git-watch/internal/gitignore/recommend"
 )
 
 func testModel(t *testing.T) RepositoryModel {
@@ -73,6 +74,18 @@ func TestPreviewIsVisibleAndSizeIsBounded(t *testing.T) {
 	m.SetSize(80, 24)
 	if !strings.Contains(m.View(), "CREATE PREVIEW") {
 		t.Fatal("creation preview missing")
+	}
+}
+
+func TestRecommendationsExplainWithoutAutoSelecting(t *testing.T) {
+	m := testModel(t)
+	m.SetRecommendations([]recommend.Recommendation{{TemplateID: "root/CakePHP", Confidence: .9, Reasons: []string{"composer.json detected"}}})
+	for _, entry := range m.AllEntries {
+		if entry.Template.ID == "root/CakePHP" {
+			if !entry.Recommended || entry.Selected || len(entry.Reasons) != 1 {
+				t.Fatalf("recommendation state = %+v", entry)
+			}
+		}
 	}
 }
 

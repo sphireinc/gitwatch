@@ -10,6 +10,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/gitignore/match"
+	"github.com/sphireinc/git-watch/internal/gitignore/recommend"
 )
 
 type Tab string
@@ -29,6 +30,8 @@ type Entry struct {
 	Match       match.Result
 	Selected    bool
 	Recommended bool
+	Confidence  float64
+	Reasons     []string
 }
 
 // RepositoryModel contains no process or filesystem state. RepositoryID keeps
@@ -74,6 +77,25 @@ func (m *RepositoryModel) SetMatches(results []match.Result) {
 		if result, ok := byID[m.AllEntries[i].Template.ID]; ok {
 			m.AllEntries[i].Match = result
 			m.AllEntries[i].Recommended = result.Kind == domain.Partial
+		}
+	}
+	m.apply()
+}
+
+// SetRecommendations updates only explanatory recommendation metadata. It
+// intentionally never changes Selected, so detection remains user-controlled.
+func (m *RepositoryModel) SetRecommendations(recommendations []recommend.Recommendation) {
+	byID := make(map[domain.TemplateID]recommend.Recommendation, len(recommendations))
+	for _, recommendation := range recommendations {
+		byID[recommendation.TemplateID] = recommendation
+	}
+	for i := range m.AllEntries {
+		recommendation, ok := byID[m.AllEntries[i].Template.ID]
+		m.AllEntries[i].Recommended = ok && !m.AllEntries[i].Match.Kind.Full()
+		if ok {
+			m.AllEntries[i].Confidence, m.AllEntries[i].Reasons = recommendation.Confidence, append([]string(nil), recommendation.Reasons...)
+		} else {
+			m.AllEntries[i].Confidence, m.AllEntries[i].Reasons = 0, nil
 		}
 	}
 	m.apply()
@@ -320,6 +342,9 @@ func (m RepositoryModel) View() string {
 			prefix = "> "
 		}
 		line := fmt.Sprintf("%s[%s] %-24s %-9s %d/%d", prefix, indicator(e), e.Template.Name, e.Template.Category, e.Match.Present, e.Match.Total)
+		if e.Recommended {
+			line += " Recommended"
+		}
 		if i == m.Selected {
 			line += "  " + e.Template.SourcePath
 		}
@@ -331,6 +356,9 @@ func (m RepositoryModel) View() string {
 	if len(m.Entries) > 0 {
 		e := m.Entries[m.Selected]
 		lines = append(lines, "", "Details: "+e.Template.Name, "source: "+e.Template.SourcePath, "state: "+string(e.Match.Kind), "preview:")
+		if e.Recommended && len(e.Reasons) > 0 {
+			lines = append(lines, "recommendation: "+strings.Join(e.Reasons, "; "))
+		}
 		preview := strings.Split(string(e.Template.Content), "\n")
 		limit := 5
 		if m.Height > 24 {

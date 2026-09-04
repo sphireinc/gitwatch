@@ -49,3 +49,12 @@ Recommendations should reduce search work in new repositories and monorepos. The
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added `internal/gitignore/recommend`, an offline bounded detector covering marker files, source extensions, dependency/build-directory skips, depth/file limits, polyglot results, confidence values, and human-readable reasons.
+- Added curated mappings for Go, Node, PHP/Composer, Python, Rust, Java/Gradle, and .NET, with tests validating every mapped catalog ID against the embedded manifest.
+- Connected detection to the gitignore browser as recommendation metadata only. Recommendations are labeled, explain their signals, pin before general entries, suppress for full installed matches, and never auto-select or auto-apply.
+- Added fixture-style tests for Go, Node, PHP/Composer, Python, Rust, Java, .NET, mixed repositories, bounded sampling, mapping validity, and user-controlled selection.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
+- `make check` reached lint but could not run because the sandbox denied the Go build cache path under `/Users/JuanSanchez/Library/Caches/go-build`; this remains an environment exception.

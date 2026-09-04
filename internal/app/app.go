@@ -22,6 +22,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/gitignore/manage"
 	"github.com/sphireinc/git-watch/internal/gitignore/match"
+	"github.com/sphireinc/git-watch/internal/gitignore/recommend"
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/notifications"
 	"github.com/sphireinc/git-watch/internal/operations"
@@ -658,6 +659,10 @@ func (m Model) openGitignore() tea.Cmd {
 		}
 		results := match.Match(doc, cat)
 		model := gitignoreview.New(domain.RepositoryID(root), cat, results)
+		report, recommendErr := recommend.Recommend(root, cat, recommend.Options{})
+		if recommendErr == nil {
+			model.SetRecommendations(report.Recommendations)
+		}
 		model.SetSize(m.Width, m.Height)
 		_ = generation // repository identity is the path; refresh messages remain authoritative.
 		return GitignoreReadyMsg{Model: model, Missing: errors.Is(readErr, os.ErrNotExist)}
