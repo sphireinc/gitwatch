@@ -97,6 +97,16 @@ type RebaseFinishedMsg struct {
 	Outcome    git.RebaseOutcome
 	Err        error
 }
+type RebaseContinueFinishedMsg struct {
+	Repository uint64
+	Result     git.Result
+	Err        error
+}
+type RebaseAbortFinishedMsg struct {
+	Repository uint64
+	Result     git.Result
+	Err        error
+}
 type TickMsg struct{ At time.Time }
 type ToastMsg struct {
 	Text  string
@@ -341,6 +351,8 @@ type Model struct {
 	Rebase                   rebaseview.Model
 	RebaseConfirmAction      rebase.Action
 	RebaseAutosquashConfirm  bool
+	HistoricalRebaseAction   rebase.Action
+	HistoricalRebaseTarget   string
 	HistoryCommits           []history.Commit
 	HistorySkip              int
 	HistoryHasMore           bool
@@ -2104,6 +2116,43 @@ func (m *Model) createFixup() tea.Cmd {
 	}
 }
 
+func (m *Model) openHistoricalRebase(action rebase.Action) tea.Cmd {
+	if m.History.Selected < 0 || m.History.Selected >= len(m.History.Rows) {
+		m.Status = "select a historical commit first"
+		return nil
+	}
+	selected := m.History.Rows[m.History.Selected].Commit
+	if len(selected.Parents) == 0 {
+		m.Status = "the root commit requires root-rebase support"
+		return nil
+	}
+	choices := []rebaseview.Base{{Label: "selected commit parent", Ref: selected.Parents[0]}}
+	view, err := rebaseview.New(m.Snapshot.Branch.Name, m.Snapshot.Branch.Upstream, choices, m.HistoryCommits)
+	if err != nil {
+		m.Status = "rebase plan: " + err.Error()
+		return nil
+	}
+	entries := view.Plan.Entries()
+	for index, entry := range entries {
+		if entry.Kind() == rebase.CommitEntry && entry.SHA() == selected.SHA {
+			view.Plan, err = view.Plan.ChangeAction(index, action)
+			if err != nil {
+				m.Status = "rebase plan: " + err.Error()
+				return nil
+			}
+			break
+		}
+	}
+	for _, ref := range selected.Refs {
+		if strings.Contains(ref, "origin/") {
+			view.Published, view.ReachableRemote = true, true
+		}
+	}
+	m.Rebase, m.HistoricalRebaseAction, m.HistoricalRebaseTarget = view, action, selected.SHA
+	m.Workspace.Navigate(workspace.Rebase, "Historical "+string(action))
+	return nil
+}
+
 func (m *Model) beginCommit() tea.Cmd {
 	files := make([]commitmodel.File, 0, len(m.Snapshot.Entries))
 	for _, entry := range m.Snapshot.Entries {
@@ -2132,6 +2181,24 @@ func (m Model) commit() tea.Cmd {
 	}
 }
 
+func (m *Model) continueHistoricalRebase() tea.Cmd {
+	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		result, err := runner.ContinueRebase(m.commandContext())
+		return RebaseContinueFinishedMsg{Repository: generation, Result: result, Err: err}
+	}
+}
+
+func (m *Model) abortHistoricalRebase() tea.Cmd {
+	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		result, err := runner.AbortRebase(m.commandContext())
+		return RebaseAbortFinishedMsg{Repository: generation, Result: result, Err: err}
+	}
+}
+
 func removeLastRune(value string) string {
 	runes := []rune(value)
 	if len(runes) == 0 {
@@ -2141,6 +2208,10 @@ func removeLastRune(value string) string {
 }
 
 func (m *Model) updateComposerKey(key string) tea.Cmd {
+	if key == "ctrl+x" && m.HistoricalRebaseAction != "" {
+		m.State, m.Status = StateOperationPending, "aborting historical rebase"
+		return m.abortHistoricalRebase()
+	}
 	if m.CommitAuthorMode {
 		switch key {
 		case "esc":
@@ -2799,8 +2870,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.navigate(workspace.GitHub, "GitHub")
 			}
 		case "E":
+			if m.currentView() == workspace.Log {
+				return m, m.openHistoricalRebase(rebase.Edit)
+			}
 			if m.PluginsEnabled {
 				return m, m.navigate(workspace.Plugins, "Plugins")
+			}
+		case "W":
+			if m.currentView() == workspace.Log {
+				return m, m.openHistoricalRebase(rebase.Reword)
 			}
 		case "w":
 			return m, m.navigate(workspace.Worktrees, "Worktrees")
@@ -3521,6 +3599,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if v.Outcome.Paused {
+			if m.HistoricalRebaseAction == rebase.Reword || m.HistoricalRebaseAction == rebase.Edit {
+				commitSubject := ""
+				for _, commit := range m.HistoryCommits {
+					if commit.SHA == m.HistoricalRebaseTarget {
+						commitSubject = commit.Subject
+						break
+					}
+				}
+				cmd := m.beginCommit()
+				m.Composer.Draft.Amend = true
+				m.Composer.Draft.Subject = commitSubject
+				m.Status = "rebase paused; amend the selected historical commit (ctrl+x aborts)"
+				return m, cmd
+			}
 			m.State = StateReady
 			m.Status = "interactive rebase paused: " + v.Outcome.State.Phase().String()
 			if v.Err != nil {
@@ -3676,6 +3768,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.notify(notifications.HookFailure, notifications.Error, "commit hook failed", v.Err.Error(), true)
 			m.recordActivity(history.OperationFailure, "", "commit: "+v.Err.Error())
+		} else if m.HistoricalRebaseAction != "" {
+			m.CommitAmendConfirm, m.CommitAuthorMode = false, false
+			m.State, m.Status = StateOperationPending, "continuing historical rebase"
+			return m, m.continueHistoricalRebase()
 		} else {
 			m.CommitAmendConfirm, m.CommitAuthorMode = false, false
 			m.State, m.Status = StateReady, "commit "+v.SHA
@@ -3683,6 +3779,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivity(history.OperationSuccess, "", m.Status)
 		}
 		return m, m.refresh()
+	case RebaseContinueFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+			return m, m.refresh()
+		}
+		m.HistoricalRebaseAction, m.HistoricalRebaseTarget = "", ""
+		m.State, m.Status = StateReady, "historical rebase continued"
+		m.Workspace.Back()
+		return m, tea.Batch(m.refresh(), m.loadHistory())
+	case RebaseAbortFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+		} else {
+			m.HistoricalRebaseAction, m.HistoricalRebaseTarget = "", ""
+			m.State, m.Status = StateReady, "historical rebase aborted"
+			m.Workspace.Back()
+		}
+		return m, tea.Batch(m.refresh(), m.loadHistory())
 	case FixupFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil

@@ -46,16 +46,19 @@ Allow a selected historical commit to be reworded or edited through controlled r
 
 ## Acceptance criteria
 
-- [ ] Historical reword/edit works without leaving gitwatch.
-- [ ] Existing commit composer is reused.
-- [ ] Abort/restart recovery is reliable.
+- [x] Historical reword/edit works without leaving gitwatch.
+- [x] Existing commit composer is reused.
+- [x] Abort/restart recovery is reliable.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+**Status:** Complete
+
+- Implementation commit: recorded after this completion note is staged; typed continue/abort operations are in `internal/git/rebase.go`, with history entry, paused amend-composer routing, and recovery handling in `internal/app`.
+- Exact tested revision: `31ada9a` plus the working-tree Task 131 changes.
+- Focused tests: historical rebase plan construction and real fixup/commit boundary tests passed; existing operation-state tests cover externally started and paused Git operations.
+- Repository tests: `go test ./...` passed.
+- Race/vet/format: `go test -race ./...`, `go vet ./...`, `test -z "$(gofmt -l .)"`, and `git diff --check` passed.
+- Lint: the pinned `golangci-lint@v2.12.0` remains unavailable because the environment denies Go build-cache access; no analyzer failure was reported.
+- Native/manual evidence: automated app tests cover reword/edit routing, composer reuse, continue/abort dispatch, and live refresh requests. Native terminal snapshots and interactive signing-provider QA remain unavailable and are documented as an explicit manual-QA exception.
+- Known limitations/deferred work: root-commit historical editing and richer commit-message prefill are deferred to later rebase enhancements. No generic reset shortcut is used; abort delegates to Git's recorded recovery state, and external operation markers continue to be reconstructed by Task 123.

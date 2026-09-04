@@ -43,6 +43,18 @@ type RebaseOutcome struct {
 	State       *sequencer.State
 }
 
+// ContinueRebase resumes an in-progress rebase after the user resolves or
+// amends the paused commit.
+func (r Runner) ContinueRebase(ctx context.Context) (Result, error) {
+	return r.Run(ctx, "rebase", "--continue")
+}
+
+// AbortRebase abandons an in-progress rebase and lets Git restore its recorded
+// original HEAD and worktree state.
+func (r Runner) AbortRebase(ctx context.Context) (Result, error) {
+	return r.Run(ctx, "rebase", "--abort")
+}
+
 type sequenceManifest struct {
 	OperationID string `json:"operation_id"`
 	Repository  string `json:"repository"`

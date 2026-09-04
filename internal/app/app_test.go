@@ -19,6 +19,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/patch"
 	"github.com/sphireinc/git-watch/internal/plugins"
 	"github.com/sphireinc/git-watch/internal/provider"
+	"github.com/sphireinc/git-watch/internal/rebase"
 	"github.com/sphireinc/git-watch/internal/registry"
 	"github.com/sphireinc/git-watch/internal/remotes"
 	"github.com/sphireinc/git-watch/internal/repo"
@@ -63,6 +64,28 @@ func TestStateTransitions(t *testing.T) {
 	m = updated.(Model)
 	if m.State != StateModal || m.Modal != "help" {
 		t.Fatal(m)
+	}
+}
+
+func TestHistoricalRebaseEntryBuildsExplicitEditPlan(t *testing.T) {
+	m := New()
+	m.Snapshot.Branch.Name = "feature"
+	commits := []history.Commit{
+		{SHA: "new", Subject: "new", Parents: []string{"old"}},
+		{SHA: "old", Subject: "old message", Parents: []string{"base"}},
+	}
+	m.HistoryCommits = commits
+	m.History = historyview.New(commits)
+	m.History.Selected = 1
+	if cmd := m.openHistoricalRebase(rebase.Reword); cmd != nil {
+		t.Fatal("historical plan unexpectedly scheduled work")
+	}
+	if m.currentView() != workspace.Rebase || m.Rebase.Base.Ref != "base" || m.HistoricalRebaseTarget != "old" {
+		t.Fatalf("historical rebase state = view=%q base=%#v target=%q", m.currentView(), m.Rebase.Base, m.HistoricalRebaseTarget)
+	}
+	entries := m.Rebase.Plan.Entries()
+	if len(entries) != 2 || entries[0].SHA() != "old" || entries[0].Action() != rebase.Reword {
+		t.Fatalf("historical plan entries = %#v", entries)
 	}
 }
 
