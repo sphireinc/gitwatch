@@ -9,8 +9,16 @@ is satisfied and its verification evidence is recorded.
 
 Tasks 34, 35, 89, 90, and 120 remain explicitly in progress. Tasks 34, 35, 89,
 and 90 are release and beta evidence lanes; Task 120 is the current v1.x
-context-pane release gate. The implementation lanes through Task 113 are
+context-pane release gate. The implementation lanes through Task 119 are
 complete and remain in `tasks/completed/` as the public implementation record.
+Task 120 remains at the root until its operator-owned native release evidence
+is attached. Tasks 121–186 are the Supersede execution lane described in
+`tasks/gitwatch-supersede-cli-task-pack/`.
+
+Task 120 remains the prerequisite release/context gate for this lane. Task 121
+resets the public roadmap and establishes the parity matrix; Tasks 122–125
+then establish the shared repository-scoped sequencer, refresh, and
+multi-repository foundations before feature lanes branch.
 
 ## Planned execution lanes
 
@@ -22,6 +30,8 @@ complete and remain in `tasks/completed/` as the public implementation record.
 | v1.x colorized commit tree | 108, 109, 110, 111, 112 | Add safe semantic color rendering to the optional commit graph |
 | v1.x commit inspection | 113 | Inspect a selected historical commit and its per-file diffs |
 | v1.x context panes | 115, 116, 117, 118, 119, 120 | Track unpushed commits and switch lower-left read-only context panes |
+| Supersede foundation | 121, 122, 123, 124, 125 | Reset the roadmap and establish durable, repository-scoped advanced Git foundations |
+| Supersede feature and release lanes | 126–186 | Rebase, history operations, conflicts, recovery, integrations, multi-repo differentiation, hardening, and acceptance |
 
 ## Dependency shape
 
@@ -38,6 +48,7 @@ complete and remain in `tasks/completed/` as the public implementation record.
 105/107/111 ───────────────────────────────────> 113
 105/107 ──> 115 ──> 116 ──> 117
              └──────> 118 ──> 119 ──> 120
+120 ──> 121 ──> 122 ──> 123 ──> 124 ──> 125 ──> 126+
 ```
 
 Dependencies are planning boundaries, not permission to skip the repository's

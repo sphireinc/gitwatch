@@ -38,16 +38,29 @@ Change the public product direction from an advanced day-to-day Git dashboard to
 
 ## Acceptance criteria
 
-- [ ] ROADMAP no longer says interactive rebase is not planned.
-- [ ] Parity and differentiation goals are separately documented.
-- [ ] Existing watcher/multi-repo/safety principles are unchanged.
+- [x] ROADMAP no longer says interactive rebase is not planned.
+- [x] Parity and differentiation goals are separately documented.
+- [x] Existing watcher/multi-repo/safety principles are unchanged.
+
+## Status
+
+Complete for its documentation scope — the roadmap, parity matrix, and
+task-lane documentation are implemented. Task 120’s operator-owned native
+release evidence remains pending as a documented dependency exception; it does
+not change the planned Supersede scope or claim rule.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [ ] Implementation commit recorded; repository commit writes are blocked by
+  the current sandbox's inability to create `.git/index.lock`.
+- [x] Exact tested baseline recorded: `main` at `71eaaff0793483ee3bdd8af6c1b8d8522362d867` when the documentation checks were run; changes remain uncommitted because the sandbox cannot create `.git/index.lock`.
+- [x] Focused documentation consistency search recorded: no stale governing-doc claim that interactive rebase is unplanned or that the new parity workflows are unsupported.
+- [x] `GIT_CONFIG_GLOBAL=/dev/null GOCACHE=/tmp/gitwatch-go-cache go test ./...` passed.
+- [x] `GIT_CONFIG_GLOBAL=/dev/null GOCACHE=/tmp/gitwatch-go-cache go test -race ./...` passed.
+- [x] `GIT_CONFIG_GLOBAL=/dev/null GOCACHE=/tmp/gitwatch-go-cache go vet ./...` passed.
+- [x] Formatting and `git diff --check` passed.
+- [ ] Lint evidence: `make check` reached lint, but the sandbox could not download `golangci-lint` from `proxy.golang.org`; the default cache path also required the temporary `GOCACHE` workaround.
+- [x] Native/manual evidence not applicable: this task changes planning
+  documentation only; native evidence remains required by Task 120 and later
+  implementation/release tasks.
+- [x] Known limitations/deferred work documented: the matrix is planning evidence only; Tasks 122–186 remain unimplemented, Task 120 native evidence remains operator-owned, and README shipping copy was intentionally unchanged.
