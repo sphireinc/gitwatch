@@ -49,3 +49,11 @@ A `.gitignore` is user-owned text with semantics where escapes and whitespace ca
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added the byte-preserving `internal/gitignore/document` parser with raw/logical line records, exact offsets, line endings, classifications, BOM/final-newline metadata, dominant newline detection, and span access.
+- Added strict managed-marker parsing with invalid, unmatched, nested, and unterminated block diagnostics.
+- Rejected NUL-containing binary input and preserved escaped comment/negation/rule text without normalization.
+- Added fixture-style tests and fuzz coverage proving parse/render byte identity, including BOM, CRLF, mixed newlines, and no-final-newline input.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.
