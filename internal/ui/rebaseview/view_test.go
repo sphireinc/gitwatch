@@ -80,3 +80,26 @@ func TestClickProvidesMouseParityForBasePlanAndFooter(t *testing.T) {
 		t.Fatalf("start click = %v", action)
 	}
 }
+
+func TestMarkedActionsAndRangeMovesRemainValid(t *testing.T) {
+	m, err := New("main", "origin/main", []Base{{Label: "upstream", Ref: "origin/main"}}, []history.Commit{
+		{SHA: "new", Subject: "new"}, {SHA: "middle", Subject: "middle"}, {SHA: "old", Subject: "old"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Selected = 0
+	m.ToggleMark()
+	m.Move(1)
+	m.ToggleMark()
+	if err := m.ApplyAction("edit", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.MoveSelection(1); err != nil {
+		t.Fatal(err)
+	}
+	entries := m.Plan.Entries()
+	if entries[1].SHA() != "old" || entries[2].SHA() != "middle" || entries[1].Action() != "edit" || entries[2].Action() != "edit" {
+		t.Fatalf("edited/moved entries = %#v", entries)
+	}
+}

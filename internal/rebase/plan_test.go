@@ -100,3 +100,20 @@ func TestParseRejectsMalformedEditableActionAndBoundsInput(t *testing.T) {
 		t.Fatal("invalid index was accepted")
 	}
 }
+
+func TestChangeActionsAppliesMultiSelectionAtomically(t *testing.T) {
+	plan, err := Parse("pick aaa first\npick bbb second\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, err := plan.ChangeActions([]int{0, 1, 1}, Edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := changed.Render(); got != "edit aaa first\nedit bbb second\n" {
+		t.Fatalf("changed plan = %q", got)
+	}
+	if _, err := plan.ChangeActions([]int{0, 2}, Drop); err == nil {
+		t.Fatal("non-commit multi-selection was accepted")
+	}
+}

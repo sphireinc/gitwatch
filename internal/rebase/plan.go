@@ -194,6 +194,32 @@ func (p Plan) ChangeAction(index int, action Action) (Plan, error) {
 	return result, nil
 }
 
+// ChangeActions applies one action to every listed commit entry and returns a
+// validated copy. Duplicate indexes are harmless; non-commit records reject
+// the whole transformation rather than being silently skipped.
+func (p Plan) ChangeActions(indexes []int, action Action) (Plan, error) {
+	result := p.clone()
+	seen := make(map[int]struct{}, len(indexes))
+	for _, index := range indexes {
+		if _, ok := seen[index]; ok {
+			continue
+		}
+		seen[index] = struct{}{}
+		if index < 0 || index >= len(result.entries) || result.entries[index].kind != CommitEntry {
+			return Plan{}, fmt.Errorf("plan index %d is not an editable commit", index)
+		}
+		if !action.valid() {
+			return Plan{}, fmt.Errorf("unsupported rebase action %q", action)
+		}
+		result.entries[index].action = action
+		result.entries[index].changed = action != p.entries[index].action
+	}
+	if err := result.Validate(); err != nil {
+		return Plan{}, err
+	}
+	return result, nil
+}
+
 // MoveEntry returns a copy with one record moved to destination.
 func (p Plan) MoveEntry(from, to int) (Plan, error) { return p.MoveRange(from, from, to) }
 

@@ -4,6 +4,7 @@ package rebaseview
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/sphireinc/git-watch/internal/history"
@@ -32,6 +33,7 @@ type Model struct {
 	Plan             rebase.Plan
 	Selected         int
 	BaseSelected     int
+	Marked           map[int]bool
 	BaseMode         bool
 	Loading          bool
 	Error            string
@@ -68,6 +70,7 @@ func New(branch, upstream string, choices []Base, commits []history.Commit) (Mod
 		return Model{}, err
 	}
 	m.Commits, m.Plan = presentation, plan
+	m.Marked = make(map[int]bool)
 	return m, nil
 }
 
@@ -99,6 +102,110 @@ func (m *Model) Move(delta int) {
 		return
 	}
 	m.Selected = clamp(m.Selected+delta, 0, len(m.Plan.Entries())-1)
+}
+
+// ToggleMark adds or removes the selected plan row from the action range.
+func (m *Model) ToggleMark() {
+	if m.Marked == nil {
+		m.Marked = make(map[int]bool)
+	}
+	if m.Marked[m.Selected] {
+		delete(m.Marked, m.Selected)
+	} else {
+		m.Marked[m.Selected] = true
+	}
+}
+
+// ApplyAction changes the selected or marked commit entries. Drop and
+// published-history rewrites require an explicit confirmation value.
+func (m *Model) ApplyAction(action rebase.Action, confirm bool) error {
+	indexes := m.selectedIndexes()
+	if (m.Published || m.ReachableRemote) && action != rebase.Pick && !confirm {
+		return fmt.Errorf("rewriting published or remote-reachable commits requires confirmation")
+	}
+	plan, err := m.Plan.ChangeActions(indexes, action)
+	if err != nil {
+		m.Error = err.Error()
+		return err
+	}
+	m.Plan, m.Error = plan, ""
+	return nil
+}
+
+// MoveSelection moves the selected contiguous range by one record while
+// preserving its relative order and selection.
+func (m *Model) MoveSelection(delta int) error {
+	indexes := m.selectedIndexes()
+	if len(indexes) == 0 {
+		return nil
+	}
+	start, end := indexes[0], indexes[0]
+	for _, index := range indexes[1:] {
+		if index != end+1 {
+			return fmt.Errorf("selected range must be contiguous")
+		}
+		end = index
+	}
+	if delta < 0 {
+		if start == 0 {
+			return nil
+		}
+		if err := m.moveRange(start, end, start-1); err != nil {
+			return err
+		}
+		m.shiftSelection(-1)
+		return nil
+	}
+	if delta > 0 {
+		if end == len(m.Plan.Entries())-1 {
+			return nil
+		}
+		if err := m.moveRange(start, end, end+2); err != nil {
+			return err
+		}
+		m.shiftSelection(1)
+	}
+	return nil
+}
+
+func (m *Model) moveRange(start, end, destination int) error {
+	plan, err := m.Plan.MoveRange(start, end, destination)
+	if err != nil {
+		m.Error = err.Error()
+		return err
+	}
+	m.Plan, m.Error = plan, ""
+	return nil
+}
+
+func (m Model) selectedIndexes() []int {
+	if len(m.Marked) == 0 {
+		return []int{m.Selected}
+	}
+	indexes := make([]int, 0, len(m.Marked))
+	for index, marked := range m.Marked {
+		if marked {
+			indexes = append(indexes, index)
+		}
+	}
+	if len(indexes) == 0 {
+		return []int{m.Selected}
+	}
+	sort.Ints(indexes)
+	return indexes
+}
+
+func (m *Model) shiftSelection(delta int) {
+	if len(m.Marked) == 0 {
+		m.Selected += delta
+		return
+	}
+	marked := make(map[int]bool, len(m.Marked))
+	for index := range m.Marked {
+		marked[index+delta] = true
+	}
+	m.Marked = marked
+	m.Selected += delta
 }
 
 // View renders a terminal-safe planning view at any width.
@@ -133,8 +240,17 @@ func (m Model) View() string {
 			if index == m.Selected {
 				prefix = "> "
 			}
+			if m.Marked[index] {
+				prefix = "* "
+			}
 			if entry.Kind() == rebase.CommitEntry {
-				lines = append(lines, prefix+string(entry.Action())+" "+platform.SafeText(entry.SHA())+" "+platform.SafeText(entry.Subject()))
+				target := ""
+				if entry.Action() == rebase.Squash || entry.Action() == rebase.Fixup {
+					if targetIndex, err := m.Plan.SquashTarget(index); err == nil {
+						target = " -> " + platform.SafeText(m.Plan.Entries()[targetIndex].SHA())
+					}
+				}
+				lines = append(lines, prefix+string(entry.Action())+" "+platform.SafeText(entry.SHA())+" "+platform.SafeText(entry.Subject())+target)
 			} else {
 				lines = append(lines, prefix+platform.SafeText(entry.Raw()))
 			}
@@ -147,7 +263,7 @@ func (m Model) View() string {
 	if m.StartEnabled() {
 		start = "ready"
 	}
-	lines = append(lines, "", "[Cancel]  Start: "+start+"  [b] choose base  [j/k] move  [enter] select/start")
+	lines = append(lines, "", "[Cancel]  Start: "+start+"  [p] pick [s] squash [f] fixup [r] reword [e] edit [d] drop  [space] mark  [</>] move")
 	return strings.Join(lines, "\n")
 }
 

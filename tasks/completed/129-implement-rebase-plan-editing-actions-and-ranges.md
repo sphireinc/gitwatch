@@ -39,16 +39,19 @@ Reach LZ-level core rebase ergonomics: pick, squash, fixup, reword, edit, drop, 
 
 ## Acceptance criteria
 
-- [ ] All required rebase actions are available in TUI.
-- [ ] Invalid plans cannot execute.
-- [ ] Range editing is deterministic and keyboard/mouse accessible.
+- [x] All required rebase actions are available in TUI.
+- [x] Invalid plans cannot execute.
+- [x] Range editing is deterministic and keyboard/mouse accessible.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+**Status:** Complete
+
+- Implementation commit: recorded after this completion note is staged; multi-selection plan operations are in `internal/rebase/plan.go`, with TUI state and controls in `internal/ui/rebaseview` and `internal/app`.
+- Exact tested revision: `e5c19ba` plus the working-tree Task 129 changes.
+- Focused tests: `go test ./internal/rebase ./internal/ui/rebaseview ./internal/app -v` passed, covering multi-action application, invalid selections, boundary/range movement, grouping targets, published-history confirmation, and mouse hit-testing.
+- Repository tests: `go test ./...` passed.
+- Race/vet/format: `go test -race ./...`, `go vet ./...`, `test -z "$(gofmt -l .)"`, and `git diff --check` passed.
+- Lint: the repository `make check` lint target remains environment-blocked because the pinned `golangci-lint@v2.12.0` cannot access the Go build cache; no analyzer failure was reported.
+- Native/manual evidence: keyboard and mouse action paths are covered by model/app tests. Live native terminal snapshots across wide/medium/80x24 and all motion/color modes remain unavailable in this environment and are documented as a manual-QA exception.
+- Known limitations/deferred work: action editing is intentionally limited to the supported interactive-rebase actions; Git execution and lifecycle recovery remain in the executor and later sequencer tasks. Published/remote-reachable rewrites require confirmation, while `pick` remains non-rewriting.

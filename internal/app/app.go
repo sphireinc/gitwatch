@@ -21,6 +21,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/plugins"
 	"github.com/sphireinc/git-watch/internal/provider"
+	"github.com/sphireinc/git-watch/internal/rebase"
 	"github.com/sphireinc/git-watch/internal/registry"
 	"github.com/sphireinc/git-watch/internal/remotes"
 	"github.com/sphireinc/git-watch/internal/repo"
@@ -333,6 +334,7 @@ type Model struct {
 	Stashes                  stashview.Model
 	History                  historyview.Model
 	Rebase                   rebaseview.Model
+	RebaseConfirmAction      rebase.Action
 	HistoryCommits           []history.Commit
 	HistorySkip              int
 	HistoryHasMore           bool
@@ -2338,6 +2340,71 @@ func (m *Model) updateBranchSearch(key string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) updateRebaseKey(key string) tea.Cmd {
+	if m.RebaseConfirmAction != "" {
+		switch key {
+		case "y":
+			action := m.RebaseConfirmAction
+			m.RebaseConfirmAction = ""
+			if err := m.Rebase.ApplyAction(action, true); err != nil {
+				m.Status = err.Error()
+			} else {
+				m.Status = "rebase plan updated"
+			}
+		case "n", "esc":
+			m.RebaseConfirmAction = ""
+			m.Status = "rebase edit cancelled"
+		}
+		return nil
+	}
+	switch key {
+	case "esc":
+		m.Workspace.Back()
+		m.Status = "rebase cancelled"
+	case "b":
+		m.Rebase.BaseMode = !m.Rebase.BaseMode
+	case "enter":
+		if m.Rebase.BaseMode {
+			if err := m.Rebase.SetBase(m.Rebase.BaseSelected); err != nil {
+				m.Status = err.Error()
+			} else {
+				m.Rebase.BaseMode = false
+				m.Status = "rebase base selected: " + m.Rebase.Base.Ref
+			}
+			break
+		}
+		m.State, m.Status = StateOperationPending, "starting interactive rebase"
+		return m.startRebase()
+	case "j", "down":
+		m.Rebase.Move(1)
+	case "k", "up":
+		m.Rebase.Move(-1)
+	case "space":
+		m.Rebase.ToggleMark()
+	case "<", "[":
+		if err := m.Rebase.MoveSelection(-1); err != nil {
+			m.Status = err.Error()
+		}
+	case ">", "]":
+		if err := m.Rebase.MoveSelection(1); err != nil {
+			m.Status = err.Error()
+		}
+	case "p", "s", "f", "r", "e", "d":
+		action := map[string]rebase.Action{"p": rebase.Pick, "s": rebase.Squash, "f": rebase.Fixup, "r": rebase.Reword, "e": rebase.Edit, "d": rebase.Drop}[key]
+		if (m.Rebase.Published || m.Rebase.ReachableRemote) && action != rebase.Pick {
+			m.RebaseConfirmAction = action
+			m.Status = "confirm rewrite of published history? (y/n)"
+			return nil
+		}
+		if err := m.Rebase.ApplyAction(action, false); err != nil {
+			m.Status = err.Error()
+		} else {
+			m.Status = "rebase plan updated"
+		}
+	}
+	return nil
+}
+
 func (m Model) currentView() workspace.View {
 	if m.Workspace == nil {
 		return workspace.Status
@@ -2366,6 +2433,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.currentView() == workspace.Hunks {
 			return m, m.updateHunkKey(v.String())
+		}
+		if m.currentView() == workspace.Rebase {
+			return m, m.updateRebaseKey(v.String())
 		}
 		if m.currentView() == workspace.Commit && m.CommitAmendConfirm {
 			switch v.String() {
@@ -3957,6 +4027,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · repositories", m.Repositories.View()
 	case workspace.Rebase:
 		title, content = "gitwatch · interactive rebase", m.Rebase.View()
+		if m.Status != "" {
+			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
+		}
 	}
 	title += " · watch:" + watchModeName(m.WatchMode)
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
