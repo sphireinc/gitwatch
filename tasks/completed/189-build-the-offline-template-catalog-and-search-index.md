@@ -51,3 +51,12 @@ The UI must be able to type “php” and immediately find PHP without scrolling
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added `internal/gitignore/assets/embed.go` and `internal/gitignore/catalog` with one-time embedded loading and hash/length validation.
+- Added immutable-copy `List`, `Get`, `Search`, `ByCategory`, and `Version` APIs.
+- Added deterministic ranking with exact/prefix/substring/path/category precedence and curated aliases for common punctuation/name variants.
+- Added category grouping and upstream commit disclosure through `Version()`.
+- Added golden ranking, alias, hash-validation, immutability, and full-catalog benchmark coverage.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, `git diff --check`, and the full-catalog benchmark.
