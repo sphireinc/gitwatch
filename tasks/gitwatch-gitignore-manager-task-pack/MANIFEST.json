@@ -1,0 +1,124 @@
+{
+  "pack": "gitwatch-gitignore-manager",
+  "task_start": 187,
+  "task_end": 207,
+  "task_count": 21,
+  "source": "https://github.com/github/gitignore",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "bf795de003a9428d7f5f72480c0e9a1bc73251808cc54cba468f9c81d280cf7e",
+      "bytes": 2334
+    },
+    {
+      "path": "TASK_INDEX.md",
+      "sha256": "a5334a0cd6e263bbb1a0c346989e1b1c519f5387ad17b5bf5bf3b91034732983",
+      "bytes": 3051
+    },
+    {
+      "path": "tasks/187-define-the-gitignore-management-domain-and-invariants.md",
+      "sha256": "3bce048998c408130ed292ac9d76f2b96714a5b3c34509bdb37417307c76dafe",
+      "bytes": 4680
+    },
+    {
+      "path": "tasks/188-vendor-and-index-the-github-gitignore-catalog-deterministically.md",
+      "sha256": "e6c6aa9d4fa255c2d89918343a751b3961f8fe204705087cecc5a3c677f71536",
+      "bytes": 4410
+    },
+    {
+      "path": "tasks/189-build-the-offline-template-catalog-and-search-index.md",
+      "sha256": "7c54d3276e8958e01100ccf2a858d829b07c31795668497330e506b69f2765eb",
+      "bytes": 4038
+    },
+    {
+      "path": "tasks/190-implement-a-lossless-gitignore-document-parser.md",
+      "sha256": "ce1a1766003652047d861155059e6beca8c649b4ef395f05dd896ad75a9a85a4",
+      "bytes": 3836
+    },
+    {
+      "path": "tasks/191-define-the-gitwatch-managed-block-format.md",
+      "sha256": "71c1c41f10b6fa4a1caad480ad82ff7ca40741c467275a13c8afa746d06c0584",
+      "bytes": 3810
+    },
+    {
+      "path": "tasks/192-implement-full-partial-and-managed-template-matching.md",
+      "sha256": "30b52040b5bfa328e096fc12b00990b1aa5306e85e9ed649ccbf4184be62e3a0",
+      "bytes": 4109
+    },
+    {
+      "path": "tasks/193-model-overlap-and-rule-ownership-explicitly.md",
+      "sha256": "0c75466db997213343e1bc84fd3e62fe615426565eb1938705a0a8d94baac377",
+      "bytes": 3696
+    },
+    {
+      "path": "tasks/194-implement-create-append-composition-with-multi-select.md",
+      "sha256": "eb38a9c709c639d32f4d674a8db4f03d00b4d67c47c9ad6f4b0700ab7f2b9c6b",
+      "bytes": 4074
+    },
+    {
+      "path": "tasks/195-implement-exact-managed-removal-and-conservative-unmanaged-removal.md",
+      "sha256": "6733e8f3f13fc59c37524d79869124c6f6797bf88290a99d0a486a19bfd87ee1",
+      "bytes": 4029
+    },
+    {
+      "path": "tasks/196-add-preview-diff-and-atomic-write-transactions.md",
+      "sha256": "d1085bf29099b06e8305f03a3f9c1d382cdc386b6b9119c5839feb9d4f50eb7f",
+      "bytes": 3833
+    },
+    {
+      "path": "tasks/197-build-the-searchable-multi-select-template-browser-tui.md",
+      "sha256": "f6e7a0ed3c4c6f36f73a5176891ad23dd58778bf740e7e0546bd02772f27ba5f",
+      "bytes": 4611
+    },
+    {
+      "path": "tasks/198-implement-the-new-repository-gitignore-creation-flow.md",
+      "sha256": "0115c9d8991f7ccb5ac10281e749c5582abf8b11bd313dbd36a7faefe7ecb764",
+      "bytes": 3797
+    },
+    {
+      "path": "tasks/199-implement-existing-file-append-remove-adopt-and-update-flows.md",
+      "sha256": "a029b38d8915e324c624ed740ea7aed0a22ac7e36da429231f8dce2141e30484",
+      "bytes": 4074
+    },
+    {
+      "path": "tasks/200-add-project-language-detection-and-recommendations.md",
+      "sha256": "6aadb7efa23e557f5cd01cef6c19550731429b20ab3badde12061cdbee45426b",
+      "bytes": 3709
+    },
+    {
+      "path": "tasks/201-integrate-gitignore-management-with-multi-repository-mode.md",
+      "sha256": "ec9faf21b671c18b89879e8a6fd7dcecc0cd8926d611c5821ac3943ecd457680",
+      "bytes": 4001
+    },
+    {
+      "path": "tasks/202-add-optional-upstream-catalog-refresh-with-safe-cache-fallback.md",
+      "sha256": "09b37af2261a2dadcdf0bc72c117d7ac6a820680c2dd13d815ac473a53031819",
+      "bytes": 3969
+    },
+    {
+      "path": "tasks/203-wire-gitignore-mutations-into-live-watcher-status-refresh-correctly.md",
+      "sha256": "239516ad0084f13e7a2172d5766b1de3149a7cfc676d08025c2bcb7294ffc7de",
+      "bytes": 3965
+    },
+    {
+      "path": "tasks/204-harden-path-content-and-terminal-safety.md",
+      "sha256": "4b7372deb2c21abbac5785740a2a57238313e9e71d10d4910f6e6b96750029c0",
+      "bytes": 3708
+    },
+    {
+      "path": "tasks/205-build-comprehensive-fixtures-integration-tests-and-performance-gates.md",
+      "sha256": "71d9d98a812c45583488dc51e00df2b0d02a4efe413969616106ae8a27f1f1f3",
+      "bytes": 3787
+    },
+    {
+      "path": "tasks/206-document-the-feature-keybindings-provenance-and-safety-model.md",
+      "sha256": "40322711a292e2e2ff8797515df63973a0316a6989941d8345efa3adeeb71f9b",
+      "bytes": 3678
+    },
+    {
+      "path": "tasks/207-run-the-gitignore-manager-acceptance-and-release-gate.md",
+      "sha256": "db60629a8d757510d7090df03a8797f316f1bdad007dcf49e75fad06344259fa",
+      "bytes": 4075
+    }
+  ]
+}

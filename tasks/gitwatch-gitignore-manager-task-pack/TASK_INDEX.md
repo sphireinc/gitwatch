@@ -1,0 +1,23 @@
+# Task Index
+
+- **187** — Define the `.gitignore` management domain and invariants — `tasks/187-define-the-gitignore-management-domain-and-invariants.md`
+- **188** — Vendor and index the GitHub gitignore catalog deterministically — `tasks/188-vendor-and-index-the-github-gitignore-catalog-deterministically.md`
+- **189** — Build the offline template catalog and search index — `tasks/189-build-the-offline-template-catalog-and-search-index.md`
+- **190** — Implement a lossless `.gitignore` document parser — `tasks/190-implement-a-lossless-gitignore-document-parser.md`
+- **191** — Define the gitwatch managed-block format — `tasks/191-define-the-gitwatch-managed-block-format.md`
+- **192** — Implement full, partial, and managed template matching — `tasks/192-implement-full-partial-and-managed-template-matching.md`
+- **193** — Model overlap and rule ownership explicitly — `tasks/193-model-overlap-and-rule-ownership-explicitly.md`
+- **194** — Implement create/append composition with multi-select — `tasks/194-implement-create-append-composition-with-multi-select.md`
+- **195** — Implement exact managed removal and conservative unmanaged removal — `tasks/195-implement-exact-managed-removal-and-conservative-unmanaged-removal.md`
+- **196** — Add preview, diff, and atomic write transactions — `tasks/196-add-preview-diff-and-atomic-write-transactions.md`
+- **197** — Build the searchable multi-select template browser TUI — `tasks/197-build-the-searchable-multi-select-template-browser-tui.md`
+- **198** — Implement the new-repository `.gitignore` creation flow — `tasks/198-implement-the-new-repository-gitignore-creation-flow.md`
+- **199** — Implement existing-file append, remove, adopt, and update flows — `tasks/199-implement-existing-file-append-remove-adopt-and-update-flows.md`
+- **200** — Add project/language detection and recommendations — `tasks/200-add-project-language-detection-and-recommendations.md`
+- **201** — Integrate `.gitignore` management with multi-repository mode — `tasks/201-integrate-gitignore-management-with-multi-repository-mode.md`
+- **202** — Add optional upstream catalog refresh with safe cache fallback — `tasks/202-add-optional-upstream-catalog-refresh-with-safe-cache-fallback.md`
+- **203** — Wire `.gitignore` mutations into live watcher/status refresh correctly — `tasks/203-wire-gitignore-mutations-into-live-watcher-status-refresh-correctly.md`
+- **204** — Harden path, content, and terminal safety — `tasks/204-harden-path-content-and-terminal-safety.md`
+- **205** — Build comprehensive fixtures, integration tests, and performance gates — `tasks/205-build-comprehensive-fixtures-integration-tests-and-performance-gates.md`
+- **206** — Document the feature, keybindings, provenance, and safety model — `tasks/206-document-the-feature-keybindings-provenance-and-safety-model.md`
+- **207** — Run the `.gitignore` manager acceptance and release gate — `tasks/207-run-the-gitignore-manager-acceptance-and-release-gate.md`

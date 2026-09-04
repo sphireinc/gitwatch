@@ -1,0 +1,376 @@
+{
+  "task_range": "121-186",
+  "file_count": 74,
+  "files": [
+    {
+      "path": "ARCHITECTURE_EXTENSION.md",
+      "bytes": 3596,
+      "sha256": "50edc879c86c8707e5d4346fa62c8bec70d2e65d6ff9c0e0689fb4e82704aff8"
+    },
+    {
+      "path": "CODEX_EXECUTION_RULES.md",
+      "bytes": 4753,
+      "sha256": "5742256ba25b651f1d5c4e2983f8d25f79119762eef7554dd6a5a7cd807e7cd4"
+    },
+    {
+      "path": "DEPENDENCY_GRAPH.md",
+      "bytes": 1816,
+      "sha256": "35da926cdbbb424615cc78fd97feb0835948968da478a984a2cdfb3e2f925838"
+    },
+    {
+      "path": "NON_NEGOTIABLES.md",
+      "bytes": 4484,
+      "sha256": "42e3d5af33534f7848831112e12340bb4951829b73c2abddd9d4be7704135504"
+    },
+    {
+      "path": "README.md",
+      "bytes": 5079,
+      "sha256": "d1475684ddbb358f5b59794371acbe24375d6104bde0b50de888ec89161a88e6"
+    },
+    {
+      "path": "RELEASE_GATES.md",
+      "bytes": 2770,
+      "sha256": "c712a45ac9139d6cb271b3be2b68f6afda847fd20e6bc9157218af66f752f755"
+    },
+    {
+      "path": "SOURCE_NOTES.md",
+      "bytes": 1552,
+      "sha256": "db1f9b7b3a83b926027b68645d49cdba383f1b5e1494168983d5f4edd94e26b1"
+    },
+    {
+      "path": "TARGET_CAPABILITY_MATRIX.md",
+      "bytes": 2836,
+      "sha256": "2b28f5d8175e89bd964a43c9bd19b4db827c2e7e50761e4e4f0ac3d77a708186"
+    },
+    {
+      "path": "tasks/121-reset-roadmap-around-the-supersede-objective.md",
+      "bytes": 4070,
+      "sha256": "8e92f655aa7f33f431647a95777fe5b105f48a0e054bc0c2dbbe3609aac73862"
+    },
+    {
+      "path": "tasks/122-introduce-a-repository-scoped-sequencer-domain.md",
+      "bytes": 3995,
+      "sha256": "5aa4d0e6fcec1227b26401643306cf8232ec52f7bb22f8e628e12a6147bf2628"
+    },
+    {
+      "path": "tasks/123-detect-git-sequencer-and-repository-operation-state-authoritatively.md",
+      "bytes": 4128,
+      "sha256": "65c95b314a0ba419c677bb2bf0218cc08bea2ff749a256cd62a4d18a95a053eb"
+    },
+    {
+      "path": "tasks/124-make-watcher-first-refresh-invariant-during-advanced-operations.md",
+      "bytes": 3980,
+      "sha256": "931f2f6502a7f3687e4f80b20c07f48728db821f0b1c5d659af5e6822a9ebf72"
+    },
+    {
+      "path": "tasks/125-extend-multi-repository-state-for-advanced-git-sessions.md",
+      "bytes": 3895,
+      "sha256": "e453044135e275472a5071f27422db9ef650b4a227eb4d1bae02287bd0195c52"
+    },
+    {
+      "path": "tasks/126-build-interactive-rebase-plan-parser-and-immutable-model.md",
+      "bytes": 3630,
+      "sha256": "9988cb79f8b3ca26a974b4816c747e0f3750b2f07847af9346aa16f767a00673"
+    },
+    {
+      "path": "tasks/127-implement-safe-sequence-editor-bridge-and-rebase-executor.md",
+      "bytes": 4009,
+      "sha256": "f39fa76412b698d694ba77a9adebd9760b0563998295a6ea194e744f8a44fb6d"
+    },
+    {
+      "path": "tasks/128-create-interactive-rebase-workspace.md",
+      "bytes": 3851,
+      "sha256": "46b18b5a02f8333658d9bf73ce5aec7e97424ad2324bbc8b65689b0ce70df8bc"
+    },
+    {
+      "path": "tasks/129-implement-rebase-plan-editing-actions-and-ranges.md",
+      "bytes": 3442,
+      "sha256": "f57566a9cde75777fa210c5ab5673ddddf70c1dcde3f5540355b0836def86079"
+    },
+    {
+      "path": "tasks/130-add-fixup-commit-creation-and-autosquash.md",
+      "bytes": 3434,
+      "sha256": "b75a90da13a91c064ab37f43a3591adb10472c0988c8f6e6b28466d31f3011b6"
+    },
+    {
+      "path": "tasks/131-support-edit-reword-and-amend-of-historical-commits.md",
+      "bytes": 3467,
+      "sha256": "0336f5ab257de2d12773340094233571984c997c44b0dde7495dc2e4b62ccf4e"
+    },
+    {
+      "path": "tasks/132-complete-rebase-lifecycle-recovery-and-continuation.md",
+      "bytes": 3564,
+      "sha256": "17e57257874af13e00230a8ac3c0334da559b0cd2db64bc5259c53749f29f0d9"
+    },
+    {
+      "path": "tasks/133-add-repository-scoped-commit-basket-and-range-selection.md",
+      "bytes": 3398,
+      "sha256": "0ac25a448c52648e272edb71721573a526778f9f0f689a8955b650132dd4745e"
+    },
+    {
+      "path": "tasks/134-implement-typed-cherry-pick-engine.md",
+      "bytes": 3693,
+      "sha256": "23bc5b85facd5b53b65b3d6fb737b27b4876fb1a2a67c3a439a2ab057616d8fd"
+    },
+    {
+      "path": "tasks/135-build-cherry-pick-progress-workspace.md",
+      "bytes": 3330,
+      "sha256": "8340b53ab02ef24f79238d308de46f80e4558ce9d44a36e1c79ff8e3f31dd9fb"
+    },
+    {
+      "path": "tasks/136-unify-revert-with-sequencer-engine.md",
+      "bytes": 3344,
+      "sha256": "1a4f3fc2804da15d13d64f777d962b0bc1ad567d66ea72ad768176c18f3fe562"
+    },
+    {
+      "path": "tasks/137-implement-typed-branch-merge-operations.md",
+      "bytes": 3539,
+      "sha256": "3862610bc4e8ee843089a4be3c9c1bde13cbc8063c3b14d33859bb0f6367403e"
+    },
+    {
+      "path": "tasks/138-parse-unmerged-index-into-first-class-conflict-model.md",
+      "bytes": 3419,
+      "sha256": "d9f0339337f1fa13f8aecff9f316b8de5ab4c11429e66605823bd16a9e909593"
+    },
+    {
+      "path": "tasks/139-load-safe-three-way-conflict-content-and-diffs.md",
+      "bytes": 3305,
+      "sha256": "4fd49c81e5b13582180a9499878bddbebb41eb277117f42e26a32fa30394432c"
+    },
+    {
+      "path": "tasks/140-build-unified-conflict-resolver-workspace.md",
+      "bytes": 3631,
+      "sha256": "cb8a9a6727eb68071dbc23a3b06f84bc284b0b83fde6c9a3106adabb392b9c0c"
+    },
+    {
+      "path": "tasks/141-implement-safe-hunk-level-conflict-resolution.md",
+      "bytes": 3465,
+      "sha256": "be36d2220230ff385571d425a2f1e917c362ddac4541b1bfa0040acdf8ee1d91"
+    },
+    {
+      "path": "tasks/142-add-external-editor-and-mergetool-conflict-handoff.md",
+      "bytes": 3333,
+      "sha256": "eadd30d03bfa4a34143446b7036522d746b9af72e491fa3283195baa54c6d624"
+    },
+    {
+      "path": "tasks/143-create-unified-sequencer-conflict-coordinator.md",
+      "bytes": 3385,
+      "sha256": "24361c33cb5a78707f6a06677b360dce20beb484f96ee9afd62b07521d282093"
+    },
+    {
+      "path": "tasks/144-implement-bounded-reflog-loader-and-browser.md",
+      "bytes": 3168,
+      "sha256": "c5aa03ad9e96799d5d4868f06cd6ae19c077088204c88a04d22d4bf209d5495d"
+    },
+    {
+      "path": "tasks/145-enrich-operation-history-into-semantic-git-operation-journal.md",
+      "bytes": 3382,
+      "sha256": "064a74c30124e745bf5d3c38537e973f0aeb9307e6e300bb56860351e34c0cec"
+    },
+    {
+      "path": "tasks/146-implement-safe-semantic-undo.md",
+      "bytes": 3580,
+      "sha256": "2e0e418d9ad7d23d76dbabe9d4db87f6499d4c69c0d272961d608b5b81032a57"
+    },
+    {
+      "path": "tasks/147-implement-redo-and-guided-recovery.md",
+      "bytes": 3160,
+      "sha256": "04c47e87572b6271089196f9d2dbc5fe93ad2f985c8f30b0c670599a895496aa"
+    },
+    {
+      "path": "tasks/148-implement-bisect-engine-and-state-loader.md",
+      "bytes": 3290,
+      "sha256": "90cc66d9272e0e64dc24f319f730890d8e8a3479f81080c60626a5853bb2ff35"
+    },
+    {
+      "path": "tasks/149-build-bisect-workspace.md",
+      "bytes": 3013,
+      "sha256": "63eea485212e69bd1c56417f828ea2e8d4be3dc6643e044406137c9cbb3372af"
+    },
+    {
+      "path": "tasks/150-add-optional-automated-bisect-run-commands-safely.md",
+      "bytes": 3129,
+      "sha256": "07e5e46696a94b0fe50bd6fdeddc6b91073195d9e2364a1ec9a76b58d6a703fb"
+    },
+    {
+      "path": "tasks/151-add-submodule-discovery-and-status-domain.md",
+      "bytes": 3319,
+      "sha256": "9a25623d89c56caf065df17609cb1bfe01eba299085b32f1c66617fef056bf57"
+    },
+    {
+      "path": "tasks/152-implement-guarded-submodule-lifecycle-operations.md",
+      "bytes": 3352,
+      "sha256": "5a749a51943e79586e6236d072cb72e4718ada6c17bac02c4ce0d1191222be38"
+    },
+    {
+      "path": "tasks/153-integrate-submodules-with-repository-navigation-and-dashboards.md",
+      "bytes": 3226,
+      "sha256": "1e7364b9c8e0943f272f763a763fa9f8de9ec70a1c7e53fadc782c0646f78de0"
+    },
+    {
+      "path": "tasks/154-add-bounded-bulk-submodule-operations.md",
+      "bytes": 2944,
+      "sha256": "e190f357ac80a8a2d3c9250a0fde3c1c558592834bad66c5edf259d44ba02af9"
+    },
+    {
+      "path": "tasks/155-create-first-class-tags-domain-and-workspace.md",
+      "bytes": 3241,
+      "sha256": "fdd60982a7e1e26cde61fea362caf038a905a24f569cb4184f44cdf6044331fd"
+    },
+    {
+      "path": "tasks/156-implement-tag-create-sign-verify-push-and-delete.md",
+      "bytes": 3416,
+      "sha256": "d87411a3fe89ff546f252c87d588e68d57b839f6fb372a35f6009583203b0aab"
+    },
+    {
+      "path": "tasks/157-implement-remote-crud-and-prune-management.md",
+      "bytes": 3244,
+      "sha256": "66a54d083430592f3fcd2cfa01ffc2a83cf889844b58efce02a317aecfcaa029"
+    },
+    {
+      "path": "tasks/158-build-complete-remote-branches-workspace.md",
+      "bytes": 3219,
+      "sha256": "c64015f4cfd495f29652e4f6c3054adb9287b2440921a7f084d6bb626c87f3d7"
+    },
+    {
+      "path": "tasks/159-add-safe-branch-reset-rebase-and-upstream-reconciliation.md",
+      "bytes": 3243,
+      "sha256": "4bda3a7bab7872b0e2a6fd98e986ac5e3f1ec1911d51425a982c5a34e8395d74"
+    },
+    {
+      "path": "tasks/160-add-local-versus-remote-divergence-inspector.md",
+      "bytes": 3017,
+      "sha256": "73e0bc8934a0425b6547618fbec436a2a2d70f70d7a8ee57db6c024a8ca47eac"
+    },
+    {
+      "path": "tasks/161-implement-arbitrary-revision-comparison.md",
+      "bytes": 3453,
+      "sha256": "33f51836ffbbde7386cdea96be2af35553279a84bb7c0542aa5ad3c18e1155cd"
+    },
+    {
+      "path": "tasks/162-add-path-scoped-file-history.md",
+      "bytes": 3197,
+      "sha256": "a2a3d986fa7048840960ab017449a030a7e646a4d34f1fb60eaa4db6dcd81af6"
+    },
+    {
+      "path": "tasks/163-add-blame-with-jump-to-origin-workflow.md",
+      "bytes": 3268,
+      "sha256": "ccf4ca5eab784243b52d961a6c88b28dd848e110df819485f8a74939f3a806a9"
+    },
+    {
+      "path": "tasks/164-implement-historical-patch-editing-through-controlled-rebase.md",
+      "bytes": 3580,
+      "sha256": "bb1726c9a17eb9ea6619ca0abfeedc648c931c89975267c0d57153599d7f2c1b"
+    },
+    {
+      "path": "tasks/165-add-flat-and-tree-status-presentation-modes.md",
+      "bytes": 3279,
+      "sha256": "f67bea64276ad6b5004aa75f7871ae4e867041ac6d36d68c3899538d2d4fc1eb"
+    },
+    {
+      "path": "tasks/166-add-general-external-editor-application-and-difftool-integration.md",
+      "bytes": 3458,
+      "sha256": "7e92b4d0c37a2925741ec5c12a38a143686f4935ceff5b2e2ae3848e3586ab7c"
+    },
+    {
+      "path": "tasks/167-add-lightweight-custom-commands-with-safe-argv-templates.md",
+      "bytes": 3623,
+      "sha256": "df9333b7283aa3358fd9d83c1a1f65e3890994495fbe655ac448793267f8c7a7"
+    },
+    {
+      "path": "tasks/168-add-prompt-and-form-engine-for-custom-commands.md",
+      "bytes": 3236,
+      "sha256": "206ca4dfcc5e1c3c4a71ab38c6b08694e3af4baf0fa850495c43d9490f35a419"
+    },
+    {
+      "path": "tasks/169-version-plugin-contract-for-richer-actions-and-data-contributions.md",
+      "bytes": 3249,
+      "sha256": "eaad7651980f1d05ee104de03b110073389a6dde080fa36beabf4c4f84b17e02"
+    },
+    {
+      "path": "tasks/170-expand-github-integration-to-pull-request-lifecycle.md",
+      "bytes": 3453,
+      "sha256": "da319855630e4d4e48157aac0bcb439dcb7bd616567a82e7cde40e776b5b16a5"
+    },
+    {
+      "path": "tasks/171-add-github-review-comments-and-merge-workflows.md",
+      "bytes": 3238,
+      "sha256": "589bb9940432337a567a02fb41b7bb409164d3fc8263dcf586a9f80371d115a6"
+    },
+    {
+      "path": "tasks/172-add-github-actions-and-check-run-operations.md",
+      "bytes": 3108,
+      "sha256": "fd4aa445b2dd07c654a5e688f96717ad7bd99766d6f4b47e7f2b4ece48531d73"
+    },
+    {
+      "path": "tasks/173-add-github-issues-releases-and-navigation-hooks.md",
+      "bytes": 3160,
+      "sha256": "1228efda85d58abd278e81168311a35b004ca02451a322257d90a8c37bb7ba63"
+    },
+    {
+      "path": "tasks/174-add-multi-repository-batch-fetch-and-safe-pull.md",
+      "bytes": 3454,
+      "sha256": "bb59ea6c2bb23bbeba7b2cbd1c2a9dd0365040ba0aecc17a13b6ec420285e431"
+    },
+    {
+      "path": "tasks/175-create-repository-health-model-and-dashboard.md",
+      "bytes": 3472,
+      "sha256": "6b3669a51d89043999a609899e63a5a0b9e5a355b0c36688a4f2afc945815cb4"
+    },
+    {
+      "path": "tasks/176-build-operations-timeline-workspace.md",
+      "bytes": 3255,
+      "sha256": "e591ecc1fbd06de9312a6a5ac9734910328cf0c51cd7d59a4b07c3895e8e1a7b"
+    },
+    {
+      "path": "tasks/177-add-background-remote-intelligence-and-auto-fetch.md",
+      "bytes": 3281,
+      "sha256": "8b0e9edbf7dec6c7277b38de175900ad558b425e7b80306b7fd7927cb13f46da"
+    },
+    {
+      "path": "tasks/178-add-cross-repository-command-palette-and-search.md",
+      "bytes": 3302,
+      "sha256": "38de91931811d2c72b18dd500c99904d3e27b0289b863bb18fe7212aa6ffd2fa"
+    },
+    {
+      "path": "tasks/179-add-information-dense-repository-activity-visualization.md",
+      "bytes": 3215,
+      "sha256": "6f36211878eacba0ca71afea73d3d81d05182c7ca636d57a8ab4f8a49225f6cb"
+    },
+    {
+      "path": "tasks/180-upgrade-commit-graph-to-scalable-actionable-branch-lane-engine.md",
+      "bytes": 3297,
+      "sha256": "c21e882818db48edb9ed64fe4de69ff27147e272dba1affdca15144d2d115ba0"
+    },
+    {
+      "path": "tasks/181-design-configuration-and-keymap-schema-v3.md",
+      "bytes": 3316,
+      "sha256": "c8e931c501e932e1da89a9f74c4bc31a5527d5f36d46a5e70703e198b6685041"
+    },
+    {
+      "path": "tasks/182-perform-security-hardening-for-advanced-history-provider-and-extensibi.md",
+      "bytes": 3563,
+      "sha256": "fa3808a906951e30b3b51bf31c5a18528e2f9d4ed8ce9945de85a6c1327fa3a5"
+    },
+    {
+      "path": "tasks/183-set-and-enforce-large-scale-performance-budgets.md",
+      "bytes": 3545,
+      "sha256": "21baa21ec85c8710884d1280c81464e50c711092b652bb57dca21efc5ca3665d"
+    },
+    {
+      "path": "tasks/184-build-cross-platform-end-to-end-and-lz-parity-acceptance-harness.md",
+      "bytes": 3653,
+      "sha256": "e3c820094215028e12eda204b9ebfbe2f812bfe160113d8998357c89d22e2da9"
+    },
+    {
+      "path": "tasks/185-run-supersede-beta-and-close-field-defects.md",
+      "bytes": 3398,
+      "sha256": "ccd6f498e37bb5969fa338cd05f7cb9e2991c3e147931a9e027ac7ecb2ae8bc4"
+    },
+    {
+      "path": "tasks/186-publish-stable-supersede-milestone.md",
+      "bytes": 3708,
+      "sha256": "f88bba1cba4cb8e3c772f662e2fb0003d3ca2cb3fb35b53277180f7ebe125747"
+    }
+  ]
+}
