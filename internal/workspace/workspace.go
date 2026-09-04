@@ -20,6 +20,7 @@ const (
 	Repositories View = "repositories"
 	Worktrees    View = "worktrees"
 	Rebase       View = "rebase"
+	Conflict     View = "conflict"
 )
 
 type Breadcrumb struct {

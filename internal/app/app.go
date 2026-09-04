@@ -25,10 +25,12 @@ import (
 	"github.com/sphireinc/git-watch/internal/registry"
 	"github.com/sphireinc/git-watch/internal/remotes"
 	"github.com/sphireinc/git-watch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/sequencer"
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
 	"github.com/sphireinc/git-watch/internal/ui/committree"
 	"github.com/sphireinc/git-watch/internal/ui/commitview"
+	"github.com/sphireinc/git-watch/internal/ui/conflictview"
 	"github.com/sphireinc/git-watch/internal/ui/details"
 	"github.com/sphireinc/git-watch/internal/ui/githubview"
 	"github.com/sphireinc/git-watch/internal/ui/historyview"
@@ -349,6 +351,7 @@ type Model struct {
 	Stashes                  stashview.Model
 	History                  historyview.Model
 	Rebase                   rebaseview.Model
+	Conflict                 conflictview.Model
 	RebaseConfirmAction      rebase.Action
 	RebaseAutosquashConfirm  bool
 	HistoricalRebaseAction   rebase.Action
@@ -452,7 +455,7 @@ func New() Model {
 		ctx: ctx, cancel: cancel, RefreshInterval: 2 * time.Second,
 		ReconciliationInterval: 30 * time.Second, WatchDebounce: 75 * time.Millisecond,
 		DiffMaxBytes: 4 << 20, DiffMaxLines: 20_000, CommitTreeMaxCommits: config.DefaultCommitTreeCommits,
-		WatchRequested: watch.RequestedAuto, Workspace: workspace.New(),
+		WatchRequested: watch.RequestedAuto, Workspace: workspace.New(), Conflict: conflictview.New(),
 		Notifications: notifications.New(100, false), OperationEngine: operations.New(4),
 	}
 }
@@ -727,6 +730,11 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 		m.closeDiff()
 	}
 	m.Snapshot = snapshot
+	operationKind, operationTarget := sequencer.KindUnknown, ""
+	if snapshot.Operation != nil {
+		operationKind, operationTarget = snapshot.Operation.Kind(), snapshot.Operation.Target()
+	}
+	m.Conflict.SetSnapshot(operationKind, operationTarget, snapshot.Conflicts)
 	if err := m.History.SetScope(snapshot.Root, snapshot.Branch.Name, m.repositoryGeneration); err != nil {
 		m.Status = "history selection: " + err.Error()
 	}
@@ -2527,6 +2535,30 @@ func (m *Model) updateRebaseKey(key string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) updateConflictKey(key string) tea.Cmd {
+	action := conflictview.Key(key)
+	switch action {
+	case conflictview.ActionNextConflict:
+		m.Conflict.Move(1)
+	case conflictview.ActionPreviousConflict:
+		m.Conflict.Move(-1)
+	case conflictview.ActionNextHunk:
+		m.Conflict.MoveHunk(1, 1)
+	case conflictview.ActionPreviousHunk:
+		m.Conflict.MoveHunk(-1, 1)
+	case conflictview.ActionStatus:
+		m.Workspace.Navigate(workspace.Status, "Status")
+	case conflictview.ActionNone:
+		return nil
+	default:
+		// Resolution and lifecycle actions remain coordinator intents until the
+		// repository-scoped mutation boundary is available. Do not change the
+		// snapshot optimistically.
+		m.Status = "conflict action pending coordinator: " + key
+	}
+	return nil
+}
+
 func (m Model) currentView() workspace.View {
 	if m.Workspace == nil {
 		return workspace.Status
@@ -2558,6 +2590,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.currentView() == workspace.Rebase {
 			return m, m.updateRebaseKey(v.String())
+		}
+		if m.currentView() == workspace.Conflict {
+			return m, m.updateConflictKey(v.String())
 		}
 		if m.currentView() == workspace.Commit && m.CommitAmendConfirm {
 			switch v.String() {
@@ -3154,6 +3189,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.currentView() == workspace.Stashes {
 				m.StashCreateMode, m.StashCreateMessage, m.StashIncludeUntracked = true, "", true
 				m.Status = "stash message: "
+			} else if m.currentView() == workspace.Status && len(m.Snapshot.Conflicts) > 0 {
+				m.Workspace.Navigate(workspace.Conflict, "Conflicts")
 			}
 		case "a":
 			if m.currentView() == workspace.Stashes && m.Stashes.Selected >= 0 && m.Stashes.Selected < len(m.Stashes.Entries) {
@@ -3246,6 +3283,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Repositories.Move(1)
 			case workspace.Rebase:
 				m.Rebase.Move(1)
+			case workspace.Conflict:
+				m.Conflict.Move(1)
 			case workspace.Plugins:
 				m.Plugins.Move(1)
 			default:
@@ -3281,6 +3320,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Repositories.Move(-1)
 			case workspace.Rebase:
 				m.Rebase.Move(-1)
+			case workspace.Conflict:
+				m.Conflict.Move(-1)
 			case workspace.Plugins:
 				m.Plugins.Move(-1)
 			default:
@@ -4243,6 +4284,11 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.Status != "" {
 			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
 		}
+	case workspace.Conflict:
+		title, content = "gitwatch · conflict resolver", m.Conflict.View(m.Width, m.Height-6)
+		if m.Status != "" {
+			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
+		}
 	}
 	title += " · watch:" + watchModeName(m.WatchMode)
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
@@ -4293,6 +4339,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Rebase {
 		lines[len(lines)-1] = "[j/k] move  [b] choose base  [enter] start  [esc] cancel  [q] quit"
+	}
+	if view == workspace.Conflict {
+		lines[len(lines)-1] = "[j/k] conflict  [n/p] hunk  [o/t/b] choose  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back  [q] quit"
 	}
 	if m.Notifications != nil && m.Notifications.Attention() > 0 {
 		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
