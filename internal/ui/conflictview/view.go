@@ -4,6 +4,7 @@
 package conflictview
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -29,6 +30,10 @@ const (
 	ActionContinue
 	ActionAbort
 	ActionStatus
+	ActionRegionOurs
+	ActionRegionTheirs
+	ActionRegionBoth
+	ActionRegionManual
 )
 
 type MouseAction uint8
@@ -60,6 +65,8 @@ type Content struct {
 	InvalidUTF8 bool
 	Truncated   bool
 	Missing     bool
+	Hash        [32]byte
+	Regions     int
 }
 
 type Detail struct {
@@ -178,7 +185,7 @@ func (m Model) View(width, height int) string {
 	} else {
 		lines = append(lines, "", "No active conflicts.")
 	}
-	lines = append(lines, "", "[j/k] conflict  [n/p] hunk  [o] ours  [t] theirs  [b] both  [e] edit  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back")
+	lines = append(lines, "", "[j/k] conflict  [n/p] hunk  [o/t/b] whole-file  [O/T/B/M] region  [e] edit  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back")
 	if height > 0 && len(lines) > height {
 		lines = lines[:height]
 	}
@@ -244,8 +251,30 @@ func Key(key string) Action {
 		return ActionAbort
 	case "1":
 		return ActionStatus
+	case "O":
+		return ActionRegionOurs
+	case "T":
+		return ActionRegionTheirs
+	case "B":
+		return ActionRegionBoth
+	case "M":
+		return ActionRegionManual
 	}
 	return ActionNone
+}
+
+func (m Model) SelectedRegion() (int, [32]byte, bool) {
+	if m.Detail == nil || m.Detail.Result.Regions <= 0 || m.Hunk < 0 || m.Hunk >= m.Detail.Result.Regions {
+		return 0, sha256.Sum256(nil), false
+	}
+	return m.Hunk, m.Detail.Result.Hash, true
+}
+
+func (m Model) RegionCount() int {
+	if m.Detail == nil {
+		return 0
+	}
+	return m.Detail.Result.Regions
 }
 
 // Click maps only explicit list rows and footer action zones. Resolution

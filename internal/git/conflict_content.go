@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -23,6 +24,8 @@ type Content struct {
 	InvalidUTF8 bool
 	Truncated   bool
 	Missing     bool
+	Hash        [32]byte
+	Regions     int
 }
 
 type ConflictContent struct {
@@ -98,6 +101,11 @@ func LoadConflictContent(ctx context.Context, runner Runner, conflict conflicts.
 		} else {
 			result = classifyContent(Content{Bytes: data, Size: len(data)})
 		}
+		if !result.Binary && !result.InvalidUTF8 && !result.Truncated {
+			if document, parseErr := conflicts.ParseRegions(data, 1024); parseErr == nil {
+				result.Regions = len(document.Regions)
+			}
+		}
 	} else if !os.IsNotExist(readErr) {
 		return ConflictContent{}, readErr
 	}
@@ -114,6 +122,7 @@ func validObjectID(value string) bool {
 }
 
 func classifyContent(content Content) Content {
+	content.Hash = sha256.Sum256(content.Bytes)
 	content.Binary = false
 	for _, b := range content.Bytes {
 		if b == 0 {

@@ -13,6 +13,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/commands"
 	"github.com/sphireinc/git-watch/internal/commitmodel"
 	"github.com/sphireinc/git-watch/internal/config"
+	"github.com/sphireinc/git-watch/internal/conflicts"
 	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/notifications"
@@ -2559,9 +2560,9 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		m.Conflict.Move(-1)
 		return m.loadConflictContent()
 	case conflictview.ActionNextHunk:
-		m.Conflict.MoveHunk(1, 1)
+		m.Conflict.MoveHunk(1, max(1, m.Conflict.RegionCount()))
 	case conflictview.ActionPreviousHunk:
-		m.Conflict.MoveHunk(-1, 1)
+		m.Conflict.MoveHunk(-1, max(1, m.Conflict.RegionCount()))
 	case conflictview.ActionStatus:
 		m.Workspace.Navigate(workspace.Status, "Status")
 	case conflictview.ActionChooseOurs, conflictview.ActionChooseTheirs, conflictview.ActionChooseBoth, conflictview.ActionMarkResolved, conflictview.ActionRestoreUnresolved:
@@ -2579,6 +2580,20 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		}[action]
 		m.State, m.Status = StateOperationPending, "applying conflict action: "+string(choice)
 		return m.resolveConflict(append([]byte(nil), selected.Path...), choice)
+	case conflictview.ActionRegionOurs, conflictview.ActionRegionTheirs, conflictview.ActionRegionBoth:
+		selected, selectedOK := m.Conflict.SelectedConflict()
+		region, expectedHash, regionOK := m.Conflict.SelectedRegion()
+		if !selectedOK || !regionOK {
+			m.Status = "no parsed conflict region selected"
+			return nil
+		}
+		choice := map[conflictview.Action]conflicts.Choice{
+			conflictview.ActionRegionOurs:   conflicts.ChoiceOurs,
+			conflictview.ActionRegionTheirs: conflicts.ChoiceTheirs,
+			conflictview.ActionRegionBoth:   conflicts.ChoiceBoth,
+		}[action]
+		m.State, m.Status = StateOperationPending, "applying conflict region action"
+		return m.resolveConflictRegion(append([]byte(nil), selected.Path...), expectedHash, region, choice)
 	case conflictview.ActionEditExternal:
 		selected, ok := m.Conflict.SelectedConflict()
 		if !ok {
@@ -2648,7 +2663,7 @@ func (m *Model) loadConflictContent() tea.Cmd {
 }
 
 func conflictViewContent(content git.Content) conflictview.Content {
-	return conflictview.Content{Text: string(content.Bytes), Binary: content.Binary, InvalidUTF8: content.InvalidUTF8, Truncated: content.Truncated, Missing: content.Missing}
+	return conflictview.Content{Text: string(content.Bytes), Binary: content.Binary, InvalidUTF8: content.InvalidUTF8, Truncated: content.Truncated, Missing: content.Missing, Hash: content.Hash, Regions: content.Regions}
 }
 
 func (m Model) resolveConflict(path []byte, choice git.ConflictChoice) tea.Cmd {
@@ -2656,6 +2671,14 @@ func (m Model) resolveConflict(path []byte, choice git.ConflictChoice) tea.Cmd {
 	return func() tea.Msg {
 		_, err := runner.ResolveConflict(ctx, path, choice)
 		return OperationFinishedMsg{Name: "conflict " + string(choice), Repository: generation, Err: err}
+	}
+}
+
+func (m Model) resolveConflictRegion(path []byte, expectedHash [32]byte, region int, choice conflicts.Choice) tea.Cmd {
+	runner, ctx, generation := git.NewRunner(m.Discovery.Root), m.commandContext(), m.repositoryGeneration
+	return func() tea.Msg {
+		_, err := runner.ResolveConflictRegion(ctx, path, expectedHash, region, choice, nil)
+		return OperationFinishedMsg{Name: "conflict region", Repository: generation, Err: err}
 	}
 }
 
