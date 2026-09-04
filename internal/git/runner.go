@@ -19,6 +19,7 @@ var (
 	ErrCommandFailed  = errors.New("git command failed")
 	ErrCancelled      = errors.New("git command cancelled")
 	ErrUnsupportedGit = errors.New("unsupported git version")
+	ErrOutputLimit    = errors.New("git output exceeds configured limit")
 )
 
 // Result captures Git's arguments, output, exit code, and execution duration.
@@ -59,15 +60,44 @@ func NewRunner(dir string) Runner { return Runner{Binary: "git", Dir: dir} }
 
 // Run executes Git without stdin and returns its captured result.
 func (r Runner) Run(ctx context.Context, args ...string) (Result, error) {
-	return r.run(ctx, nil, args...)
+	return r.run(ctx, nil, 0, args...)
 }
 
 // RunInput executes Git with input connected to stdin.
 func (r Runner) RunInput(ctx context.Context, input []byte, args ...string) (Result, error) {
-	return r.run(ctx, bytes.NewReader(input), args...)
+	return r.run(ctx, bytes.NewReader(input), 0, args...)
 }
 
-func (r Runner) run(ctx context.Context, input io.Reader, args ...string) (Result, error) {
+// RunBounded executes Git while retaining at most maxBytes of stdout. It is
+// intended for object/content reads where Git may legitimately produce much
+// more data than the UI should hold in memory.
+func (r Runner) RunBounded(ctx context.Context, maxBytes int, args ...string) (Result, error) {
+	if maxBytes <= 0 {
+		return Result{Args: append([]string(nil), args...)}, fmt.Errorf("git output limit must be positive: %w", ErrOutputLimit)
+	}
+	return r.run(ctx, nil, maxBytes, args...)
+}
+
+type boundedBuffer struct {
+	data  []byte
+	limit int
+	over  bool
+}
+
+func (b *boundedBuffer) Write(p []byte) (int, error) {
+	remaining := b.limit - len(b.data)
+	if len(p) > remaining {
+		if remaining > 0 {
+			b.data = append(b.data, p[:remaining]...)
+		}
+		b.over = true
+	} else {
+		b.data = append(b.data, p...)
+	}
+	return len(p), nil
+}
+
+func (r Runner) run(ctx context.Context, input io.Reader, maxBytes int, args ...string) (Result, error) {
 	binary := r.Binary
 	if binary == "" {
 		binary = "git"
@@ -79,11 +109,26 @@ func (r Runner) run(ctx context.Context, input io.Reader, args ...string) (Resul
 		cmd.Env = append(os.Environ(), r.Env...)
 	}
 	cmd.Stdin = input
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
+	var stdout bytes.Buffer
+	var bounded *boundedBuffer
+	if maxBytes > 0 {
+		bounded = &boundedBuffer{limit: maxBytes}
+	}
+	var stderr bytes.Buffer
+	if bounded != nil {
+		cmd.Stdout = bounded
+	} else {
+		cmd.Stdout = &stdout
+	}
 	cmd.Stderr = &stderr
 	err := cmd.Run()
+	if bounded != nil {
+		stdout.Write(bounded.data)
+	}
 	result := Result{Args: append([]string(nil), args...), Stdout: stdout.Bytes(), Stderr: stderr.Bytes(), Duration: time.Since(start), ExitCode: 0}
+	if bounded != nil && bounded.over {
+		return result, &CommandError{Kind: ErrOutputLimit, Args: result.Args, Result: result}
+	}
 	if err == nil {
 		return result, nil
 	}

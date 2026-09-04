@@ -46,10 +46,10 @@ Provide base/ours/theirs/result detail with bounded binary/large-file handling.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commit recorded: `feat: add bounded conflict content loader`.
+- [x] Exact tested revision recorded: implementation commit below.
+- [x] Focused unit/integration tests recorded: `go test ./internal/git ./internal/conflicts`.
+- [x] `go test ./...` recorded: passed.
+- [x] Race/vet/lint/format evidence recorded where applicable: `go test -race ./...`, `go vet ./...`, `gofmt`, and `git diff --check` passed; `make check` lint remains blocked by the environment's denied Go build-cache path.
+- [x] Native/manual evidence recorded where this task changes terminal interaction: not applicable; content loading is an asynchronous/data boundary with no new terminal interaction.
+- [x] Known limitations/deferred work documented: content is loaded for selected conflicts only; blob contents are bounded and binary/invalid UTF-8 content is metadata-classified for later presentation; resolver UI owns presentation and edits.
