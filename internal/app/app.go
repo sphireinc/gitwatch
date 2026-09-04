@@ -35,6 +35,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/layout"
 	uimouse "github.com/sphireinc/git-watch/internal/ui/mouse"
 	"github.com/sphireinc/git-watch/internal/ui/pluginview"
+	"github.com/sphireinc/git-watch/internal/ui/rebaseview"
 	"github.com/sphireinc/git-watch/internal/ui/remoteview"
 	"github.com/sphireinc/git-watch/internal/ui/repoview"
 	"github.com/sphireinc/git-watch/internal/ui/stashview"
@@ -88,6 +89,11 @@ type OperationStartedMsg struct{ Name string }
 type OperationFinishedMsg struct {
 	Name       string
 	Repository uint64
+	Err        error
+}
+type RebaseFinishedMsg struct {
+	Repository uint64
+	Outcome    git.RebaseOutcome
 	Err        error
 }
 type TickMsg struct{ At time.Time }
@@ -326,6 +332,7 @@ type Model struct {
 	BranchDeleteForce        bool
 	Stashes                  stashview.Model
 	History                  historyview.Model
+	Rebase                   rebaseview.Model
 	HistoryCommits           []history.Commit
 	HistorySkip              int
 	HistoryHasMore           bool
@@ -436,6 +443,7 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "branches", Label: "Open branches", Shortcut: "b", Enabled: m.Discovery.Root != ""},
 		{ID: "stashes", Label: "Open stashes", Shortcut: "s", Enabled: m.Discovery.Root != ""},
 		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
+		{ID: "rebase", Label: "Open interactive rebase", Shortcut: "I", Enabled: m.Discovery.Root != "" && len(m.HistoryCommits) > 0},
 		{ID: "remotes", Label: "Open remotes", Shortcut: "n", Enabled: m.Discovery.Root != ""},
 		{ID: "github", Label: "Open GitHub", Shortcut: "G", Enabled: m.GitHubEnabled && m.Discovery.Root != ""},
 		{ID: "plugins", Label: "Open plugins", Shortcut: "E", Enabled: m.PluginsEnabled},
@@ -533,6 +541,8 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		return m.navigate(workspace.Stashes, "Stashes")
 	case "history":
 		return m.navigate(workspace.Log, "History")
+	case "rebase":
+		return m.openRebaseWorkspace()
 	case "remotes":
 		return m.navigate(workspace.Remotes, "Remotes")
 	case "github":
@@ -2021,6 +2031,53 @@ func (m *Model) navigate(view workspace.View, label string) tea.Cmd {
 	}
 }
 
+func (m *Model) openRebaseWorkspace() tea.Cmd {
+	choices := make([]rebaseview.Base, 0, 2)
+	if m.Snapshot.Branch.Upstream != "" {
+		choices = append(choices, rebaseview.Base{Label: "upstream", Ref: m.Snapshot.Branch.Upstream})
+	}
+	if m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+		parents := m.History.Rows[m.History.Selected].Commit.Parents
+		if len(parents) > 0 {
+			choices = append(choices, rebaseview.Base{Label: "selected commit parent", Ref: parents[0]})
+		}
+	}
+	if len(choices) == 0 {
+		m.Status = "interactive rebase requires an explicit base"
+		return nil
+	}
+	view, err := rebaseview.New(m.Snapshot.Branch.Name, m.Snapshot.Branch.Upstream, choices, m.HistoryCommits)
+	if err != nil {
+		m.Status = "rebase plan: " + err.Error()
+		return nil
+	}
+	for _, commit := range m.HistoryCommits {
+		for _, ref := range commit.Refs {
+			if strings.Contains(ref, "origin/") {
+				view.ReachableRemote = true
+			}
+		}
+	}
+	view.Published = view.ReachableRemote
+	m.Rebase = view
+	m.Workspace.Navigate(workspace.Rebase, "Interactive rebase")
+	return nil
+}
+
+func (m *Model) startRebase() tea.Cmd {
+	if !m.Rebase.StartEnabled() {
+		m.Status = "rebase plan is loading, invalid, or has no explicit base"
+		return nil
+	}
+	request := git.RebaseRequest{Base: m.Rebase.Base.Ref, Plan: m.Rebase.Plan}
+	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		outcome, err := runner.StartInteractiveRebase(m.commandContext(), request)
+		return RebaseFinishedMsg{Repository: generation, Outcome: outcome, Err: err}
+	}
+}
+
 func (m *Model) beginCommit() tea.Cmd {
 	files := make([]commitmodel.File, 0, len(m.Snapshot.Entries))
 	for _, entry := range m.Snapshot.Entries {
@@ -2594,6 +2651,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.Workspace.Navigate(workspace.Status, "Status")
 		case "b":
+			if m.currentView() == workspace.Rebase {
+				m.Rebase.BaseMode = !m.Rebase.BaseMode
+				return m, nil
+			}
 			if m.currentView() == workspace.Status {
 				return m, m.navigate(workspace.Branches, "Branches")
 			}
@@ -2832,6 +2893,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.currentView() == workspace.Status {
 				m.beginRestore()
 			}
+		case "I":
+			if m.currentView() == workspace.Log {
+				return m, m.openRebaseWorkspace()
+			}
 		case "M":
 			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" && len(m.HistoryInspector.Commit.Parents) > 0 {
 				parent := ""
@@ -2902,6 +2967,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.beginCommit()
 		case "enter":
+			if m.currentView() == workspace.Rebase {
+				if m.Rebase.BaseMode {
+					if err := m.Rebase.SetBase(m.Rebase.BaseSelected); err != nil {
+						m.Status = err.Error()
+					} else {
+						m.Rebase.BaseMode = false
+						m.Status = "rebase base selected: " + m.Rebase.Base.Ref
+					}
+					return m, nil
+				}
+				m.State, m.Status = StateOperationPending, "starting interactive rebase"
+				return m, m.startRebase()
+			}
 			if m.currentView() == workspace.Repositories {
 				m.State, m.Status = StateOperationPending, "opening repository"
 				return m, m.openSelectedRepository()
@@ -2947,6 +3025,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Worktrees.Move(1)
 			case workspace.Repositories:
 				m.Repositories.Move(1)
+			case workspace.Rebase:
+				m.Rebase.Move(1)
 			case workspace.Plugins:
 				m.Plugins.Move(1)
 			default:
@@ -2980,6 +3060,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Worktrees.Move(-1)
 			case workspace.Repositories:
 				m.Repositories.Move(-1)
+			case workspace.Rebase:
+				m.Rebase.Move(-1)
 			case workspace.Plugins:
 				m.Plugins.Move(-1)
 			default:
@@ -3274,6 +3356,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State = StateReady
 			m.Status = v.Name + " complete"
 			m.notify(notifications.JobComplete, notifications.Success, m.Status, "", false)
+			m.recordActivity(history.OperationSuccess, "", m.Status)
+		}
+		return m, m.refresh()
+	case RebaseFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Outcome.Paused {
+			m.State = StateReady
+			m.Status = "interactive rebase paused: " + v.Outcome.State.Phase().String()
+			if v.Err != nil {
+				m.Status += " (Git reported: " + v.Err.Error() + ")"
+			}
+			return m, m.refresh()
+		}
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+			m.recordActivity(history.OperationFailure, "", "interactive rebase: "+v.Err.Error())
+		} else {
+			m.State, m.Status = StateReady, "interactive rebase complete"
 			m.recordActivity(history.OperationSuccess, "", m.Status)
 		}
 		return m, m.refresh()
@@ -3740,7 +3842,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase {
 		return m.featureView(view)
 	}
 	if m.Modal == "help" {
@@ -3827,6 +3929,8 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · worktrees", m.Worktrees.View()
 	case workspace.Repositories:
 		title, content = "gitwatch · repositories", m.Repositories.View()
+	case workspace.Rebase:
+		title, content = "gitwatch · interactive rebase", m.Rebase.View()
 	}
 	title += " · watch:" + watchModeName(m.WatchMode)
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
@@ -3874,6 +3978,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.RepositorySearching {
 			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Repositories.Query) + "  [enter] apply  [esc] cancel"
 		}
+	}
+	if view == workspace.Rebase {
+		lines[len(lines)-1] = "[j/k] move  [b] choose base  [enter] start  [esc] cancel  [q] quit"
 	}
 	if m.Notifications != nil && m.Notifications.Attention() > 0 {
 		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
