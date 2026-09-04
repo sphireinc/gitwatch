@@ -56,3 +56,11 @@ Use a versioned grammar (`format=1`) if needed. Final exact spelling must be cen
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added the centralized versioned `internal/gitignore/managed` block grammar with stable template ID, source, upstream commit, content hash, and repeated end-marker ID metadata.
+- Added exact body preservation with newline adaptation only for the target document boundary.
+- Added strict parsing and validation for unknown formats, malformed metadata, and begin/end ID mismatches; duplicate/overlapping blocks remain independently removable.
+- Documented the format and reversibility rationale in `docs/gitignore-manager.md`.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.

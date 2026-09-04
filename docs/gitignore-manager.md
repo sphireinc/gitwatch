@@ -30,3 +30,10 @@ the existing repository engine must obtain the authoritative
 `git status --porcelain=v2 -z --branch --untracked-files=all` snapshot. The
 manager never maintains a second interpretation of worktree status, and all
 state is scoped by repository rather than a global active repository.
+
+Managed combinations use the versioned, human-readable block format defined by
+`internal/gitignore/managed`: begin metadata records format, stable template
+ID, source, upstream commit, and content hash; the end marker repeats the ID.
+Unknown versions and crossed IDs are not editable. Duplicate rules across
+blocks are intentionally tolerated so each selected template remains exactly
+reversible and independently removable.
