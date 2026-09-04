@@ -51,3 +51,12 @@ Define explicit states so later UI never guesses based on strings. The user-faci
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Implemented `internal/gitignore/domain` without TUI, filesystem, Git, or network dependencies.
+- Added stable upstream-path template IDs, explicit match kinds and ownership checks, repository-scoped snapshots, SHA-256/newline metadata, immutable-by-copy mutation plans, and typed safety errors.
+- Added serialization round-trip, ID validation, ownership, snapshot, and mutation-copy tests.
+- Added [the gitignore manager domain contract](../../docs/gitignore-manager.md), including canonical status refresh integration and race-protected write requirements.
+- Validation passed: `gofmt`, `GOCACHE=/tmp/gitwatch-go-cache go test ./...`, `GOCACHE=/tmp/gitwatch-go-cache go test -race ./...`, `GOCACHE=/tmp/gitwatch-go-cache go vet ./...`, and `git diff --check`.
+- Exception: `make check` reached lint but could not run because the sandbox denied access to Go's existing cache at `/Users/JuanSanchez/Library/Caches/go-build`; formatting and all other gates passed independently.
