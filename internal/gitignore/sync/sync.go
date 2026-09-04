@@ -271,7 +271,8 @@ func BuildManifest(cfg Config, assets []Asset) ([]byte, error) {
 	stamp := cfg.SyncedAt.UTC().Format(time.RFC3339)
 	entries := make([]ManifestEntry, 0, len(assets))
 	for _, asset := range assets {
-		if asset.Template.ID == "" || digest(asset.Content) != asset.Template.ContentSHA256 {
+		parsed, idErr := domain.ParseTemplateID(asset.Template.ID.String())
+		if idErr != nil || parsed != asset.Template.ID || asset.Template.SourcePath == "" || digest(asset.Content) != asset.Template.ContentSHA256 {
 			return nil, fmt.Errorf("%w: %s", ErrHashMismatch, asset.Template.ID)
 		}
 		entries = append(entries, ManifestEntry{ID: asset.Template.ID, SourcePath: asset.Template.SourcePath, Category: asset.Template.Category, SHA256: asset.Template.ContentSHA256, Bytes: len(asset.Content)})

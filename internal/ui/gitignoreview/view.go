@@ -11,6 +11,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/gitignore/match"
 	"github.com/sphireinc/git-watch/internal/gitignore/recommend"
+	"github.com/sphireinc/git-watch/internal/platform"
 )
 
 type Tab string
@@ -332,21 +333,21 @@ func (m *RepositoryModel) Click(x, y int) bool {
 }
 
 func (m RepositoryModel) View() string {
-	lines := []string{fmt.Sprintf("Gitignore catalog · repository %s", m.RepositoryID), fmt.Sprintf("Search: %s · %d results · tab: %s · catalog: %s", m.Query, len(m.Entries), m.Tab, short(m.CatalogVersion)), "", "Tabs: [all] common global community installed recommended"}
+	lines := []string{fmt.Sprintf("Gitignore catalog · repository %s", platform.SafeText(string(m.RepositoryID))), fmt.Sprintf("Search: %s · %d results · tab: %s · catalog: %s", platform.SafeText(m.Query), len(m.Entries), platform.SafeText(string(m.Tab)), platform.SafeText(short(m.CatalogVersion))), "", "Tabs: [all] common global community installed recommended"}
 	if m.PreviewText != "" {
-		lines = append(lines, "", "CREATE PREVIEW (confirm with y, cancel with n/esc):", m.PreviewText)
+		lines = append(lines, "", "CREATE PREVIEW (confirm with y, cancel with n/esc):", platform.SafeText(m.PreviewText))
 	}
 	for i, e := range m.Entries {
 		prefix := "  "
 		if i == m.Selected {
 			prefix = "> "
 		}
-		line := fmt.Sprintf("%s[%s] %-24s %-9s %d/%d", prefix, indicator(e), e.Template.Name, e.Template.Category, e.Match.Present, e.Match.Total)
+		line := fmt.Sprintf("%s[%s] %-24s %-9s %d/%d", prefix, indicator(e), platform.SafeText(e.Template.Name), platform.SafeText(string(e.Template.Category)), e.Match.Present, e.Match.Total)
 		if e.Recommended {
 			line += " Recommended"
 		}
 		if i == m.Selected {
-			line += "  " + e.Template.SourcePath
+			line += "  " + platform.SafeText(e.Template.SourcePath)
 		}
 		lines = append(lines, line)
 	}
@@ -355,9 +356,9 @@ func (m RepositoryModel) View() string {
 	}
 	if len(m.Entries) > 0 {
 		e := m.Entries[m.Selected]
-		lines = append(lines, "", "Details: "+e.Template.Name, "source: "+e.Template.SourcePath, "state: "+string(e.Match.Kind), "preview:")
+		lines = append(lines, "", "Details: "+platform.SafeText(e.Template.Name), "source: "+platform.SafeText(e.Template.SourcePath), "state: "+platform.SafeText(string(e.Match.Kind)), "preview:")
 		if e.Recommended && len(e.Reasons) > 0 {
-			lines = append(lines, "recommendation: "+strings.Join(e.Reasons, "; "))
+			lines = append(lines, "recommendation: "+platform.SafeText(strings.Join(e.Reasons, "; ")))
 		}
 		preview := strings.Split(string(e.Template.Content), "\n")
 		limit := 5
@@ -365,7 +366,7 @@ func (m RepositoryModel) View() string {
 			limit = 10
 		}
 		for i := 0; i < len(preview) && i < limit; i++ {
-			lines = append(lines, "  "+preview[i])
+			lines = append(lines, "  "+platform.SafeText(preview[i]))
 		}
 	}
 	lines = append(lines, "", "[j/k] move [space] select [/] search [tab] filter [a] add selected [d] remove [p] preview [r] refresh [c] clear [esc] back")

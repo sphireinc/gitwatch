@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
+	"github.com/sphireinc/git-watch/internal/gitignore/security"
 )
 
 // Apply rechecks the planned bytes and replaces the target atomically. The
@@ -17,7 +17,10 @@ func Apply(plan domain.MutationPlan) error {
 	if plan.Root == "" || plan.Path != ".gitignore" {
 		return domain.ErrUnsafeTarget
 	}
-	path := filepath.Join(plan.Root, plan.Path)
+	path, err := security.Target(plan.Root)
+	if err != nil {
+		return domain.ErrUnsafeTarget
+	}
 	info, err := os.Lstat(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("stat gitignore: %w", err)

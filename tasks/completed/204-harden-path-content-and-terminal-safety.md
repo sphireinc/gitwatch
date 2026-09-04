@@ -44,12 +44,20 @@ Treat upstream template content and repository paths as untrusted input througho
 
 ## Acceptance criteria
 
-- [ ] Terminal content cannot inject raw escape behavior.
-- [ ] Writes cannot escape repository root.
-- [ ] Binary/oversized files fail safely.
-- [ ] Fuzzing finds no panic or unbounded allocation in target packages.
-- [ ] Windows path cases are covered.
+- [x] Terminal content cannot inject raw escape behavior.
+- [x] Writes cannot escape repository root.
+- [x] Binary/oversized files fail safely.
+- [x] Fuzzing finds no panic or unbounded allocation in target packages.
+- [x] Windows path cases are covered.
 
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added repository-root-bound and symlink-safe `.gitignore` reads/writes with NUL, invalid UTF-8, and configurable oversized-document rejection. The default interactive limit is 8 MiB.
+- Sanitized repository and upstream catalog text before gitignore previews and catalog rendering; strengthened template ID validation at plan and manifest boundaries.
+- Added fuzz targets for document parsing, managed-marker parsing, archive importing, match evaluation, and bounded document reads, plus ANSI, traversal, NUL, oversized, and repository-boundary tests.
+- Validation: `go test ./...`, `go test -race ./...`, `go vet ./...`, formatter check, `git diff --check`, and all four 2-second fuzz smoke runs pass.
+- Exception: `make check` reaches the pinned golangci-lint run but reports 21 pre-existing repository findings outside this task; the task changes introduce no additional finding in the bounded reader or app safety flow.

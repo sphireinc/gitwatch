@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
+	"github.com/sphireinc/git-watch/internal/gitignore/security"
 )
 
 var ErrUndoConflict = errors.New("gitignore changed after the transaction and cannot be undone safely")
@@ -39,7 +39,10 @@ func Undo(record OperationRecord) error {
 	if !record.Success || record.Root == "" || record.Path != ".gitignore" {
 		return ErrUndoConflict
 	}
-	path := filepath.Join(record.Root, record.Path)
+	path, err := security.Target(record.Root)
+	if err != nil {
+		return domain.ErrUnsafeTarget
+	}
 	info, err := os.Lstat(path)
 	if err != nil || info.Mode()&os.ModeSymlink != 0 {
 		return domain.ErrUnsafeTarget

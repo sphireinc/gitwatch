@@ -17,28 +17,29 @@ import (
 const CurrentVersion = 2
 
 type Config struct {
-	Version        int                          `json:"version"`
-	Theme          string                       `json:"theme"`
-	Motion         string                       `json:"motion"`
-	Watch          string                       `json:"watch"`
-	Interval       time.Duration                `json:"interval"`
-	Reconciliation time.Duration                `json:"reconciliation"`
-	ShowUntracked  bool                         `json:"show_untracked"`
-	ShowIgnored    bool                         `json:"show_ignored"`
-	Mouse          bool                         `json:"mouse"`
-	Debounce       time.Duration                `json:"debounce"`
-	Repositories   RepositoryConfig             `json:"repositories"`
-	Remote         RemoteConfig                 `json:"remote"`
-	GitHub         GitHubConfig                 `json:"github"`
-	Plugins        PluginConfig                 `json:"plugins"`
-	Notifications  NotificationConfig           `json:"notifications"`
-	Layout         LayoutConfig                 `json:"layout"`
-	Diff           DiffConfig                   `json:"diff"`
-	ShowCommitTree bool                         `json:"show_commit_tree"`
-	CommitTree     CommitTreeConfig             `json:"commit_tree"`
-	Keymap         map[string]string            `json:"keymap"`
-	Profile        string                       `json:"profile,omitempty"`
-	KeymapProfiles map[string]map[string]string `json:"keymap_profiles,omitempty"`
+	Version           int                          `json:"version"`
+	Theme             string                       `json:"theme"`
+	Motion            string                       `json:"motion"`
+	Watch             string                       `json:"watch"`
+	Interval          time.Duration                `json:"interval"`
+	Reconciliation    time.Duration                `json:"reconciliation"`
+	ShowUntracked     bool                         `json:"show_untracked"`
+	ShowIgnored       bool                         `json:"show_ignored"`
+	Mouse             bool                         `json:"mouse"`
+	Debounce          time.Duration                `json:"debounce"`
+	Repositories      RepositoryConfig             `json:"repositories"`
+	Remote            RemoteConfig                 `json:"remote"`
+	GitHub            GitHubConfig                 `json:"github"`
+	Plugins           PluginConfig                 `json:"plugins"`
+	Notifications     NotificationConfig           `json:"notifications"`
+	Layout            LayoutConfig                 `json:"layout"`
+	Diff              DiffConfig                   `json:"diff"`
+	GitignoreMaxBytes int64                        `json:"gitignore_max_bytes"`
+	ShowCommitTree    bool                         `json:"show_commit_tree"`
+	CommitTree        CommitTreeConfig             `json:"commit_tree"`
+	Keymap            map[string]string            `json:"keymap"`
+	Profile           string                       `json:"profile,omitempty"`
+	KeymapProfiles    map[string]map[string]string `json:"keymap_profiles,omitempty"`
 }
 
 type RepositoryConfig struct {
@@ -92,7 +93,7 @@ const DefaultCommitTreeCommits = 100
 const MaxCommitTreeCommits = 1000
 
 func Defaults() Config {
-	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Layout: LayoutConfig{FilesPercent: 60, DetailsPercent: 40}, Diff: DiffConfig{MaxBytes: 4 << 20, MaxLines: 20_000}, CommitTree: CommitTreeConfig{MaxCommits: DefaultCommitTreeCommits}, Keymap: DefaultKeymap()}
+	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Layout: LayoutConfig{FilesPercent: 60, DetailsPercent: 40}, Diff: DiffConfig{MaxBytes: 4 << 20, MaxLines: 20_000}, GitignoreMaxBytes: 8 << 20, CommitTree: CommitTreeConfig{MaxCommits: DefaultCommitTreeCommits}, Keymap: DefaultKeymap()}
 }
 
 func DefaultKeymap() map[string]string {
@@ -207,7 +208,7 @@ func Validate(c Config) error {
 	if c.Version != CurrentVersion {
 		return fmt.Errorf("unsupported config version %d", c.Version)
 	}
-	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 || c.Diff.MaxBytes <= 0 || c.Diff.MaxLines <= 0 || c.CommitTree.MaxCommits <= 0 || c.CommitTree.MaxCommits > MaxCommitTreeCommits {
+	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 || c.Diff.MaxBytes <= 0 || c.Diff.MaxLines <= 0 || c.GitignoreMaxBytes <= 0 || c.CommitTree.MaxCommits <= 0 || c.CommitTree.MaxCommits > MaxCommitTreeCommits {
 		return fmt.Errorf("config limits cannot be negative")
 	}
 	if c.Layout.FilesPercent <= 0 || c.Layout.DetailsPercent <= 0 || c.Layout.FilesPercent+c.Layout.DetailsPercent != 100 {

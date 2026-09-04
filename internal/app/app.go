@@ -23,6 +23,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/manage"
 	"github.com/sphireinc/git-watch/internal/gitignore/match"
 	"github.com/sphireinc/git-watch/internal/gitignore/recommend"
+	"github.com/sphireinc/git-watch/internal/gitignore/security"
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/notifications"
 	"github.com/sphireinc/git-watch/internal/operations"
@@ -277,6 +278,7 @@ type GitignoreReadyMsg struct {
 	Model      gitignoreview.RepositoryModel
 	Err        error
 	Missing    bool
+	ReadOnly   bool
 	Reload     bool
 	Generation uint64
 }
@@ -467,6 +469,8 @@ type Model struct {
 	GitignoreCreatePlan      domain.MutationPlan
 	GitignoreMutationAction  string
 	GitignoreReturnToStatus  bool
+	GitignoreReadOnly        bool
+	GitignoreMaxBytes        int64
 	GitignoreCatalog         *catalog.Catalog
 	GitignoreCatalogSource   catalog.SourceKind
 	PluginsEnabled           bool
@@ -504,7 +508,7 @@ func New() Model {
 		DetailsCache: details.NewCache(), ActivityLog: history.New(100),
 		ctx: ctx, cancel: cancel, RefreshInterval: 2 * time.Second,
 		ReconciliationInterval: 30 * time.Second, WatchDebounce: 75 * time.Millisecond,
-		DiffMaxBytes: 4 << 20, DiffMaxLines: 20_000, CommitTreeMaxCommits: config.DefaultCommitTreeCommits,
+		DiffMaxBytes: 4 << 20, DiffMaxLines: 20_000, GitignoreMaxBytes: security.DefaultMaxDocumentBytes, CommitTreeMaxCommits: config.DefaultCommitTreeCommits,
 		WatchRequested: watch.RequestedAuto, Workspace: workspace.New(), Conflict: conflictview.New(), Gitignore: gitignoreview.RepositoryModel{RepositoryID: domain.RepositoryID(""), Width: 80, Height: 24},
 		Notifications: notifications.New(100, false), OperationEngine: operations.New(4),
 	}
@@ -665,9 +669,9 @@ func (m Model) openGitignore() tea.Cmd {
 		if err != nil {
 			return GitignoreReadyMsg{Err: err, Generation: generation}
 		}
-		content, readErr := os.ReadFile(filepath.Join(root, ".gitignore"))
-		if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
-			return GitignoreReadyMsg{Err: readErr, Generation: generation}
+		content, missing, readErr := security.ReadDocument(root, m.GitignoreMaxBytes)
+		if readErr != nil {
+			return GitignoreReadyMsg{Err: readErr, ReadOnly: true, Generation: generation}
 		}
 		doc, parseErr := document.Parse(content)
 		if parseErr != nil {
@@ -680,7 +684,7 @@ func (m Model) openGitignore() tea.Cmd {
 			model.SetRecommendations(report.Recommendations)
 		}
 		model.SetSize(m.Width, m.Height)
-		return GitignoreReadyMsg{Model: model, Missing: errors.Is(readErr, os.ErrNotExist), Generation: generation}
+		return GitignoreReadyMsg{Model: model, Missing: missing, Generation: generation}
 	}
 }
 
@@ -723,7 +727,10 @@ func (m Model) previewGitignoreMutation(action string) tea.Cmd {
 		if err != nil {
 			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
 		}
-		path := filepath.Join(root, ".gitignore")
+		path, targetErr := security.Target(root)
+		if targetErr != nil {
+			return GitignoreCreatePreviewMsg{Err: targetErr, Repository: generation}
+		}
 		info, err := os.Lstat(path)
 		if err != nil {
 			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
@@ -731,8 +738,11 @@ func (m Model) previewGitignoreMutation(action string) tea.Cmd {
 		if info.Mode()&os.ModeSymlink != 0 {
 			return GitignoreCreatePreviewMsg{Err: domain.ErrUnsafeTarget, Repository: generation}
 		}
-		content, err := os.ReadFile(path)
-		if err != nil {
+		content, missing, err := security.ReadDocument(root, m.GitignoreMaxBytes)
+		if err != nil || missing {
+			if err == nil {
+				err = domain.ErrConcurrentModification
+			}
 			return GitignoreCreatePreviewMsg{Err: err, Repository: generation}
 		}
 		snapshot, err := domain.NewDocumentSnapshot(domain.RepositoryID(root), root, ".gitignore", content, uint32(info.Mode().Perm()))
@@ -776,7 +786,10 @@ func (m Model) executeGitignoreCreate(plan domain.MutationPlan) tea.Cmd {
 	return func() tea.Msg {
 		// Re-load the target before planning so external creation becomes an
 		// existing-file flow instead of an append or overwrite.
-		path := filepath.Join(plan.Root, ".gitignore")
+		path, targetErr := security.Target(plan.Root)
+		if targetErr != nil {
+			return OperationFinishedMsg{Name: "gitignore create", Repository: generation, Err: targetErr}
+		}
 		if info, err := os.Lstat(path); err == nil || !errors.Is(err, os.ErrNotExist) {
 			if err != nil || info.Mode()&os.ModeSymlink != 0 {
 				return OperationFinishedMsg{Name: "gitignore create", Repository: generation, Err: domain.ErrConcurrentModification}
@@ -820,6 +833,10 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.ReconciliationInterval = c.Reconciliation
 	m.WatchDebounce = c.Debounce
 	m.DiffMaxBytes, m.DiffMaxLines = c.Diff.MaxBytes, c.Diff.MaxLines
+	m.GitignoreMaxBytes = c.GitignoreMaxBytes
+	if m.GitignoreMaxBytes <= 0 {
+		m.GitignoreMaxBytes = security.DefaultMaxDocumentBytes
+	}
 	m.CommitTreeEnabled, m.CommitTreeMaxCommits = c.ShowCommitTree, c.CommitTree.MaxCommits
 	if requested, ok := watch.ParseMode(c.Watch); ok {
 		m.WatchRequested = requested
@@ -3977,6 +3994,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.refreshStatusContextIfNeeded()
 	case GitignoreReadyMsg:
 		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.GitignoreReadOnly = v.ReadOnly
+		if v.ReadOnly {
+			m.GitignoreCreateConfirm = false
+			m.GitignoreCreatePlan = domain.MutationPlan{}
+			m.Gitignore.SetPreview("")
+			m.State = StateReady
+			m.Status = "gitignore is read-only: " + v.Err.Error()
 			return m, nil
 		}
 		if v.Model.RepositoryID != "" {

@@ -77,6 +77,19 @@ func TestPreviewIsVisibleAndSizeIsBounded(t *testing.T) {
 	}
 }
 
+func TestViewSanitizesUntrustedTemplateAndPreviewText(t *testing.T) {
+	m := RepositoryModel{
+		RepositoryID: "repo\x1b[31m",
+		Entries:      []Entry{{Template: catalog.Template{Template: domain.Template{ID: "root/Go", Name: "bad\x1b[31m", SourcePath: "x\x1b]8;;evil\a", Category: domain.CategoryRoot}, Content: []byte("rule\x1b[2J")}, Match: match.Result{Kind: domain.Absent}}},
+		Selected:     0, Width: 80, Height: 24,
+		PreviewText: "diff\x1b[31m\nnext",
+	}
+	view := m.View()
+	if strings.Contains(view, "\x1b") || strings.Contains(view, "\a") {
+		t.Fatalf("unsafe control reached view: %q", view)
+	}
+}
+
 func TestRecommendationsExplainWithoutAutoSelecting(t *testing.T) {
 	m := testModel(t)
 	m.SetRecommendations([]recommend.Recommendation{{TemplateID: "root/CakePHP", Confidence: .9, Reasons: []string{"composer.json detected"}}})

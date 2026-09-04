@@ -156,6 +156,22 @@ func TestGitignoreCreationReturnsToStatusAfterMutation(t *testing.T) {
 	}
 }
 
+func TestGitignoreLoaderMakesOversizedDocumentReadOnly(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("12345"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepositoryWithConfig(git.Discovery{Root: root}, config.Config{GitignoreMaxBytes: 4})
+	updated, cmd := m.Update(key("I"))
+	m = updated.(Model)
+	msg := cmd()
+	updated, _ = m.Update(msg)
+	got := updated.(Model)
+	if !got.GitignoreReadOnly || got.GitignoreCreateConfirm || !strings.Contains(got.Status, "read-only") {
+		t.Fatalf("oversized gitignore state: readOnly=%v confirm=%v status=%q", got.GitignoreReadOnly, got.GitignoreCreateConfirm, got.Status)
+	}
+}
+
 func TestConflictWorkspaceRouteAndResolutionIntent(t *testing.T) {
 	m := New()
 	m.Discovery.Root = t.TempDir()

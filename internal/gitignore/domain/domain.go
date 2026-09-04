@@ -207,6 +207,11 @@ func NewMutationPlan(snapshot DocumentSnapshot, kind MutationKind, selected []Te
 	if kind == "" {
 		return MutationPlan{}, errors.New("mutation kind is required")
 	}
+	for _, id := range selected {
+		if _, err := ParseTemplateID(id.String()); err != nil {
+			return MutationPlan{}, fmt.Errorf("invalid selected template: %w", err)
+		}
+	}
 	p := MutationPlan{Repository: snapshot.Repository, Root: snapshot.Root, Path: snapshot.Path, Kind: kind, BeforeSHA256: snapshot.SHA256, BeforeBytes: append([]byte(nil), snapshot.Bytes...), Newline: snapshot.Newline, Selected: append([]TemplateID(nil), selected...), Edits: cloneEdits(edits), ResultBytes: append([]byte(nil), result...), Warnings: append([]string(nil), warnings...)}
 	return p, nil
 }

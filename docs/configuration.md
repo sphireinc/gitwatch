@@ -25,6 +25,7 @@ The schema-version-2 top-level fields are:
 | `notifications` | Notification preferences; set `quiet` to suppress attention badges while retaining history. |
 | `layout` | Wide status split; `files_percent` controls the left file panel and `details_percent` controls the right details/diff panel. They must be positive and sum to `100`; defaults are `60` and `40`. |
 | `diff` | Diff inspection budgets; `max_bytes` defaults to `4194304` and `max_lines` defaults to `20000`. Truncated diffs show an explicit notice. |
+| `gitignore_max_bytes` | Maximum interactive `.gitignore` size; defaults to `8388608` (8 MiB). Oversized files remain read-only and are not loaded into mutation previews. |
 | `show_commit_tree`, `commit_tree` | Optional status-pane commit graph; disabled by default, with `max_commits` defaulting to `100` and capped at `1000`. |
 | `profile`, `keymap_profiles` | Optional named keymap profile and profile definitions. |
 | `keymap` | Direct action-to-key overrides; these take precedence over the selected profile. Duplicate keys, unknown actions, reserved terminal controls, and destructive-action remaps are rejected before startup. |
