@@ -27,6 +27,15 @@ type Rule struct {
 	ReferencedBy []domain.TemplateID
 }
 
+func (r Rule) ReferencedByAny(selected map[domain.TemplateID]bool) bool {
+	for _, id := range r.ReferencedBy {
+		if selected[id] {
+			return true
+		}
+	}
+	return false
+}
+
 type Decision struct {
 	Rule         Rule
 	SafeToRemove bool

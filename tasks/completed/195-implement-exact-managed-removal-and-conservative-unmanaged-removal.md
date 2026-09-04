@@ -51,3 +51,11 @@ Managed blocks are owned and can be deleted exactly. Pre-existing/unmanaged matc
 ## Definition of done
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
+
+## Completion record
+
+- Added `PlanRemoveTemplates` with exact managed-block byte-span deletion and one multi-remove plan.
+- Integrated ownership decisions so shared, duplicated, or otherwise ambiguous unmanaged rules remain in place with explicit warnings.
+- Added edited-managed-block protection requiring elevated confirmation and preserved empty `.gitignore` files by never deleting the target.
+- Added tests for first/middle/last managed removal, handwritten content around managed blocks, multi-remove behavior, duplicate/shared unmanaged rules, and tampered blocks.
+- Validation passed: `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and `git diff --check`.

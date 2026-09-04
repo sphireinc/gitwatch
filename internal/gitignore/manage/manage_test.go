@@ -87,3 +87,47 @@ func TestPlanUsesCRLFAndDoesNotDuplicateManagedTemplate(t *testing.T) {
 }
 
 func containsBytes(value, needle []byte) bool { return bytes.Contains(value, needle) }
+
+func TestPlanRemoveManagedFirstMiddleLastAndPreservesHandwritten(t *testing.T) {
+	cat, _ := catalog.Default()
+	root := t.TempDir()
+	node, _ := cat.Get("root/Node")
+	goTemplate, _ := cat.Get("root/Go")
+	python, _ := cat.Get("root/Python")
+	block := func(template catalog.Template) []byte {
+		value, err := managed.EncodeManagedBlock(template.ID, "github/gitignore", cat.Version(), template.ContentSHA256, template.Content, []byte("\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	input := append([]byte("handwritten\n"), block(node)...)
+	input = append(input, block(goTemplate)...)
+	input = append(input, block(python)...)
+	snapshot, _ := domain.NewDocumentSnapshot("repo", root, ".gitignore", input, 0644)
+	plan, err := PlanRemoveTemplates(snapshot, cat, []domain.TemplateID{goTemplate.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(plan.ResultBytes, []byte("handwritten")) || bytes.Contains(plan.ResultBytes, []byte("id=root/Go")) || !bytes.Contains(plan.ResultBytes, []byte("id=root/Node")) || !bytes.Contains(plan.ResultBytes, []byte("id=root/Python")) {
+		t.Fatalf("middle managed block removal was not exact: %q", plan.ResultBytes)
+	}
+	snapshot, _ = domain.NewDocumentSnapshot("repo", root, ".gitignore", append(block(node), append([]byte("handwritten\n"), block(python)...)...), 0644)
+	plan, err = PlanRemoveTemplates(snapshot, cat, []domain.TemplateID{node.ID, python.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(plan.ResultBytes) != "handwritten\n" {
+		t.Fatalf("remaining content=%q", plan.ResultBytes)
+	}
+}
+
+func TestPlanRemoveTamperedManagedBlockRequiresConfirmation(t *testing.T) {
+	cat, _ := catalog.Default()
+	template, _ := cat.Get("root/Go")
+	encoded, _ := managed.EncodeManagedBlock(template.ID, "github/gitignore", cat.Version(), "tampered", template.Content, []byte("\n"))
+	snapshot, _ := domain.NewDocumentSnapshot("repo", t.TempDir(), ".gitignore", encoded, 0644)
+	if _, err := PlanRemoveTemplates(snapshot, cat, []domain.TemplateID{template.ID}); !errors.Is(err, ErrModifiedManagedBlock) {
+		t.Fatalf("error=%v", err)
+	}
+}
