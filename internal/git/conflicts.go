@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
 type ConflictChoice string
@@ -44,6 +46,26 @@ func (r Runner) ResolveConflict(ctx context.Context, path []byte, choice Conflic
 	}
 	result, err := r.Run(ctx, append(args, string(path))...)
 	return OperationResult{Name: name, Paths: [][]byte{append([]byte(nil), path...)}, Result: result}, err
+}
+
+// OperationLifecycle executes only the lifecycle verbs supported by the
+// observed Git operation. It never guesses a command from stderr or UI text.
+func (r Runner) OperationLifecycle(ctx context.Context, kind sequencer.Kind, action string) (OperationResult, error) {
+	command := kind.String()
+	if command == "unknown" || kind == sequencer.KindBisect {
+		return OperationResult{Name: action + " " + command}, fmt.Errorf("operation %s does not support %s", command, action)
+	}
+	switch action {
+	case "continue", "abort":
+	case "skip":
+		if kind != sequencer.KindCherryPick && kind != sequencer.KindRevert {
+			return OperationResult{Name: action + " " + command}, fmt.Errorf("operation %s does not support skip", command)
+		}
+	default:
+		return OperationResult{Name: action + " " + command}, fmt.Errorf("unsupported operation lifecycle action %q", action)
+	}
+	result, err := r.Run(ctx, command, "--"+action)
+	return OperationResult{Name: action + " " + command, Result: result}, err
 }
 
 // ExternalMergeToolCommand returns a typed Git command for the user's

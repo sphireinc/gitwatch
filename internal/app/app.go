@@ -2595,6 +2595,17 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		return tea.ExecProcess(command, func(processErr error) tea.Msg {
 			return OperationFinishedMsg{Name: "external merge tool", Repository: generation, Err: processErr}
 		})
+	case conflictview.ActionContinue, conflictview.ActionAbort:
+		if m.Conflict.Operation == sequencer.KindUnknown {
+			m.Status = "operation lifecycle is unavailable"
+			return nil
+		}
+		actionName := "continue"
+		if action == conflictview.ActionAbort {
+			actionName = "abort"
+		}
+		m.State, m.Status = StateOperationPending, actionName+" "+m.Conflict.Operation.String()
+		return m.conflictLifecycle(actionName)
 	case conflictview.ActionNone:
 		return nil
 	default:
@@ -2604,6 +2615,14 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		m.Status = "conflict action pending coordinator: " + key
 	}
 	return nil
+}
+
+func (m Model) conflictLifecycle(action string) tea.Cmd {
+	runner, ctx, generation, kind := git.NewRunner(m.Discovery.Root), m.commandContext(), m.repositoryGeneration, m.Conflict.Operation
+	return func() tea.Msg {
+		_, err := runner.OperationLifecycle(ctx, kind, action)
+		return OperationFinishedMsg{Name: action + " " + kind.String(), Repository: generation, Err: err}
+	}
 }
 
 func (m *Model) loadConflictContent() tea.Cmd {

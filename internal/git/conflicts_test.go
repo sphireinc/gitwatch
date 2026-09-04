@@ -3,6 +3,8 @@ package git
 import (
 	"context"
 	"testing"
+
+	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
 func TestResolveConflictValidatesActionAndPath(t *testing.T) {
@@ -28,5 +30,14 @@ func TestExternalMergeToolCommandUsesTypedPath(t *testing.T) {
 func TestResolveConflictSupportsBothChoice(t *testing.T) {
 	if ChooseBoth != ConflictChoice("both") {
 		t.Fatal("both choice identity changed")
+	}
+}
+
+func TestOperationLifecycleRejectsUnsupportedSkip(t *testing.T) {
+	if _, err := NewRunner(t.TempDir()).OperationLifecycle(context.Background(), sequencer.KindMerge, "skip"); err == nil {
+		t.Fatal("merge skip should be rejected")
+	}
+	if _, err := NewRunner(t.TempDir()).OperationLifecycle(context.Background(), sequencer.KindUnknown, "continue"); err == nil {
+		t.Fatal("unknown operation should be rejected")
 	}
 }
