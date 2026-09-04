@@ -39,16 +39,19 @@ Represent Git’s todo plan safely and losslessly enough for reordering and acti
 
 ## Acceptance criteria
 
-- [ ] Plan editing is pure/testable and independent of Bubble Tea.
-- [ ] Unknown todo directives survive round-trip.
-- [ ] Invalid squash/fixup plans are blocked before execution.
+- [x] Plan editing is pure/testable and independent of Bubble Tea.
+- [x] Unknown todo directives survive round-trip.
+- [x] Invalid squash/fixup plans are blocked before execution.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+**Status:** Complete
+
+- Implementation commit: recorded after this completion note is staged; the implementation is in `internal/rebase/plan.go` with tests in `internal/rebase/plan_test.go`.
+- Exact tested revision: `bfc7e87` plus the working-tree Task 126 changes.
+- Focused tests: `GOCACHE=/tmp/gitwatch-go-cache go test ./internal/rebase -v` passed (5 tests).
+- Repository tests: `go test ./...` passed.
+- Race/vet/format: `go test -race ./...`, `go vet ./...`, `test -z "$(gofmt -l .)"`, and `git diff --check` passed.
+- Lint: `make check` reached the lint target, but the pinned `golangci-lint@v2.12.0` could not execute because the sandbox denied access to `/Users/JuanSanchez/Library/Caches/go-build`; no lint failure was reported by the project analyzer.
+- Native/manual evidence: not applicable; this task adds a pure domain package and does not change terminal interaction.
+- Known limitations/deferred work: Git command execution, interactive-rebase orchestration, UI editing, and native terminal verification remain deferred to later tasks. Unknown records are retained and moved losslessly, while only recognized commit actions are editable.
