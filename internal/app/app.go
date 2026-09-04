@@ -130,6 +130,12 @@ type DiffReadyMsg struct {
 	Err        error
 	Truncated  bool
 }
+type ConflictContentReadyMsg struct {
+	Content    git.ConflictContent
+	Generation uint64
+	Request    uint64
+	Err        error
+}
 type CommitTreeReadyMsg struct {
 	Tree       git.CommitTree
 	Generation uint64
@@ -352,6 +358,9 @@ type Model struct {
 	History                  historyview.Model
 	Rebase                   rebaseview.Model
 	Conflict                 conflictview.Model
+	ConflictContentLoading   bool
+	ConflictContentRequest   uint64
+	ConflictContentCancel    context.CancelFunc
 	RebaseConfirmAction      rebase.Action
 	RebaseAutosquashConfirm  bool
 	HistoricalRebaseAction   rebase.Action
@@ -730,6 +739,11 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 		m.closeDiff()
 	}
 	m.Snapshot = snapshot
+	if m.ConflictContentCancel != nil {
+		m.ConflictContentCancel()
+		m.ConflictContentCancel = nil
+	}
+	m.ConflictContentLoading = false
 	operationKind, operationTarget := sequencer.KindUnknown, ""
 	if snapshot.Operation != nil {
 		operationKind, operationTarget = snapshot.Operation.Kind(), snapshot.Operation.Target()
@@ -2540,8 +2554,10 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 	switch action {
 	case conflictview.ActionNextConflict:
 		m.Conflict.Move(1)
+		return m.loadConflictContent()
 	case conflictview.ActionPreviousConflict:
 		m.Conflict.Move(-1)
+		return m.loadConflictContent()
 	case conflictview.ActionNextHunk:
 		m.Conflict.MoveHunk(1, 1)
 	case conflictview.ActionPreviousHunk:
@@ -2588,6 +2604,32 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 		m.Status = "conflict action pending coordinator: " + key
 	}
 	return nil
+}
+
+func (m *Model) loadConflictContent() tea.Cmd {
+	selected, ok := m.Conflict.SelectedConflict()
+	if !ok || m.Discovery.Root == "" {
+		return nil
+	}
+	if m.ConflictContentCancel != nil {
+		m.ConflictContentCancel()
+	}
+	ctx, cancel := context.WithCancel(m.commandContext())
+	m.ConflictContentCancel = cancel
+	m.ConflictContentLoading = true
+	m.ConflictContentRequest++
+	request, generation := m.ConflictContentRequest, m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	path := append([]byte(nil), selected.Path...)
+	return func() tea.Msg {
+		selected.Path = path
+		content, err := git.LoadConflictContent(ctx, runner, selected, int(m.DiffMaxBytes))
+		return ConflictContentReadyMsg{Content: content, Generation: generation, Request: request, Err: err}
+	}
+}
+
+func conflictViewContent(content git.Content) conflictview.Content {
+	return conflictview.Content{Text: string(content.Bytes), Binary: content.Binary, InvalidUTF8: content.InvalidUTF8, Truncated: content.Truncated, Missing: content.Missing}
 }
 
 func (m Model) resolveConflict(path []byte, choice git.ConflictChoice) tea.Cmd {
@@ -3230,6 +3272,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "stash message: "
 			} else if m.currentView() == workspace.Status && len(m.Snapshot.Conflicts) > 0 {
 				m.Workspace.Navigate(workspace.Conflict, "Conflicts")
+				return m, m.loadConflictContent()
 			}
 		case "a":
 			if m.currentView() == workspace.Stashes && m.Stashes.Selected >= 0 && m.Stashes.Selected < len(m.Stashes.Entries) {
@@ -3617,6 +3660,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applySnapshot(v.Snapshot)
 		m.State = StateReady
 		return m, m.refreshStatusContextIfNeeded()
+	case ConflictContentReadyMsg:
+		if v.Generation != m.repositoryGeneration || v.Request != m.ConflictContentRequest {
+			return m, nil
+		}
+		m.ConflictContentLoading = false
+		if v.Err != nil {
+			m.Status = "conflict detail: " + v.Err.Error()
+			return m, nil
+		}
+		selected, ok := m.Conflict.SelectedConflict()
+		if !ok || string(selected.Path) != string(v.Content.Path) {
+			return m, nil
+		}
+		m.Conflict.SetDetail(conflictview.Detail{Path: append([]byte(nil), v.Content.Path...), Ours: conflictViewContent(v.Content.Ours), Theirs: conflictViewContent(v.Content.Theirs), Result: conflictViewContent(v.Content.Result)})
+		return m, nil
 	case RefreshStartedMsg:
 		m.State = StateRefreshing
 	case RefreshFinishedMsg:

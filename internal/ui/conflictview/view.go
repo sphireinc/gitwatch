@@ -51,6 +51,22 @@ type Model struct {
 	Selected  int
 	Hunk      int
 	Wide      bool
+	Detail    *Detail
+}
+
+type Content struct {
+	Text        string
+	Binary      bool
+	InvalidUTF8 bool
+	Truncated   bool
+	Missing     bool
+}
+
+type Detail struct {
+	Path   []byte
+	Ours   Content
+	Theirs Content
+	Result Content
 }
 
 func New() Model { return Model{Wide: true, Selected: -1} }
@@ -63,6 +79,7 @@ func (m *Model) SetSnapshot(operation sequencer.Kind, target string, values []co
 		selectedPath = m.Conflicts[m.Selected].Bytes()
 	}
 	m.Operation, m.Target = operation, target
+	m.Detail = nil
 	m.Conflicts = append([]conflicts.Conflict(nil), values...)
 	for i := range m.Conflicts {
 		m.Conflicts[i].Path = append([]byte(nil), m.Conflicts[i].Path...)
@@ -81,6 +98,18 @@ func (m *Model) SetSnapshot(operation sequencer.Kind, target string, values []co
 	if m.Selected < 0 {
 		m.Selected = 0
 	}
+}
+
+// SetDetail accepts detail only for the currently selected conflict. A stale
+// asynchronous load therefore cannot replace a newer selection.
+func (m *Model) SetDetail(detail Detail) bool {
+	selected, ok := m.SelectedConflict()
+	if !ok || string(selected.Path) != string(detail.Path) {
+		return false
+	}
+	detail.Path = append([]byte(nil), detail.Path...)
+	m.Detail = &detail
+	return true
 }
 
 func (m *Model) Move(delta int) {
@@ -128,6 +157,10 @@ func (m Model) View(width, height int) string {
 	}
 	if selected, ok := m.SelectedConflict(); ok {
 		lines = append(lines, "Selected: "+platform.SafeText(string(selected.Path)), "")
+		if m.Detail != nil {
+			lines = append(lines, "", "Selected content:")
+			lines = append(lines, contentLine("Ours", m.Detail.Ours), contentLine("Theirs", m.Detail.Theirs), contentLine("Result", m.Detail.Result))
+		}
 		if m.Wide && width >= 100 {
 			lines = append(lines, "Ours                 Theirs               Result")
 			lines = append(lines, column(selected.Ours.OID), column(selected.Theirs.OID), column(selected.Resolution))
@@ -150,6 +183,29 @@ func (m Model) View(width, height int) string {
 		lines = lines[:height]
 	}
 	return strings.Join(lines, "\n")
+}
+
+func contentLine(label string, content Content) string {
+	if content.Missing {
+		return label + ": (missing)"
+	}
+	if content.Binary {
+		return fmt.Sprintf("%s: binary content (%s)", label, sizeLabel(content))
+	}
+	if content.InvalidUTF8 {
+		return fmt.Sprintf("%s: invalid UTF-8 (%s)", label, sizeLabel(content))
+	}
+	if content.Truncated {
+		return label + ": content exceeds display limit"
+	}
+	return label + ": " + platform.SafeText(content.Text)
+}
+
+func sizeLabel(content Content) string {
+	if content.Truncated {
+		return "oversized"
+	}
+	return "available"
 }
 
 func column(value string) string {

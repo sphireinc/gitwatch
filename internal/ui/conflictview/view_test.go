@@ -51,3 +51,17 @@ func TestClickRequiresExplicitActionZone(t *testing.T) {
 		t.Fatalf("status footer click = %v", action)
 	}
 }
+
+func TestViewShowsBoundedContentMetadata(t *testing.T) {
+	m := New()
+	m.SetSnapshot(sequencer.KindMerge, "main", []conflicts.Conflict{{Path: []byte("file")}})
+	if !m.SetDetail(Detail{Path: []byte("file"), Ours: Content{Text: "ours"}, Theirs: Content{Binary: true}, Result: Content{Truncated: true}}) {
+		t.Fatal("detail for selected conflict was rejected")
+	}
+	view := m.View(80, 24)
+	for _, want := range []string{"Ours: ours", "Theirs: binary content", "Result: content exceeds display limit"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("missing %q:\n%s", want, view)
+		}
+	}
+}
