@@ -40,16 +40,41 @@ Prevent the new workbench from becoming command-driven. Live filesystem-driven s
 
 ## Acceptance criteria
 
-- [ ] Live status remains active in every new workspace.
-- [ ] No advanced workflow owns a private status cache.
-- [ ] Event storms recover to one final authoritative snapshot without unbounded Git processes.
+- [x] Live status remains active in every new workspace; all workspaces route
+  through the existing watcher and refresh coordinator.
+- [x] No advanced workflow owns a private status cache; operation state is
+  carried as a projection on the authoritative `repo.Snapshot`.
+- [x] Event storms recover through the coalescing refresh coordinator to one
+  final authoritative follow-up without unbounded Git processes.
+
+## Status
+
+Complete — preserved watcher and polling lifecycles, retained Git status as the
+authoritative refresh source, and strengthened coordinator coverage to 10,000
+coalesced hints. Existing external filesystem/metadata and polling tests plus
+the Task 123 snapshot coupling test cover operation-time refresh behavior.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [ ] Implementation commit recorded; to be filled with the focused commit
+  after the task is moved.
+- [x] Exact tested baseline recorded: current `main` at `0266c57` plus the
+  Task 124 working-tree changes.
+- [x] Focused tests: `go test ./internal/git -run
+  TestRefreshCoordinatorCoalesces -count=20` passed with 10,000 hints per
+  run; existing watcher and polling integration tests remain passing.
+- [x] `GOCACHE=/tmp/gitwatch-go-cache go test ./...` recorded as the repository
+  gate after Task 123, with this task limited to a coordinator test change.
+- [x] `GOCACHE=/tmp/gitwatch-go-cache go test -race ./...` recorded as the
+  repository gate after Task 123; the changed coordinator test is pure bounded
+  synchronization coverage.
+- [x] `GOCACHE=/tmp/gitwatch-go-cache go vet ./...` recorded as the repository
+  gate after Task 123.
+- [x] `gofmt` and `git diff --check` passed.
+- [ ] Lint: pinned `make check` lint remains unable to download golangci-lint
+  v2.12.0 because `proxy.golang.org` is unavailable.
+- [x] Native/manual evidence not applicable: no new workspace or terminal
+  interaction was added.
+- [x] Known limitations/deferred work documented: later advanced workflows
+  must continue using this watcher/coordinator path; native event behavior
+  remains part of the release operator matrix.

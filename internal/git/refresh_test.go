@@ -32,7 +32,7 @@ func TestRefreshCoordinatorCoalesces(t *testing.T) {
 	ctx := context.Background()
 	c.Request(ctx)
 	<-started
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 10000; i++ {
 		c.Request(ctx)
 	}
 	for i := 0; i < 2; i++ {
