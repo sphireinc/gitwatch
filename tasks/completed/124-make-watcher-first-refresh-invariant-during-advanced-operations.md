@@ -56,8 +56,8 @@ the Task 123 snapshot coupling test cover operation-time refresh behavior.
 
 ## Completion record
 
-- [ ] Implementation commit recorded; to be filled with the focused commit
-  after the task is moved.
+- [x] Implementation commit recorded: `1fec0bd` (`test: enforce watcher-first
+  refresh coalescing`).
 - [x] Exact tested baseline recorded: current `main` at `0266c57` plus the
   Task 124 working-tree changes.
 - [x] Focused tests: `go test ./internal/git -run
