@@ -3579,9 +3579,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.currentView() == workspace.Stashes {
 				m.StashCreateMode, m.StashCreateMessage, m.StashIncludeUntracked = true, "", true
 				m.Status = "stash message: "
-			} else if m.currentView() == workspace.Status && len(m.Snapshot.Conflicts) > 0 {
+			} else if m.currentView() == workspace.Status && (len(m.Snapshot.Conflicts) > 0 || (m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindRebase)) {
 				m.Workspace.Navigate(workspace.Conflict, "Conflicts")
-				return m, m.loadConflictContent()
+				if len(m.Snapshot.Conflicts) > 0 {
+					return m, m.loadConflictContent()
+				}
+				return m, nil
 			}
 		case "a":
 			if m.currentView() == workspace.Stashes && m.Stashes.Selected >= 0 && m.Stashes.Selected < len(m.Stashes.Entries) {
@@ -4705,7 +4708,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Gitignore {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.Gitignore {
 		return m.featureView(view)
 	}
 	if m.Modal == "help" {

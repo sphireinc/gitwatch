@@ -50,10 +50,17 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 
 ## Completion record
 
+- [x] Recovery entry point and progress presentation are implemented; an active rebase discovered by the live snapshot can be opened from Status with `C`, including when no conflict file is present. Continue and abort remain typed lifecycle intents in the existing conflict/recovery workspace.
 - [ ] Implementation commit recorded.
 - [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Focused tests recorded: `TestActiveRebaseWithoutConflictsHasRecoveryRoute` and `TestOperationLifecycleAbortsRebaseAndRefreshesOperationState`; the latter uses a real disposable repository, creates a rebase conflict, aborts through `OperationLifecycle`, and verifies the post-abort authoritative snapshot and worktree content.
+- [x] `go test ./...` recorded through `make check`.
+- [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` (lint reported 0 issues).
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented: continue completion, restart-mid-rebase, edit-stop/skip scenarios, and native Linux/macOS/Windows operator evidence still require dedicated acceptance coverage.
+
+## Local progress evidence (task remains active)
+
+- `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 with formatting, lint, full tests, race tests, vet, security, and performance checks.
+- Focused tests passed with host Git signing isolated using `GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false`.
+- The task is intentionally not moved to `tasks/completed` until continue-to-completion, restart recovery, edit-stop/skip behavior where applicable, and required native/manual evidence are proven.

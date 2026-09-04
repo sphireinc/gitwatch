@@ -162,6 +162,9 @@ func (m Model) View(width, height int) string {
 		fmt.Sprintf("Operation: %s  Target: %s", m.Operation.String(), platform.SafeText(m.Target)),
 		fmt.Sprintf("Conflicts: %d total, %d resolved", len(m.Conflicts), m.ResolvedCount()),
 	}
+	if m.Operation == sequencer.KindRebase {
+		lines = append(lines, "Rebase recovery: [c] continue  [x] abort")
+	}
 	if selected, ok := m.SelectedConflict(); ok {
 		lines = append(lines, "Selected: "+platform.SafeText(string(selected.Path)), "")
 		if m.Detail != nil {

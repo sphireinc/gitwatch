@@ -116,6 +116,13 @@ func (m Model) statusView() string {
 	if m.GitignoreMissing {
 		lines = append(lines, fitSafeDisplay("No .gitignore · press I to create", width))
 	}
+	if operation := m.Snapshot.Operation; operation != nil && operation.Kind().String() == "rebase" {
+		progress := fmt.Sprintf("REBASE %s · %d completed · %d remaining · press C for recovery", operation.Phase(), operation.Completed(), operation.Remaining())
+		if current := operation.CurrentCommit(); current != "" {
+			progress += " · current: " + current
+		}
+		lines = append(lines, fitSafeDisplay(progress, width))
+	}
 
 	fileWidth := statusLayout.Files.Width
 	if statusLayout.Mode == layout.Wide {

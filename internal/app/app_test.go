@@ -25,6 +25,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/registry"
 	"github.com/sphireinc/git-watch/internal/remotes"
 	"github.com/sphireinc/git-watch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/sequencer"
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
 	"github.com/sphireinc/git-watch/internal/ui/gitignoreview"
@@ -185,6 +186,38 @@ func TestConflictWorkspaceRouteAndResolutionIntent(t *testing.T) {
 	m = updated.(Model)
 	if cmd == nil || m.State != StateOperationPending {
 		t.Fatalf("conflict resolution intent = cmdnil=%v state=%v", cmd == nil, m.State)
+	}
+}
+
+func TestActiveRebaseWithoutConflictsHasRecoveryRoute(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	state, err := sequencer.NewState("repo", 1, sequencer.KindRebase, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state = state.WithObservation("head", "current-commit", 2, 3, nil, time.Now())
+	state, err = state.WithDetails(sequencer.Details{Rebase: &sequencer.RebaseDetails{Interactive: true, TodoRemaining: 2, TodoCompleted: 3}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "feature"}, Operation: &state})
+	status := m.statusView()
+	for _, want := range []string{"REBASE paused", "current: current-commit"} {
+		if !strings.Contains(status, want) {
+			t.Fatalf("status view missing %q:\n%s", want, status)
+		}
+	}
+	updated, cmd := m.Update(key("C"))
+	m = updated.(Model)
+	if cmd != nil || m.currentView() != workspace.Conflict || m.Conflict.Operation != sequencer.KindRebase {
+		t.Fatalf("rebase recovery route = cmdnil=%v view=%q operation=%s", cmd != nil, m.currentView(), m.Conflict.Operation)
+	}
+	view := m.View().Content
+	for _, want := range []string{"Rebase recovery", "[c] continue", "[x] abort"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("rebase recovery view missing %q:\n%s", want, view)
+		}
 	}
 }
 
