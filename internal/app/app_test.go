@@ -1523,6 +1523,50 @@ func TestHistoryRevertRequiresExactSHA(t *testing.T) {
 	}
 }
 
+func TestHistoryRevertUsesBasketApplicationOrder(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Log, "History")
+	m.History = historyview.New([]history.Commit{
+		{SHA: "newest", Short: "newest", Subject: "new"},
+		{SHA: "oldest", Short: "oldest", Subject: "old"},
+	})
+	if err := m.History.SetScope("/repo", "main", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.History.ToggleBasket(); err != nil {
+		t.Fatal(err)
+	}
+	m.History.Move(1)
+	if err := m.History.ToggleBasket(); err != nil {
+		t.Fatal(err)
+	}
+	updated, _ := m.Update(key("R"))
+	m = updated.(Model)
+	if m.HistoryRevertTarget != "newest oldest" || len(m.HistoryRevertCommits) != 2 || m.HistoryRevertCommits[0] != "newest" {
+		t.Fatalf("ordered revert plan = target=%q commits=%v", m.HistoryRevertTarget, m.HistoryRevertCommits)
+	}
+	if !contains(m.Status, "ordered SHAs") {
+		t.Fatalf("ordered prompt = %q", m.Status)
+	}
+}
+
+func TestHistoryRevertRequiresMainlineForMergeCommit(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Log, "History")
+	m.History = historyview.New([]history.Commit{{SHA: "merge", Short: "merge", Parents: []string{"one", "two"}}})
+	if err := m.History.SetScope("/repo", "main", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.History.ToggleBasket(); err != nil {
+		t.Fatal(err)
+	}
+	updated, cmd := m.Update(key("R"))
+	m = updated.(Model)
+	if cmd != nil || m.HistoryRevertConfirm || !contains(m.Status, "mainline parent") {
+		t.Fatalf("merge revert guard = cmdnil=%v confirm=%v status=%q", cmd != nil, m.HistoryRevertConfirm, m.Status)
+	}
+}
+
 func TestStashMutationRoutingAndConfirmation(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Stashes, "Stashes")

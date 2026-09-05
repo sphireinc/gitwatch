@@ -23,3 +23,17 @@ func TestHistoryActionsRejectOptionLikeTargets(t *testing.T) {
 		t.Fatalf("expected target validation, got %v", err)
 	}
 }
+
+func TestRevertPlanPreservesExplicitOrder(t *testing.T) {
+	plan := RevertPlan{Commits: []string{"oldest", "newest"}}
+	if err := plan.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	confirmation := RevertConfirmation{SHA: "oldest newest"}
+	if !confirmation.Accept("oldest newest") {
+		t.Fatal("ordered confirmation rejected")
+	}
+	if err := (RevertPlan{Commits: []string{"--bad"}}).Validate(); !errors.Is(err, ErrMissingTarget) {
+		t.Fatalf("unsafe plan error = %v", err)
+	}
+}

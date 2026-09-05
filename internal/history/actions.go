@@ -25,6 +25,30 @@ type RevertConfirmation struct {
 	Subject string
 }
 
+// RevertPlan describes an explicitly ordered set of commits. Commits are
+// passed to Git exactly as supplied; callers should present this order before
+// requesting confirmation.
+type RevertPlan struct {
+	Commits  []string
+	Mainline int
+}
+
+// Validate checks the plan without consulting repository output.
+func (p RevertPlan) Validate() error {
+	if len(p.Commits) == 0 {
+		return ErrMissingTarget
+	}
+	for _, commit := range p.Commits {
+		if !validTarget(commit) {
+			return ErrMissingTarget
+		}
+	}
+	if p.Mainline < 0 {
+		return errors.New("revert mainline parent must be positive")
+	}
+	return nil
+}
+
 // Text returns the user-facing revert confirmation prompt.
 func (c RevertConfirmation) Text() string {
 	return fmt.Sprintf("Revert %s (%s)?", c.SHA, c.Subject)
@@ -63,6 +87,16 @@ func Revert(ctx context.Context, runner git.Runner, confirmation RevertConfirmat
 		return git.Result{}, ErrMissingTarget
 	}
 	result, err := runner.Revert(ctx, git.RevertRequest{Commits: []string{confirmation.SHA}})
+	return result.Result, err
+}
+
+// RevertSelection executes a confirmed ordered plan through the typed Git
+// boundary. The confirmation text must contain the exact ordered SHA list.
+func RevertSelection(ctx context.Context, runner git.Runner, confirmation RevertConfirmation, input string, plan RevertPlan) (git.Result, error) {
+	if err := plan.Validate(); err != nil || !confirmation.Accept(input) || strings.TrimSpace(confirmation.SHA) != strings.Join(plan.Commits, " ") {
+		return git.Result{}, ErrMissingTarget
+	}
+	result, err := runner.Revert(ctx, git.RevertRequest{Commits: append([]string(nil), plan.Commits...), Mainline: plan.Mainline})
 	return result.Result, err
 }
 

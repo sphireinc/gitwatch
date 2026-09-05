@@ -430,6 +430,7 @@ type Model struct {
 	HistoryBranchName        string
 	HistoryRevertConfirm     bool
 	HistoryRevertTarget      string
+	HistoryRevertCommits     []string
 	HistoryRevertInput       string
 	HistoryRevertInvalid     bool
 	Composer                 commitview.Composer
@@ -1992,8 +1993,14 @@ func (m Model) revertSelectedHistory() tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
 	confirmation := history.RevertConfirmation{SHA: m.HistoryRevertTarget}
 	target, input, ctx, generation := m.HistoryRevertTarget, m.HistoryRevertInput, m.commandContext(), m.repositoryGeneration
+	commits := append([]string(nil), m.HistoryRevertCommits...)
 	return func() tea.Msg {
-		_, err := history.Revert(ctx, runner, confirmation, input)
+		var err error
+		if len(commits) > 0 {
+			_, err = history.RevertSelection(ctx, runner, confirmation, input, history.RevertPlan{Commits: commits})
+		} else {
+			_, err = history.Revert(ctx, runner, confirmation, input)
+		}
 		return HistoryActionFinishedMsg{Action: "reverted", Target: target, Repository: generation, Err: err}
 	}
 }
@@ -3260,7 +3267,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Log && m.HistoryRevertConfirm {
 			switch v.String() {
 			case "esc":
-				m.HistoryRevertConfirm, m.HistoryRevertTarget, m.HistoryRevertInput, m.HistoryRevertInvalid, m.Status = false, "", "", false, "revert cancelled"
+				m.HistoryRevertConfirm, m.HistoryRevertTarget, m.HistoryRevertInput, m.HistoryRevertInvalid, m.HistoryRevertCommits, m.Status = false, "", "", false, nil, "revert cancelled"
 			case "backspace":
 				m.HistoryRevertInput = removeLastRune(m.HistoryRevertInput)
 				m.HistoryRevertInvalid = false
@@ -3268,6 +3275,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if !(history.RevertConfirmation{SHA: m.HistoryRevertTarget}).Accept(m.HistoryRevertInput) {
 					m.HistoryRevertInvalid = true
 					m.Status = "type the exact SHA to revert"
+					if len(m.HistoryRevertCommits) > 0 {
+						m.Status = "type the exact ordered SHA list to revert"
+					}
 				} else {
 					m.HistoryRevertConfirm, m.HistoryRevertInvalid, m.State, m.Status = false, false, StateOperationPending, "reverting"
 					return m, m.revertSelectedHistory()
@@ -3279,7 +3289,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryRevertInvalid = false
 			}
 			if m.HistoryRevertConfirm && !m.HistoryRevertInvalid {
-				m.Status = "type SHA " + m.HistoryRevertTarget + ": " + m.HistoryRevertInput
+				label := "type SHA "
+				if len(m.HistoryRevertCommits) > 0 {
+					label = "type ordered SHAs "
+				}
+				m.Status = label + m.HistoryRevertTarget + ": " + m.HistoryRevertInput
 			}
 			return m, nil
 		}
@@ -3621,9 +3635,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Status = "rename " + branch.Name + " to: "
 				}
 			} else if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
-				m.HistoryRevertTarget = m.History.Rows[m.History.Selected].Commit.SHA
+				if m.History.Basket.Count() > 0 {
+					m.HistoryRevertCommits = m.History.Basket.SHAs()
+					for _, sha := range m.HistoryRevertCommits {
+						for _, row := range m.History.Rows {
+							if row.Commit.SHA == sha && len(row.Commit.Parents) > 1 {
+								m.HistoryRevertCommits, m.HistoryRevertTarget, m.HistoryRevertConfirm = nil, "", false
+								m.Status = "revert merge " + sha + " requires an explicit mainline parent"
+								return m, nil
+							}
+						}
+					}
+					m.HistoryRevertTarget = strings.Join(m.HistoryRevertCommits, " ")
+					m.Status = "type ordered SHAs " + m.HistoryRevertTarget + ": "
+				} else {
+					m.HistoryRevertCommits = nil
+					m.HistoryRevertTarget = m.History.Rows[m.History.Selected].Commit.SHA
+					m.Status = "type SHA " + m.HistoryRevertTarget + ": "
+				}
 				m.HistoryRevertInput, m.HistoryRevertConfirm, m.HistoryRevertInvalid = "", true, false
-				m.Status = "type SHA " + m.HistoryRevertTarget + ": "
 			} else if m.currentView() == workspace.Status {
 				m.beginRestore()
 			}

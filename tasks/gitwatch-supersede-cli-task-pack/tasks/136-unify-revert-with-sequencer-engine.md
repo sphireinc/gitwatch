@@ -70,5 +70,8 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   `sequencer.RevertDetails`.
 - Focused tests cover request validation and a real repository multi-commit
   revert with exact argv/order verification.
+- History basket reverts now build an exact-confirmation ordered plan and pass
+  selected SHAs to the typed adapter in basket application order. The UI
+  refuses merge commits until an explicit mainline parent is supplied.
 - This task remains active: history UI still needs selected-set order preview,
   merge-parent selection, and the unified coordinator/native acceptance work.
