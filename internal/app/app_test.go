@@ -1562,8 +1562,15 @@ func TestHistoryRevertRequiresMainlineForMergeCommit(t *testing.T) {
 	}
 	updated, cmd := m.Update(key("R"))
 	m = updated.(Model)
-	if cmd != nil || m.HistoryRevertConfirm || !contains(m.Status, "mainline parent") {
-		t.Fatalf("merge revert guard = cmdnil=%v confirm=%v status=%q", cmd != nil, m.HistoryRevertConfirm, m.Status)
+	if cmd != nil || m.HistoryRevertConfirm || !m.HistoryRevertParentMode || m.HistoryRevertParentMax != 2 {
+		t.Fatalf("merge revert prompt = cmdnil=%v confirm=%v mode=%v max=%d status=%q", cmd != nil, m.HistoryRevertConfirm, m.HistoryRevertParentMode, m.HistoryRevertParentMax, m.Status)
+	}
+	updated, _ = m.Update(key("2"))
+	m = updated.(Model)
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if !m.HistoryRevertConfirm || m.HistoryRevertParent != 2 || m.HistoryRevertParentMode {
+		t.Fatalf("mainline selection = confirm=%v mainline=%d mode=%v status=%q", m.HistoryRevertConfirm, m.HistoryRevertParent, m.HistoryRevertParentMode, m.Status)
 	}
 }
 

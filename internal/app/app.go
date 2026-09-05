@@ -433,6 +433,10 @@ type Model struct {
 	HistoryRevertCommits     []string
 	HistoryRevertInput       string
 	HistoryRevertInvalid     bool
+	HistoryRevertParentMode  bool
+	HistoryRevertParentInput string
+	HistoryRevertParent      int
+	HistoryRevertParentMax   int
 	Composer                 commitview.Composer
 	Hunks                    hunkview.Model
 	HunkDiscardConfirm       bool
@@ -1994,10 +1998,11 @@ func (m Model) revertSelectedHistory() tea.Cmd {
 	confirmation := history.RevertConfirmation{SHA: m.HistoryRevertTarget}
 	target, input, ctx, generation := m.HistoryRevertTarget, m.HistoryRevertInput, m.commandContext(), m.repositoryGeneration
 	commits := append([]string(nil), m.HistoryRevertCommits...)
+	mainline := m.HistoryRevertParent
 	return func() tea.Msg {
 		var err error
 		if len(commits) > 0 {
-			_, err = history.RevertSelection(ctx, runner, confirmation, input, history.RevertPlan{Commits: commits})
+			_, err = history.RevertSelection(ctx, runner, confirmation, input, history.RevertPlan{Commits: commits, Mainline: mainline})
 		} else {
 			_, err = history.Revert(ctx, runner, confirmation, input)
 		}
@@ -3264,10 +3269,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Status = "branch at " + m.HistoryBranchTarget + ": " + m.HistoryBranchName
 			return m, nil
 		}
+		if m.currentView() == workspace.Log && m.HistoryRevertParentMode {
+			switch v.String() {
+			case "esc":
+				m.HistoryRevertParentMode, m.HistoryRevertParentInput, m.HistoryRevertParent, m.HistoryRevertParentMax = false, "", 0, 0
+				m.HistoryRevertCommits, m.HistoryRevertTarget, m.Status = nil, "", "revert cancelled"
+			case "backspace":
+				m.HistoryRevertParentInput = removeLastRune(m.HistoryRevertParentInput)
+			case "enter":
+				parent, err := strconv.Atoi(strings.TrimSpace(m.HistoryRevertParentInput))
+				if err != nil || parent < 1 || parent > m.HistoryRevertParentMax {
+					m.Status = fmt.Sprintf("mainline parent must be between 1 and %d", m.HistoryRevertParentMax)
+				} else {
+					m.HistoryRevertParentMode, m.HistoryRevertParentInput, m.HistoryRevertParent = false, "", parent
+					m.HistoryRevertConfirm, m.HistoryRevertInvalid = true, false
+					m.Status = "type SHA " + m.HistoryRevertTarget + ": "
+				}
+			default:
+				if len([]rune(v.String())) == 1 && v.String() >= "0" && v.String() <= "9" {
+					m.HistoryRevertParentInput += v.String()
+				}
+			}
+			if m.HistoryRevertParentMode {
+				m.Status = fmt.Sprintf("revert %s mainline parent (1-%d): %s", m.HistoryRevertTarget, m.HistoryRevertParentMax, m.HistoryRevertParentInput)
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Log && m.HistoryRevertConfirm {
 			switch v.String() {
 			case "esc":
-				m.HistoryRevertConfirm, m.HistoryRevertTarget, m.HistoryRevertInput, m.HistoryRevertInvalid, m.HistoryRevertCommits, m.Status = false, "", "", false, nil, "revert cancelled"
+				m.HistoryRevertConfirm, m.HistoryRevertTarget, m.HistoryRevertInput, m.HistoryRevertInvalid, m.HistoryRevertCommits, m.HistoryRevertParent = false, "", "", false, nil, 0
+				m.Status = "revert cancelled"
 			case "backspace":
 				m.HistoryRevertInput = removeLastRune(m.HistoryRevertInput)
 				m.HistoryRevertInvalid = false
@@ -3635,22 +3667,42 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Status = "rename " + branch.Name + " to: "
 				}
 			} else if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+				m.HistoryRevertParentMode, m.HistoryRevertParentInput, m.HistoryRevertParent, m.HistoryRevertParentMax = false, "", 0, 0
 				if m.History.Basket.Count() > 0 {
 					m.HistoryRevertCommits = m.History.Basket.SHAs()
+					mergeCount := 0
+					mergeSHA, mergeParents := "", 0
 					for _, sha := range m.HistoryRevertCommits {
 						for _, row := range m.History.Rows {
 							if row.Commit.SHA == sha && len(row.Commit.Parents) > 1 {
-								m.HistoryRevertCommits, m.HistoryRevertTarget, m.HistoryRevertConfirm = nil, "", false
-								m.Status = "revert merge " + sha + " requires an explicit mainline parent"
-								return m, nil
+								mergeCount++
+								mergeSHA, mergeParents = sha, len(row.Commit.Parents)
 							}
 						}
+					}
+					if mergeCount > 0 {
+						if mergeCount != 1 || len(m.HistoryRevertCommits) != 1 {
+							m.HistoryRevertCommits, m.HistoryRevertTarget, m.HistoryRevertConfirm = nil, "", false
+							m.Status = "merge commits must be reverted individually with a mainline parent"
+							return m, nil
+						}
+						m.HistoryRevertTarget = mergeSHA
+						m.HistoryRevertParentMode, m.HistoryRevertParentMax = true, mergeParents
+						m.Status = fmt.Sprintf("revert %s mainline parent (1-%d): ", mergeSHA, mergeParents)
+						return m, nil
 					}
 					m.HistoryRevertTarget = strings.Join(m.HistoryRevertCommits, " ")
 					m.Status = "type ordered SHAs " + m.HistoryRevertTarget + ": "
 				} else {
 					m.HistoryRevertCommits = nil
 					m.HistoryRevertTarget = m.History.Rows[m.History.Selected].Commit.SHA
+					row := m.History.Rows[m.History.Selected]
+					if len(row.Commit.Parents) > 1 {
+						m.HistoryRevertCommits = []string{m.HistoryRevertTarget}
+						m.HistoryRevertParentMode, m.HistoryRevertParentMax = true, len(row.Commit.Parents)
+						m.Status = fmt.Sprintf("revert %s mainline parent (1-%d): ", m.HistoryRevertTarget, m.HistoryRevertParentMax)
+						return m, nil
+					}
 					m.Status = "type SHA " + m.HistoryRevertTarget + ": "
 				}
 				m.HistoryRevertInput, m.HistoryRevertConfirm, m.HistoryRevertInvalid = "", true, false
@@ -4926,6 +4978,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 		if m.HistoryRevertConfirm {
 			content += "\n\nRevert confirmation: type " + m.HistoryRevertTarget + "\n" + m.HistoryRevertInput
+		}
+		if m.HistoryRevertParentMode {
+			content += "\n\n" + m.Status
 		}
 		if len(m.HistoryTags) > 0 {
 			content += "\n\nTags:\n"

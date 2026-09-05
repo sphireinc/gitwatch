@@ -71,9 +71,11 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 - Focused tests cover request validation and a real repository multi-commit
   revert with exact argv/order verification.
 - History basket reverts now build an exact-confirmation ordered plan and pass
-  selected SHAs to the typed adapter in basket application order. The UI
-  refuses merge commits until an explicit mainline parent is supplied.
+  selected SHAs to the typed adapter in basket application order. A single
+  merge commit opens a bounded explicit mainline-parent prompt before exact
+  confirmation; ambiguous mixed or multiple-merge baskets are rejected.
 - The History workspace now displays a bounded numbered revert-order preview,
   including an explicit overflow count for larger baskets.
-- This task remains active: merge-parent selection, the unified coordinator,
-  and native acceptance evidence remain outstanding.
+- App coverage verifies valid merge-parent selection before exact confirmation.
+  This task remains active: the unified coordinator, broader integration
+  coverage, and native acceptance evidence remain outstanding.
