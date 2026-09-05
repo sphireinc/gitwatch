@@ -62,6 +62,13 @@ Support large superprojects with observable bounded bulk initialize/update/sync.
   selected-module update preview, per-module result rendering, cancellation,
   and retry-failed routing. App tests cover the preview, dispatch, result, and
   retry state transitions.
+- Implementation is recorded in commits `112f958` (bulk domain engine) and
+  `2ae4bcd` (status workflow and retry UI). The exact tested revision is
+  `2ae4bcd`; focused tests and the full `make check` gate passed there,
+  including race, vet, lint, formatting, security, and performance checks.
 - Native/manual terminal evidence and the requested 20+ module injected
-  process-count verification remain pending; this task is intentionally still
-  active until those acceptance gates are satisfied.
+  process-count verification remain pending. The current test seam can verify
+  cancellation, failure isolation, and configured worker caps, but it does not
+  yet inject a process-counting Git executable through the production bulk
+  runner. This task is intentionally still active until those acceptance gates
+  are satisfied.
