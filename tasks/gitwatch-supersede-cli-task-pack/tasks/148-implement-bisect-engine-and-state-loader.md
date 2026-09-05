@@ -57,3 +57,17 @@ Support starting, resuming, marking, skipping and resetting Git bisect as a repo
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added `internal/bisect` with repository-scoped typed start, good/bad/skip
+  marking, reset, and bounded state loading from Git's `BISECT_START` metadata
+  and `git bisect log`.
+- Start validates explicit refs, rejects active operations and dirty/conflicted
+  worktrees without stashing or resetting, and every mutation captures an
+  authoritative post-command snapshot plus reconstructed state.
+- Real disposable-repository tests cover start/load, mark bad, skip, fresh
+  runner restart, reset, invalid refs, and dirty-start refusal.
+- UI/workspace integration, operation-engine scheduling, and native/manual
+  terminal evidence remain for the subsequent bisect workspace and completion
+  slices.
