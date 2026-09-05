@@ -184,6 +184,9 @@ func (m Model) statusView() string {
 	if len(m.Submodules.Modules) > 0 {
 		footer = "[M] submodule actions  " + footer
 	}
+	if len(m.repositoryParents) > 0 {
+		footer = "[esc] parent repository  " + footer
+	}
 	if m.OperationEngine != nil {
 		active := 0
 		for _, operation := range m.OperationEngine.Snapshot() {

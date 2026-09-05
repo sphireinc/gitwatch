@@ -327,6 +327,29 @@ func TestSubmoduleLifecycleMenuRequiresExactRemovalConfirmation(t *testing.T) {
 	}
 }
 
+func TestInitializedSubmoduleNavigationKeepsParentBreadcrumbAndReturns(t *testing.T) {
+	parent := t.TempDir()
+	child := t.TempDir()
+	m := NewRepository(git.Discovery{Root: parent})
+	m.Submodules = submodules.Snapshot{Repository: parent, Modules: []submodules.Module{{Path: "nested", State: submodules.StateClean}}}
+	m.Files.SetEntries([]repo.Entry{{Path: repo.Path("nested"), ModeWork: "160000", Submodule: "..."}})
+	generation := m.repositoryGeneration
+	updated, command := m.Update(SubmoduleOpenedMsg{Generation: generation, Path: "nested", Discovery: git.Discovery{Root: child}})
+	m = updated.(Model)
+	if command == nil || m.Discovery.Root != child || len(m.repositoryParents) != 1 {
+		t.Fatalf("submodule open = cmdnil=%v root=%q parents=%d", command == nil, m.Discovery.Root, len(m.repositoryParents))
+	}
+	_, breadcrumbs, _, _ := m.Workspace.Snapshot()
+	if len(breadcrumbs) != 2 || breadcrumbs[1].Label != "Submodule: nested" {
+		t.Fatalf("breadcrumbs = %+v", breadcrumbs)
+	}
+	updated, command = m.Update(key("esc"))
+	m = updated.(Model)
+	if command == nil || m.Discovery.Root != parent || len(m.repositoryParents) != 0 || m.currentView() != workspace.Status {
+		t.Fatalf("parent return = cmdnil=%v root=%q parents=%d view=%q", command == nil, m.Discovery.Root, len(m.repositoryParents), m.currentView())
+	}
+}
+
 func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 	m := New()
 	m.Discovery.Root = t.TempDir()

@@ -94,6 +94,12 @@ type SubmoduleFinishedMsg struct {
 	Generation uint64
 	Outcome    submodules.Outcome
 }
+type SubmoduleOpenedMsg struct {
+	Generation uint64
+	Path       string
+	Discovery  git.Discovery
+	Err        error
+}
 type RefreshStartedMsg struct{}
 type RefreshFinishedMsg struct{ Err error }
 type WatcherStateMsg struct {
@@ -611,6 +617,12 @@ type Model struct {
 	PaletteResults           []commands.Match
 	PaletteActions           []commands.Action
 	PaletteCommands          map[string]func() tea.Cmd
+	repositoryParents        []repositoryParent
+}
+
+type repositoryParent struct {
+	Discovery git.Discovery
+	Label     string
 }
 
 func New() Model {
@@ -3338,6 +3350,43 @@ func (m *Model) selectedSubmodulePath() string {
 	return ""
 }
 
+func (m *Model) openSelectedSubmodule() tea.Cmd {
+	path := m.selectedSubmodulePath()
+	if path == "" {
+		return nil
+	}
+	for _, module := range m.Submodules.Modules {
+		if module.Path == path && (module.State == submodules.StateUninitialized || module.State == submodules.StateMissing) {
+			m.Status = "submodule is not initialized: " + platform.SafeText(path)
+			return nil
+		}
+	}
+	root, ctx, generation := m.Discovery.Root, m.commandContext(), m.repositoryGeneration
+	child := filepath.Join(root, path)
+	m.State, m.Status = StateOperationPending, "opening submodule "+platform.SafeText(path)
+	return func() tea.Msg {
+		discovery, err := git.Discover(ctx, child)
+		return SubmoduleOpenedMsg{Generation: generation, Path: path, Discovery: discovery, Err: err}
+	}
+}
+
+func (m *Model) returnToParentRepository() tea.Cmd {
+	if len(m.repositoryParents) == 0 {
+		return nil
+	}
+	parent := m.repositoryParents[len(m.repositoryParents)-1]
+	m.repositoryParents = m.repositoryParents[:len(m.repositoryParents)-1]
+	if err := m.setRepository(parent.Discovery); err != nil {
+		m.State, m.Status = StateError, "return to parent repository: "+err.Error()
+		return nil
+	}
+	m.State, m.Status = StateReady, "returned to "+platform.SafeText(parent.Label)
+	if m.Workspace != nil {
+		m.Workspace.Back()
+	}
+	return tea.Batch(m.refresh(), waitForRefresh(m.RefreshCoordinator), m.startWatcher())
+}
+
 func (m *Model) beginSubmoduleActions() {
 	path := m.selectedSubmodulePath()
 	if path == "" {
@@ -4381,6 +4430,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.currentView() == workspace.Status && m.DiffPath != "" {
 				m.closeDiff()
 				m.Status = "diff closed"
+			} else if m.currentView() == workspace.Status && len(m.repositoryParents) > 0 {
+				return m, m.returnToParentRepository()
 			} else if m.currentView() == workspace.Status && m.StatusCommitActive {
 				m.clearStatusCommitInspection()
 				m.Status = "returned to worktree status"
@@ -4876,6 +4927,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Status && m.showCommitTreePane() && m.CommitTreeFocused {
 				return m, m.inspectStatusCommit(m.StatusCommitSelectedLine)
 			}
+			if m.currentView() == workspace.Status && m.selectedSubmodulePath() != "" {
+				return m, m.openSelectedSubmodule()
+			}
 			return m, m.openDiff()
 		case "j", "down":
 			if m.currentView() == workspace.Status && m.contextPaneFocused() {
@@ -5271,6 +5325,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.State, m.Status = StateReady, "submodule "+v.Outcome.Action+" complete"
 		return m, m.refresh()
+	case SubmoduleOpenedMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		if v.Err != nil {
+			m.State, m.Status = StateError, "open submodule: "+v.Err.Error()
+			return m, nil
+		}
+		m.repositoryParents = append(m.repositoryParents, repositoryParent{Discovery: m.Discovery, Label: m.Discovery.Root})
+		if err := m.setRepository(v.Discovery); err != nil {
+			m.State, m.Status = StateError, "open submodule: "+err.Error()
+			return m, nil
+		}
+		m.Workspace.Navigate(workspace.Status, "Submodule: "+v.Path)
+		m.State, m.Status = StateReady, "opened submodule "+platform.SafeText(v.Path)+"; Esc returns to parent"
+		return m, tea.Batch(m.refresh(), waitForRefresh(m.RefreshCoordinator), m.startWatcher())
 	case GitignoreReadyMsg:
 		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
 			return m, nil
@@ -6011,6 +6081,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.RepositoryRegistry[i].LastOpened = time.Now()
 				}
 			}
+			m.repositoryParents = nil
 			if err := m.setRepository(v.Discovery); err != nil {
 				m.Toast = ToastMsg{Text: "previous repository watcher did not close cleanly: " + err.Error(), Error: true}
 			}

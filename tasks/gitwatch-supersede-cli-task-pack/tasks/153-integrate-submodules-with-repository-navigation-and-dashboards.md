@@ -49,3 +49,16 @@ Make a submodule behave like a nested normal gitwatch repository while keeping s
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Initialized submodule rows can now be entered from the normal Status
+  workspace. The model switches through the existing repository discovery,
+  refresh, watcher, and operation lifecycle rather than creating a second
+  nested engine.
+- Parent discovery context is retained in a bounded breadcrumb stack; `Esc`
+  returns to the parent repository and cancels/replaces the child refresh
+  generation safely. Missing and uninitialized modules remain non-enterable.
+- Focused app coverage verifies child navigation, breadcrumb labeling, and
+  parent return. Two-level runtime coverage, operation concurrency with a
+  parent refresh, and native/manual evidence remain pending.

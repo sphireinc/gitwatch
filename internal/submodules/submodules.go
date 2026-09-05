@@ -216,6 +216,9 @@ func parseConfig(data []byte) ([]Module, error) {
 		if module.path == "" {
 			return nil, fmt.Errorf("submodule %q has no path", name)
 		}
+		if err := validateRepositoryAndPath("repository", module.path); err != nil {
+			return nil, fmt.Errorf("submodule %q path: %w", name, err)
+		}
 		modules = append(modules, Module{Name: module.name, Path: module.path, URL: module.url})
 	}
 	return modules, nil
