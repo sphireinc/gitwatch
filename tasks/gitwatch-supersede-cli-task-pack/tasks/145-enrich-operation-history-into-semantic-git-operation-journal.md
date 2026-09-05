@@ -67,8 +67,9 @@ Upgrade the existing bounded operation completion history into a user-facing rec
   newest-first with `j/k` navigation and `J` reset-to-newest behavior. The
   workspace is repository-scoped through the active model and sanitizes all
   rendered journal text.
-- Broader cherry-pick-specific completion wiring and operation coverage beyond
-  the currently integrated commit/rebase/merge/remote paths remain outstanding.
+- A dedicated initial cherry-pick start-record fixture and broader operation
+  coverage beyond the integrated commit/rebase/merge/remote paths remain
+  outstanding.
 - Sequencer lifecycle completion/abort/skip messages now also carry typed
   semantic journal metadata, covering the shared cherry-pick/revert recovery
   path without assuming that HEAD moved.
