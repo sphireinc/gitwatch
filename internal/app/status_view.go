@@ -665,6 +665,69 @@ func (m Model) latestActivityLine() string {
 	return text
 }
 
+func (m Model) journalMaxOffset() int {
+	if m.ActivityLog == nil {
+		return 0
+	}
+	return max(0, len(m.ActivityLog.All())-1)
+}
+
+func (m Model) operationJournalView() string {
+	if m.ActivityLog == nil {
+		return "operation journal unavailable"
+	}
+	events := m.ActivityLog.All()
+	if len(events) == 0 {
+		return "operation journal is empty"
+	}
+	width := m.Width
+	if width <= 0 {
+		width = defaultStatusWidth
+	}
+	rows := max(1, m.Height-8)
+	start := len(events) - 1 - min(m.JournalOffset, len(events)-1)
+	lines := []string{"repository: " + platform.SafeText(m.Discovery.Root), ""}
+	for index := 0; index < rows && start-index >= 0; index++ {
+		event := events[start-index]
+		prefix := "  "
+		if index == 0 {
+			prefix = "> "
+		}
+		line := fmt.Sprintf("%s%s  %s", prefix, event.At.Format("15:04:05"), event.Kind)
+		if event.Path != "" {
+			line += " · " + event.Path
+		}
+		if event.Message != "" {
+			line += " · " + event.Message
+		}
+		if operation := event.Operation; operation != nil {
+			line += " · " + operation.Kind
+			if operation.Target != "" {
+				line += " target=" + operation.Target
+			}
+			if operation.OldHead != "" || operation.NewHead != "" {
+				oldHead, newHead := operation.OldHead, operation.NewHead
+				if oldHead == "" {
+					oldHead = "?"
+				}
+				if newHead == "" {
+					newHead = "?"
+				}
+				line += " HEAD=" + oldHead + "->" + newHead
+			}
+			if len(operation.Args) > 0 {
+				line += " argv=" + strings.Join(operation.Args, " ")
+			}
+			if operation.RecoverySHA != "" {
+				line += " recovery=" + operation.RecoverySHA
+			}
+		}
+		lines = append(lines, fitSafeDisplay(line, width))
+	}
+	lines = append(lines, "", fmt.Sprintf("newest offset %d/%d", m.JournalOffset, m.journalMaxOffset()))
+	return strings.Join(lines, "\n")
+}
+
 func joinStatusColumns(left, right []string, leftWidth, rightWidth, height int) []string {
 	joined := make([]string, height)
 	for index := range joined {

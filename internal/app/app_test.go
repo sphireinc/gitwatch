@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -909,6 +910,27 @@ func TestOperationActivityRendersSemanticJournalDetails(t *testing.T) {
 		if !strings.Contains(view, expected) {
 			t.Fatalf("semantic activity missing %q: %q", expected, view)
 		}
+	}
+}
+
+func TestOperationJournalWorkspaceIsBoundedAndNavigable(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	m.Width, m.Height = 160, 24
+	for index := 0; index < 3; index++ {
+		m.recordActivityWithOperation(history.OperationSuccess, fmt.Sprintf("target-%d", index), "completed", &history.OperationRecord{
+			Repository: m.Discovery.Root, Kind: "commit", Target: fmt.Sprintf("target-%d", index), Outcome: "success",
+		})
+	}
+	if cmd := m.executePaletteAction("journal"); cmd != nil || m.currentView() != workspace.Journal {
+		t.Fatalf("journal route = cmdnil=%v view=%q", cmd != nil, m.currentView())
+	}
+	if !strings.Contains(m.View().Content, "operation journal") || !strings.Contains(m.View().Content, "target-2") {
+		t.Fatalf("journal view missing latest event: %q", m.View().Content)
+	}
+	updated, _ := m.Update(key("j"))
+	m = updated.(Model)
+	if m.JournalOffset != 1 || !strings.Contains(m.View().Content, "target-1") {
+		t.Fatalf("journal navigation = offset=%d view=%q", m.JournalOffset, m.View().Content)
 	}
 }
 

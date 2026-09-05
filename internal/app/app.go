@@ -424,6 +424,7 @@ type Model struct {
 	ReflogLoading            bool
 	ReflogCompare            string
 	ReflogCompareLoading     bool
+	JournalOffset            int
 	History                  historyview.Model
 	Rebase                   rebaseview.Model
 	Conflict                 conflictview.Model
@@ -562,6 +563,7 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "stashes", Label: "Open stashes", Shortcut: "s", Enabled: m.Discovery.Root != ""},
 		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
 		{ID: "reflog", Label: "Open reflog recovery points", Shortcut: "R", Enabled: m.Discovery.Root != ""},
+		{ID: "journal", Label: "Open operation journal", Shortcut: "J", Enabled: m.Discovery.Root != "" && m.ActivityLog != nil},
 		{ID: "clear_commit_basket", Label: fmt.Sprintf("Clear commit basket (%d)", m.History.Basket.Count()), Shortcut: "C", Enabled: m.History.Basket.Count() > 0},
 		{ID: "rebase", Label: "Open interactive rebase", Shortcut: "I", Enabled: m.Discovery.Root != "" && len(m.HistoryCommits) > 0},
 		{ID: "cherry_pick_recovery", Label: "Reopen active cherry-pick", Shortcut: "C", Enabled: m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindCherryPick},
@@ -667,6 +669,9 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		return m.navigate(workspace.Log, "History")
 	case "reflog":
 		return m.navigate(workspace.Reflog, "Reflog")
+	case "journal":
+		m.JournalOffset = 0
+		return m.navigate(workspace.Journal, "Operation journal")
 	case "clear_commit_basket":
 		m.History.ClearBasket()
 		return nil
@@ -3878,6 +3883,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
+		case "J":
+			if m.currentView() == workspace.Journal {
+				m.JournalOffset = 0
+			}
 		case "B":
 			if m.currentView() == workspace.Status {
 				return m, m.selectLowerPane("branches")
@@ -4106,6 +4115,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.History.Move(1)
 			case workspace.Reflog:
 				m.Reflog.Move(1)
+			case workspace.Journal:
+				m.JournalOffset = min(m.JournalOffset+1, m.journalMaxOffset())
 			case workspace.Remotes:
 				m.Remotes.Move(1)
 			case workspace.Worktrees:
@@ -4145,6 +4156,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.History.Move(-1)
 			case workspace.Reflog:
 				m.Reflog.Move(-1)
+			case workspace.Journal:
+				m.JournalOffset = max(0, m.JournalOffset-1)
 			case workspace.Remotes:
 				m.Remotes.Move(-1)
 			case workspace.Worktrees:
@@ -5204,7 +5217,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.Gitignore {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Journal || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.Gitignore {
 		return m.featureView(view)
 	}
 	if m.Modal == "help" {
@@ -5293,6 +5306,8 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.ReflogLoading {
 			content += "\n\n" + platform.SafeText(m.Status)
 		}
+	case workspace.Journal:
+		title, content = "gitwatch · operation journal", m.operationJournalView()
 	case workspace.Commit:
 		title, content = "gitwatch · commit", m.Composer.View()
 	case workspace.Remotes:
@@ -5339,6 +5354,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Reflog {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [B] branch  [x] checkout  [] load more  [1] status  [esc] back  [q] quit"
+	}
+	if view == workspace.Journal {
+		lines[len(lines)-1] = "[j/k] move  [J] newest  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Branches {
 		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"

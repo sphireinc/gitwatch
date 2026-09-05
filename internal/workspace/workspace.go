@@ -23,6 +23,7 @@ const (
 	Conflict     View = "conflict"
 	Gitignore    View = "gitignore"
 	Reflog       View = "reflog"
+	Journal      View = "journal"
 )
 
 type Breadcrumb struct {

@@ -63,8 +63,12 @@ Upgrade the existing bounded operation completion history into a user-facing rec
   joins. Fetch and push preserve HEAD explicitly because they are network/ref
   operations rather than local HEAD moves.
 - The status activity line now renders the semantic operation summary. A
-  dedicated journal workspace and broader cherry-pick-specific completion
-  wiring remain outstanding.
+  bounded operation-journal workspace now presents the retained records
+  newest-first with `j/k` navigation and `J` reset-to-newest behavior. The
+  workspace is repository-scoped through the active model and sanitizes all
+  rendered journal text.
+- Broader cherry-pick-specific completion wiring and operation coverage beyond
+  the currently integrated commit/rebase/merge/remote paths remain outstanding.
 - Validation for this slice: focused history/app tests, `go test ./...`,
   `go test -race ./...`, `go vet ./...`, `gofmt -d`, and `git diff --check`
   passed. `make check` reached its lint step but could not download the pinned
