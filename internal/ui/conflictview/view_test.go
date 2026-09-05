@@ -113,3 +113,47 @@ func TestRecoveryFooterOnlyShowsSupportedActions(t *testing.T) {
 		t.Fatalf("rebase footer omitted skip:\n%s", view)
 	}
 }
+
+func TestRecoveryCoordinatorGatesContinueOnAuthoritativeState(t *testing.T) {
+	m := New()
+	m.SetSnapshot(sequencer.KindCherryPick, "main", []conflicts.Conflict{{Path: []byte("file"), Resolution: "unmerged"}})
+	m.SetStagedCount(1)
+	if got := m.RecoveryActions(); got.Continue || !got.Skip || !got.Abort {
+		t.Fatalf("unresolved recovery = %+v", got)
+	}
+	m.SetSnapshot(sequencer.KindCherryPick, "main", nil)
+	m.SetStagedCount(0)
+	if got := m.RecoveryActions(); got.Continue {
+		t.Fatalf("clean index exposed continue = %+v", got)
+	}
+	m.SetStagedCount(1)
+	if got := m.RecoveryActions(); !got.Continue || !got.Skip || !got.Abort {
+		t.Fatalf("resolved recovery = %+v", got)
+	}
+	m.SetSnapshot(sequencer.KindMerge, "main", nil)
+	if got := m.RecoveryActions(); !got.Continue || got.Skip || !got.Abort {
+		t.Fatalf("merge recovery = %+v", got)
+	}
+}
+
+func TestRecoveryCoordinatorSharesLifecycleRulesAcrossSequencers(t *testing.T) {
+	for _, test := range []struct {
+		kind     sequencer.Kind
+		wantSkip bool
+	}{
+		{sequencer.KindRebase, true},
+		{sequencer.KindCherryPick, true},
+		{sequencer.KindRevert, true},
+		{sequencer.KindMerge, false},
+	} {
+		t.Run(test.kind.String(), func(t *testing.T) {
+			m := New()
+			m.SetSnapshot(test.kind, "target", nil)
+			m.SetStagedCount(1)
+			recovery := m.RecoveryActions()
+			if !recovery.Continue || recovery.Skip != test.wantSkip || !recovery.Abort {
+				t.Fatalf("%s recovery = %+v", test.kind, recovery)
+			}
+		})
+	}
+}

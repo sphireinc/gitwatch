@@ -954,6 +954,7 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 	}
 	m.Conflict.SetSnapshot(operationKind, operationTarget, snapshot.Conflicts)
 	m.Conflict.SetOperationState(snapshot.Operation)
+	m.Conflict.SetStagedCount(snapshot.Counts.Staged)
 	if err := m.History.SetScope(snapshot.Root, snapshot.Branch.Name, m.repositoryGeneration); err != nil {
 		m.Status = "history selection: " + err.Error()
 	}
@@ -2805,6 +2806,13 @@ func (m *Model) updateConflictKey(key string) tea.Cmd {
 	case conflictview.ActionContinue, conflictview.ActionAbort, conflictview.ActionSkip:
 		if m.Conflict.Operation == sequencer.KindUnknown {
 			m.Status = "operation lifecycle is unavailable"
+			return nil
+		}
+		recovery := m.Conflict.RecoveryActions()
+		if (action == conflictview.ActionContinue && !recovery.Continue) ||
+			(action == conflictview.ActionAbort && !recovery.Abort) ||
+			(action == conflictview.ActionSkip && !recovery.Skip) {
+			m.Status = "operation lifecycle action is unavailable"
 			return nil
 		}
 		actionName := "continue"

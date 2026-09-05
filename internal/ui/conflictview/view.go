@@ -54,6 +54,7 @@ type Model struct {
 	Operation sequencer.Kind
 	Target    string
 	Progress  *sequencer.State
+	Staged    int
 	Conflicts []conflicts.Conflict
 	Selected  int
 	Hunk      int
@@ -78,7 +79,7 @@ type Detail struct {
 	Result Content
 }
 
-func New() Model { return Model{Wide: true, Selected: -1} }
+func New() Model { return Model{Wide: true, Selected: -1, Staged: -1} }
 
 // SetSnapshot replaces all derived view state from the latest authoritative
 // snapshot and keeps the selected path when Git still reports it.
@@ -118,6 +119,57 @@ func (m *Model) SetOperationState(state *sequencer.State) {
 	}
 	copyState := *state
 	m.Progress = &copyState
+}
+
+// SetStagedCount attaches the authoritative index count used to decide
+// whether a paused non-rebase operation can continue. A negative value means
+// the caller has not supplied the count, so the coordinator remains
+// conservative only where the count is known.
+func (m *Model) SetStagedCount(count int) { m.Staged = count }
+
+// Recovery describes the lifecycle actions valid for the observed operation.
+// It is the single action-availability decision used by rendering and input.
+type Recovery struct {
+	Continue bool
+	Abort    bool
+	Skip     bool
+}
+
+// RecoveryActions derives valid lifecycle actions from the Git-derived
+// operation kind and current authoritative conflict/index projection.
+func (m Model) RecoveryActions() Recovery {
+	if m.Operation == sequencer.KindUnknown {
+		return Recovery{}
+	}
+	recovery := Recovery{Abort: true}
+	switch m.Operation {
+	case sequencer.KindRebase, sequencer.KindCherryPick, sequencer.KindRevert:
+		recovery.Skip = true
+	case sequencer.KindMerge:
+	default:
+		return Recovery{}
+	}
+	if m.unresolvedCount() != 0 {
+		return recovery
+	}
+	// Rebase edit-stops do not require staged changes. For the other
+	// sequencers, a known clean index means there is nothing for Git to
+	// continue or commit; do not render a misleading Continue action.
+	if m.Operation != sequencer.KindRebase && m.Staged >= 0 && m.Staged == 0 {
+		return recovery
+	}
+	recovery.Continue = true
+	return recovery
+}
+
+func (m Model) unresolvedCount() int {
+	count := 0
+	for _, conflict := range m.Conflicts {
+		if conflict.Resolution != "resolved" {
+			count++
+		}
+	}
+	return count
 }
 
 // SetDetail accepts detail only for the currently selected conflict. A stale
@@ -213,8 +265,9 @@ func (m Model) View(width, height int) string {
 			}
 		}
 	}
+	recovery := m.RecoveryActions()
 	if m.Operation == sequencer.KindRebase {
-		lines = append(lines, "Rebase recovery: [c] continue  [s] skip  [x] abort")
+		lines = append(lines, "Rebase recovery: "+strings.TrimSpace(recoveryText(recovery)))
 	}
 	if selected, ok := m.SelectedConflict(); ok {
 		lines = append(lines, "Selected: "+platform.SafeText(string(selected.Path)), "")
@@ -239,15 +292,26 @@ func (m Model) View(width, height int) string {
 	} else {
 		lines = append(lines, "", "No active conflicts.")
 	}
-	recovery := "[c] continue  [x] abort"
-	if m.Operation == sequencer.KindRebase || m.Operation == sequencer.KindCherryPick || m.Operation == sequencer.KindRevert {
-		recovery = "[c] continue  [s] skip  [x] abort"
-	}
-	lines = append(lines, "", "[j/k] conflict  [n/p] hunk  [o/t/b] whole-file  [O/T/B/M] region  [e] edit  [m] mark  [u] restore  "+recovery+"  [1] status  [esc] back")
+	recoveryLabel := strings.TrimSpace(recoveryText(recovery))
+	lines = append(lines, "", "[j/k] conflict  [n/p] hunk  [o/t/b] whole-file  [O/T/B/M] region  [e] edit  [m] mark  [u] restore  "+recoveryLabel+"  [1] status  [esc] back")
 	if height > 0 && len(lines) > height {
 		lines = lines[:height]
 	}
 	return strings.Join(lines, "\n")
+}
+
+func recoveryText(recovery Recovery) string {
+	text := ""
+	if recovery.Continue {
+		text += "[c] continue "
+	}
+	if recovery.Skip {
+		text += "[s] skip "
+	}
+	if recovery.Abort {
+		text += "[x] abort"
+	}
+	return text
 }
 
 func contentLine(label string, content Content) string {

@@ -51,3 +51,17 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Centralized recovery action availability in `conflictview.RecoveryActions`.
+  Rendering and app lifecycle input now use the same operation-aware decision
+  for Continue, Skip, and Abort across rebase, cherry-pick, revert, and merge.
+- Continue is withheld when unresolved conflicts remain; for non-rebase
+  operations it is also withheld when the authoritative staged count is known
+  to be zero. Skip is limited to Git workflows that support `--skip`.
+- Focused tests cover unresolved and clean-index gating plus the shared
+  lifecycle matrix for all four sequencer workflows.
+- Task remains active: merge/revert entry points, external state transitions,
+  repository-switch generation handling, one attention-notification path, and
+  native/manual evidence still need completion.
