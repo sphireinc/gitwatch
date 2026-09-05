@@ -66,10 +66,13 @@ Make manual bisect visually obvious while live worktree status remains available
   action parity.
 - The workspace remains usable while Git status/watch refreshes continue to
   update the active repository model.
-- Starting a new bisect from explicit history refs, candidate inspection/diff,
-  mouse parity, and native/manual 80x24/NO_COLOR evidence remain outstanding.
+- Candidate diff presentation beyond the reused inspector and native/manual
+  80x24/NO_COLOR evidence remain outstanding.
 - The workspace-control slice is committed at `01fef5e`; the full `make check`
   gate passed at that revision. Explicit workspace start support is committed
   at `c7b7527`; the full `make check` gate passed there as well. Task 149
   remains active until inspection/parity and terminal acceptance work is
   complete.
+- Candidate inspection and mouse-parity support are committed at `bc4eca2`;
+  the full `make check` gate passed at that revision. Native terminal
+  evidence remains outstanding.
