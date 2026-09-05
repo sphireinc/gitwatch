@@ -17,6 +17,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/history"
+	mergeops "github.com/sphireinc/git-watch/internal/merge"
 	"github.com/sphireinc/git-watch/internal/notifications"
 	"github.com/sphireinc/git-watch/internal/patch"
 	"github.com/sphireinc/git-watch/internal/plugins"
@@ -290,6 +291,66 @@ func TestExternalSequencerCompletionClosesConflictWorkspace(t *testing.T) {
 	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "main"}})
 	if m.currentView() != workspace.Status || !strings.Contains(m.Status, "externally") {
 		t.Fatalf("external completion route = view=%q status=%q", m.currentView(), m.Status)
+	}
+}
+
+func TestBranchMergePromptRequiresCleanWorktreeAndExplicitStrategy(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	m.Snapshot = repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "main"}}
+	m.Branches = branchview.New([]branches.Branch{{Name: "feature"}})
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	updated, cmd := m.Update(key("M"))
+	m = updated.(Model)
+	if cmd != nil || !m.BranchMergeMode || m.BranchMergeTarget != "feature" {
+		t.Fatalf("merge prompt = mode=%v target=%q cmdnil=%v", m.BranchMergeMode, m.BranchMergeTarget, cmd != nil)
+	}
+	for _, value := range []string{"x", "enter"} {
+		updated, cmd = m.Update(key(value))
+		m = updated.(Model)
+	}
+	if cmd != nil || !m.BranchMergeMode || !strings.Contains(m.Status, "merge strategy must be") {
+		t.Fatalf("invalid strategy = mode=%v status=%q cmdnil=%v", m.BranchMergeMode, m.Status, cmd != nil)
+	}
+	updated, cmd = m.Update(key("backspace"))
+	m = updated.(Model)
+	for _, value := range []string{"f", "f", "-", "o", "n", "l", "y", "enter"} {
+		updated, cmd = m.Update(key(value))
+		m = updated.(Model)
+	}
+	if cmd == nil || m.BranchMergeMode {
+		t.Fatalf("valid strategy = mode=%v cmdnil=%v status=%q", m.BranchMergeMode, cmd == nil, m.Status)
+	}
+
+	m = New()
+	m.Discovery.Root = t.TempDir()
+	m.Snapshot = repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "main"}, Counts: repo.Counts{Unstaged: 1}}
+	m.Branches = branchview.New([]branches.Branch{{Name: "feature"}})
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	updated, cmd = m.Update(key("M"))
+	m = updated.(Model)
+	if cmd != nil || m.BranchMergeMode || !strings.Contains(m.Status, "clean worktree") {
+		t.Fatalf("dirty merge guard = mode=%v status=%q cmdnil=%v", m.BranchMergeMode, m.Status, cmd != nil)
+	}
+}
+
+func TestMergeStrategyNames(t *testing.T) {
+	for _, test := range []struct {
+		input string
+		want  mergeops.Strategy
+	}{
+		{"merge", mergeops.Regular},
+		{"ff-only", mergeops.FastForwardOnly},
+		{"no-ff", mergeops.NoFastForward},
+		{"squash", mergeops.Squash},
+	} {
+		got, ok := mergeStrategy(test.input)
+		if !ok || got != test.want {
+			t.Fatalf("mergeStrategy(%q) = %v, %v", test.input, got, ok)
+		}
+	}
+	if _, ok := mergeStrategy("unsafe"); ok {
+		t.Fatal("unsafe merge strategy accepted")
 	}
 }
 

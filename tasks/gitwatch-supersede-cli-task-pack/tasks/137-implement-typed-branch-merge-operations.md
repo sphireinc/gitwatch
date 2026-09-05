@@ -66,8 +66,13 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
 - Merge execution and abort now return the authoritative post-command
   `repo.Snapshot`, including conflict and durable-operation state, so callers
   can refresh status without inferring truth from Git stderr.
+- The Branches workspace now provides an explicit merge prompt with strategy
+  selection (`merge`, `ff-only`, `no-ff`, or `squash`), rejects self-merge and
+  dirty-worktree starts, and routes paused conflicts into the common resolver.
 - Focused integration tests verify a successful fast-forward snapshot, a
   conflict snapshot entering merge recovery, and an abort snapshot clearing
   the operation.
+- Focused app tests cover the clean-worktree guard, strategy validation, and
+  branch merge prompt flow.
 - Task remains active for first-class app entry, operation-engine scheduling,
   branch/worktree UI integration, and native/manual evidence.

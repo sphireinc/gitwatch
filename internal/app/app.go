@@ -25,6 +25,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/recommend"
 	"github.com/sphireinc/git-watch/internal/gitignore/security"
 	"github.com/sphireinc/git-watch/internal/history"
+	mergeops "github.com/sphireinc/git-watch/internal/merge"
 	"github.com/sphireinc/git-watch/internal/notifications"
 	"github.com/sphireinc/git-watch/internal/operations"
 	"github.com/sphireinc/git-watch/internal/patch"
@@ -219,6 +220,11 @@ type BranchOperationFinishedMsg struct {
 	Repository uint64
 	Err        error
 }
+
+type MergeFinishedMsg struct {
+	Repository uint64
+	Outcome    mergeops.Outcome
+}
 type StashPreviewReadyMsg struct {
 	Ref, Text string
 	Err       error
@@ -385,6 +391,8 @@ type Model struct {
 	BranchRenameMode         bool
 	BranchRenameOld          string
 	BranchUpstreamMode       bool
+	BranchMergeMode          bool
+	BranchMergeTarget        string
 	BranchMutationInput      string
 	BranchDeleteMode         bool
 	BranchDeleteTarget       branches.Branch
@@ -1653,6 +1661,19 @@ func (m Model) branchMutation(operation, name string, work func(context.Context,
 	}
 }
 
+func (m Model) mergeSelectedBranch(strategy mergeops.Strategy) tea.Cmd {
+	if m.BranchMergeTarget == "" || m.Snapshot.Branch.Name == "" {
+		return nil
+	}
+	request := mergeops.Request{Repository: m.Discovery.Root, Generation: m.repositoryGeneration, Source: m.BranchMergeTarget, Strategy: strategy}
+	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		engine := mergeops.Engine{Runner: runner, Repository: m.Discovery.Root, Generation: generation}
+		return MergeFinishedMsg{Repository: generation, Outcome: engine.Execute(m.commandContext(), request)}
+	}
+}
+
 func (m Model) createBranch(name string) tea.Cmd {
 	return m.branchMutation("created", name, func(ctx context.Context, r git.Runner) error {
 		_, err := branches.Create(ctx, r, name)
@@ -1689,12 +1710,12 @@ func (m Model) deleteBranch(branch branches.Branch, force bool, input string) te
 }
 
 func (m *Model) updateBranchMutationKey(key string) tea.Cmd {
-	if !m.BranchCreateMode && !m.BranchRenameMode && !m.BranchUpstreamMode && !m.BranchDeleteMode {
+	if !m.BranchCreateMode && !m.BranchRenameMode && !m.BranchUpstreamMode && !m.BranchDeleteMode && !m.BranchMergeMode {
 		return nil
 	}
 	if key == "esc" {
-		m.BranchCreateMode, m.BranchRenameMode, m.BranchUpstreamMode, m.BranchDeleteMode = false, false, false, false
-		m.BranchMutationInput, m.BranchRenameOld = "", ""
+		m.BranchCreateMode, m.BranchRenameMode, m.BranchUpstreamMode, m.BranchDeleteMode, m.BranchMergeMode = false, false, false, false, false
+		m.BranchMutationInput, m.BranchRenameOld, m.BranchMergeTarget = "", "", ""
 		m.Status = "branch action cancelled"
 		return nil
 	}
@@ -1708,10 +1729,20 @@ func (m *Model) updateBranchMutationKey(key string) tea.Cmd {
 			m.Status = "branch name is required"
 			return nil
 		}
-		renameMode, upstreamMode := m.BranchRenameMode, m.BranchUpstreamMode
-		m.BranchCreateMode, m.BranchRenameMode, m.BranchUpstreamMode, m.BranchDeleteMode = false, false, false, false
+		renameMode, upstreamMode, mergeMode := m.BranchRenameMode, m.BranchUpstreamMode, m.BranchMergeMode
+		m.BranchCreateMode, m.BranchRenameMode, m.BranchUpstreamMode, m.BranchDeleteMode, m.BranchMergeMode = false, false, false, false, false
 		m.State = StateOperationPending
 		switch {
+		case mergeMode:
+			strategy, ok := mergeStrategy(input)
+			if !ok {
+				m.BranchMergeMode = true
+				m.State, m.Status = StateReady, "merge strategy must be merge, ff-only, no-ff, or squash"
+				return nil
+			}
+			target := m.BranchMergeTarget
+			m.BranchMutationInput, m.Status = "", "merging "+target
+			return m.mergeSelectedBranch(strategy)
 		case renameMode:
 			old := m.BranchRenameOld
 			m.BranchRenameOld, m.BranchMutationInput, m.Status = "", "", "renaming branch"
@@ -1738,11 +1769,28 @@ func (m *Model) updateBranchMutationKey(key string) tea.Cmd {
 		label = "rename " + m.BranchRenameOld + " to"
 	} else if m.BranchUpstreamMode {
 		label = "upstream"
+	} else if m.BranchMergeMode {
+		label = "merge strategy"
 	} else if m.BranchDeleteTarget.Name != "" {
 		label = "type " + m.BranchDeleteTarget.Name + " to confirm"
 	}
 	m.Status = label + ": " + m.BranchMutationInput
 	return nil
+}
+
+func mergeStrategy(value string) (mergeops.Strategy, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "merge", "regular":
+		return mergeops.Regular, true
+	case "ff-only", "ffonly":
+		return mergeops.FastForwardOnly, true
+	case "no-ff", "noff":
+		return mergeops.NoFastForward, true
+	case "squash":
+		return mergeops.Squash, true
+	default:
+		return 0, false
+	}
 }
 
 func (m Model) loadStashes() tea.Cmd {
@@ -3041,7 +3089,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Branches && m.BranchSearching {
 			return m, m.updateBranchSearch(v.String())
 		}
-		if m.currentView() == workspace.Branches && (m.BranchCreateMode || m.BranchRenameMode || m.BranchUpstreamMode || m.BranchDeleteMode) {
+		if m.currentView() == workspace.Branches && (m.BranchCreateMode || m.BranchRenameMode || m.BranchUpstreamMode || m.BranchDeleteMode || m.BranchMergeMode) {
 			return m, m.updateBranchMutationKey(v.String())
 		}
 		if m.currentView() == workspace.Log && m.HistoryInspectorPathMode {
@@ -3573,7 +3621,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.openGitignore()
 			}
 		case "M":
-			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" && len(m.HistoryInspector.Commit.Parents) > 0 {
+			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+				branch := m.Branches.Entries[m.Branches.Selected]
+				if branch.Current {
+					m.Status = "cannot merge the current branch into itself"
+				} else if m.Snapshot.Counts.Staged > 0 || m.Snapshot.Counts.Unstaged > 0 || m.Snapshot.Counts.Untracked > 0 {
+					m.Status = "merge requires a clean worktree; stash explicitly first"
+				} else {
+					m.BranchMergeMode, m.BranchMergeTarget, m.BranchMutationInput = true, branch.Name, ""
+					m.Status = "merge " + branch.Name + " strategy [merge/ff-only/no-ff/squash]: "
+				}
+			} else if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" && len(m.HistoryInspector.Commit.Parents) > 0 {
 				parent := ""
 				for i, candidate := range m.HistoryInspector.Commit.Parents {
 					if candidate == m.HistoryInspectorParent {
@@ -4460,6 +4518,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivity(history.OperationSuccess, v.Name, m.Status)
 		}
 		return m, tea.Batch(m.refresh(), m.loadBranches())
+	case MergeFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		m.BranchMergeMode, m.BranchMergeTarget, m.BranchMutationInput = false, "", ""
+		if v.Outcome.Snapshot != nil {
+			m.applySnapshot(*v.Outcome.Snapshot)
+		}
+		if v.Outcome.Paused {
+			m.State, m.Status = StateReady, "merge paused for conflict recovery"
+			m.Workspace.Navigate(workspace.Conflict, "Merge recovery")
+			if len(m.Snapshot.Conflicts) > 0 {
+				return m, m.loadConflictContent()
+			}
+			return m, nil
+		}
+		if v.Outcome.Err != nil {
+			m.State, m.Status = StateError, v.Outcome.Err.Error()
+			m.recordActivity(history.OperationFailure, "merge", v.Outcome.Err.Error())
+			return m, m.refresh()
+		}
+		m.State, m.Status = StateReady, "merge completed"
+		m.recordActivity(history.OperationSuccess, "merge", m.Status)
+		return m, tea.Batch(m.refresh(), m.loadBranches(), m.loadHistory())
 	case HistoryReadyMsg:
 		m.HistoryCancel = nil
 		if v.Err != nil {
@@ -4851,7 +4933,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Branches {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
 		if m.BranchSearching {
 			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Branches.Query) + "  [enter] apply  [esc] cancel"
 		}
