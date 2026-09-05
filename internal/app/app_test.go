@@ -1031,6 +1031,24 @@ func TestOperationJournalWorkspaceIsBoundedAndNavigable(t *testing.T) {
 	}
 }
 
+func TestJournalRedoRefusalOpensGuidedReflogRecovery(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	m.recordActivityWithOperation(history.OperationSuccess, "feature", "merge completed", &history.OperationRecord{
+		Repository: m.Discovery.Root, Kind: "merge", Target: "feature", Outcome: "success",
+	})
+	if cmd := m.executePaletteAction("journal"); cmd != nil {
+		t.Fatal("journal navigation unexpectedly returned a command")
+	}
+	updated, cmd := m.Update(key("R"))
+	m = updated.(Model)
+	if cmd == nil || m.currentView() != workspace.Reflog {
+		t.Fatalf("guided recovery route = cmdnil=%v view=%q status=%q", cmd == nil, m.currentView(), m.Status)
+	}
+	if !strings.Contains(m.Status, "guided recovery") {
+		t.Fatalf("guided recovery status = %q", m.Status)
+	}
+}
+
 func TestOpenDiffFollowsKeyboardSelection(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("a.txt"), Unstaged: true}, {Path: repo.Path("b.txt"), Unstaged: true}}

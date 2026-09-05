@@ -2307,6 +2307,19 @@ func (m Model) selectedRedoRecord() *history.OperationRecord {
 	return &record
 }
 
+func (m Model) selectedJournalEvent() *history.Event {
+	if m.ActivityLog == nil {
+		return nil
+	}
+	events := m.ActivityLog.All()
+	index := len(events) - 1 - m.JournalOffset
+	if index < 0 || index >= len(events) {
+		return nil
+	}
+	event := events[index]
+	return &event
+}
+
 func (m Model) undoJournalOperation() tea.Cmd {
 	if m.UndoRecord == nil {
 		return nil
@@ -4179,6 +4192,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if record := m.selectedRedoRecord(); record != nil {
 					m.RedoRecord, m.RedoConfirm = record, true
 					m.Status = "redo commit " + record.NewHead + " -> " + record.OldHead + "? (y/n)"
+				} else if event := m.selectedJournalEvent(); event != nil && event.Operation != nil {
+					m.Status = "redo unavailable for " + event.Operation.Kind + "; reflog opened for guided recovery (d compare, B branch)"
+					return m, m.navigate(workspace.Reflog, "Guided reflog recovery")
 				} else {
 					m.Status = "selected journal entry has no safe redo"
 				}

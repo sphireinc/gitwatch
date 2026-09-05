@@ -57,6 +57,9 @@ Add redo only for operations whose typed intent and current repository state mak
   allowing `reset --soft` to the recorded commit.
 - Added journal `R` confirmation/execution routing through the operation engine,
   authoritative refresh, and semantic redo result recording.
+- When the selected journal operation is not safely replayable, `R` now opens
+  the existing repository-scoped reflog workspace with compare (`d`) and
+  create-branch (`B`) recovery guidance; app coverage verifies this route.
 - `TestExecuteRedoReplaysSuccessfulSoftUndo` exercises a real repository
   round-trip; unit coverage verifies the typed command and stale-state refusal.
 - Guided reflog recovery for non-replayable operations, broader external-change
