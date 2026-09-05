@@ -73,5 +73,7 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 - History basket reverts now build an exact-confirmation ordered plan and pass
   selected SHAs to the typed adapter in basket application order. The UI
   refuses merge commits until an explicit mainline parent is supplied.
+- The History workspace now displays a bounded numbered revert-order preview,
+  including an explicit overflow count for larger baskets.
 - This task remains active: history UI still needs selected-set order preview,
   merge-parent selection, and the unified coordinator/native acceptance work.

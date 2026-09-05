@@ -96,6 +96,18 @@ func (m Model) View() string {
 	lines := []string{"History"}
 	if m.Basket.Count() > 0 {
 		lines = append(lines, fmt.Sprintf("Basket: %d commit(s), application order oldest first", m.Basket.Count()))
+		lines = append(lines, "Revert order preview:")
+		shas := m.Basket.SHAs()
+		previewCount := len(shas)
+		if previewCount > 32 {
+			previewCount = 32
+		}
+		for index := 0; index < previewCount; index++ {
+			lines = append(lines, fmt.Sprintf("  %d. %s", index+1, platform.SafeText(shas[index])))
+		}
+		if previewCount < len(shas) {
+			lines = append(lines, fmt.Sprintf("  … %d more commit(s)", len(shas)-previewCount))
+		}
 	}
 	if m.Filter != "" {
 		lines = append(lines, "Filter: "+m.Filter)

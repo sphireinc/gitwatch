@@ -62,3 +62,23 @@ func TestBasketSurvivesPaginationAndClearsOnScopeSwitch(t *testing.T) {
 		t.Fatal("basket crossed repository scope")
 	}
 }
+
+func TestBasketViewShowsBoundedApplicationOrderPreview(t *testing.T) {
+	m := New([]history.Commit{{SHA: "new", Short: "new", Subject: "new"}, {SHA: "old", Short: "old", Subject: "old"}})
+	if err := m.SetScope("repo", "main", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.ToggleBasket(); err != nil {
+		t.Fatal(err)
+	}
+	m.Move(1)
+	if err := m.ToggleBasket(); err != nil {
+		t.Fatal(err)
+	}
+	view := m.View()
+	for _, want := range []string{"Revert order preview:", "1. new", "2. old"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("order preview missing %q:\n%s", want, view)
+		}
+	}
+}
