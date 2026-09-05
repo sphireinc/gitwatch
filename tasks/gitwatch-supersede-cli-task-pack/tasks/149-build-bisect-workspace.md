@@ -47,3 +47,16 @@ Make manual bisect visually obvious while live worktree status remains available
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added a repository-scoped Bisect workspace with good/bad/candidate fields
+  and bounded bisect-log rendering, available from the palette and Status `C`
+  recovery routing.
+- Added keyboard actions for Good, Bad, Skip, refresh, Status navigation, and
+  a deliberate Reset confirmation. Mutations run through the operation engine
+  and apply authoritative post-command snapshots.
+- The workspace remains usable while Git status/watch refreshes continue to
+  update the active repository model.
+- Starting a new bisect from explicit history refs, candidate inspection/diff,
+  mouse parity, and native/manual 80x24/NO_COLOR evidence remain outstanding.

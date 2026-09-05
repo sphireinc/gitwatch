@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"charm.land/bubbletea/v2"
+	"github.com/sphireinc/git-watch/internal/bisect"
 	"github.com/sphireinc/git-watch/internal/branches"
 	"github.com/sphireinc/git-watch/internal/cherrypick"
 	"github.com/sphireinc/git-watch/internal/commands"
@@ -204,6 +205,16 @@ type ReflogReadyMsg struct {
 	Skip       int
 	HasMore    bool
 	Err        error
+}
+type BisectReadyMsg struct {
+	Repository uint64
+	State      bisect.State
+	Err        error
+}
+type BisectFinishedMsg struct {
+	Repository uint64
+	Action     string
+	Outcome    bisect.Outcome
 }
 type ReflogCompareReadyMsg struct {
 	Text       string
@@ -452,6 +463,9 @@ type Model struct {
 	ReflogCompare            string
 	ReflogCompareLoading     bool
 	JournalOffset            int
+	Bisect                   bisect.State
+	BisectLoading            bool
+	BisectResetConfirm       bool
 	UndoConfirm              bool
 	UndoRecord               *history.OperationRecord
 	RedoConfirm              bool
@@ -597,6 +611,7 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
 		{ID: "reflog", Label: "Open reflog recovery points", Shortcut: "R", Enabled: m.Discovery.Root != ""},
 		{ID: "journal", Label: "Open operation journal", Shortcut: "J", Enabled: m.Discovery.Root != "" && m.ActivityLog != nil},
+		{ID: "bisect", Label: "Open bisect state", Shortcut: "", Enabled: m.Discovery.Root != ""},
 		{ID: "clear_commit_basket", Label: fmt.Sprintf("Clear commit basket (%d)", m.History.Basket.Count()), Shortcut: "C", Enabled: m.History.Basket.Count() > 0},
 		{ID: "rebase", Label: "Open interactive rebase", Shortcut: "I", Enabled: m.Discovery.Root != "" && len(m.HistoryCommits) > 0},
 		{ID: "cherry_pick_recovery", Label: "Reopen active cherry-pick", Shortcut: "C", Enabled: m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindCherryPick},
@@ -705,6 +720,8 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 	case "journal":
 		m.JournalOffset = 0
 		return m.navigate(workspace.Journal, "Operation journal")
+	case "bisect":
+		return m.openBisectWorkspace()
 	case "clear_commit_basket":
 		m.History.ClearBasket()
 		return nil
@@ -1067,11 +1084,46 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 
 func recoverableOperation(kind sequencer.Kind) bool {
 	switch kind {
-	case sequencer.KindRebase, sequencer.KindCherryPick, sequencer.KindRevert, sequencer.KindMerge:
+	case sequencer.KindRebase, sequencer.KindCherryPick, sequencer.KindRevert, sequencer.KindMerge, sequencer.KindBisect:
 		return true
 	default:
 		return false
 	}
+}
+
+func (m *Model) updateBisectKey(key string) tea.Cmd {
+	switch key {
+	case "g":
+		m.State, m.Status = StateOperationPending, "marking candidate good"
+		return m.bisectAction(bisect.Good)
+	case "b":
+		m.State, m.Status = StateOperationPending, "marking candidate bad"
+		return m.bisectAction(bisect.Bad)
+	case "s":
+		m.State, m.Status = StateOperationPending, "skipping candidate"
+		return m.bisectAction(bisect.Skip)
+	case "x":
+		m.BisectResetConfirm = true
+		m.Status = "reset bisect and return to the original branch? (y/n)"
+	case "y":
+		if m.BisectResetConfirm {
+			m.BisectResetConfirm, m.State, m.Status = false, StateOperationPending, "resetting bisect"
+			return m.bisectReset()
+		}
+	case "n", "esc":
+		if m.BisectResetConfirm {
+			m.BisectResetConfirm = false
+			m.Status = "bisect reset cancelled"
+		} else if key == "esc" {
+			m.Workspace.Back()
+		}
+	case "1":
+		m.Workspace.Navigate(workspace.Status, "Status")
+	case "r":
+		m.State, m.Status = StateOperationPending, "refreshing bisect state"
+		return m.loadBisectState()
+	}
+	return nil
 }
 
 func snapshotContainsPath(entries []repo.Entry, path string) bool {
@@ -1985,6 +2037,68 @@ func (m *Model) loadReflog(appendPage bool) tea.Cmd {
 	return func() tea.Msg {
 		entries, err := reflog.Load(m.commandContext(), runner, reflog.Request{Ref: ref, Skip: skip})
 		return ReflogReadyMsg{Entries: entries, Generation: generation, Skip: skip, HasMore: len(entries) == reflog.DefaultLimit, Err: err}
+	}
+}
+
+func (m *Model) loadBisectState() tea.Cmd {
+	if m.Discovery.Root == "" || m.BisectLoading {
+		return nil
+	}
+	m.BisectLoading = true
+	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		state, err := bisect.Load(m.commandContext(), runner, m.Discovery.Root, generation)
+		return BisectReadyMsg{Repository: generation, State: state, Err: err}
+	}
+}
+
+func (m *Model) openBisectWorkspace() tea.Cmd {
+	if m.Workspace == nil {
+		m.Workspace = workspace.New()
+	}
+	m.Workspace.Navigate(workspace.Bisect, "Bisect")
+	return m.loadBisectState()
+}
+
+func (m Model) bisectAction(action bisect.Mark) tea.Cmd {
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	id := fmt.Sprintf("bisect-%s-%d", action, generation)
+	var outcome bisect.Outcome
+	command := m.OperationEngine.Command(ctx, id, m.Discovery.Root, "bisect "+string(action), 5*time.Minute, func(ctx context.Context) error {
+		outcome = bisect.MarkCandidate(ctx, runner, bisect.Request{Repository: m.Discovery.Root, Generation: generation, Mark: action})
+		return outcome.Err
+	})
+	return func() tea.Msg {
+		result := command()
+		if outcome.Err == nil {
+			outcome.Err = result.Result.Err
+		}
+		return BisectFinishedMsg{Repository: generation, Action: string(action), Outcome: outcome}
+	}
+}
+
+func (m Model) bisectReset() tea.Cmd {
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	var outcome bisect.Outcome
+	command := m.OperationEngine.Command(ctx, fmt.Sprintf("bisect-reset-%d", generation), m.Discovery.Root, "bisect reset", 5*time.Minute, func(ctx context.Context) error {
+		outcome = bisect.Reset(ctx, runner, bisect.Request{Repository: m.Discovery.Root, Generation: generation})
+		return outcome.Err
+	})
+	return func() tea.Msg {
+		result := command()
+		if outcome.Err == nil {
+			outcome.Err = result.Result.Err
+		}
+		return BisectFinishedMsg{Repository: generation, Action: "reset", Outcome: outcome}
 	}
 }
 
@@ -3517,6 +3631,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Rebase {
 			return m, m.updateRebaseKey(v.String())
 		}
+		if m.currentView() == workspace.Bisect {
+			return m, m.updateBisectKey(v.String())
+		}
 		if m.recoveryWorkspace() {
 			return m, m.updateConflictKey(v.String())
 		}
@@ -4339,6 +4456,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				view, label := workspace.Conflict, "Conflicts"
 				if m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindCherryPick {
 					view, label = workspace.CherryPick, "Cherry-pick progress"
+				} else if m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindBisect {
+					return m, m.openBisectWorkspace()
 				}
 				m.Workspace.Navigate(view, label)
 				if len(m.Snapshot.Conflicts) > 0 {
@@ -5171,6 +5290,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.ReflogSkip = v.Skip + len(v.Entries)
 			m.State = StateReady
 		}
+	case BisectReadyMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		m.BisectLoading = false
+		if v.Err != nil {
+			m.State, m.Status = StateError, "bisect: "+v.Err.Error()
+		} else {
+			m.Bisect, m.State, m.Status = v.State, StateReady, ""
+		}
+	case BisectFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Outcome.Snapshot.Root != "" {
+			m.applySnapshot(v.Outcome.Snapshot)
+		}
+		m.Bisect = v.Outcome.State
+		if v.Outcome.Err != nil {
+			m.State, m.Status = StateError, "bisect "+v.Action+": "+v.Outcome.Err.Error()
+		} else {
+			m.State, m.Status = StateReady, "bisect "+v.Action+" complete"
+			if v.Action == "reset" {
+				m.Workspace.Back()
+			}
+		}
+		return m, m.refresh()
 	case StashPreviewReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -5731,6 +5877,8 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	case workspace.Journal:
 		title, content = "gitwatch · operation journal", m.operationJournalView()
+	case workspace.Bisect:
+		title, content = "gitwatch · bisect", m.bisectWorkspaceView()
 	case workspace.Commit:
 		title, content = "gitwatch · commit", m.Composer.View()
 	case workspace.Remotes:
@@ -5787,6 +5935,12 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [u] undo  [R] redo  [J] newest  [1] status  [esc] back  [q] quit"
 		if m.UndoConfirm || m.RedoConfirm {
 			lines[len(lines)-1] = "confirm: [y] yes  [n] no  [esc] cancel"
+		}
+	}
+	if view == workspace.Bisect {
+		lines[len(lines)-1] = "[g] good  [b] bad  [s] skip  [x] reset  [r] refresh  [1] status  [esc] back  [q] quit"
+		if m.BisectResetConfirm {
+			lines[len(lines)-1] = "confirm reset: [y] yes  [n] no  [esc] cancel"
 		}
 	}
 	if view == workspace.Branches {

@@ -25,6 +25,7 @@ const (
 	Gitignore    View = "gitignore"
 	Reflog       View = "reflog"
 	Journal      View = "journal"
+	Bisect       View = "bisect"
 )
 
 type Breadcrumb struct {

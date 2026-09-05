@@ -734,6 +734,31 @@ func (m Model) operationJournalView() string {
 	return strings.Join(lines, "\n")
 }
 
+func (m Model) bisectWorkspaceView() string {
+	state := m.Bisect
+	lines := []string{
+		"repository: " + platform.SafeText(state.Repository),
+		"status: " + map[bool]string{true: "active", false: "inactive"}[state.Active],
+		"known good: " + platform.SafeText(state.Good),
+		"known bad:  " + platform.SafeText(state.Bad),
+		"candidate:  " + platform.SafeText(state.Candidate),
+		"",
+		"bisect log:",
+	}
+	if len(state.Log) == 0 {
+		lines = append(lines, "  (no bisect log entries)")
+	} else {
+		start := max(0, len(state.Log)-8)
+		for _, entry := range state.Log[start:] {
+			lines = append(lines, "  "+platform.SafeText(entry))
+		}
+	}
+	if m.BisectResetConfirm {
+		lines = append(lines, "", "CONFIRM: reset bisect? (y/n)")
+	}
+	return strings.Join(lines, "\n")
+}
+
 func joinStatusColumns(left, right []string, leftWidth, rightWidth, height int) []string {
 	joined := make([]string, height)
 	for index := range joined {
