@@ -90,6 +90,10 @@ type SubmodulesReadyMsg struct {
 	Snapshot   submodules.Snapshot
 	Err        error
 }
+type SubmoduleFinishedMsg struct {
+	Generation uint64
+	Outcome    submodules.Outcome
+}
 type RefreshStartedMsg struct{}
 type RefreshFinishedMsg struct{ Err error }
 type WatcherStateMsg struct {
@@ -384,6 +388,10 @@ type Model struct {
 	SubmodulesLoading        bool
 	SubmodulesGeneration     uint64
 	SubmodulesErr            error
+	SubmoduleAction          string
+	SubmodulePath            string
+	SubmoduleInput           string
+	SubmoduleURL             string
 	Discovery                git.Discovery
 	Files                    table.Model
 	FileFilterMode           bool
@@ -1023,6 +1031,7 @@ func (m *Model) setRepository(discovery git.Discovery) error {
 	}
 	m.Discovery = discovery
 	m.Submodules, m.SubmodulesLoading, m.SubmodulesGeneration, m.SubmodulesErr = submodules.Snapshot{}, false, 0, nil
+	m.SubmoduleAction, m.SubmodulePath, m.SubmoduleInput, m.SubmoduleURL = "", "", "", ""
 	m.LowerPane = ""
 	m.CommitTreeLines, m.CommitTreeHead, m.CommitTreeOffset, m.CommitTreeErr = nil, "", 0, nil
 	m.UnpushedLines, m.UnpushedHead, m.UnpushedUpstream, m.UnpushedOffset, m.UnpushedCount, m.UnpushedErr = nil, "", "", 0, 0, nil
@@ -3319,6 +3328,131 @@ func removeLastRune(value string) string {
 	return string(runes[:len(runes)-1])
 }
 
+func (m *Model) selectedSubmodulePath() string {
+	path := string(m.Files.SelectedPath())
+	for _, module := range m.Submodules.Modules {
+		if module.Path == path {
+			return module.Path
+		}
+	}
+	return ""
+}
+
+func (m *Model) beginSubmoduleActions() {
+	path := m.selectedSubmodulePath()
+	if path == "" {
+		m.Status = "select a configured submodule first"
+		return
+	}
+	m.SubmoduleAction, m.SubmodulePath = "menu", path
+	m.Status = "submodule " + platform.SafeText(path) + ": [i] init [u] update [s] sync [d] deinit [x] remove [a] URL [esc] cancel"
+}
+
+func (m *Model) updateSubmoduleKey(key string) tea.Cmd {
+	if m.SubmoduleAction == "add-url" {
+		switch key {
+		case "esc":
+			m.SubmoduleAction, m.SubmodulePath, m.SubmoduleInput = "", "", ""
+			m.Status = "submodule add cancelled"
+		case "backspace":
+			m.SubmoduleInput = removeLastRune(m.SubmoduleInput)
+		case "enter":
+			if strings.TrimSpace(m.SubmoduleInput) == "" {
+				m.Status = "submodule URL is required"
+			} else {
+				m.SubmoduleURL, m.SubmoduleAction = m.SubmoduleInput, "confirm-add"
+				m.Status = "confirm add submodule " + platform.SafeText(m.SubmodulePath) + " from " + platform.SafeText(submodules.RedactURL(m.SubmoduleURL)) + "? (y/n)"
+			}
+		case "space", " ":
+			m.SubmoduleInput += " "
+		default:
+			if len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00") {
+				m.SubmoduleInput += key
+			}
+		}
+		if m.SubmoduleAction == "add-url" {
+			m.Status = "submodule URL: " + platform.SafeText(submodules.RedactURL(m.SubmoduleInput))
+		}
+		return nil
+	}
+	if strings.HasPrefix(m.SubmoduleAction, "confirm-") {
+		switch key {
+		case "y", "Y":
+			m.SubmoduleAction = strings.TrimPrefix(m.SubmoduleAction, "confirm-")
+			m.State, m.Status = StateOperationPending, "running submodule "+m.SubmoduleAction
+			return m.runSubmoduleOperation()
+		case "n", "N", "esc":
+			m.SubmoduleAction, m.SubmodulePath, m.SubmoduleInput, m.SubmoduleURL = "", "", "", ""
+			m.Status = "submodule operation cancelled"
+		}
+		return nil
+	}
+	if m.SubmoduleAction != "menu" {
+		return nil
+	}
+	switch key {
+	case "esc":
+		m.SubmoduleAction, m.SubmodulePath = "", ""
+		m.Status = "submodule actions cancelled"
+	case "i":
+		m.SubmoduleAction, m.State, m.Status = "initialize", StateOperationPending, "initializing submodule"
+		return m.runSubmoduleOperation()
+	case "u":
+		m.SubmoduleAction, m.State, m.Status = "update", StateOperationPending, "updating submodule"
+		return m.runSubmoduleOperation()
+	case "s":
+		m.SubmoduleAction, m.State, m.Status = "sync", StateOperationPending, "syncing submodule"
+		return m.runSubmoduleOperation()
+	case "d":
+		m.SubmoduleAction = "confirm-deinit"
+		m.Status = "confirm deinit of exact submodule path " + platform.SafeText(m.SubmodulePath) + "? (y/n)"
+	case "x":
+		m.SubmoduleAction = "confirm-remove"
+		m.Status = "confirm remove exact submodule path " + platform.SafeText(m.SubmodulePath) + "? (y/n)"
+	case "a":
+		m.SubmoduleAction, m.SubmoduleInput = "add-url", ""
+		m.Status = "submodule URL: "
+	}
+	return nil
+}
+
+func (m Model) runSubmoduleOperation() tea.Cmd {
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	action, path, rawURL := m.SubmoduleAction, m.SubmodulePath, m.SubmoduleURL
+	request := submodules.Request{Repository: m.Discovery.Root, Path: path}
+	var outcome submodules.Outcome
+	command := m.OperationEngine.Command(ctx, fmt.Sprintf("submodule-%s-%d", action, generation), m.Discovery.Root, "submodule "+action, 10*time.Minute, func(ctx context.Context) error {
+		switch action {
+		case "initialize":
+			outcome = submodules.Initialize(ctx, runner, request)
+		case "update":
+			outcome = submodules.Update(ctx, runner, request)
+		case "sync":
+			outcome = submodules.Sync(ctx, runner, request)
+		case "deinit":
+			outcome = submodules.Deinit(ctx, runner, submodules.RemoveRequest{Request: request, ConfirmedPath: path})
+		case "remove":
+			outcome = submodules.Remove(ctx, runner, submodules.RemoveRequest{Request: request, ConfirmedPath: path})
+		case "add":
+			outcome = submodules.Add(ctx, runner, submodules.AddRequest{Repository: m.Discovery.Root, Path: path, URL: rawURL})
+		default:
+			outcome.Err = fmt.Errorf("unknown submodule action %q", action)
+		}
+		return outcome.Err
+	})
+	return func() tea.Msg {
+		result := command()
+		if outcome.Err == nil {
+			outcome.Err = result.Result.Err
+		}
+		return SubmoduleFinishedMsg{Generation: generation, Outcome: outcome}
+	}
+}
+
 func shortSHA(value string) string {
 	if len(value) > 12 {
 		return value[:12]
@@ -3838,6 +3972,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.currentView() == workspace.Bisect {
 			return m, m.updateBisectKey(v.String())
+		}
+		if m.currentView() == workspace.Status && m.SubmoduleAction != "" {
+			return m, m.updateSubmoduleKey(v.String())
 		}
 		if m.recoveryWorkspace() {
 			return m, m.updateConflictKey(v.String())
@@ -4605,7 +4742,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.openGitignore()
 			}
 		case "M":
-			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+			if m.currentView() == workspace.Status {
+				m.beginSubmoduleActions()
+			} else if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
 				branch := m.Branches.Entries[m.Branches.Selected]
 				if branch.Current {
 					m.Status = "cannot merge the current branch into itself"
@@ -5121,6 +5260,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Submodules = v.Snapshot
 		}
 		return m, nil
+	case SubmoduleFinishedMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.SubmoduleAction, m.SubmodulePath, m.SubmoduleInput, m.SubmoduleURL = "", "", "", ""
+		if v.Outcome.Err != nil {
+			m.State, m.Status = StateError, "submodule "+v.Outcome.Action+": "+v.Outcome.Err.Error()
+			return m, nil
+		}
+		m.State, m.Status = StateReady, "submodule "+v.Outcome.Action+" complete"
+		return m, m.refresh()
 	case GitignoreReadyMsg:
 		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
 			return m, nil

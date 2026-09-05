@@ -303,6 +303,30 @@ func TestSubmoduleHealthLoadsOutsideAuthoritativeSnapshotAndRendersSummary(t *te
 	}
 }
 
+func TestSubmoduleLifecycleMenuRequiresExactRemovalConfirmation(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	m.repositoryGeneration = 1
+	m.Submodules = submodules.Snapshot{Modules: []submodules.Module{{Path: "nested path", State: submodules.StateUninitialized}}}
+	m.Files.SetEntries([]repo.Entry{{Path: repo.Path("nested path"), ModeWork: "160000", Submodule: "-.."}})
+	m.Workspace.Navigate(workspace.Status, "Status")
+	updated, _ := m.Update(key("M"))
+	m = updated.(Model)
+	if m.SubmoduleAction != "menu" || m.SubmodulePath != "nested path" {
+		t.Fatalf("submodule menu = action=%q path=%q", m.SubmoduleAction, m.SubmodulePath)
+	}
+	updated, _ = m.Update(key("x"))
+	m = updated.(Model)
+	if m.SubmoduleAction != "confirm-remove" || !strings.Contains(m.Status, "nested path") {
+		t.Fatalf("remove confirmation = action=%q status=%q", m.SubmoduleAction, m.Status)
+	}
+	updated, cmd := m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || m.SubmoduleAction != "remove" {
+		t.Fatalf("remove dispatch = cmdnil=%v state=%v action=%q", cmd == nil, m.State, m.SubmoduleAction)
+	}
+}
+
 func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 	m := New()
 	m.Discovery.Root = t.TempDir()

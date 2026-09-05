@@ -66,6 +66,11 @@ Match practical submodule lifecycle features with explicit deletion and URL-chan
 - Deinit and remove require an exact repeated path confirmation. Path and URL
   validation rejects control characters, and URL-bearing command results,
   output, and errors redact credentials before retention.
+- Added status-workspace `[M]` routing for initialize, update, sync, exact-path
+  deinit/remove confirmation, and URL entry for add. Operations run through
+  the bounded operation engine and successful completion requests an
+  authoritative refresh.
 - Focused tests cover unsafe paths, confirmation mismatch, control-character
-  rejection, and URL-result sanitization. UI routing, real lifecycle
-  integration, failure isolation, and native/manual evidence remain pending.
+  rejection, URL-result sanitization, and the status confirmation/dispatch
+  path. Real lifecycle integration, failure isolation, and native/manual
+  evidence remain pending.

@@ -181,6 +181,9 @@ func (m Model) statusView() string {
 	}
 	lines = append(lines, fitSafeDisplay(notice, width))
 	footer := "[j/k] move  [space] stage  [a/U] all  [enter/d] diff  [/] filter  [S] sort  [R] restore  [T/P/B] context panes  [?] help  [q] quit"
+	if len(m.Submodules.Modules) > 0 {
+		footer = "[M] submodule actions  " + footer
+	}
 	if m.OperationEngine != nil {
 		active := 0
 		for _, operation := range m.OperationEngine.Snapshot() {
