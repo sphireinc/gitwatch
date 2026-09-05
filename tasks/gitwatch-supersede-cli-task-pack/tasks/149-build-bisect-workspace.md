@@ -64,5 +64,7 @@ Make manual bisect visually obvious while live worktree status remains available
 - Starting a new bisect from explicit history refs, candidate inspection/diff,
   mouse parity, and native/manual 80x24/NO_COLOR evidence remain outstanding.
 - The workspace-control slice is committed at `01fef5e`; the full `make check`
-  gate passed at that revision. Task 149 remains active until the remaining
-  start/inspection/parity and terminal acceptance work is complete.
+  gate passed at that revision. Explicit workspace start support is committed
+  at `c7b7527`; the full `make check` gate passed there as well. Task 149
+  remains active until inspection/parity and terminal acceptance work is
+  complete.
