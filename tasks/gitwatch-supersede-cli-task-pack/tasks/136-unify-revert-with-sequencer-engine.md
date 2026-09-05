@@ -85,3 +85,7 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 - App coverage verifies valid merge-parent selection before exact confirmation.
   This task remains active: the unified coordinator, broader integration
   coverage, and native acceptance evidence remain outstanding.
+- Revert completion now returns a typed `RevertFinishedMsg` with the
+  authoritative post-command snapshot and semantic operation metadata, applies
+  paused conflict state through the shared resolver, and records success or
+  failure in the operation journal before refreshing history/status.

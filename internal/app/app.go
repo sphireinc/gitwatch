@@ -239,6 +239,14 @@ type HistoryActionFinishedMsg struct {
 	Repository     uint64
 	Err            error
 }
+type RevertFinishedMsg struct {
+	Repository uint64
+	Result     git.Result
+	Snapshot   *repo.Snapshot
+	Operation  *history.OperationRecord
+	Paused     bool
+	Err        error
+}
 type CommitFinishedMsg struct {
 	SHA        string
 	HookOutput string
@@ -2184,21 +2192,38 @@ func (m Model) revertSelectedHistory() tea.Cmd {
 	target, input, ctx, generation := m.HistoryRevertTarget, m.HistoryRevertInput, m.commandContext(), m.repositoryGeneration
 	commits := append([]string(nil), m.HistoryRevertCommits...)
 	mainline := m.HistoryRevertParent
+	var revertResult git.Result
 	if m.OperationEngine == nil {
 		m.OperationEngine = operations.New(4)
 	}
 	operationID := fmt.Sprintf("revert-%d-%s", generation, target)
 	command := m.OperationEngine.Command(ctx, operationID, m.Discovery.Root, "revert "+target, 5*time.Minute, func(ctx context.Context) error {
 		if len(commits) > 0 {
-			_, err := history.RevertSelection(ctx, runner, confirmation, input, history.RevertPlan{Commits: commits, Mainline: mainline})
+			result, err := history.RevertSelection(ctx, runner, confirmation, input, history.RevertPlan{Commits: commits, Mainline: mainline})
+			revertResult = result
 			return err
 		}
-		_, err := history.Revert(ctx, runner, confirmation, input)
+		result, err := history.Revert(ctx, runner, confirmation, input)
+		revertResult = result
 		return err
 	})
 	return func() tea.Msg {
+		started := time.Now()
 		result := command()
-		return HistoryActionFinishedMsg{Action: "reverted", Target: target, Repository: generation, Err: result.Result.Err}
+		var snapshot *repo.Snapshot
+		if current, snapshotErr := git.Snapshot(ctx, m.Discovery, generation); snapshotErr == nil {
+			snapshot = &current
+		}
+		operation := &history.OperationRecord{
+			Repository: m.Discovery.Root, Kind: "revert", Args: history.RedactArgs(revertResult.Args),
+			Target: target, OldHead: m.Snapshot.Branch.OID, Refs: []string{m.Snapshot.Branch.Name}, Duration: time.Since(started),
+		}
+		if head, headErr := runner.Run(ctx, "rev-parse", "HEAD"); headErr == nil {
+			operation.NewHead = strings.TrimSpace(string(head.Stdout))
+		}
+		attachLatestRecoveryPoint(ctx, runner, operation)
+		paused := snapshot != nil && snapshot.Operation != nil && snapshot.Operation.Kind() == sequencer.KindRevert
+		return RevertFinishedMsg{Repository: generation, Result: revertResult, Snapshot: snapshot, Operation: operation, Paused: paused, Err: result.Result.Err}
 	}
 }
 
@@ -5370,6 +5395,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivity(history.OperationSuccess, v.Target, m.Status)
 		}
 		return m, m.refresh()
+	case RevertFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Snapshot != nil {
+			m.applySnapshot(*v.Snapshot)
+		}
+		if v.Paused {
+			m.State, m.Status = StateReady, "revert paused for conflict recovery"
+			m.Workspace.Navigate(workspace.Conflict, "Revert recovery")
+			m.recordActivityWithOperation(history.OperationFailure, "revert", m.Status, v.Operation)
+			if len(m.Snapshot.Conflicts) > 0 {
+				return m, m.loadConflictContent()
+			}
+			return m, m.refresh()
+		}
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Err.Error()
+			m.recordActivityWithOperation(history.OperationFailure, "revert", v.Err.Error(), v.Operation)
+		} else {
+			m.State, m.Status = StateReady, "revert complete"
+			m.Workspace.Back()
+			m.recordActivityWithOperation(history.OperationSuccess, "revert", m.Status, v.Operation)
+		}
+		return m, tea.Batch(m.refresh(), m.loadHistory())
 	case RemotesReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
