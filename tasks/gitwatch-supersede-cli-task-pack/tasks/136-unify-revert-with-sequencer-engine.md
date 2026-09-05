@@ -70,6 +70,9 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   `sequencer.RevertDetails`.
 - Focused tests cover request validation and a real repository multi-commit
   revert with exact argv/order verification.
+- A real conflicted-revert detector test now verifies the shared sequencer
+  projection exposes the selected SHA and remaining count, not just the
+  operation kind.
 - History basket reverts now build an exact-confirmation ordered plan and pass
   selected SHAs to the typed adapter in basket application order. A single
   merge commit opens a bounded explicit mainline-parent prompt before exact

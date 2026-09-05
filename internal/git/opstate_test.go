@@ -112,6 +112,26 @@ func TestDetectOperationStateReportsCherryPickProgress(t *testing.T) {
 	}
 }
 
+func TestDetectOperationStateReportsRevertProgress(t *testing.T) {
+	runner, discovery := operationFixture(t)
+	commitFile(t, runner, discovery.Root, "first\n", "first")
+	first := rev(t, runner, "HEAD")
+	commitFile(t, runner, discovery.Root, "second\n", "second")
+	if _, err := runner.Run(context.Background(), "revert", "--no-edit", first); err == nil {
+		t.Fatal("revert unexpectedly completed")
+	}
+	defer func() { _, _ = runner.Run(context.Background(), "revert", "--abort") }()
+
+	got, err := DetectOperationState(context.Background(), discovery, 54)
+	if err != nil {
+		t.Fatal(err)
+	}
+	details := got.State.Details().Revert
+	if !got.Found || got.State.Kind() != sequencer.KindRevert || details == nil || len(details.Commits) != 1 || details.Commits[0] != first || got.State.Remaining() != 1 {
+		t.Fatalf("revert progress = found=%v kind=%s details=%#v remaining=%d", got.Found, got.State.Kind(), details, got.State.Remaining())
+	}
+}
+
 func TestDetectOperationStateBisect(t *testing.T) {
 	runner, discovery := operationFixture(t)
 	commitFile(t, runner, discovery.Root, "one\n", "one")
