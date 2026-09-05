@@ -67,6 +67,8 @@ Upgrade the existing bounded operation completion history into a user-facing rec
   newest-first with `j/k` navigation and `J` reset-to-newest behavior. The
   workspace is repository-scoped through the active model and sanitizes all
   rendered journal text.
+- The real cherry-pick selection path now feeds the same semantic record,
+  including its initial selected SHA argv and authoritative post-command HEAD.
 - A dedicated initial cherry-pick start-record fixture and broader operation
   coverage beyond the integrated commit/rebase/merge/remote paths are now
   covered by the real app cherry-pick selection test and typed engine path.

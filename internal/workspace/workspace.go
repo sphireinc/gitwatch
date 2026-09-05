@@ -21,6 +21,7 @@ const (
 	Worktrees    View = "worktrees"
 	Rebase       View = "rebase"
 	Conflict     View = "conflict"
+	CherryPick   View = "cherry-pick"
 	Gitignore    View = "gitignore"
 	Reflog       View = "reflog"
 	Journal      View = "journal"

@@ -687,7 +687,7 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 	case "rebase":
 		return m.openRebaseWorkspace()
 	case "cherry_pick_recovery":
-		m.Workspace.Navigate(workspace.Conflict, "Cherry-pick progress")
+		m.Workspace.Navigate(workspace.CherryPick, "Cherry-pick progress")
 		if len(m.Snapshot.Conflicts) > 0 {
 			return m.loadConflictContent()
 		}
@@ -997,7 +997,7 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 		previousOperationKind = m.Snapshot.Operation.Kind()
 	}
 	previousConflicted := m.Snapshot.Counts.Conflicted
-	wasConflictView := m.currentView() == workspace.Conflict
+	wasConflictView := m.recoveryWorkspace()
 	if m.ActivityLog != nil && !m.Snapshot.ObservedAt.IsZero() {
 		for _, event := range history.Diff(m.Snapshot, snapshot) {
 			m.ActivityLog.Add(event)
@@ -3320,6 +3320,11 @@ func (m Model) currentView() workspace.View {
 	return view
 }
 
+func (m Model) recoveryWorkspace() bool {
+	view := m.currentView()
+	return view == workspace.Conflict || view == workspace.CherryPick
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch v := msg.(type) {
 	case tea.KeyPressMsg:
@@ -3344,7 +3349,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Rebase {
 			return m, m.updateRebaseKey(v.String())
 		}
-		if m.currentView() == workspace.Conflict {
+		if m.recoveryWorkspace() {
 			return m, m.updateConflictKey(v.String())
 		}
 		if m.currentView() == workspace.Gitignore {
@@ -4233,6 +4238,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Rebase.Move(1)
 			case workspace.Conflict:
 				m.Conflict.Move(1)
+			case workspace.CherryPick:
+				m.Conflict.Move(1)
 			case workspace.Plugins:
 				m.Plugins.Move(1)
 			default:
@@ -4273,6 +4280,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case workspace.Rebase:
 				m.Rebase.Move(-1)
 			case workspace.Conflict:
+				m.Conflict.Move(-1)
+			case workspace.CherryPick:
 				m.Conflict.Move(-1)
 			case workspace.Plugins:
 				m.Plugins.Move(-1)
@@ -4392,7 +4401,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
-			if m.currentView() == workspace.Conflict {
+			if m.recoveryWorkspace() {
 				action, index := m.Conflict.Click(v.X, v.Y-2, m.Width, m.Height-2)
 				if action == conflictview.MouseSelectConflict {
 					m.Conflict.Selected = index
@@ -4779,7 +4788,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Outcome.Paused {
 			m.State = StateReady
 			m.Status = "cherry-pick paused for conflict recovery"
-			m.Workspace.Navigate(workspace.Conflict, "Cherry-pick recovery")
+			m.Workspace.Navigate(workspace.CherryPick, "Cherry-pick recovery")
 			m.recordActivityWithOperation(history.OperationFailure, "cherry-pick", m.Status, v.Operation)
 			if len(m.Snapshot.Conflicts) > 0 {
 				return m, m.loadConflictContent()
@@ -5365,7 +5374,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Journal || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.Gitignore {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Journal || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.CherryPick || view == workspace.Gitignore {
 		return m.featureView(view)
 	}
 	if m.Modal == "help" {
@@ -5489,6 +5498,11 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.Status != "" {
 			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
 		}
+	case workspace.CherryPick:
+		title, content = "gitwatch · cherry-pick progress", m.Conflict.View(m.Width, m.Height-6)
+		if m.Status != "" {
+			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
+		}
 	case workspace.Gitignore:
 		title, content = "gitwatch · gitignore catalog", "catalog source: "+string(m.GitignoreCatalogSource)+"\n"+m.Gitignore.View()
 	}
@@ -5553,6 +5567,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Conflict {
 		lines[len(lines)-1] = "[j/k] conflict  [n/p] hunk  [o/t/b] choose  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back  [q] quit"
+	}
+	if view == workspace.CherryPick {
+		lines[len(lines)-1] = "[j/k] commit/conflict  [n/p] hunk  [o/t/b] choose  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back  [q] quit"
 	}
 	if m.Notifications != nil && m.Notifications.Attention() > 0 {
 		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())

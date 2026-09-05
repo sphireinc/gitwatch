@@ -247,7 +247,7 @@ func TestActiveCherryPickCanReopenProgressFromPalette(t *testing.T) {
 		t.Fatalf("palette missing cherry-pick recovery: %s", m.paletteView().Content)
 	}
 	cmd = m.executePaletteAction("cherry_pick_recovery")
-	if cmd != nil || m.currentView() != workspace.Conflict || m.Conflict.Operation != sequencer.KindCherryPick {
+	if cmd != nil || m.currentView() != workspace.CherryPick || m.Conflict.Operation != sequencer.KindCherryPick {
 		t.Fatalf("palette recovery route = view=%q operation=%s cmdnil=%v", m.currentView(), m.Conflict.Operation, cmd != nil)
 	}
 }
@@ -288,7 +288,7 @@ func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "feature"}, Operation: &state})
-	if cmd := m.executePaletteAction("cherry_pick_recovery"); cmd != nil || m.currentView() != workspace.Conflict {
+	if cmd := m.executePaletteAction("cherry_pick_recovery"); cmd != nil || m.currentView() != workspace.CherryPick {
 		t.Fatalf("initial progress route = view=%q cmdnil=%v", m.currentView(), cmd != nil)
 	}
 	updated, cmd := m.Update(key("1"))
@@ -296,7 +296,7 @@ func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 	if cmd != nil || m.currentView() != workspace.Status {
 		t.Fatalf("status navigation = view=%q cmdnil=%v", m.currentView(), cmd != nil)
 	}
-	if cmd := m.executePaletteAction("cherry_pick_recovery"); cmd != nil || m.currentView() != workspace.Conflict {
+	if cmd := m.executePaletteAction("cherry_pick_recovery"); cmd != nil || m.currentView() != workspace.CherryPick {
 		t.Fatalf("progress reopen = view=%q cmdnil=%v", m.currentView(), cmd != nil)
 	}
 }

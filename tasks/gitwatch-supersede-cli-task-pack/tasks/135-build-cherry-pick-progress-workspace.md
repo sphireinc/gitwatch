@@ -76,3 +76,6 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
   workspace/navigation and native/manual acceptance remain outstanding.
 - The cherry-pick start/journal slice was validated at revision `806d632`
   through the full `make check` gate.
+- Added a dedicated `workspace.CherryPick` route backed by the same
+  repository-scoped conflict/progress model, with palette reopen, status
+  navigation, and lifecycle input preserved while leaving and returning.
