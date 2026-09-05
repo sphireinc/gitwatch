@@ -74,7 +74,7 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
   real feature commit selected from history, cherry-picks it onto `main`, and
   verifies the resulting file and semantic journal record. Standalone
   workspace/navigation and native/manual acceptance remain outstanding.
-- The cherry-pick start/journal slice was validated at revision `bfb6207`
+- The cherry-pick start/journal slice was validated at revision `56e1173`
   through the full `make check` gate.
 - Added a dedicated `workspace.CherryPick` route backed by the same
   repository-scoped conflict/progress model, with palette reopen, status
