@@ -185,6 +185,11 @@ type ReflogReadyMsg struct {
 	HasMore    bool
 	Err        error
 }
+type ReflogCompareReadyMsg struct {
+	Text       string
+	Generation uint64
+	Err        error
+}
 type HistoryReadyMsg struct {
 	Commits []history.Commit
 	Skip    int
@@ -413,6 +418,8 @@ type Model struct {
 	Reflog                   reflogview.Model
 	ReflogSkip               int
 	ReflogLoading            bool
+	ReflogCompare            string
+	ReflogCompareLoading     bool
 	History                  historyview.Model
 	Rebase                   rebaseview.Model
 	Conflict                 conflictview.Model
@@ -1996,6 +2003,20 @@ func (m Model) inspectSelectedReflog() tea.Cmd {
 		short = short[:12]
 	}
 	return m.inspectCommit(history.Commit{SHA: entry.SHA, Short: short, Author: entry.Actor, Subject: entry.Subject, Unix: entry.Timestamp}, "", "")
+}
+
+func (m *Model) compareSelectedReflog() tea.Cmd {
+	entry, ok := m.Reflog.SelectedEntry()
+	if !ok {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	m.ReflogCompare, m.ReflogCompareLoading = "", true
+	return func() tea.Msg {
+		inspector, err := history.InspectPath(ctx, runner, entry.SHA, "HEAD", "")
+		return ReflogCompareReadyMsg{Text: inspector.Diff, Generation: generation, Err: err}
+	}
 }
 
 func (m Model) inspectCommit(commit history.Commit, parent, path string) tea.Cmd {
@@ -3716,7 +3737,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.currentView() == workspace.Reflog {
 				if entry, ok := m.Reflog.SelectedEntry(); ok {
 					m.HistoryActionTarget, m.HistoryActionConfirm = entry.SHA, true
-					m.Status = "checkout recovery point " + entry.SHA + "? (y/n)"
+					m.Status = "checkout recovery point " + entry.SHA + " (detached HEAD)? (y/n)"
 				}
 			}
 		case "ctrl+n":
@@ -4061,6 +4082,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.mutate()
 		case "d":
+			if m.currentView() == workspace.Reflog {
+				m.State, m.Status = StateOperationPending, "comparing recovery point to HEAD"
+				return m, m.compareSelectedReflog()
+			}
 			return m, m.openDiff()
 		case "H":
 			if m.DiffText != "" {
@@ -4784,6 +4809,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.HistoryInspector, m.State, m.Status = v.Inspector, StateReady, ""
 		}
+	case ReflogCompareReadyMsg:
+		if v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.ReflogCompareLoading = false
+		if v.Err != nil {
+			m.State, m.Status = StateError, "reflog compare: "+v.Err.Error()
+		} else {
+			m.ReflogCompare, m.State, m.Status = v.Text, StateReady, "recovery point compared to HEAD"
+		}
 	case HistoryRefReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -5121,6 +5156,11 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 		if m.HistoryBranchCreating {
 			content += "\n\nBranch name: " + m.HistoryBranchName + "\n" + m.Status
+		}
+		if m.ReflogCompareLoading {
+			content += "\n\n" + platform.SafeText(m.Status)
+		} else if m.ReflogCompare != "" {
+			content += "\n\nCompare to HEAD:\n" + platform.SafeText(m.ReflogCompare)
 		}
 		if m.ReflogLoading {
 			content += "\n\n" + platform.SafeText(m.Status)

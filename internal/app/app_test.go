@@ -622,6 +622,15 @@ func TestReflogRecoveryPointActionsUseExistingSafeFlows(t *testing.T) {
 	if !m.HistoryBranchCreating || m.HistoryBranchTarget != "abcdef1234567890" {
 		t.Fatalf("reflog branch flow = creating=%v target=%q", m.HistoryBranchCreating, m.HistoryBranchTarget)
 	}
+	m = New()
+	m.Discovery.Root = t.TempDir()
+	m.Workspace.Navigate(workspace.Reflog, "Reflog")
+	m.Reflog.SetPage([]reflog.Entry{{SHA: "abcdef1234567890"}}, false)
+	updated, cmd = m.Update(key("d"))
+	m = updated.(Model)
+	if cmd == nil || !m.ReflogCompareLoading || !strings.Contains(m.Status, "comparing") {
+		t.Fatalf("reflog compare flow = cmdnil=%v loading=%v status=%q", cmd == nil, m.ReflogCompareLoading, m.Status)
+	}
 }
 
 func TestOperationNotificationsAndToast(t *testing.T) {

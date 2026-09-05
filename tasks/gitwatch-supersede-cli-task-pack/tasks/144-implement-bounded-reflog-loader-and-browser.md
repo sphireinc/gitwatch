@@ -67,3 +67,8 @@ Expose reflog as a recovery surface and foundation for semantic undo.
 - Selected recovery points now reuse the existing commit inspector, exact
   checkout confirmation, and explicit branch-at-commit name flow. App tests
   cover all three actions without adding a hard-reset shortcut.
+- The selected recovery point can now be compared to current `HEAD` through
+  the existing typed history inspection boundary; the checkout prompt calls
+  out that it enters detached `HEAD`. Focused app coverage verifies compare
+  scheduling. All code-level recovery-point requirements are now implemented;
+  native/manual validation remains outstanding.
