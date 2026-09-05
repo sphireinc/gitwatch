@@ -53,3 +53,18 @@ Treat submodules as nested repositories with explicit parent-child health instea
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added `internal/submodules` with bounded repository-scoped loading through
+  `git config -z -f .gitmodules`, `git submodule status --recursive`, and
+  `git ls-tree`; no shell command strings are accepted or constructed.
+- The domain preserves paths containing spaces, redacts URL credentials,
+  records configured/checked-out commits, bounds module count and nesting
+  depth, and represents clean, dirty, diverged, uninitialized, missing, and
+  detached states.
+- Unit coverage includes NUL/config parsing, URL redaction, path-safe status
+  parsing, depth bounds, and a real repository with an uninitialized gitlink.
+- Parent snapshot/dashboard integration, nested initialized/dirty/detached
+  acceptance, and native/manual evidence remain outstanding. This is an
+  uncommitted domain slice pending the next repository gate.
