@@ -75,3 +75,7 @@ Offer Undo only where gitwatch can prove a safe recovery point; refuse when repo
   multi-repository integration coverage plus native/manual terminal evidence
   remain outstanding. The task stays active until those acceptance gates are
   evidenced.
+- The focused implementation commit is `99495e9`; the full `make check` gate
+  passed at that revision after the stale-HEAD and repository-scope tests were
+  added. Native/manual terminal evidence remains the explicit outstanding
+  completion gate.
