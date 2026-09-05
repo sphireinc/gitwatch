@@ -71,6 +71,8 @@ import (
 
 type State uint8
 
+const maxRepositoryParentDepth = 8
+
 const (
 	StateLoading State = iota
 	StateReady
@@ -3351,6 +3353,10 @@ func (m *Model) selectedSubmodulePath() string {
 }
 
 func (m *Model) openSelectedSubmodule() tea.Cmd {
+	if len(m.repositoryParents) >= maxRepositoryParentDepth {
+		m.Status = "submodule navigation depth limit reached"
+		return nil
+	}
 	path := m.selectedSubmodulePath()
 	if path == "" {
 		return nil
@@ -5327,6 +5333,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.refresh()
 	case SubmoduleOpenedMsg:
 		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		if len(m.repositoryParents) >= maxRepositoryParentDepth {
+			m.State, m.Status = StateError, "submodule navigation depth limit reached"
 			return m, nil
 		}
 		if v.Err != nil {

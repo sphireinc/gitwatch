@@ -71,6 +71,6 @@ Treat submodules as nested repositories with explicit parent-child health instea
   command and summary rendering.
 - Real-repository coverage now exercises initialized, dirty, detached, and
   uninitialized gitlinks, including a path containing spaces. Native/manual
-  terminal evidence remains outstanding, and the per-module workspace and
-  navigation details are deferred to Task 153. This slice is uncommitted
-  pending the next repository gate.
+  terminal evidence remains outstanding. Per-module navigation is now covered
+  by Task 153's integration slice; this task remains active until its evidence
+  boundary is closed.

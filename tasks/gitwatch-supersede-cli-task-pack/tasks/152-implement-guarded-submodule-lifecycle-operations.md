@@ -72,5 +72,6 @@ Match practical submodule lifecycle features with explicit deletion and URL-chan
   authoritative refresh.
 - Focused tests cover unsafe paths, confirmation mismatch, control-character
   rejection, URL-result sanitization, and the status confirmation/dispatch
-  path. Real lifecycle integration, failure isolation, and native/manual
+  path. Real local-repository coverage now exercises add, initialize, sync,
+  deinit, and exact-path remove. Failed-operation isolation and native/manual
   evidence remain pending.

@@ -60,5 +60,7 @@ Make a submodule behave like a nested normal gitwatch repository while keeping s
   returns to the parent repository and cancels/replaces the child refresh
   generation safely. Missing and uninitialized modules remain non-enterable.
 - Focused app coverage verifies child navigation, breadcrumb labeling, and
-  parent return. Two-level runtime coverage, operation concurrency with a
-  parent refresh, and native/manual evidence remain pending.
+  parent return. Real two-level nested repository coverage now exercises Git
+  discovery, child initialization, navigation, and both parent returns.
+  Operation concurrency with a parent refresh and native/manual evidence
+  remain pending.

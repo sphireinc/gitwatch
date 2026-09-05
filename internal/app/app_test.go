@@ -350,6 +350,105 @@ func TestInitializedSubmoduleNavigationKeepsParentBreadcrumbAndReturns(t *testin
 	}
 }
 
+func TestTwoLevelSubmoduleNavigationUsesRealGitDiscoveryAndBoundedParentStack(t *testing.T) {
+	ctx := context.Background()
+	grandchild := t.TempDir()
+	initCommittedTestRepository(t, ctx, grandchild, "grandchild")
+	child := t.TempDir()
+	initCommittedTestRepository(t, ctx, child, "child")
+	childRunner := git.NewRunner(child)
+	childRunner.Env = []string{"GIT_ALLOW_PROTOCOL=file"}
+	gitMustRunAppTest(t, ctx, childRunner, "submodule", "add", "file://"+grandchild, "grand path")
+	gitMustRunAppTest(t, ctx, childRunner, "-c", "commit.gpgsign=false", "-c", "user.name=test", "-c", "user.email=test@example.test", "commit", "-m", "add-grandchild")
+	parent := t.TempDir()
+	initCommittedTestRepository(t, ctx, parent, "parent")
+	parentRunner := git.NewRunner(parent)
+	parentRunner.Env = []string{"GIT_ALLOW_PROTOCOL=file"}
+	gitMustRunAppTest(t, ctx, parentRunner, "submodule", "add", "file://"+child, "child path")
+	gitMustRunAppTest(t, ctx, parentRunner, "-c", "commit.gpgsign=false", "-c", "user.name=test", "-c", "user.email=test@example.test", "commit", "-m", "add-child")
+	childCheckout := filepath.Join(parent, "child path")
+	grandchildCheckout := filepath.Join(childCheckout, "grand path")
+	childCheckoutRunner := git.NewRunner(childCheckout)
+	childCheckoutRunner.Env = []string{"GIT_ALLOW_PROTOCOL=file"}
+	gitMustRunAppTest(t, ctx, childCheckoutRunner, "submodule", "update", "--init", "--", "grand path")
+	discovery, err := git.Discover(ctx, parent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepository(discovery)
+	parentSnapshot, err := submodules.Load(ctx, parentRunner, submodules.LoadRequest{Repository: parent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Submodules = parentSnapshot
+	m.Files.SetEntries([]repo.Entry{{Path: repo.Path("child path"), ModeWork: "160000", Submodule: "..."}})
+	updated, command := m.Update(key("enter"))
+	m = updated.(Model)
+	if command == nil {
+		t.Fatal("parent submodule open command was nil")
+	}
+	updated, _ = m.Update(command())
+	m = updated.(Model)
+	if !sameTestPath(m.Discovery.Root, childCheckout) || len(m.repositoryParents) != 1 {
+		t.Fatalf("child navigation = root=%q parents=%d", m.Discovery.Root, len(m.repositoryParents))
+	}
+	childSnapshot, err := submodules.Load(ctx, git.NewRunner(childCheckout), submodules.LoadRequest{Repository: childCheckout})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Submodules = childSnapshot
+	m.Files.SetEntries([]repo.Entry{{Path: repo.Path("grand path"), ModeWork: "160000", Submodule: "..."}})
+	updated, command = m.Update(key("enter"))
+	m = updated.(Model)
+	if command == nil {
+		t.Fatalf("grandchild submodule open command was nil: modules=%+v selected=%q status=%q", m.Submodules.Modules, m.Files.SelectedPath(), m.Status)
+	}
+	updated, _ = m.Update(command())
+	m = updated.(Model)
+	if !sameTestPath(m.Discovery.Root, grandchildCheckout) || len(m.repositoryParents) != 2 {
+		t.Fatalf("grandchild navigation = root=%q parents=%d", m.Discovery.Root, len(m.repositoryParents))
+	}
+	updated, command = m.Update(key("esc"))
+	m = updated.(Model)
+	if command == nil || !sameTestPath(m.Discovery.Root, childCheckout) || len(m.repositoryParents) != 1 {
+		t.Fatalf("child return = cmdnil=%v root=%q parents=%d", command == nil, m.Discovery.Root, len(m.repositoryParents))
+	}
+	updated, command = m.Update(key("esc"))
+	m = updated.(Model)
+	if command == nil || !sameTestPath(m.Discovery.Root, parent) || len(m.repositoryParents) != 0 {
+		t.Fatalf("parent return = cmdnil=%v root=%q parents=%d", command == nil, m.Discovery.Root, len(m.repositoryParents))
+	}
+}
+
+func initCommittedTestRepository(t *testing.T, ctx context.Context, root, name string) {
+	t.Helper()
+	runner := git.NewRunner(root)
+	for _, args := range [][]string{{"init", "-b", "main", "--", root}, {"config", "user.name", "test"}, {"config", "user.email", "test@example.test"}, {"config", "commit.gpgsign", "false"}} {
+		gitMustRunAppTest(t, ctx, runner, args...)
+	}
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte(name+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", name)
+}
+
+func gitMustRunAppTest(t *testing.T, ctx context.Context, runner git.Runner, args ...string) {
+	t.Helper()
+	if _, err := runner.Run(ctx, args...); err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+}
+
+func sameTestPath(left, right string) bool {
+	leftResolved, leftErr := filepath.EvalSymlinks(left)
+	rightResolved, rightErr := filepath.EvalSymlinks(right)
+	if leftErr != nil || rightErr != nil {
+		return filepath.Clean(left) == filepath.Clean(right)
+	}
+	return filepath.Clean(leftResolved) == filepath.Clean(rightResolved)
+}
+
 func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 	m := New()
 	m.Discovery.Root = t.TempDir()

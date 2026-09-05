@@ -3,6 +3,8 @@ package submodules
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sphireinc/git-watch/internal/git"
@@ -40,5 +42,46 @@ func TestAddValidationRejectsControlCharactersAndSanitizesURLResult(t *testing.T
 	}
 	if string(outcome.Result.Stdout) != redacted || string(outcome.Result.Stderr) != redacted || outcome.Err.Error() != "failed "+redacted {
 		t.Fatalf("sanitized outcome = %+v err=%v", outcome.Result, outcome.Err)
+	}
+}
+
+func TestLifecycleOperationsUseRealLocalRepositoryAndExactRemoval(t *testing.T) {
+	ctx := context.Background()
+	child := t.TempDir()
+	childRunner := git.NewRunner(child)
+	gitMustRun(t, ctx, childRunner, "init", "-b", "main", "--", child)
+	if err := os.WriteFile(filepath.Join(child, "README"), []byte("child\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRun(t, ctx, childRunner, "add", "--", "README")
+	gitMustRun(t, ctx, childRunner, "-c", "commit.gpgsign=false", "-c", "user.name=test", "-c", "user.email=test@example.test", "commit", "-m", "child")
+
+	parent := t.TempDir()
+	runner := git.NewRunner(parent)
+	runner.Env = []string{"GIT_ALLOW_PROTOCOL=file"}
+	gitMustRun(t, ctx, runner, "init", "-b", "main", "--", parent)
+	added := Add(ctx, runner, AddRequest{Repository: parent, Path: "nested path", URL: "file://" + child})
+	if added.Err != nil {
+		t.Fatalf("add outcome = %+v", added)
+	}
+	gitMustRun(t, ctx, runner, "-c", "commit.gpgsign=false", "-c", "user.name=test", "-c", "user.email=test@example.test", "commit", "-m", "add-submodule")
+	initialized := Initialize(ctx, runner, Request{Repository: parent, Path: "nested path"})
+	if initialized.Err != nil {
+		t.Fatalf("initialize outcome = %+v", initialized)
+	}
+	synced := Sync(ctx, runner, Request{Repository: parent, Path: "nested path"})
+	if synced.Err != nil {
+		t.Fatalf("sync outcome = %+v", synced)
+	}
+	deinitialized := Deinit(ctx, runner, RemoveRequest{Request: Request{Repository: parent, Path: "nested path"}, ConfirmedPath: "nested path"})
+	if deinitialized.Err != nil {
+		t.Fatalf("deinit outcome = %+v", deinitialized)
+	}
+	removed := Remove(ctx, runner, RemoveRequest{Request: Request{Repository: parent, Path: "nested path"}, ConfirmedPath: "nested path"})
+	if removed.Err != nil {
+		t.Fatalf("remove outcome = %+v", removed)
+	}
+	if _, err := os.Stat(filepath.Join(parent, "nested path")); !os.IsNotExist(err) {
+		t.Fatalf("removed submodule path still exists: err=%v", err)
 	}
 }
