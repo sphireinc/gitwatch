@@ -57,5 +57,16 @@ Upgrade the existing bounded operation completion history into a user-facing rec
   fields, plus defensive copying for journal readers.
 - Added credential and URL-userinfo redaction tests. Existing success/failure
   activity recording now attaches repository, target, kind, and outcome data;
-  operation-specific HEAD/ref/duration enrichment and a dedicated journal
-  workspace remain outstanding.
+- Added operation-specific metadata to commit, rebase, merge, and remote
+  completion messages: redacted argv, repository/target/ref scope, old/new
+  HEAD where authoritative, duration, and bounded HEAD reflog recovery-point
+  joins. Fetch and push preserve HEAD explicitly because they are network/ref
+  operations rather than local HEAD moves.
+- The status activity line now renders the semantic operation summary. A
+  dedicated journal workspace and broader cherry-pick-specific completion
+  wiring remain outstanding.
+- Validation for this slice: focused history/app tests, `go test ./...`,
+  `go test -race ./...`, `go vet ./...`, `gofmt -d`, and `git diff --check`
+  passed. `make check` reached its lint step but could not download the pinned
+  `golangci-lint` module because `proxy.golang.org` was unavailable in the
+  environment.

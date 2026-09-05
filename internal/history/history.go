@@ -39,14 +39,18 @@ type Event struct {
 // OperationRecord describes semantic Git state associated with an activity
 // event. It is intentionally bounded and contains no environment or secrets.
 type OperationRecord struct {
-	Repository string
-	Kind       string
-	Args       []string
-	Target     string
-	OldHead    string
-	NewHead    string
-	Refs       []string
-	Outcome    string
+	Repository      string
+	Kind            string
+	Args            []string
+	Target          string
+	OldHead         string
+	NewHead         string
+	Refs            []string
+	Duration        time.Duration
+	RecoverySHA     string
+	RecoveryRef     string
+	RecoverySubject string
+	Outcome         string
 }
 
 // RedactArgs returns a safe copy suitable for journal storage or rendering.
@@ -63,6 +67,17 @@ func RedactArgs(args []string) []string {
 		if lower == "--password" || lower == "--token" || lower == "--auth-token" || lower == "--header" {
 			redacted[i] = arg
 			secretNext = true
+			continue
+		}
+		inlineSecret := false
+		for _, flag := range []string{"--password=", "--token=", "--auth-token=", "--header="} {
+			if strings.HasPrefix(lower, flag) {
+				redacted[i] = arg[:len(flag)] + "<redacted>"
+				inlineSecret = true
+				break
+			}
+		}
+		if inlineSecret {
 			continue
 		}
 		if parsed, err := url.Parse(arg); err == nil && parsed.User != nil {

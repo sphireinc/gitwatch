@@ -23,8 +23,8 @@ func TestBoundedLogAndDiff(t *testing.T) {
 }
 
 func TestRedactArgsRemovesCredentialMaterial(t *testing.T) {
-	got := RedactArgs([]string{"fetch", "--token", "secret", "https://user:password@example.com/repo"})
-	want := []string{"fetch", "--token", "<redacted>", "https://example.com/repo"}
+	got := RedactArgs([]string{"fetch", "--token", "secret", "--header=Authorization: Bearer secret", "https://user:password@example.com/repo"})
+	want := []string{"fetch", "--token", "<redacted>", "--header=<redacted>", "https://example.com/repo"}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("redacted args = %#v, want %#v", got, want)

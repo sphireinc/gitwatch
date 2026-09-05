@@ -896,6 +896,22 @@ func TestStatusFilterSortConflictAndDetailsActivity(t *testing.T) {
 	}
 }
 
+func TestOperationActivityRendersSemanticJournalDetails(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: "/repo-a"})
+	m.Width, m.Height = 180, 24
+	m.Snapshot.Branch.OID = "old-head"
+	m.recordActivityWithOperation(history.OperationSuccess, "feature", "merge completed", &history.OperationRecord{
+		Repository: "/repo-a", Kind: "merge", Target: "feature", OldHead: "old-head", NewHead: "new-head",
+		RecoverySHA: "new-head", Duration: 1250 * time.Millisecond,
+	})
+	view := m.View().Content
+	for _, expected := range []string{"merge", "HEAD old-head -> new-head", "recovery new-head", "1.25s"} {
+		if !strings.Contains(view, expected) {
+			t.Fatalf("semantic activity missing %q: %q", expected, view)
+		}
+	}
+}
+
 func TestOpenDiffFollowsKeyboardSelection(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("a.txt"), Unstaged: true}, {Path: repo.Path("b.txt"), Unstaged: true}}

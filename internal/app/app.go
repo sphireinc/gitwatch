@@ -114,6 +114,7 @@ type OperationFinishedMsg struct {
 type RebaseFinishedMsg struct {
 	Repository uint64
 	Outcome    git.RebaseOutcome
+	Operation  *history.OperationRecord
 	Err        error
 }
 type RebaseContinueFinishedMsg struct {
@@ -223,6 +224,7 @@ type CommitFinishedMsg struct {
 	SHA        string
 	HookOutput string
 	Repository uint64
+	Operation  *history.OperationRecord
 	Err        error
 }
 type FixupFinishedMsg struct {
@@ -241,6 +243,7 @@ type BranchOperationFinishedMsg struct {
 type MergeFinishedMsg struct {
 	Repository uint64
 	Outcome    mergeops.Outcome
+	Operation  *history.OperationRecord
 }
 type StashPreviewReadyMsg struct {
 	Ref, Text string
@@ -279,6 +282,7 @@ type RepositoryOpenedMsg struct {
 type RemoteOperationFinishedMsg struct {
 	Operation, Remote string
 	Repository        uint64
+	Journal           *history.OperationRecord
 	Err               error
 }
 type PushPreviewReadyMsg struct {
@@ -1042,6 +1046,24 @@ func snapshotContainsPath(entries []repo.Entry, path string) bool {
 }
 
 func (m *Model) recordActivity(kind history.Kind, path, message string) {
+	m.recordActivityWithOperation(kind, path, message, nil)
+}
+
+func attachLatestRecoveryPoint(ctx context.Context, runner git.Runner, operation *history.OperationRecord) {
+	if operation == nil {
+		return
+	}
+	entries, err := reflog.Load(ctx, runner, reflog.Request{Ref: "HEAD", Limit: 1})
+	if err != nil || len(entries) == 0 {
+		return
+	}
+	entry := entries[0]
+	operation.RecoverySHA = entry.SHA
+	operation.RecoveryRef = entry.Selector
+	operation.RecoverySubject = platform.SafeText(entry.Subject)
+}
+
+func (m *Model) recordActivityWithOperation(kind history.Kind, path, message string, operation *history.OperationRecord) {
 	if m.ActivityLog != nil {
 		event := history.Event{At: time.Now(), Kind: kind, Path: path, Message: message}
 		if kind == history.OperationSuccess || kind == history.OperationFailure {
@@ -1049,12 +1071,23 @@ func (m *Model) recordActivity(kind history.Kind, path, message string) {
 			if kind == history.OperationSuccess {
 				outcome = "success"
 			}
-			event.Operation = &history.OperationRecord{
-				Repository: m.Discovery.Root,
-				Kind:       string(kind),
-				Target:     path,
-				Outcome:    outcome,
+			if operation == nil {
+				operation = &history.OperationRecord{Kind: string(kind), Target: path}
+			} else {
+				copy := *operation
+				operation = &copy
 			}
+			if operation.Repository == "" {
+				operation.Repository = m.Discovery.Root
+			}
+			if operation.Kind == "" {
+				operation.Kind = string(kind)
+			}
+			if operation.Target == "" {
+				operation.Target = path
+			}
+			operation.Outcome = outcome
+			event.Operation = operation
 		}
 		m.ActivityLog.Add(event)
 	}
@@ -1725,6 +1758,24 @@ func (m Model) mergeSelectedBranch(strategy mergeops.Strategy) tea.Cmd {
 	request := mergeops.Request{Repository: m.Discovery.Root, Generation: m.repositoryGeneration, Source: m.BranchMergeTarget, Strategy: strategy}
 	runner := git.NewRunner(m.Discovery.Root)
 	generation, target := m.repositoryGeneration, m.BranchMergeTarget
+	mergeArgs := []string{"merge"}
+	switch strategy {
+	case mergeops.FastForwardOnly:
+		mergeArgs = append(mergeArgs, "--ff-only")
+	case mergeops.NoFastForward:
+		mergeArgs = append(mergeArgs, "--no-ff")
+	case mergeops.Squash:
+		mergeArgs = append(mergeArgs, "--squash")
+	}
+	mergeArgs = append(mergeArgs, "--", target)
+	operation := &history.OperationRecord{
+		Repository: m.Discovery.Root,
+		Kind:       "merge",
+		Args:       history.RedactArgs(mergeArgs),
+		Target:     target,
+		OldHead:    m.Snapshot.Branch.OID,
+		Refs:       []string{m.Snapshot.Branch.Name, target},
+	}
 	if m.OperationEngine == nil {
 		m.OperationEngine = operations.New(4)
 	}
@@ -1738,11 +1789,18 @@ func (m Model) mergeSelectedBranch(strategy mergeops.Strategy) tea.Cmd {
 	// Run the typed engine behind operations.Engine so repository serialization
 	// and cancellation apply while retaining its rich paused/snapshot outcome.
 	return func() tea.Msg {
+		started := time.Now()
 		result := command()
 		if outcome.Err == nil {
 			outcome.Err = result.Result.Err
 		}
-		return MergeFinishedMsg{Repository: generation, Outcome: outcome}
+		completed := *operation
+		completed.Duration = time.Since(started)
+		if outcome.Snapshot != nil {
+			completed.NewHead = outcome.Snapshot.Branch.OID
+		}
+		attachLatestRecoveryPoint(ctx, runner, &completed)
+		return MergeFinishedMsg{Repository: generation, Outcome: outcome, Operation: &completed}
 	}
 }
 
@@ -2374,10 +2432,25 @@ func (m *Model) remoteCommand(ctx context.Context, operation, remote string, wor
 		m.OperationEngine = operations.New(4)
 	}
 	id, repoRoot, generation := m.RemoteJobID, m.Discovery.Root, m.repositoryGeneration
+	journal := &history.OperationRecord{
+		Repository: repoRoot,
+		Kind:       operation,
+		Args:       history.RedactArgs(strings.Fields(operation)),
+		Target:     remote,
+		OldHead:    m.Snapshot.Branch.OID,
+		Refs:       []string{remote},
+	}
 	command := m.OperationEngine.Command(ctx, id, repoRoot, operation, 5*time.Minute, work)
 	return func() tea.Msg {
+		started := time.Now()
 		result := command()
-		return RemoteOperationFinishedMsg{Operation: operation, Remote: remote, Repository: generation, Err: result.Result.Err}
+		completed := *journal
+		completed.Duration = time.Since(started)
+		if operation == "fetch" || operation == "push" {
+			completed.NewHead = completed.OldHead
+		}
+		attachLatestRecoveryPoint(ctx, git.NewRunner(repoRoot), &completed)
+		return RemoteOperationFinishedMsg{Operation: operation, Remote: remote, Repository: generation, Journal: &completed, Err: result.Result.Err}
 	}
 }
 
@@ -2524,9 +2597,25 @@ func (m *Model) startRebase(autosquash bool) tea.Cmd {
 	request := git.RebaseRequest{Base: m.Rebase.Base.Ref, Autosquash: autosquash, Plan: m.Rebase.Plan}
 	runner := git.NewRunner(m.Discovery.Root)
 	generation := m.repositoryGeneration
+	args := []string{"rebase", "--interactive", request.Base}
+	if autosquash {
+		args = append(args, "--autosquash")
+	}
+	operation := &history.OperationRecord{
+		Repository: m.Discovery.Root,
+		Kind:       "rebase",
+		Args:       history.RedactArgs(args),
+		Target:     request.Base,
+		OldHead:    m.Snapshot.Branch.OID,
+		Refs:       []string{m.Snapshot.Branch.Name},
+	}
 	return func() tea.Msg {
+		started := time.Now()
 		outcome, err := runner.StartInteractiveRebase(m.commandContext(), request)
-		return RebaseFinishedMsg{Repository: generation, Outcome: outcome, Err: err}
+		completed := *operation
+		completed.Duration = time.Since(started)
+		attachLatestRecoveryPoint(m.commandContext(), runner, &completed)
+		return RebaseFinishedMsg{Repository: generation, Outcome: outcome, Operation: &completed, Err: err}
 	}
 }
 
@@ -2604,12 +2693,38 @@ func (m Model) commit() tea.Cmd {
 	draft := m.Composer.Draft
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx, generation := m.commandContext(), m.repositoryGeneration
+	args := []string{"commit"}
+	if draft.Amend {
+		args = append(args, "--amend")
+	}
+	if draft.NoEdit {
+		args = append(args, "--no-edit")
+	}
+	if draft.Signoff {
+		args = append(args, "--signoff")
+	}
+	if draft.Sign {
+		args = append(args, "--gpg-sign")
+	}
+	operation := &history.OperationRecord{
+		Repository: m.Discovery.Root,
+		Kind:       "commit",
+		Args:       history.RedactArgs(args),
+		Target:     m.Snapshot.Branch.Name,
+		OldHead:    m.Snapshot.Branch.OID,
+		Refs:       []string{m.Snapshot.Branch.Name},
+	}
 	return func() tea.Msg {
+		started := time.Now()
 		result, err := runner.Commit(ctx, git.CommitOptions{
 			Message: []byte(draft.Message()), Amend: draft.Amend, NoEdit: draft.NoEdit,
 			Signoff: draft.Signoff, Sign: draft.Sign, Author: draft.Author,
 		})
-		return CommitFinishedMsg{SHA: result.SHA, HookOutput: platform.SafeText(string(append(result.Result.Stdout, result.Result.Stderr...))), Repository: generation, Err: err}
+		completed := *operation
+		completed.Duration = time.Since(started)
+		completed.NewHead = result.SHA
+		attachLatestRecoveryPoint(ctx, runner, &completed)
+		return CommitFinishedMsg{SHA: result.SHA, HookOutput: platform.SafeText(string(append(result.Result.Stdout, result.Result.Stderr...))), Repository: generation, Operation: &completed, Err: err}
 	}
 }
 
@@ -4512,10 +4627,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
-			m.recordActivity(history.OperationFailure, "", "interactive rebase: "+v.Err.Error())
+			m.recordActivityWithOperation(history.OperationFailure, "", "interactive rebase: "+v.Err.Error(), v.Operation)
 		} else {
 			m.State, m.Status = StateReady, "interactive rebase complete"
-			m.recordActivity(history.OperationSuccess, "", m.Status)
+			m.recordActivityWithOperation(history.OperationSuccess, "", m.Status, v.Operation)
 		}
 		return m, m.refresh()
 	case PartialOperationFinishedMsg:
@@ -4673,7 +4788,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status += "\nhook output:\n" + v.HookOutput
 			}
 			m.notify(notifications.HookFailure, notifications.Error, "commit hook failed", v.Err.Error(), true)
-			m.recordActivity(history.OperationFailure, "", "commit: "+v.Err.Error())
+			m.recordActivityWithOperation(history.OperationFailure, "", "commit: "+v.Err.Error(), v.Operation)
 		} else if m.HistoricalRebaseAction != "" {
 			m.CommitAmendConfirm, m.CommitAuthorMode = false, false
 			m.State, m.Status = StateOperationPending, "continuing historical rebase"
@@ -4682,7 +4797,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.CommitAmendConfirm, m.CommitAuthorMode = false, false
 			m.State, m.Status = StateReady, "commit "+v.SHA
 			m.Workspace.Back()
-			m.recordActivity(history.OperationSuccess, "", m.Status)
+			m.recordActivityWithOperation(history.OperationSuccess, "", m.Status, v.Operation)
 		}
 		return m, m.refresh()
 	case RebaseContinueFinishedMsg:
@@ -4791,11 +4906,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if v.Outcome.Err != nil {
 			m.State, m.Status = StateError, v.Outcome.Err.Error()
-			m.recordActivity(history.OperationFailure, "merge", v.Outcome.Err.Error())
+			m.recordActivityWithOperation(history.OperationFailure, "merge", v.Outcome.Err.Error(), v.Operation)
 			return m, m.refresh()
 		}
 		m.State, m.Status = StateReady, "merge completed"
-		m.recordActivity(history.OperationSuccess, "merge", m.Status)
+		m.recordActivityWithOperation(history.OperationSuccess, "merge", m.Status, v.Operation)
 		return m, tea.Batch(m.refresh(), m.loadBranches(), m.loadHistory())
 	case HistoryReadyMsg:
 		m.HistoryCancel = nil
@@ -4981,11 +5096,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.Status = v.Err.Error()
 			}
-			m.recordActivity(history.OperationFailure, v.Remote, v.Operation+": "+v.Err.Error())
+			m.recordActivityWithOperation(history.OperationFailure, v.Remote, v.Operation+": "+v.Err.Error(), v.Journal)
 		} else {
 			m.notify(notifications.JobComplete, notifications.Success, v.Operation, v.Remote, false)
 			m.State, m.Status = StateReady, v.Operation+" complete: "+v.Remote
-			m.recordActivity(history.OperationSuccess, v.Remote, m.Status)
+			m.recordActivityWithOperation(history.OperationSuccess, v.Remote, m.Status, v.Journal)
 		}
 		return m, tea.Batch(m.refresh(), m.loadRemotes())
 	}

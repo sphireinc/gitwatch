@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
@@ -639,6 +640,27 @@ func (m Model) latestActivityLine() string {
 	}
 	if event.Message != "" {
 		text += " · " + event.Message
+	}
+	if operation := event.Operation; operation != nil {
+		if operation.Kind != "" && operation.Kind != string(event.Kind) {
+			text += " · " + operation.Kind
+		}
+		if operation.OldHead != "" || operation.NewHead != "" {
+			oldHead, newHead := operation.OldHead, operation.NewHead
+			if oldHead == "" {
+				oldHead = "?"
+			}
+			if newHead == "" {
+				newHead = "?"
+			}
+			text += " · HEAD " + oldHead + " -> " + newHead
+		}
+		if operation.RecoverySHA != "" {
+			text += " · recovery " + operation.RecoverySHA
+		}
+		if operation.Duration > 0 {
+			text += " · " + operation.Duration.Round(time.Millisecond).String()
+		}
 	}
 	return text
 }
