@@ -62,7 +62,8 @@ func Revert(ctx context.Context, runner git.Runner, confirmation RevertConfirmat
 	if !validTarget(confirmation.SHA) || !confirmation.Accept(input) {
 		return git.Result{}, ErrMissingTarget
 	}
-	return runner.Run(ctx, "revert", "--no-edit", confirmation.SHA)
+	result, err := runner.Revert(ctx, git.RevertRequest{Commits: []string{confirmation.SHA}})
+	return result.Result, err
 }
 
 func validTarget(value string) bool {

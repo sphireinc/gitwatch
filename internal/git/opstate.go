@@ -234,7 +234,21 @@ func enrichMarker(paths map[string]string, marker operationMarker) operationMark
 			marker.remaining = 0
 		}
 	case sequencer.KindRevert:
-		marker.details.Revert = &sequencer.RevertDetails{Commits: nonEmpty(marker.current)}
+		progress := readSequencerCommits(paths["sequencer"], marker.current)
+		commits, completed := progress.Commits, len(progress.Completed)
+		if len(commits) == 0 {
+			commits = nonEmpty(marker.current)
+		}
+		currentIndex := progress.CurrentIndex
+		if currentIndex < 0 && marker.current != "" {
+			currentIndex = completed
+		}
+		marker.details.Revert = &sequencer.RevertDetails{Commits: commits, Completed: progress.Completed, Skipped: progress.Skipped, CurrentIndex: currentIndex}
+		marker.completed = completed
+		marker.remaining = len(commits) - completed - len(progress.Skipped)
+		if marker.remaining < 0 {
+			marker.remaining = 0
+		}
 	case sequencer.KindMerge:
 		marker.details.Merge = &sequencer.MergeDetails{Other: marker.current, Strategy: "default"}
 	}

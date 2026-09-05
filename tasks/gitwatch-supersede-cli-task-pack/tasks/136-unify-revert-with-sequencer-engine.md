@@ -57,3 +57,18 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Implemented a typed `git.RevertRequest` adapter for ordered single- and
+  multi-commit reverts, including explicit positive mainline-parent support
+  and option-like target validation. The legacy exact-SHA action delegates to
+  this boundary.
+- Revert operation detection now reads the shared sequencer `done`, `todo`,
+  and `todo.backup` metadata reader used by cherry-pick, exposing ordered
+  commits, completed/skipped counts, current index, and remaining work through
+  `sequencer.RevertDetails`.
+- Focused tests cover request validation and a real repository multi-commit
+  revert with exact argv/order verification.
+- This task remains active: history UI still needs selected-set order preview,
+  merge-parent selection, and the unified coordinator/native acceptance work.

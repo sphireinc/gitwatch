@@ -101,7 +101,10 @@ type CherryPickDetails struct {
 // RevertDetails describes an ordered revert sequence.
 type RevertDetails struct {
 	Commits      []string
+	Completed    []string
+	Skipped      []string
 	CurrentIndex int
+	Mainline     int
 }
 
 // MergeDetails describes the merge target and selected strategy.
@@ -387,6 +390,8 @@ func cloneDetails(details Details) Details {
 	if details.Revert != nil {
 		value := *details.Revert
 		value.Commits = append([]string(nil), value.Commits...)
+		value.Completed = append([]string(nil), value.Completed...)
+		value.Skipped = append([]string(nil), value.Skipped...)
 		copyDetails.Revert = &value
 	}
 	if details.Merge != nil {
