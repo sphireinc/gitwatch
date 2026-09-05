@@ -39,18 +39,19 @@ type Event struct {
 // OperationRecord describes semantic Git state associated with an activity
 // event. It is intentionally bounded and contains no environment or secrets.
 type OperationRecord struct {
-	Repository      string
-	Kind            string
-	Args            []string
-	Target          string
-	OldHead         string
-	NewHead         string
-	Refs            []string
-	Duration        time.Duration
-	RecoverySHA     string
-	RecoveryRef     string
-	RecoverySubject string
-	Outcome         string
+	Repository              string
+	Kind                    string
+	Args                    []string
+	Target                  string
+	OldHead                 string
+	NewHead                 string
+	Refs                    []string
+	Duration                time.Duration
+	RecoverySHA             string
+	RecoveryRef             string
+	RecoverySubject         string
+	PostSnapshotFingerprint string
+	Outcome                 string
 }
 
 // RedactArgs returns a safe copy suitable for journal storage or rendering.

@@ -60,6 +60,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/table"
 	"github.com/sphireinc/git-watch/internal/ui/theme"
 	"github.com/sphireinc/git-watch/internal/ui/worktreeview"
+	undopolicy "github.com/sphireinc/git-watch/internal/undo"
 	"github.com/sphireinc/git-watch/internal/watch"
 	"github.com/sphireinc/git-watch/internal/workspace"
 	"github.com/sphireinc/git-watch/internal/worktrees"
@@ -122,6 +123,11 @@ type RebaseFinishedMsg struct {
 type CherryPickFinishedMsg struct {
 	Repository uint64
 	Outcome    cherrypick.Outcome
+	Operation  *history.OperationRecord
+}
+type UndoFinishedMsg struct {
+	Repository uint64
+	Outcome    undopolicy.Outcome
 	Operation  *history.OperationRecord
 }
 type RebaseContinueFinishedMsg struct {
@@ -432,6 +438,8 @@ type Model struct {
 	ReflogCompare            string
 	ReflogCompareLoading     bool
 	JournalOffset            int
+	UndoConfirm              bool
+	UndoRecord               *history.OperationRecord
 	History                  historyview.Model
 	Rebase                   rebaseview.Model
 	Conflict                 conflictview.Model
@@ -2251,8 +2259,65 @@ func (m Model) cherryPickSelectedHistory() tea.Cmd {
 		if head, err := runner.Run(ctx, "rev-parse", "HEAD"); err == nil {
 			completed.NewHead = strings.TrimSpace(string(head.Stdout))
 		}
+		if vSnapshot := outcome.Snapshot; vSnapshot != nil {
+			completed.PostSnapshotFingerprint = undopolicy.SnapshotFingerprint(*vSnapshot)
+		}
 		attachLatestRecoveryPoint(ctx, runner, &completed)
 		return CherryPickFinishedMsg{Repository: generation, Outcome: outcome, Operation: &completed}
+	}
+}
+
+func (m Model) selectedUndoRecord() *history.OperationRecord {
+	if m.ActivityLog == nil {
+		return nil
+	}
+	events := m.ActivityLog.All()
+	index := len(events) - 1 - m.JournalOffset
+	if index < 0 || index >= len(events) || events[index].Operation == nil {
+		return nil
+	}
+	record := *events[index].Operation
+	if record.Repository != m.Discovery.Root || record.Kind != "commit" || record.Outcome != "success" || record.Target == "" || record.OldHead == "" || record.NewHead == "" || record.PostSnapshotFingerprint == "" {
+		return nil
+	}
+	return &record
+}
+
+func (m Model) undoJournalOperation() tea.Cmd {
+	if m.UndoRecord == nil {
+		return nil
+	}
+	record := *m.UndoRecord
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	id := fmt.Sprintf("undo-commit-%d-%s", generation, record.NewHead)
+	var outcome undopolicy.Outcome
+	command := m.OperationEngine.Command(ctx, id, m.Discovery.Root, "undo commit", 5*time.Minute, func(ctx context.Context) error {
+		outcome = undopolicy.Execute(ctx, runner, undopolicy.Request{
+			Repository: m.Discovery.Root, Kind: record.Kind, Ref: record.Target,
+			OldHead: record.OldHead, NewHead: record.NewHead,
+			PostSnapshotHash: record.PostSnapshotFingerprint, Discovery: m.Discovery, Generation: generation,
+		})
+		return outcome.Err
+	})
+	return func() tea.Msg {
+		result := command()
+		if outcome.Err == nil {
+			outcome.Err = result.Result.Err
+		}
+		completed := &history.OperationRecord{
+			Repository: m.Discovery.Root, Kind: "undo commit", Args: []string{"reset", "--soft", record.OldHead},
+			Target: record.Target, OldHead: record.NewHead, NewHead: record.OldHead,
+			Refs: append([]string(nil), record.Refs...), Duration: result.Result.Finished.Sub(result.Result.Started),
+		}
+		if outcome.Snapshot.Root != "" {
+			completed.PostSnapshotFingerprint = undopolicy.SnapshotFingerprint(outcome.Snapshot)
+		}
+		attachLatestRecoveryPoint(ctx, runner, completed)
+		return UndoFinishedMsg{Repository: generation, Outcome: outcome, Operation: completed}
 	}
 }
 
@@ -2808,6 +2873,9 @@ func (m Model) commit() tea.Cmd {
 		completed := *operation
 		completed.Duration = time.Since(started)
 		completed.NewHead = result.SHA
+		if snapshot, snapshotErr := git.Snapshot(ctx, m.Discovery, generation); snapshotErr == nil {
+			completed.PostSnapshotFingerprint = undopolicy.SnapshotFingerprint(snapshot)
+		}
 		attachLatestRecoveryPoint(ctx, runner, &completed)
 		return CommitFinishedMsg{SHA: result.SHA, HookOutput: platform.SafeText(string(append(result.Result.Stdout, result.Result.Stderr...))), Repository: generation, Operation: &completed, Err: err}
 	}
@@ -3425,6 +3493,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Journal && m.UndoConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.UndoConfirm, m.State, m.Status = false, StateOperationPending, "undoing selected commit; preserving index and worktree"
+				return m, m.undoJournalOperation()
+			case "n", "N", "esc":
+				m.UndoConfirm, m.UndoRecord, m.Status = false, nil, "undo cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Commit {
 			if v.Mod&tea.ModCtrl != 0 && v.String() == "s" {
 				return m, m.updateComposerKey("ctrl+s")
@@ -3897,7 +3975,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "confirm pop " + ref + "? (y/n)"
 			}
 		case "u":
-			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+			if m.currentView() == workspace.Journal {
+				if record := m.selectedUndoRecord(); record != nil {
+					m.UndoRecord, m.UndoConfirm = record, true
+					m.Status = "undo commit " + record.NewHead + " -> " + record.OldHead + "? (y/n)"
+				} else {
+					m.Status = "selected journal entry has no safe commit undo"
+				}
+			} else if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
 				branch := m.Branches.Entries[m.Branches.Selected]
 				if branch.Remote {
 					m.Status = "select a local branch"
@@ -4807,6 +4892,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivityWithOperation(history.OperationSuccess, "cherry-pick", m.Status, v.Operation)
 		}
 		return m, tea.Batch(m.refresh(), m.loadHistory())
+	case UndoFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		m.UndoRecord = nil
+		if v.Outcome.Snapshot.Root != "" {
+			m.applySnapshot(v.Outcome.Snapshot)
+		}
+		if v.Outcome.Err != nil {
+			m.State, m.Status = StateError, "undo commit: "+v.Outcome.Err.Error()
+			m.recordActivityWithOperation(history.OperationFailure, "undo commit", m.Status, v.Operation)
+		} else {
+			m.State, m.Status = StateReady, "undo commit complete"
+			m.recordActivityWithOperation(history.OperationSuccess, "undo commit", m.Status, v.Operation)
+		}
+		return m, m.refresh()
 	case PartialOperationFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
@@ -5522,7 +5623,10 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [B] branch  [x] checkout  [] load more  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Journal {
-		lines[len(lines)-1] = "[j/k] move  [J] newest  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [u] undo commit  [J] newest  [1] status  [esc] back  [q] quit"
+		if m.UndoConfirm {
+			lines[len(lines)-1] = "confirm undo: [y] yes  [n] no  [esc] cancel"
+		}
 	}
 	if view == workspace.Branches {
 		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"

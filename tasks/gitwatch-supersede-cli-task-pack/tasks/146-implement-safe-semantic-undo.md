@@ -54,3 +54,24 @@ Offer Undo only where gitwatch can prove a safe recovery point; refuse when repo
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added an operation-specific undo policy in `internal/undo` that only permits
+  a recorded successful local commit to be undone with typed `reset --soft`.
+  The policy requires repository identity, branch/ref, old/new object IDs,
+  no active sequencer, and an exact post-operation index/worktree fingerprint.
+- Added semantic journal metadata for the post-operation fingerprint on commit
+  and cherry-pick records, plus a journal `u` confirmation flow and bounded
+  operation-engine execution that refreshes authoritative status and records
+  the undo result.
+- `TestExecuteUndoImmediatelyPreservesWorktreeContent` verifies a real local
+  repository returns HEAD to the prior commit while preserving a subsequent
+  worktree edit; policy unit tests cover divergence and active-operation
+  refusal. `TestExecuteRefusesUnrelatedCommitAfterRecordedOperation` and
+  `TestPlanRefusesForeignRepository` cover stale HEAD and repository-scope
+  isolation.
+- This slice is not complete: unrelated-change/refusal, sequencer-abort, and
+  multi-repository integration coverage plus native/manual terminal evidence
+  remain outstanding. The task stays active until those acceptance gates are
+  evidenced.
