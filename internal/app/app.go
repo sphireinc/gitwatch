@@ -3746,6 +3746,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				branch := m.Branches.Entries[m.Branches.Selected]
 				if branch.Current {
 					m.Status = "cannot merge the current branch into itself"
+				} else if branch.OccupiedPath != "" {
+					m.Status = "cannot merge a branch checked out in another worktree: " + platform.SafeText(branch.OccupiedPath)
 				} else if m.Snapshot.Counts.Staged > 0 || m.Snapshot.Counts.Unstaged > 0 || m.Snapshot.Counts.Untracked > 0 {
 					m.Status = "merge requires a clean worktree; stash explicitly first"
 				} else {

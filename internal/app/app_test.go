@@ -355,6 +355,17 @@ func TestBranchMergePromptRequiresCleanWorktreeAndExplicitStrategy(t *testing.T)
 	if cmd != nil || m.BranchMergeMode || !strings.Contains(m.Status, "clean worktree") {
 		t.Fatalf("dirty merge guard = mode=%v status=%q cmdnil=%v", m.BranchMergeMode, m.Status, cmd != nil)
 	}
+
+	m = New()
+	m.Discovery.Root = t.TempDir()
+	m.Snapshot = repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "main"}}
+	m.Branches = branchview.New([]branches.Branch{{Name: "feature", OccupiedPath: "/tmp/linked-feature"}})
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	updated, cmd = m.Update(key("M"))
+	m = updated.(Model)
+	if cmd != nil || m.BranchMergeMode || !strings.Contains(m.Status, "another worktree") {
+		t.Fatalf("occupied merge guard = mode=%v status=%q cmdnil=%v", m.BranchMergeMode, m.Status, cmd != nil)
+	}
 }
 
 func TestMergeStrategyNames(t *testing.T) {

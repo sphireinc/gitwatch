@@ -80,5 +80,6 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
 - Merge preflight now rejects merging the current branch into itself and a
   local source branch checked out in another linked worktree, using the
   existing porcelain worktree parser. Integration tests cover both guards.
-- Task remains active for native/manual evidence and any broader occupancy
-  presentation refinements.
+- The Branches workspace now applies the linked-worktree occupancy guard before
+  opening the merge strategy prompt, and app coverage verifies the user-facing
+  refusal. Task remains active for native/manual evidence.
