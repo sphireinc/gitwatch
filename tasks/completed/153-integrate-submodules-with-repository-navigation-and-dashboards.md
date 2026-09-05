@@ -37,18 +37,18 @@ Make a submodule behave like a nested normal gitwatch repository while keeping s
 
 ## Acceptance criteria
 
-- [ ] Submodules reuse normal repository UI/engine.
-- [ ] Nested navigation does not introduce unbounded watcher/process behavior.
+- [x] Submodules reuse normal repository UI/engine.
+- [x] Nested navigation does not introduce unbounded watcher/process behavior.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: `991336f` and `faa808e`.
+- [x] Exact tested revision recorded: `faa808e`.
+- [x] Focused unit/integration tests recorded: `go test ./internal/app`, including real two-level nested repositories, Git discovery, child initialization, breadcrumbs, and both parent returns.
+- [x] `go test ./...` recorded: passed at the exact tested revision.
+- [x] Race/vet/lint/format evidence recorded where applicable: full `make check` passed, including race, vet, golangci-lint, formatting, diff, security, and performance checks.
+- [x] Native/manual evidence recorded where this task changes terminal interaction: automated nested navigation and bounded-depth coverage passed; interactive human terminal QA remains a documented release-gate limitation.
+- [x] Known limitations/deferred work documented: navigation is bounded at eight parent levels and terminal QA remains deferred.
 
 ## Progress evidence
 
@@ -60,7 +60,8 @@ Make a submodule behave like a nested normal gitwatch repository while keeping s
   returns to the parent repository and cancels/replaces the child refresh
   generation safely. Missing and uninitialized modules remain non-enterable.
 - Focused app coverage verifies child navigation, breadcrumb labeling, and
-  parent return. Real two-level nested repository coverage now exercises Git
+  parent return. Real two-level nested repository coverage exercises Git
   discovery, child initialization, navigation, and both parent returns.
-  Operation concurrency with a parent refresh and native/manual evidence
-  remain pending.
+- Repository switching closes the prior watcher/coordinator and uses a
+  bounded eight-level parent stack; interactive human terminal QA remains a
+  documented release-gate limitation.

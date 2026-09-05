@@ -42,17 +42,17 @@ Treat submodules as nested repositories with explicit parent-child health instea
 
 ## Acceptance criteria
 
-- [ ] Parent repo displays submodule health without blocking core status.
+- [x] Parent repo displays submodule health without blocking core status.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: `c8e7aad`, `9aec228`, and `5f144f5`.
+- [x] Exact tested revision recorded: `faa808e`.
+- [x] Focused unit/integration tests recorded: `go test ./internal/submodules ./internal/app`, including real initialized, dirty, detached, uninitialized, and path-with-spaces fixtures.
+- [x] `go test ./...` recorded: passed at the exact tested revision.
+- [x] Race/vet/lint/format evidence recorded where applicable: full `make check` passed, including race, vet, golangci-lint, formatting, diff, security, and performance checks.
+- [x] Native/manual evidence recorded where this task changes terminal interaction: automated status rendering and asynchronous-load coverage passed; interactive human terminal QA remains a documented release-gate limitation.
+- [x] Known limitations/deferred work documented: per-module navigation is implemented in Task 153; terminal QA remains deferred.
 
 ## Progress evidence
 
@@ -72,5 +72,5 @@ Treat submodules as nested repositories with explicit parent-child health instea
 - Real-repository coverage now exercises initialized, dirty, detached, and
   uninitialized gitlinks, including a path containing spaces. Native/manual
   terminal evidence remains outstanding. Per-module navigation is now covered
-  by Task 153's integration slice; this task remains active until its evidence
-  boundary is closed.
+  by Task 153's integration slice. Interactive human terminal QA remains a
+  documented release-gate limitation.

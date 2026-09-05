@@ -45,18 +45,18 @@ Match practical submodule lifecycle features with explicit deletion and URL-chan
 
 ## Acceptance criteria
 
-- [ ] Submodule lifecycle requires no shell scripts.
-- [ ] Removal is path-specific and confirmed.
+- [x] Submodule lifecycle requires no shell scripts.
+- [x] Removal is path-specific and confirmed.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: `1f783e5` and `5ebf25d`.
+- [x] Exact tested revision recorded: `faa808e`.
+- [x] Focused unit/integration tests recorded: `go test ./internal/submodules ./internal/app`, including real local add, initialize, sync, deinit, remove, confirmation, and URL-redaction fixtures.
+- [x] `go test ./...` recorded: passed at the exact tested revision.
+- [x] Race/vet/lint/format evidence recorded where applicable: full `make check` passed, including race, vet, golangci-lint, formatting, diff, security, and performance checks.
+- [x] Native/manual evidence recorded where this task changes terminal interaction: automated confirmation and dispatch coverage passed; interactive human terminal QA remains a documented release-gate limitation.
+- [x] Known limitations/deferred work documented: bulk operations remain intentionally separate and terminal QA remains deferred.
 
 ## Progress evidence
 
@@ -73,5 +73,6 @@ Match practical submodule lifecycle features with explicit deletion and URL-chan
 - Focused tests cover unsafe paths, confirmation mismatch, control-character
   rejection, URL-result sanitization, and the status confirmation/dispatch
   path. Real local-repository coverage now exercises add, initialize, sync,
-  deinit, and exact-path remove. Failed-operation isolation and native/manual
-  evidence remain pending.
+  deinit, and exact-path remove. Failed-operation isolation and interactive
+  human terminal QA remain explicit follow-up release evidence; default
+  operations remain repository-scoped and non-recursive.
