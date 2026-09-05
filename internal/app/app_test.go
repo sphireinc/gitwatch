@@ -486,16 +486,14 @@ func TestCherryPickSelectionRunsThroughEngineAndJournalsCompletion(t *testing.T)
 	if _, err := runner.Run(context.Background(), "add", "--", "picked.txt"); err != nil {
 		t.Fatal(err)
 	}
-	featureResult, err := runner.Run(context.Background(), "commit", "-m", "picked")
-	if err != nil {
+	if _, err := runner.Run(context.Background(), "commit", "-m", "picked"); err != nil {
 		t.Fatal(err)
 	}
-	featureSHA := strings.TrimSpace(string(featureResult.Stdout))
 	featureSHAResult, err := runner.Run(context.Background(), "rev-parse", "HEAD")
 	if err != nil {
 		t.Fatal(err)
 	}
-	featureSHA = strings.TrimSpace(string(featureSHAResult.Stdout))
+	featureSHA := strings.TrimSpace(string(featureSHAResult.Stdout))
 	if _, err := runner.Run(context.Background(), "switch", "main"); err != nil {
 		t.Fatal(err)
 	}
