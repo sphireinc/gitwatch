@@ -64,6 +64,7 @@ Add redo only for operations whose typed intent and current repository state mak
   round-trip; unit coverage verifies the typed command and stale-state refusal.
 - Guided reflog recovery for non-replayable operations, broader external-change
   refusal coverage, and native/manual terminal evidence remain outstanding.
-- The guarded redo slice is committed at `0ec98a9`; the full `make check` gate
-  passed at that revision. The task remains active until guided recovery and
-  the remaining terminal evidence are implemented and verified.
+- The guarded redo slice is committed at `0ec98a9`, with guided reflog routing
+  added at `c8deeb4`; the full `make check` gate passed at both validation
+  points. The task remains active until broader recovery cases and the
+  remaining terminal evidence are implemented and verified.
