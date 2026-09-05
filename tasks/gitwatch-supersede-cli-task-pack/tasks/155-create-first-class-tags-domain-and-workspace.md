@@ -52,3 +52,12 @@ Stop treating tags as incidental history refs and expose them as managed objects
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Started `internal/tags` with bounded NUL-delimited `for-each-ref` loading,
+  lightweight versus annotated target metadata, tagger/date/message fields,
+  deferred signature state, and matching remote-tag ref presence.
+- Added focused tests for metadata preservation, remote presence, bounds, and
+  malformed records. The Tags workspace, on-demand signature verification,
+  mutation routing, and manual terminal evidence remain pending.
