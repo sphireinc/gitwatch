@@ -74,5 +74,5 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
   the operation.
 - Focused app tests cover the clean-worktree guard, strategy validation, and
   branch merge prompt flow.
-- Task remains active for first-class app entry, operation-engine scheduling,
-  branch/worktree UI integration, and native/manual evidence.
+- Task remains active for operation-engine scheduling, deeper branch/worktree
+  occupancy integration, and native/manual evidence.
