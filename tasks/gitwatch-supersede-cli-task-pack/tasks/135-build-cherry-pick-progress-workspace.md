@@ -79,3 +79,6 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 - Added a dedicated `workspace.CherryPick` route backed by the same
   repository-scoped conflict/progress model, with palette reopen, status
   navigation, and lifecycle input preserved while leaving and returning.
+- The Status `C` recovery shortcut now selects the dedicated cherry-pick route
+  whenever the authoritative operation kind is cherry-pick; other sequencer
+  kinds continue using the unified conflict route.

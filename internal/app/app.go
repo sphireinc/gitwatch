@@ -4131,7 +4131,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.StashCreateMode, m.StashCreateMessage, m.StashIncludeUntracked = true, "", true
 				m.Status = "stash message: "
 			} else if m.currentView() == workspace.Status && (len(m.Snapshot.Conflicts) > 0 || (m.Snapshot.Operation != nil && recoverableOperation(m.Snapshot.Operation.Kind()))) {
-				m.Workspace.Navigate(workspace.Conflict, "Conflicts")
+				view, label := workspace.Conflict, "Conflicts"
+				if m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindCherryPick {
+					view, label = workspace.CherryPick, "Cherry-pick progress"
+				}
+				m.Workspace.Navigate(view, label)
 				if len(m.Snapshot.Conflicts) > 0 {
 					return m, m.loadConflictContent()
 				}

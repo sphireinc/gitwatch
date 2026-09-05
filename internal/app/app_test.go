@@ -288,10 +288,15 @@ func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "feature"}, Operation: &state})
+	updated, cmd := m.Update(key("C"))
+	m = updated.(Model)
+	if cmd != nil || m.currentView() != workspace.CherryPick {
+		t.Fatalf("status recovery route = view=%q cmdnil=%v", m.currentView(), cmd != nil)
+	}
 	if cmd := m.executePaletteAction("cherry_pick_recovery"); cmd != nil || m.currentView() != workspace.CherryPick {
 		t.Fatalf("initial progress route = view=%q cmdnil=%v", m.currentView(), cmd != nil)
 	}
-	updated, cmd := m.Update(key("1"))
+	updated, cmd = m.Update(key("1"))
 	m = updated.(Model)
 	if cmd != nil || m.currentView() != workspace.Status {
 		t.Fatalf("status navigation = view=%q cmdnil=%v", m.currentView(), cmd != nil)
