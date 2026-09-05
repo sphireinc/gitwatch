@@ -69,6 +69,9 @@ Upgrade the existing bounded operation completion history into a user-facing rec
   rendered journal text.
 - Broader cherry-pick-specific completion wiring and operation coverage beyond
   the currently integrated commit/rebase/merge/remote paths remain outstanding.
+- Sequencer lifecycle completion/abort/skip messages now also carry typed
+  semantic journal metadata, covering the shared cherry-pick/revert recovery
+  path without assuming that HEAD moved.
 - Validation for this slice: focused history/app tests, `go test ./...`,
   `go test -race ./...`, `go vet ./...`, `gofmt -d`, and `git diff --check`
   passed. `make check` reached its lint step but could not download the pinned

@@ -109,6 +109,7 @@ type OperationStartedMsg struct{ Name string }
 type OperationFinishedMsg struct {
 	Name       string
 	Repository uint64
+	Operation  *history.OperationRecord
 	Err        error
 }
 type RebaseFinishedMsg struct {
@@ -3172,9 +3173,21 @@ func (m *Model) openConflictEditor() tea.Cmd {
 
 func (m Model) conflictLifecycle(action string) tea.Cmd {
 	runner, ctx, generation, kind := git.NewRunner(m.Discovery.Root), m.commandContext(), m.repositoryGeneration, m.Conflict.Operation
+	operation := &history.OperationRecord{
+		Repository: m.Discovery.Root,
+		Kind:       kind.String(),
+		Args:       history.RedactArgs([]string{kind.String(), "--" + action}),
+		Target:     m.Conflict.Target,
+		OldHead:    m.Snapshot.Branch.OID,
+		Refs:       []string{m.Snapshot.Branch.Name},
+	}
 	return func() tea.Msg {
+		started := time.Now()
 		_, err := runner.OperationLifecycle(ctx, kind, action)
-		return OperationFinishedMsg{Name: action + " " + kind.String(), Repository: generation, Err: err}
+		completed := *operation
+		completed.Duration = time.Since(started)
+		attachLatestRecoveryPoint(ctx, runner, &completed)
+		return OperationFinishedMsg{Name: action + " " + kind.String(), Repository: generation, Operation: &completed, Err: err}
 	}
 }
 
@@ -4604,12 +4617,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State = StateError
 			m.Status = v.Err.Error()
 			m.notify(notifications.JobComplete, notifications.Error, v.Name, v.Err.Error(), true)
-			m.recordActivity(history.OperationFailure, "", v.Name+": "+v.Err.Error())
+			m.recordActivityWithOperation(history.OperationFailure, "", v.Name+": "+v.Err.Error(), v.Operation)
 		} else {
 			m.State = StateReady
 			m.Status = v.Name + " complete"
 			m.notify(notifications.JobComplete, notifications.Success, m.Status, "", false)
-			m.recordActivity(history.OperationSuccess, "", m.Status)
+			m.recordActivityWithOperation(history.OperationSuccess, "", m.Status, v.Operation)
 		}
 		return m, m.refresh()
 	case RebaseFinishedMsg:
