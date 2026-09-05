@@ -64,3 +64,6 @@ Support automated bisect testing without violating argv-only execution.
   newline/NUL/option-like executable tokens.
 - Workspace launch controls, streamed output presentation, and native/manual
   terminal evidence remain outstanding.
+- The bounded argv-only run slice is committed at `f0b0509`; the full
+  `make check` gate passed at that revision. Task 150 remains active until
+  workspace launch/output presentation and terminal acceptance are complete.
