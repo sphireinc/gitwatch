@@ -156,6 +156,16 @@ func (m Model) statusView() string {
 		}
 		lines = append(lines, fitSafeDisplay(progress, width))
 	}
+	if outcome := m.BulkSubmoduleOutcome; outcome != nil {
+		lines = append(lines, fitSafeDisplay("BULK "+strings.ToUpper(string(outcome.Action)), width))
+		limit := min(len(outcome.Items), 12)
+		for _, item := range outcome.Items[:limit] {
+			lines = append(lines, fitSafeDisplay("  "+platform.SafeText(item.Path)+" ["+string(item.State)+"]", width))
+		}
+		if len(outcome.Items) > limit {
+			lines = append(lines, fitSafeDisplay(fmt.Sprintf("  … %d more", len(outcome.Items)-limit), width))
+		}
+	}
 
 	fileWidth := statusLayout.Files.Width
 	if statusLayout.Mode == layout.Wide {
@@ -183,6 +193,9 @@ func (m Model) statusView() string {
 	footer := "[j/k] move  [space] stage  [a/U] all  [enter/d] diff  [/] filter  [S] sort  [R] restore  [T/P/B] context panes  [?] help  [q] quit"
 	if len(m.Submodules.Modules) > 0 {
 		footer = "[M] submodule actions  " + footer
+	}
+	if m.SubmoduleAction == "bulk-running" {
+		footer = "[esc] cancel bulk submodule operation  " + footer
 	}
 	if len(m.repositoryParents) > 0 {
 		footer = "[esc] parent repository  " + footer

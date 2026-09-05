@@ -57,5 +57,11 @@ Support large superprojects with observable bounded bulk initialize/update/sync.
 - Existing single-module typed operations remain the only Git command boundary;
   destructive bulk remove is not exposed.
 - Tests cover hard module/worker bounds, cancellation without starting Git,
-  duplicate selection, and real local failure isolation. Preview/UI retry
-  routing and native/manual evidence remain pending.
+  duplicate selection, and real local failure isolation.
+- Status UI now offers explicit all-module initialize/update/sync previews,
+  selected-module update preview, per-module result rendering, cancellation,
+  and retry-failed routing. App tests cover the preview, dispatch, result, and
+  retry state transitions.
+- Native/manual terminal evidence and the requested 20+ module injected
+  process-count verification remain pending; this task is intentionally still
+  active until those acceptance gates are satisfied.

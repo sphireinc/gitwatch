@@ -327,6 +327,64 @@ func TestSubmoduleLifecycleMenuRequiresExactRemovalConfirmation(t *testing.T) {
 	}
 }
 
+func TestBulkSubmodulePreviewAndFailureRetryRouting(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	m.repositoryGeneration = 1
+	m.Submodules = submodules.Snapshot{Modules: []submodules.Module{
+		{Path: "first", State: submodules.StateDirty},
+		{Path: "second", State: submodules.StateUninitialized},
+	}}
+	m.Files.SetEntries([]repo.Entry{{Path: repo.Path("first"), ModeWork: "160000", Submodule: "-.."}})
+	m.Workspace.Navigate(workspace.Status, "Status")
+
+	updated, _ := m.Update(key("M"))
+	m = updated.(Model)
+	updated, _ = m.Update(key("U"))
+	m = updated.(Model)
+	if m.SubmoduleAction != "bulk-confirm" || m.BulkSubmoduleAction != string(submodules.BulkUpdate) || len(m.BulkSubmodulePaths) != 2 {
+		t.Fatalf("bulk all preview = action=%q bulk=%q paths=%v", m.SubmoduleAction, m.BulkSubmoduleAction, m.BulkSubmodulePaths)
+	}
+	updated, _ = m.Update(key("n"))
+	m = updated.(Model)
+	if m.SubmoduleAction != "" {
+		t.Fatalf("bulk preview cancel = action=%q", m.SubmoduleAction)
+	}
+
+	updated, _ = m.Update(key("M"))
+	m = updated.(Model)
+	updated, _ = m.Update(key("2"))
+	m = updated.(Model)
+	if m.SubmoduleAction != "bulk-confirm" || len(m.BulkSubmodulePaths) != 1 || m.BulkSubmodulePaths[0] != "first" {
+		t.Fatalf("bulk selected preview = action=%q paths=%v", m.SubmoduleAction, m.BulkSubmodulePaths)
+	}
+	updated, command := m.Update(key("y"))
+	m = updated.(Model)
+	if command == nil || m.SubmoduleAction != "bulk-running" || m.State != StateOperationPending {
+		t.Fatalf("bulk dispatch = cmdnil=%v action=%q state=%v", command == nil, m.SubmoduleAction, m.State)
+	}
+
+	updated, command = m.Update(BulkSubmoduleFinishedMsg{Generation: 1, Outcome: submodules.BulkOutcome{
+		Repository: m.Discovery.Root,
+		Action:     submodules.BulkUpdate,
+		Items: []submodules.BulkItem{
+			{Path: "first", State: submodules.ItemFailed},
+			{Path: "second", State: submodules.ItemSucceeded},
+		},
+	}})
+	m = updated.(Model)
+	if command == nil || m.SubmoduleAction != "" || !strings.Contains(m.Status, "1 failed") || m.BulkSubmoduleOutcome == nil {
+		t.Fatalf("bulk result = cmdnil=%v action=%q status=%q outcome=%v", command == nil, m.SubmoduleAction, m.Status, m.BulkSubmoduleOutcome)
+	}
+	updated, _ = m.Update(key("M"))
+	m = updated.(Model)
+	updated, _ = m.Update(key("r"))
+	m = updated.(Model)
+	if m.SubmoduleAction != "bulk-confirm" || len(m.BulkSubmodulePaths) != 1 || m.BulkSubmodulePaths[0] != "first" {
+		t.Fatalf("bulk retry preview = action=%q paths=%v", m.SubmoduleAction, m.BulkSubmodulePaths)
+	}
+}
+
 func TestInitializedSubmoduleNavigationKeepsParentBreadcrumbAndReturns(t *testing.T) {
 	parent := t.TempDir()
 	child := t.TempDir()

@@ -102,6 +102,10 @@ type SubmoduleOpenedMsg struct {
 	Discovery  git.Discovery
 	Err        error
 }
+type BulkSubmoduleFinishedMsg struct {
+	Generation uint64
+	Outcome    submodules.BulkOutcome
+}
 type RefreshStartedMsg struct{}
 type RefreshFinishedMsg struct{ Err error }
 type WatcherStateMsg struct {
@@ -400,6 +404,10 @@ type Model struct {
 	SubmodulePath            string
 	SubmoduleInput           string
 	SubmoduleURL             string
+	BulkSubmoduleAction      string
+	BulkSubmodulePaths       []string
+	BulkSubmoduleOutcome     *submodules.BulkOutcome
+	BulkSubmoduleCancel      context.CancelFunc
 	Discovery                git.Discovery
 	Files                    table.Model
 	FileFilterMode           bool
@@ -1046,6 +1054,10 @@ func (m *Model) setRepository(discovery git.Discovery) error {
 	m.Discovery = discovery
 	m.Submodules, m.SubmodulesLoading, m.SubmodulesGeneration, m.SubmodulesErr = submodules.Snapshot{}, false, 0, nil
 	m.SubmoduleAction, m.SubmodulePath, m.SubmoduleInput, m.SubmoduleURL = "", "", "", ""
+	if m.BulkSubmoduleCancel != nil {
+		m.BulkSubmoduleCancel()
+	}
+	m.BulkSubmoduleAction, m.BulkSubmodulePaths, m.BulkSubmoduleOutcome, m.BulkSubmoduleCancel = "", nil, nil, nil
 	m.LowerPane = ""
 	m.CommitTreeLines, m.CommitTreeHead, m.CommitTreeOffset, m.CommitTreeErr = nil, "", 0, nil
 	m.UnpushedLines, m.UnpushedHead, m.UnpushedUpstream, m.UnpushedOffset, m.UnpushedCount, m.UnpushedErr = nil, "", "", 0, 0, nil
@@ -3400,7 +3412,7 @@ func (m *Model) beginSubmoduleActions() {
 		return
 	}
 	m.SubmoduleAction, m.SubmodulePath = "menu", path
-	m.Status = "submodule " + platform.SafeText(path) + ": [i] init [u] update [s] sync [d] deinit [x] remove [a] URL [esc] cancel"
+	m.Status = "submodule " + platform.SafeText(path) + ": [i/u/s] single [I/U/Y] bulk all [1/2/3] bulk selected init/update/sync [d] deinit [x] remove [a] URL [r] retry failed [esc] cancel"
 }
 
 func (m *Model) updateSubmoduleKey(key string) tea.Cmd {
@@ -3442,6 +3454,25 @@ func (m *Model) updateSubmoduleKey(key string) tea.Cmd {
 		}
 		return nil
 	}
+	if m.SubmoduleAction == "bulk-confirm" {
+		switch key {
+		case "y", "Y":
+			m.SubmoduleAction = "bulk-running"
+			m.State, m.Status = StateOperationPending, "running bulk submodule "+m.BulkSubmoduleAction
+			return m.runBulkSubmodule()
+		case "n", "N", "esc":
+			m.SubmoduleAction, m.BulkSubmoduleAction, m.BulkSubmodulePaths = "", "", nil
+			m.Status = "bulk submodule operation cancelled"
+		}
+		return nil
+	}
+	if m.SubmoduleAction == "bulk-running" {
+		if key == "esc" && m.BulkSubmoduleCancel != nil {
+			m.BulkSubmoduleCancel()
+			m.Status = "bulk submodule cancellation requested"
+		}
+		return nil
+	}
 	if m.SubmoduleAction != "menu" {
 		return nil
 	}
@@ -3458,6 +3489,20 @@ func (m *Model) updateSubmoduleKey(key string) tea.Cmd {
 	case "s":
 		m.SubmoduleAction, m.State, m.Status = "sync", StateOperationPending, "syncing submodule"
 		return m.runSubmoduleOperation()
+	case "I":
+		m.beginBulkSubmodule(submodules.BulkInitialize, true)
+	case "U":
+		m.beginBulkSubmodule(submodules.BulkUpdate, true)
+	case "Y":
+		m.beginBulkSubmodule(submodules.BulkSync, true)
+	case "1":
+		m.beginBulkSubmodule(submodules.BulkInitialize, false)
+	case "2":
+		m.beginBulkSubmodule(submodules.BulkUpdate, false)
+	case "3":
+		m.beginBulkSubmodule(submodules.BulkSync, false)
+	case "r":
+		m.retryBulkSubmodule()
 	case "d":
 		m.SubmoduleAction = "confirm-deinit"
 		m.Status = "confirm deinit of exact submodule path " + platform.SafeText(m.SubmodulePath) + "? (y/n)"
@@ -3469,6 +3514,67 @@ func (m *Model) updateSubmoduleKey(key string) tea.Cmd {
 		m.Status = "submodule URL: "
 	}
 	return nil
+}
+
+func (m *Model) beginBulkSubmodule(action submodules.BulkAction, all bool) {
+	paths := make([]string, 0)
+	if all {
+		for _, module := range m.Submodules.Modules {
+			paths = append(paths, module.Path)
+		}
+	} else if path := m.selectedSubmodulePath(); path != "" {
+		paths = append(paths, path)
+	}
+	if len(paths) == 0 {
+		m.Status = "select a configured submodule first"
+		return
+	}
+	m.BulkSubmoduleAction = string(action)
+	m.BulkSubmodulePaths = paths
+	m.SubmoduleAction = "bulk-confirm"
+	m.Status = fmt.Sprintf("preview bulk %s for %d submodule(s)? (y/n)", action, len(paths))
+}
+
+func (m *Model) retryBulkSubmodule() {
+	if m.BulkSubmoduleOutcome == nil {
+		m.Status = "no bulk submodule result to retry"
+		return
+	}
+	paths := make([]string, 0)
+	for _, item := range m.BulkSubmoduleOutcome.Items {
+		if item.State == submodules.ItemFailed {
+			paths = append(paths, item.Path)
+		}
+	}
+	if len(paths) == 0 {
+		m.Status = "no failed bulk submodules to retry"
+		return
+	}
+	m.BulkSubmoduleAction = string(m.BulkSubmoduleOutcome.Action)
+	m.BulkSubmodulePaths = paths
+	m.SubmoduleAction = "bulk-confirm"
+	m.Status = fmt.Sprintf("preview retry of %d failed submodule(s)? (y/n)", len(paths))
+}
+
+func (m *Model) runBulkSubmodule() tea.Cmd {
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	ctx, cancel := context.WithCancel(m.commandContext())
+	m.BulkSubmoduleCancel = cancel
+	generation := m.repositoryGeneration
+	action := submodules.BulkAction(m.BulkSubmoduleAction)
+	paths := append([]string(nil), m.BulkSubmodulePaths...)
+	runner := git.NewRunner(m.Discovery.Root)
+	var outcome submodules.BulkOutcome
+	command := m.OperationEngine.Command(ctx, fmt.Sprintf("submodule-bulk-%s-%d", action, generation), m.Discovery.Root, "bulk submodule "+string(action), 30*time.Minute, func(ctx context.Context) error {
+		outcome = submodules.Bulk(ctx, runner, submodules.BulkRequest{Repository: m.Discovery.Root, Paths: paths, Action: action})
+		return nil
+	})
+	return func() tea.Msg {
+		_ = command()
+		return BulkSubmoduleFinishedMsg{Generation: generation, Outcome: outcome}
+	}
 }
 
 func (m Model) runSubmoduleOperation() tea.Cmd {
@@ -5330,6 +5436,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.State, m.Status = StateReady, "submodule "+v.Outcome.Action+" complete"
+		return m, m.refresh()
+	case BulkSubmoduleFinishedMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.BulkSubmoduleCancel = nil
+		m.SubmoduleAction = ""
+		outcome := v.Outcome
+		m.BulkSubmoduleOutcome = &outcome
+		succeeded, failed, skipped := 0, 0, 0
+		for _, item := range outcome.Items {
+			switch item.State {
+			case submodules.ItemSucceeded:
+				succeeded++
+			case submodules.ItemFailed:
+				failed++
+			case submodules.ItemSkipped:
+				skipped++
+			}
+		}
+		m.State = StateReady
+		if outcome.Cancelled {
+			m.Status = fmt.Sprintf("bulk submodule %s cancelled: %d succeeded, %d failed, %d skipped", outcome.Action, succeeded, failed, skipped)
+		} else {
+			m.Status = fmt.Sprintf("bulk submodule %s complete: %d succeeded, %d failed, %d skipped", outcome.Action, succeeded, failed, skipped)
+		}
 		return m, m.refresh()
 	case SubmoduleOpenedMsg:
 		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
