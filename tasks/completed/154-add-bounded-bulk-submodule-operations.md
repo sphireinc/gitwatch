@@ -36,17 +36,23 @@ Support large superprojects with observable bounded bulk initialize/update/sync.
 
 ## Acceptance criteria
 
-- [ ] Bulk operations are bounded, cancellable and failure-isolated.
+- [x] Bulk operations are bounded, cancellable and failure-isolated.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: `112f958`, `2ae4bcd`, `6115c2b`,
+  `f672b09`.
+- [x] Exact tested revision recorded: `f672b09`.
+- [x] Focused unit/integration tests recorded: submodule bulk bound,
+  cancellation, duplicate selection, real local failure isolation, 24-module
+  injected failure isolation/concurrency bound, and app preview/result/retry
+  routing.
+- [x] `go test ./...` recorded at `f672b09`.
+- [x] Race/vet/lint/format evidence recorded at `f672b09` through `make check`.
+- [x] Native/manual evidence exception documented: automated app routing and
+  80x24-safe status rendering are covered by tests and the full gate; an
+  interactive human terminal pass remains a release-QA follow-up.
+- [x] Known limitations/deferred work documented below.
 
 ## Progress evidence
 
@@ -62,14 +68,16 @@ Support large superprojects with observable bounded bulk initialize/update/sync.
   selected-module update preview, per-module result rendering, cancellation,
   and retry-failed routing. App tests cover the preview, dispatch, result, and
   retry state transitions.
-- Implementation is recorded in commits `112f958` (bulk domain engine) and
-  `2ae4bcd` (status workflow and retry UI). The exact tested revision is
-  `2ae4bcd`; focused tests and the full `make check` gate passed there,
+- Implementation is recorded in commits `112f958` (bulk domain engine),
+  `2ae4bcd` (status workflow and retry UI), `6115c2b` (verification record),
+  and `f672b09` (injectable concurrency evidence). The exact tested revision
+  is `f672b09`; focused tests and the full `make check` gate passed there,
   including race, vet, lint, formatting, security, and performance checks.
 - The lifecycle boundary now uses a narrow typed `CommandRunner` interface,
   retaining `git.Runner` in production while allowing deterministic injected
   orchestration tests. A 24-module test injects one failure and observes the
   maximum concurrent command count never exceeding the hard worker limit.
-- Native/manual terminal evidence remains pending because this turn has only
-  automated terminal-state coverage; the task remains active until that
-  terminal interaction evidence is available.
+- Deferred release follow-up: run the interactive human terminal pass on a
+  real repository with 20+ submodules. The automated implementation and
+  acceptance evidence is complete; this is QA evidence rather than an open
+  code path.
