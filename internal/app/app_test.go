@@ -275,6 +275,24 @@ func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 	}
 }
 
+func TestExternalSequencerCompletionClosesConflictWorkspace(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	state, err := sequencer.NewState("repo", 1, sequencer.KindRevert, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "main"}, Operation: &state})
+	m.executePaletteAction("cherry_pick_recovery")
+	// Simulate a fresh authoritative refresh after another terminal aborts or
+	// completes the operation. The operation marker is gone and no conflicts
+	// remain, so the recovery workspace must close safely.
+	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "main"}})
+	if m.currentView() != workspace.Status || !strings.Contains(m.Status, "externally") {
+		t.Fatalf("external completion route = view=%q status=%q", m.currentView(), m.Status)
+	}
+}
+
 func TestHistoricalRebaseEntryBuildsExplicitEditPlan(t *testing.T) {
 	m := New()
 	m.Snapshot.Branch.Name = "feature"

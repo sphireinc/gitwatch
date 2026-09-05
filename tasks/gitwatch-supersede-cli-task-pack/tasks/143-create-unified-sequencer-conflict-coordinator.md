@@ -65,6 +65,9 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 - Status recovery routing and the progress workspace now include revert and
   merge alongside rebase and cherry-pick; revert uses the same ordered
   progress presentation as cherry-pick.
+- A refresh that observes a previously active sequencer disappear with no
+  conflicts now closes the recovery workspace to Status and reports the
+  externally completed/aborted transition. App coverage exercises this path.
 - Task remains active: merge/revert entry points, external state transitions,
   repository-switch generation handling, one attention-notification path, and
   native/manual evidence still need completion.

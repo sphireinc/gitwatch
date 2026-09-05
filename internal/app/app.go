@@ -934,6 +934,8 @@ func (m Model) acceptsRepository(generation uint64) bool {
 }
 
 func (m *Model) applySnapshot(snapshot repo.Snapshot) {
+	previousOperation := m.Snapshot.Operation != nil
+	wasConflictView := m.currentView() == workspace.Conflict
 	if m.ActivityLog != nil && !m.Snapshot.ObservedAt.IsZero() {
 		for _, event := range history.Diff(m.Snapshot, snapshot) {
 			m.ActivityLog.Add(event)
@@ -955,6 +957,10 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 	m.Conflict.SetSnapshot(operationKind, operationTarget, snapshot.Conflicts)
 	m.Conflict.SetOperationState(snapshot.Operation)
 	m.Conflict.SetStagedCount(snapshot.Counts.Staged)
+	if previousOperation && wasConflictView && snapshot.Operation == nil && len(snapshot.Conflicts) == 0 {
+		m.Workspace.Navigate(workspace.Status, "Status")
+		m.Status = "sequencer operation completed or was aborted externally"
+	}
 	if err := m.History.SetScope(snapshot.Root, snapshot.Branch.Name, m.repositoryGeneration); err != nil {
 		m.Status = "history selection: " + err.Error()
 	}
