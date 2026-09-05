@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/sphireinc/git-watch/internal/bisect"
 	"github.com/sphireinc/git-watch/internal/branches"
 	"github.com/sphireinc/git-watch/internal/commands"
 	"github.com/sphireinc/git-watch/internal/config"
@@ -1079,6 +1080,23 @@ func TestBisectWorkspaceCollectsExplicitBadAndGoodRefs(t *testing.T) {
 	m = updated.(Model)
 	if cmd == nil || m.State != StateOperationPending || m.BisectStartConfirm {
 		t.Fatalf("bisect start confirmation = cmdnil=%v state=%v confirm=%v", cmd == nil, m.State, m.BisectStartConfirm)
+	}
+}
+
+func TestBisectWorkspaceInspectsCandidateAndMapsMouseActions(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	m.Workspace.Navigate(workspace.Bisect, "Bisect")
+	m.Bisect = bisect.State{Repository: m.Discovery.Root, Active: true, Candidate: "0123456789012345678901234567890123456789"}
+	updated, cmd := m.Update(key("i"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending {
+		t.Fatalf("candidate inspect = cmdnil=%v state=%v", cmd == nil, m.State)
+	}
+	m.State, m.Status = StateReady, ""
+	updated, cmd = m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 5, Y: 9})
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || !strings.Contains(m.Status, "good") {
+		t.Fatalf("mouse good action = cmdnil=%v state=%v status=%q", cmd == nil, m.State, m.Status)
 	}
 }
 

@@ -59,6 +59,11 @@ Make manual bisect visually obvious while live worktree status remains available
 - Added a deliberate `S` start flow that collects an explicit bad ref and good
   ref in sequence, confirms the pair, and starts bisect through the typed
   engine and operation engine. App coverage verifies the full prompt flow.
+- Candidate inspection now reuses the existing history inspector from the
+  bisect workspace (`i`), and mouse clicks on the candidate/action row map to
+  the same inspection and Good/Bad/Skip/Reset commands as keyboard input.
+- Focused app coverage verifies candidate inspection dispatch and mouse Good
+  action parity.
 - The workspace remains usable while Git status/watch refreshes continue to
   update the active repository model.
 - Starting a new bisect from explicit history refs, candidate inspection/diff,

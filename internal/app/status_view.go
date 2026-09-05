@@ -742,6 +742,7 @@ func (m Model) bisectWorkspaceView() string {
 		"known good: " + platform.SafeText(state.Good),
 		"known bad:  " + platform.SafeText(state.Bad),
 		"candidate:  " + platform.SafeText(state.Candidate),
+		"actions:    [g] good  [b] bad  [s] skip  [x] reset  [i] inspect",
 		"",
 		"bisect log:",
 	}

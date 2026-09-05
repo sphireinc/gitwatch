@@ -1170,6 +1170,13 @@ func (m *Model) updateBisectKey(key string) tea.Cmd {
 	case "r":
 		m.State, m.Status = StateOperationPending, "refreshing bisect state"
 		return m.loadBisectState()
+	case "i":
+		if m.Bisect.Candidate == "" {
+			m.Status = "no bisect candidate is available"
+			return nil
+		}
+		m.State, m.Status = StateOperationPending, "loading bisect candidate details"
+		return m.inspectCommit(history.Commit{SHA: m.Bisect.Candidate, Short: shortSHA(m.Bisect.Candidate)}, "", "")
 	}
 	return nil
 }
@@ -3190,6 +3197,13 @@ func removeLastRune(value string) string {
 	return string(runes[:len(runes)-1])
 }
 
+func shortSHA(value string) string {
+	if len(value) > 12 {
+		return value[:12]
+	}
+	return value
+}
+
 func (m *Model) updateComposerKey(key string) tea.Cmd {
 	if key == "ctrl+x" && m.HistoricalRebaseAction != "" {
 		m.State, m.Status = StateOperationPending, "aborting historical rebase"
@@ -4791,6 +4805,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
+			if m.currentView() == workspace.Bisect {
+				row := v.Y - 4
+				switch {
+				case row == 4:
+					return m, m.updateBisectKey("i")
+				case row == 5 && v.X < 20:
+					return m, m.updateBisectKey("g")
+				case row == 5 && v.X < 40:
+					return m, m.updateBisectKey("b")
+				case row == 5 && v.X < 55:
+					return m, m.updateBisectKey("s")
+				case row == 5:
+					return m, m.updateBisectKey("x")
+				}
+				return m, nil
+			}
 			if m.currentView() == workspace.Journal {
 				row := v.Y - 4
 				if row >= 0 {
@@ -5951,6 +5981,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · operation journal", m.operationJournalView()
 	case workspace.Bisect:
 		title, content = "gitwatch · bisect", m.bisectWorkspaceView()
+		if m.HistoryInspector.Commit.SHA != "" {
+			content += "\n\n" + inspectorText(m.HistoryInspector)
+		}
 	case workspace.Commit:
 		title, content = "gitwatch · commit", m.Composer.View()
 	case workspace.Remotes:
@@ -6010,7 +6043,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Bisect {
-		lines[len(lines)-1] = "[S] start  [g] good  [b] bad  [s] skip  [x] reset  [r] refresh  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[S] start  [g] good  [b] bad  [s] skip  [x] reset  [i] inspect  [r] refresh  [1] status  [esc] back  [q] quit"
 		if m.BisectResetConfirm || m.BisectStartConfirm || m.BisectStartMode != "" {
 			lines[len(lines)-1] = "bisect prompt: type ref  [enter] next  [y/n] confirm  [esc] cancel"
 		}
