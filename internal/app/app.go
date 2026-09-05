@@ -2016,14 +2016,21 @@ func (m Model) revertSelectedHistory() tea.Cmd {
 	target, input, ctx, generation := m.HistoryRevertTarget, m.HistoryRevertInput, m.commandContext(), m.repositoryGeneration
 	commits := append([]string(nil), m.HistoryRevertCommits...)
 	mainline := m.HistoryRevertParent
-	return func() tea.Msg {
-		var err error
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	operationID := fmt.Sprintf("revert-%d-%s", generation, target)
+	command := m.OperationEngine.Command(ctx, operationID, m.Discovery.Root, "revert "+target, 5*time.Minute, func(ctx context.Context) error {
 		if len(commits) > 0 {
-			_, err = history.RevertSelection(ctx, runner, confirmation, input, history.RevertPlan{Commits: commits, Mainline: mainline})
-		} else {
-			_, err = history.Revert(ctx, runner, confirmation, input)
+			_, err := history.RevertSelection(ctx, runner, confirmation, input, history.RevertPlan{Commits: commits, Mainline: mainline})
+			return err
 		}
-		return HistoryActionFinishedMsg{Action: "reverted", Target: target, Repository: generation, Err: err}
+		_, err := history.Revert(ctx, runner, confirmation, input)
+		return err
+	})
+	return func() tea.Msg {
+		result := command()
+		return HistoryActionFinishedMsg{Action: "reverted", Target: target, Repository: generation, Err: result.Result.Err}
 	}
 }
 

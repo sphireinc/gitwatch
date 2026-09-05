@@ -73,6 +73,9 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 - A real conflicted-revert detector test now verifies the shared sequencer
   projection exposes the selected SHA and remaining count, not just the
   operation kind.
+- History revert execution now runs through the repository-scoped operation
+  engine, preserving per-repository serialization, cancellation, timeout, and
+  lifecycle history while the typed Git adapter remains the mutation boundary.
 - History basket reverts now build an exact-confirmation ordered plan and pass
   selected SHAs to the typed adapter in basket application order. A single
   merge commit opens a bounded explicit mainline-parent prompt before exact
