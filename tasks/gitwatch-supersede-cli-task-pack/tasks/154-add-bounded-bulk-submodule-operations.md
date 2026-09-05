@@ -47,3 +47,15 @@ Support large superprojects with observable bounded bulk initialize/update/sync.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added `submodules.Bulk` for explicitly selected initialize, update, and sync
+  paths. It deduplicates input, preserves order, caps workers at eight, caps
+  modules at a configured bound, propagates cancellation to Git children, and
+  records queued/running/succeeded/failed/skipped/cancelled per-module state.
+- Existing single-module typed operations remain the only Git command boundary;
+  destructive bulk remove is not exposed.
+- Tests cover hard module/worker bounds, cancellation without starting Git,
+  duplicate selection, and real local failure isolation. Preview/UI retry
+  routing and native/manual evidence remain pending.
