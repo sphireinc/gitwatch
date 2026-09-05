@@ -458,6 +458,95 @@ func TestBranchMergeRunsThroughOperationEngineAndRefreshes(t *testing.T) {
 	}
 }
 
+func TestCherryPickSelectionRunsThroughEngineAndJournalsCompletion(t *testing.T) {
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	runner.Env = []string{"GIT_CONFIG_GLOBAL=/dev/null"}
+	for _, args := range [][]string{
+		{"init", "-b", "main", "--", root},
+		{"config", "user.name", "cherry-pick-test"},
+		{"config", "user.email", "cherry-pick@example.invalid"},
+		{"config", "commit.gpgsign", "false"},
+	} {
+		if _, err := runner.Run(context.Background(), args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "base.txt"), []byte("base\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "--", "base.txt"}, {"commit", "-m", "base"}, {"switch", "-c", "feature"}} {
+		if _, err := runner.Run(context.Background(), args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "picked.txt"), []byte("picked\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(context.Background(), "add", "--", "picked.txt"); err != nil {
+		t.Fatal(err)
+	}
+	featureResult, err := runner.Run(context.Background(), "commit", "-m", "picked")
+	if err != nil {
+		t.Fatal(err)
+	}
+	featureSHA := strings.TrimSpace(string(featureResult.Stdout))
+	featureSHAResult, err := runner.Run(context.Background(), "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	featureSHA = strings.TrimSpace(string(featureSHAResult.Stdout))
+	if _, err := runner.Run(context.Background(), "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := git.Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepository(discovery)
+	t.Cleanup(func() { _ = m.Close() })
+	m.repositoryGeneration = 1
+	m.Snapshot = repo.Snapshot{Root: root, Branch: repo.Branch{Name: "main"}}
+	head, err := runner.Run(context.Background(), "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Snapshot.Branch.OID = strings.TrimSpace(string(head.Stdout))
+	m.HistoryCommits = []history.Commit{{SHA: featureSHA, Subject: "picked", Parents: []string{"base"}}}
+	m.History = historyview.New(m.HistoryCommits)
+	m.Workspace.Navigate(workspace.Log, "History")
+	updated, cmd := m.Update(key("P"))
+	m = updated.(Model)
+	if cmd != nil || !m.CherryPickConfirm {
+		t.Fatalf("cherry-pick confirmation = cmdnil=%v confirm=%v status=%q", cmd != nil, m.CherryPickConfirm, m.Status)
+	}
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.CherryPickConfirm {
+		t.Fatalf("cherry-pick start = cmdnil=%v confirm=%v", cmd == nil, m.CherryPickConfirm)
+	}
+	updated, _ = m.Update(cmd())
+	m = updated.(Model)
+	if m.State != StateReady || m.Status != "cherry-pick completed" {
+		t.Fatalf("cherry-pick completion = state=%v status=%q", m.State, m.Status)
+	}
+	var found bool
+	for _, event := range m.ActivityLog.All() {
+		if event.Operation != nil && event.Operation.Kind == "cherry-pick" {
+			found = true
+			if event.Operation.OldHead == "" || event.Operation.NewHead == "" || len(event.Operation.Args) != 2 {
+				t.Fatalf("cherry-pick journal = %#v", event.Operation)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("cherry-pick completion was not journaled")
+	}
+	if _, err := os.Stat(filepath.Join(root, "picked.txt")); err != nil {
+		t.Fatalf("cherry-picked file missing: %v", err)
+	}
+}
+
 func TestHistoricalRebaseEntryBuildsExplicitEditPlan(t *testing.T) {
 	m := New()
 	m.Snapshot.Branch.Name = "feature"

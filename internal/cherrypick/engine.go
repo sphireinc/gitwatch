@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
@@ -37,11 +38,12 @@ type Journal struct {
 
 // Outcome retains Git's result and the authoritative sequencer observation.
 type Outcome struct {
-	Journal Journal
-	Result  git.Result
-	Err     error
-	Paused  bool
-	State   *sequencer.State
+	Journal  Journal
+	Result   git.Result
+	Err      error
+	Paused   bool
+	State    *sequencer.State
+	Snapshot *repo.Snapshot
 }
 
 // Engine executes cherry-pick commands for one repository.
@@ -153,6 +155,9 @@ func (e Engine) finish(ctx context.Context, journal Journal, result git.Result, 
 		outcome.Paused = true
 		state := observed.State
 		outcome.State = &state
+	}
+	if snapshot, snapshotErr := git.Snapshot(ctx, discovery, e.Generation); snapshotErr == nil {
+		outcome.Snapshot = &snapshot
 	}
 	return outcome
 }

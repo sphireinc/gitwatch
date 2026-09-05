@@ -12,6 +12,7 @@ import (
 
 	"charm.land/bubbletea/v2"
 	"github.com/sphireinc/git-watch/internal/branches"
+	"github.com/sphireinc/git-watch/internal/cherrypick"
 	"github.com/sphireinc/git-watch/internal/commands"
 	"github.com/sphireinc/git-watch/internal/commitmodel"
 	"github.com/sphireinc/git-watch/internal/config"
@@ -117,6 +118,11 @@ type RebaseFinishedMsg struct {
 	Outcome    git.RebaseOutcome
 	Operation  *history.OperationRecord
 	Err        error
+}
+type CherryPickFinishedMsg struct {
+	Repository uint64
+	Outcome    cherrypick.Outcome
+	Operation  *history.OperationRecord
 }
 type RebaseContinueFinishedMsg struct {
 	Repository uint64
@@ -466,6 +472,8 @@ type Model struct {
 	HistoryRevertParent      int
 	HistoryRevertParentMax   int
 	HistoryRevertRunning     bool
+	CherryPickConfirm        bool
+	CherryPickCommits        []string
 	Composer                 commitview.Composer
 	Hunks                    hunkview.Model
 	HunkDiscardConfirm       bool
@@ -2178,6 +2186,76 @@ func (m Model) revertSelectedHistory() tea.Cmd {
 	}
 }
 
+func (m *Model) prepareCherryPick() bool {
+	if m.History.Basket.Count() > 0 {
+		m.CherryPickCommits = m.History.Basket.SHAs()
+	} else if m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+		m.CherryPickCommits = []string{m.History.Rows[m.History.Selected].Commit.SHA}
+	} else {
+		m.Status = "select commits before cherry-picking"
+		return false
+	}
+	for _, sha := range m.CherryPickCommits {
+		for _, row := range m.History.Rows {
+			if row.Commit.SHA == sha && len(row.Commit.Parents) > 1 {
+				m.Status = "cherry-pick merge commits require explicit mainline selection"
+				m.CherryPickCommits = nil
+				return false
+			}
+		}
+	}
+	m.CherryPickConfirm = true
+	suffix := "s"
+	if len(m.CherryPickCommits) == 1 {
+		suffix = ""
+	}
+	m.Status = fmt.Sprintf("confirm cherry-pick %d commit%s? (y/n)", len(m.CherryPickCommits), suffix)
+	return true
+}
+
+func (m Model) cherryPickSelectedHistory() tea.Cmd {
+	if len(m.CherryPickCommits) == 0 {
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	commits := append([]string(nil), m.CherryPickCommits...)
+	args := append([]string{"cherry-pick"}, commits...)
+	operation := &history.OperationRecord{
+		Repository: m.Discovery.Root,
+		Kind:       "cherry-pick",
+		Args:       history.RedactArgs(args),
+		Target:     m.Snapshot.Branch.Name,
+		OldHead:    m.Snapshot.Branch.OID,
+		Refs:       []string{m.Snapshot.Branch.Name},
+	}
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	id := fmt.Sprintf("cherry-pick-%d-%s", generation, strings.Join(commits, ","))
+	var outcome cherrypick.Outcome
+	command := m.OperationEngine.Command(ctx, id, m.Discovery.Root, "cherry-pick", 5*time.Minute, func(ctx context.Context) error {
+		outcome = (cherrypick.Engine{Runner: runner, Discovery: m.Discovery, Repository: m.Discovery.Root, Generation: generation}).Execute(ctx, cherrypick.Request{
+			Repository: m.Discovery.Root, Generation: generation, SHAs: commits,
+		})
+		return outcome.Err
+	})
+	return func() tea.Msg {
+		started := time.Now()
+		result := command()
+		if outcome.Err == nil {
+			outcome.Err = result.Result.Err
+		}
+		completed := *operation
+		completed.Duration = time.Since(started)
+		if head, err := runner.Run(ctx, "rev-parse", "HEAD"); err == nil {
+			completed.NewHead = strings.TrimSpace(string(head.Stdout))
+		}
+		attachLatestRecoveryPoint(ctx, runner, &completed)
+		return CherryPickFinishedMsg{Repository: generation, Outcome: outcome, Operation: &completed}
+	}
+}
+
 func (m Model) loadRemotes() tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
 	branch := m.Snapshot.Branch
@@ -3487,6 +3565,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Log && m.CherryPickConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.CherryPickConfirm = false
+				m.State, m.Status = StateOperationPending, "cherry-picking selected commits"
+				return m, m.cherryPickSelectedHistory()
+			case "n", "N", "esc":
+				m.CherryPickConfirm, m.CherryPickCommits = false, nil
+				m.Status = "cherry-pick cancelled"
+			}
+			return m, nil
+		}
 		if (m.currentView() == workspace.Log || m.currentView() == workspace.Reflog) && m.HistoryBranchCreating {
 			switch v.String() {
 			case "esc":
@@ -3822,7 +3912,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "tag name: "
 			}
 		case "P":
-			if m.currentView() == workspace.Status {
+			if m.currentView() == workspace.Log {
+				m.prepareCherryPick()
+			} else if m.currentView() == workspace.Status {
 				return m, m.selectLowerPane("unpushed")
 			} else if m.currentView() == workspace.Worktrees {
 				m.WorktreeConfirmAction, m.WorktreeConfirmTarget = "prune", "repository"
@@ -4676,6 +4768,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivityWithOperation(history.OperationSuccess, "", m.Status, v.Operation)
 		}
 		return m, m.refresh()
+	case CherryPickFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		m.CherryPickCommits = nil
+		if v.Outcome.Snapshot != nil {
+			m.applySnapshot(*v.Outcome.Snapshot)
+		}
+		if v.Outcome.Paused {
+			m.State = StateReady
+			m.Status = "cherry-pick paused for conflict recovery"
+			m.Workspace.Navigate(workspace.Conflict, "Cherry-pick recovery")
+			m.recordActivityWithOperation(history.OperationFailure, "cherry-pick", m.Status, v.Operation)
+			if len(m.Snapshot.Conflicts) > 0 {
+				return m, m.loadConflictContent()
+			}
+			return m, m.refresh()
+		}
+		if v.Outcome.Err != nil {
+			m.State, m.Status = StateError, v.Outcome.Err.Error()
+			m.recordActivityWithOperation(history.OperationFailure, "cherry-pick", v.Outcome.Err.Error(), v.Operation)
+		} else {
+			m.State, m.Status = StateReady, "cherry-pick completed"
+			m.recordActivityWithOperation(history.OperationSuccess, "cherry-pick", m.Status, v.Operation)
+		}
+		return m, tea.Batch(m.refresh(), m.loadHistory())
 	case PartialOperationFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
@@ -5380,7 +5498,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
 	}
 	if view == workspace.Log {
-		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [P] cherry-pick  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Reflog {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [B] branch  [x] checkout  [] load more  [1] status  [esc] back  [q] quit"

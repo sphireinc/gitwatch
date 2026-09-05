@@ -68,8 +68,8 @@ Upgrade the existing bounded operation completion history into a user-facing rec
   workspace is repository-scoped through the active model and sanitizes all
   rendered journal text.
 - A dedicated initial cherry-pick start-record fixture and broader operation
-  coverage beyond the integrated commit/rebase/merge/remote paths remain
-  outstanding.
+  coverage beyond the integrated commit/rebase/merge/remote paths are now
+  covered by the real app cherry-pick selection test and typed engine path.
 - Sequencer lifecycle completion/abort/skip messages now also carry typed
   semantic journal metadata, covering the shared cherry-pick/revert recovery
   path without assuming that HEAD moved.

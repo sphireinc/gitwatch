@@ -63,3 +63,14 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 - Recovery controls are now operation-specific: Skip is shown only for rebase, cherry-pick, and revert, while unsupported operations such as Merge expose only Continue and Abort.
 - A current cherry-picked commit is labeled `conflicted` when Git reports conflicted paths; the progress view can be left for Status and reopened through Ctrl-P without losing the operation projection.
 - Task 135 is not moved to `tasks/completed` until the remaining workspace/navigation and platform acceptance criteria are proven.
+
+## Additional implementation evidence
+
+- Added guarded history selection/basket `P` action with explicit confirmation,
+  typed `internal/cherrypick` execution through the repository operation
+  engine, authoritative post-command snapshot capture, conflict-workspace
+  routing, and completion activity journaling.
+- `TestCherryPickSelectionRunsThroughEngineAndJournalsCompletion` exercises a
+  real feature commit selected from history, cherry-picks it onto `main`, and
+  verifies the resulting file and semantic journal record. Standalone
+  workspace/navigation and native/manual acceptance remain outstanding.
