@@ -65,7 +65,7 @@ type BulkOutcome struct {
 // Bulk executes selected initialize/update/sync operations with a hard worker
 // bound. Each Git child inherits ctx, and a failed module never prevents other
 // queued modules from running.
-func Bulk(ctx context.Context, runner git.Runner, request BulkRequest) BulkOutcome {
+func Bulk(ctx context.Context, runner CommandRunner, request BulkRequest) BulkOutcome {
 	outcome := BulkOutcome{Repository: request.Repository, Action: request.Action}
 	if ctx == nil {
 		ctx = context.Background()
@@ -157,7 +157,7 @@ func Bulk(ctx context.Context, runner git.Runner, request BulkRequest) BulkOutco
 
 var ErrBulkLimit = errors.New("bulk submodule module limit exceeded")
 
-func runBulkAction(ctx context.Context, runner git.Runner, action BulkAction, request Request) Outcome {
+func runBulkAction(ctx context.Context, runner CommandRunner, action BulkAction, request Request) Outcome {
 	switch action {
 	case BulkInitialize:
 		return Initialize(ctx, runner, request)

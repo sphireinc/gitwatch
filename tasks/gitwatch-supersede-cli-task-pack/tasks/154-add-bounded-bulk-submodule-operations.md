@@ -66,9 +66,10 @@ Support large superprojects with observable bounded bulk initialize/update/sync.
   `2ae4bcd` (status workflow and retry UI). The exact tested revision is
   `2ae4bcd`; focused tests and the full `make check` gate passed there,
   including race, vet, lint, formatting, security, and performance checks.
-- Native/manual terminal evidence and the requested 20+ module injected
-  process-count verification remain pending. The current test seam can verify
-  cancellation, failure isolation, and configured worker caps, but it does not
-  yet inject a process-counting Git executable through the production bulk
-  runner. This task is intentionally still active until those acceptance gates
-  are satisfied.
+- The lifecycle boundary now uses a narrow typed `CommandRunner` interface,
+  retaining `git.Runner` in production while allowing deterministic injected
+  orchestration tests. A 24-module test injects one failure and observes the
+  maximum concurrent command count never exceeding the hard worker limit.
+- Native/manual terminal evidence remains pending because this turn has only
+  automated terminal-state coverage; the task remains active until that
+  terminal interaction evidence is available.

@@ -44,33 +44,40 @@ type Outcome struct {
 	Err    error
 }
 
-func Initialize(ctx context.Context, runner git.Runner, request Request) Outcome {
+// CommandRunner is the narrow typed command boundary needed by lifecycle
+// operations. git.Runner is the production implementation; the interface
+// keeps bounded orchestration independently testable without shell fakes.
+type CommandRunner interface {
+	Run(context.Context, ...string) (git.Result, error)
+}
+
+func Initialize(ctx context.Context, runner CommandRunner, request Request) Outcome {
 	return run(ctx, runner, "initialize", request, "submodule", "update", "--init", "--", request.Path)
 }
 
-func Update(ctx context.Context, runner git.Runner, request Request) Outcome {
+func Update(ctx context.Context, runner CommandRunner, request Request) Outcome {
 	return run(ctx, runner, "update", request, "submodule", "update", "--", request.Path)
 }
 
-func Sync(ctx context.Context, runner git.Runner, request Request) Outcome {
+func Sync(ctx context.Context, runner CommandRunner, request Request) Outcome {
 	return run(ctx, runner, "sync", request, "submodule", "sync", "--", request.Path)
 }
 
-func Deinit(ctx context.Context, runner git.Runner, request RemoveRequest) Outcome {
+func Deinit(ctx context.Context, runner CommandRunner, request RemoveRequest) Outcome {
 	if err := validateRemoval(request); err != nil {
 		return Outcome{Action: "deinit", Path: request.Path, Err: err}
 	}
 	return run(ctx, runner, "deinit", request.Request, "submodule", "deinit", "--", request.Path)
 }
 
-func Remove(ctx context.Context, runner git.Runner, request RemoveRequest) Outcome {
+func Remove(ctx context.Context, runner CommandRunner, request RemoveRequest) Outcome {
 	if err := validateRemoval(request); err != nil {
 		return Outcome{Action: "remove", Path: request.Path, Err: err}
 	}
 	return run(ctx, runner, "remove", request.Request, "rm", "--", request.Path)
 }
 
-func Add(ctx context.Context, runner git.Runner, request AddRequest) Outcome {
+func Add(ctx context.Context, runner CommandRunner, request AddRequest) Outcome {
 	if err := validateRepositoryAndPath(request.Repository, request.Path); err != nil {
 		return Outcome{Action: "add", Path: request.Path, Err: err}
 	}
@@ -81,7 +88,7 @@ func Add(ctx context.Context, runner git.Runner, request AddRequest) Outcome {
 	return sanitizeOutcome(outcome, request.URL)
 }
 
-func run(ctx context.Context, runner git.Runner, action string, request Request, args ...string) Outcome {
+func run(ctx context.Context, runner CommandRunner, action string, request Request, args ...string) Outcome {
 	if err := validateRepositoryAndPath(request.Repository, request.Path); err != nil {
 		return Outcome{Action: action, Path: request.Path, Err: err}
 	}
