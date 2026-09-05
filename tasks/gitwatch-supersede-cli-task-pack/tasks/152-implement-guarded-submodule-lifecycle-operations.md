@@ -57,3 +57,15 @@ Match practical submodule lifecycle features with explicit deletion and URL-chan
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added typed `internal/submodules` lifecycle operations for initialize,
+  update, sync, deinit, remove, and add. All commands use argument vectors
+  and explicit `--` path boundaries; recursive/bulk behavior is not implicit.
+- Deinit and remove require an exact repeated path confirmation. Path and URL
+  validation rejects control characters, and URL-bearing command results,
+  output, and errors redact credentials before retention.
+- Focused tests cover unsafe paths, confirmation mismatch, control-character
+  rejection, and URL-result sanitization. UI routing, real lifecycle
+  integration, failure isolation, and native/manual evidence remain pending.

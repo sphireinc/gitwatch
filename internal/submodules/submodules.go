@@ -198,7 +198,7 @@ func parseConfig(data []byte) ([]Module, error) {
 		if parts[2] == "path" {
 			module.path = value
 		} else {
-			module.url = redactURL(value)
+			module.url = RedactURL(value)
 		}
 	}
 	// Git config output is not guaranteed to be useful as a map order. Sort
@@ -286,7 +286,8 @@ func pathDepth(path string) int {
 
 var scpCredential = regexp.MustCompile(`^[^/@\s]+@`)
 
-func redactURL(raw string) string {
+// RedactURL removes URL userinfo before text is retained for display or logs.
+func RedactURL(raw string) string {
 	parsed, err := url.Parse(raw)
 	if err == nil && parsed.Scheme != "" && parsed.Host != "" {
 		parsed.User = nil
