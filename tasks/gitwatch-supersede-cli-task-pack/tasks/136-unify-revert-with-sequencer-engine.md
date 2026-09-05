@@ -89,3 +89,6 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   authoritative post-command snapshot and semantic operation metadata, applies
   paused conflict state through the shared resolver, and records success or
   failure in the operation journal before refreshing history/status.
+- This lifecycle slice is committed at `354e7c4`; the full `make check` gate
+  passed at that revision. The task remains active for the unified coordinator,
+  broader restart/abort integration evidence, and native acceptance.
