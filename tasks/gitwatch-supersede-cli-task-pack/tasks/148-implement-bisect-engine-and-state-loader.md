@@ -71,3 +71,6 @@ Support starting, resuming, marking, skipping and resetting Git bisect as a repo
 - UI/workspace integration, operation-engine scheduling, and native/manual
   terminal evidence remain for the subsequent bisect workspace and completion
   slices.
+- The engine/state-loader slice is committed at `38c2b2c`; the full
+  `make check` gate passed at that revision. Task 148 remains active until the
+  operation-engine/UI integration and terminal acceptance are complete.
