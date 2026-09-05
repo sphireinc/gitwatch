@@ -53,3 +53,12 @@ Expose reflog as a recovery surface and foundation for semantic undo.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added `internal/reflog` with typed bounded page requests, default HEAD
+  loading, caller-selected reflog refs, cancellable Git execution, stable
+  NUL-delimited parsing, actor/action extraction, and output-size bounds.
+- Real-repository tests cover commit reflog records, pagination limits, unsafe
+  refs, negative offsets, and malformed timestamps. The workspace/browser and
+  recovery-point actions remain outstanding.
