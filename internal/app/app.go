@@ -471,6 +471,12 @@ type Model struct {
 	BisectStartGood          string
 	BisectStartInput         string
 	BisectStartConfirm       bool
+	BisectRunMode            string
+	BisectRunExecutable      string
+	BisectRunInput           string
+	BisectRunArgs            []string
+	BisectRunConfirm         bool
+	BisectRunOutput          string
 	UndoConfirm              bool
 	UndoRecord               *history.OperationRecord
 	RedoConfirm              bool
@@ -1097,6 +1103,65 @@ func recoverableOperation(kind sequencer.Kind) bool {
 }
 
 func (m *Model) updateBisectKey(key string) tea.Cmd {
+	if m.BisectRunMode != "" || m.BisectRunConfirm {
+		switch key {
+		case "esc":
+			m.BisectRunMode, m.BisectRunInput, m.BisectRunConfirm = "", "", false
+			m.BisectRunArgs = nil
+			m.Status = "automated bisect run cancelled"
+		case "backspace":
+			m.BisectRunInput = removeLastRune(m.BisectRunInput)
+		case "space", " ":
+			if m.BisectRunMode != "" {
+				m.BisectRunInput += " "
+			}
+		case "enter":
+			if m.BisectRunMode == "executable" {
+				if strings.TrimSpace(m.BisectRunInput) == "" {
+					m.Status = "an executable is required"
+				} else {
+					m.BisectRunExecutable, m.BisectRunInput, m.BisectRunMode = m.BisectRunInput, "", "arg"
+					m.Status = "argument 1 (enter blank to run): "
+				}
+			} else if m.BisectRunMode == "arg" {
+				if m.BisectRunInput == "" {
+					m.BisectRunMode, m.BisectRunConfirm = "", true
+					m.Status = "run " + m.BisectRunExecutable + " with " + fmt.Sprintf("%d", len(m.BisectRunArgs)) + " argument(s)? (y/n)"
+				} else {
+					m.BisectRunArgs = append(m.BisectRunArgs, m.BisectRunInput)
+					m.BisectRunInput = ""
+					m.Status = "argument " + fmt.Sprintf("%d", len(m.BisectRunArgs)+1) + " (enter blank to run): "
+				}
+			} else if m.BisectRunConfirm {
+				m.Status = "confirm automated bisect run with y/n"
+			}
+		case "y", "Y":
+			if m.BisectRunConfirm {
+				m.BisectRunConfirm, m.State, m.Status = false, StateOperationPending, "running automated bisect"
+				return m.bisectRun()
+			}
+			if m.BisectRunMode != "" {
+				m.BisectRunInput += key
+			}
+		case "n", "N":
+			if m.BisectRunConfirm {
+				m.BisectRunMode, m.BisectRunInput, m.BisectRunConfirm = "", "", false
+				m.BisectRunArgs = nil
+				m.Status = "automated bisect run cancelled"
+			} else {
+				m.BisectRunInput += key
+			}
+		default:
+			if m.BisectRunMode != "" && len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00") {
+				m.BisectRunInput += key
+			}
+		}
+		if m.BisectRunMode == "executable" {
+			m.Status = "executable: " + m.BisectRunInput
+		}
+		return nil
+	}
+
 	if m.BisectStartMode != "" || m.BisectStartConfirm {
 		switch key {
 		case "esc":
@@ -1153,6 +1218,9 @@ func (m *Model) updateBisectKey(key string) tea.Cmd {
 	case "S":
 		m.BisectStartMode, m.BisectStartInput = "bad", ""
 		m.Status = "known-bad ref: "
+	case "A":
+		m.BisectRunMode, m.BisectRunInput, m.BisectRunArgs = "executable", "", nil
+		m.Status = "executable: "
 	case "y":
 		if m.BisectResetConfirm {
 			m.BisectResetConfirm, m.State, m.Status = false, StateOperationPending, "resetting bisect"
@@ -2155,6 +2223,30 @@ func (m Model) bisectStart() tea.Cmd {
 			outcome.Err = result.Result.Err
 		}
 		return BisectFinishedMsg{Repository: generation, Action: "start", Outcome: outcome}
+	}
+}
+
+func (m Model) bisectRun() tea.Cmd {
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	request := bisect.RunRequest{
+		Repository: m.Discovery.Root, Generation: generation,
+		Executable: m.BisectRunExecutable, Args: append([]string(nil), m.BisectRunArgs...),
+	}
+	var outcome bisect.Outcome
+	command := m.OperationEngine.Command(ctx, fmt.Sprintf("bisect-run-%d", generation), m.Discovery.Root, "bisect run", 30*time.Minute, func(ctx context.Context) error {
+		outcome = bisect.RunCommand(ctx, runner, request)
+		return outcome.Err
+	})
+	return func() tea.Msg {
+		result := command()
+		if outcome.Err == nil {
+			outcome.Err = result.Result.Err
+		}
+		return BisectFinishedMsg{Repository: generation, Action: "run", Outcome: outcome}
 	}
 }
 
@@ -5407,6 +5499,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.applySnapshot(v.Outcome.Snapshot)
 		}
 		m.Bisect = v.Outcome.State
+		if v.Action == "run" {
+			m.BisectRunMode, m.BisectRunInput, m.BisectRunConfirm = "", "", false
+			m.BisectRunArgs = nil
+			m.BisectRunOutput = platform.SafeText(string(append(append([]byte(nil), v.Outcome.Result.Stdout...), v.Outcome.Result.Stderr...)))
+		}
 		if v.Action == "start" {
 			m.BisectStartMode, m.BisectStartInput, m.BisectStartConfirm = "", "", false
 		}
@@ -6043,9 +6140,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Bisect {
-		lines[len(lines)-1] = "[S] start  [g] good  [b] bad  [s] skip  [x] reset  [i] inspect  [r] refresh  [1] status  [esc] back  [q] quit"
-		if m.BisectResetConfirm || m.BisectStartConfirm || m.BisectStartMode != "" {
-			lines[len(lines)-1] = "bisect prompt: type ref  [enter] next  [y/n] confirm  [esc] cancel"
+		lines[len(lines)-1] = "[S] start  [A] run  [g] good  [b] bad  [s] skip  [x] reset  [i] inspect  [r] refresh  [1] status  [esc] back  [q] quit"
+		if m.BisectResetConfirm || m.BisectStartConfirm || m.BisectStartMode != "" || m.BisectRunMode != "" || m.BisectRunConfirm {
+			lines[len(lines)-1] = "bisect prompt: type token  [enter] next  [y/n] confirm  [esc] cancel"
 		}
 	}
 	if view == workspace.Branches {

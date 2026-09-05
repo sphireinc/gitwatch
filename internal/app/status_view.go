@@ -763,6 +763,18 @@ func (m Model) bisectWorkspaceView() string {
 	if m.BisectStartConfirm {
 		lines = append(lines, "", "CONFIRM: start with bad="+platform.SafeText(m.BisectStartBad)+" good="+platform.SafeText(m.BisectStartGood)+"? (y/n)")
 	}
+	if m.BisectRunMode == "executable" {
+		lines = append(lines, "", "INPUT: executable "+platform.SafeText(m.BisectRunInput))
+	}
+	if m.BisectRunMode == "arg" {
+		lines = append(lines, "", fmt.Sprintf("INPUT: argument %d %s", len(m.BisectRunArgs)+1, platform.SafeText(m.BisectRunInput)))
+	}
+	if m.BisectRunConfirm {
+		lines = append(lines, "", "CONFIRM: run "+platform.SafeText(m.BisectRunExecutable)+" with "+fmt.Sprintf("%d", len(m.BisectRunArgs))+" argument(s)? (y/n)")
+	}
+	if m.BisectRunOutput != "" {
+		lines = append(lines, "", "automated run output:", m.BisectRunOutput)
+	}
 	return strings.Join(lines, "\n")
 }
 

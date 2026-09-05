@@ -1100,6 +1100,35 @@ func TestBisectWorkspaceInspectsCandidateAndMapsMouseActions(t *testing.T) {
 	}
 }
 
+func TestBisectWorkspaceCollectsAutomatedRunArgvBeforeConfirmation(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	m.Workspace.Navigate(workspace.Bisect, "Bisect")
+	updated, _ := m.Update(key("A"))
+	m = updated.(Model)
+	for _, ch := range "test runner" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	for _, ch := range "case with spaces" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if !m.BisectRunConfirm || m.BisectRunExecutable != "test runner" || len(m.BisectRunArgs) != 1 || m.BisectRunArgs[0] != "case with spaces" {
+		t.Fatalf("automated run prompt = confirm=%v executable=%q args=%q", m.BisectRunConfirm, m.BisectRunExecutable, m.BisectRunArgs)
+	}
+	updated, cmd := m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || m.BisectRunConfirm {
+		t.Fatalf("automated run confirmation = cmdnil=%v state=%v confirm=%v", cmd == nil, m.State, m.BisectRunConfirm)
+	}
+}
+
 func TestOpenDiffFollowsKeyboardSelection(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("a.txt"), Unstaged: true}, {Path: repo.Path("b.txt"), Unstaged: true}}

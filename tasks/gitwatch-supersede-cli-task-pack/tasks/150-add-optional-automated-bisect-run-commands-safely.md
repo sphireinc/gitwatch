@@ -62,8 +62,15 @@ Support automated bisect testing without violating argv-only execution.
 - Real repository coverage exercises `git bisect run` with an executable path
   containing spaces and an argument containing spaces; validation rejects
   newline/NUL/option-like executable tokens.
-- Workspace launch controls, streamed output presentation, and native/manual
-  terminal evidence remain outstanding.
+- Workspace launch controls now collect the executable and each argv token
+  separately, require confirmation, run through the operation engine, and
+  render bounded sanitized stdout/stderr in the bisect workspace. Automated
+  app coverage exercises executable and argument paths containing spaces and
+  verifies the operation enters the pending state.
+- Native/manual terminal evidence remains outstanding; the output is captured
+  after the bounded operation rather than streamed incrementally.
 - The bounded argv-only run slice is committed at `f0b0509`; the full
-  `make check` gate passed at that revision. Task 150 remains active until
-  workspace launch/output presentation and terminal acceptance are complete.
+  `make check` gate passed at that revision. The workspace slice is currently
+  uncommitted pending the next full gate. Task 150 remains active until the
+  dependent custom-command foundation, terminal acceptance, and remaining
+  cancellation/timeout evidence are complete.
