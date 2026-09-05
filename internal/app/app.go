@@ -466,6 +466,11 @@ type Model struct {
 	Bisect                   bisect.State
 	BisectLoading            bool
 	BisectResetConfirm       bool
+	BisectStartMode          string
+	BisectStartBad           string
+	BisectStartGood          string
+	BisectStartInput         string
+	BisectStartConfirm       bool
 	UndoConfirm              bool
 	UndoRecord               *history.OperationRecord
 	RedoConfirm              bool
@@ -1092,6 +1097,46 @@ func recoverableOperation(kind sequencer.Kind) bool {
 }
 
 func (m *Model) updateBisectKey(key string) tea.Cmd {
+	if m.BisectStartMode != "" || m.BisectStartConfirm {
+		switch key {
+		case "esc":
+			m.BisectStartMode, m.BisectStartInput, m.BisectStartConfirm = "", "", false
+			m.Status = "bisect start cancelled"
+		case "backspace":
+			m.BisectStartInput = removeLastRune(m.BisectStartInput)
+		case "enter":
+			ref := strings.TrimSpace(m.BisectStartInput)
+			if m.BisectStartMode != "" {
+				if ref == "" {
+					m.Status = "a ref is required"
+				} else if m.BisectStartMode == "bad" {
+					m.BisectStartBad, m.BisectStartInput, m.BisectStartMode = ref, "", "good"
+					m.Status = "known-good ref: "
+				} else {
+					m.BisectStartGood, m.BisectStartInput, m.BisectStartMode, m.BisectStartConfirm = ref, "", "", true
+					m.Status = "start bisect bad=" + m.BisectStartBad + " good=" + m.BisectStartGood + "? (y/n)"
+				}
+			} else if m.BisectStartConfirm {
+				m.Status = "confirm start bisect with y/n"
+			}
+		case "y", "Y":
+			if m.BisectStartConfirm {
+				m.BisectStartConfirm, m.State, m.Status = false, StateOperationPending, "starting bisect"
+				return m.bisectStart()
+			}
+		case "n", "N":
+			m.BisectStartMode, m.BisectStartInput, m.BisectStartConfirm = "", "", false
+			m.Status = "bisect start cancelled"
+		default:
+			if m.BisectStartMode != "" && len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00 ") {
+				m.BisectStartInput += key
+			}
+		}
+		if m.BisectStartMode != "" {
+			m.Status = "known-" + m.BisectStartMode + " ref: " + m.BisectStartInput
+		}
+		return nil
+	}
 	switch key {
 	case "g":
 		m.State, m.Status = StateOperationPending, "marking candidate good"
@@ -1105,6 +1150,9 @@ func (m *Model) updateBisectKey(key string) tea.Cmd {
 	case "x":
 		m.BisectResetConfirm = true
 		m.Status = "reset bisect and return to the original branch? (y/n)"
+	case "S":
+		m.BisectStartMode, m.BisectStartInput = "bad", ""
+		m.Status = "known-bad ref: "
 	case "y":
 		if m.BisectResetConfirm {
 			m.BisectResetConfirm, m.State, m.Status = false, StateOperationPending, "resetting bisect"
@@ -2079,6 +2127,27 @@ func (m Model) bisectAction(action bisect.Mark) tea.Cmd {
 			outcome.Err = result.Result.Err
 		}
 		return BisectFinishedMsg{Repository: generation, Action: string(action), Outcome: outcome}
+	}
+}
+
+func (m Model) bisectStart() tea.Cmd {
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	request := bisect.StartRequest{Repository: m.Discovery.Root, Generation: generation, Bad: m.BisectStartBad, Good: m.BisectStartGood}
+	var outcome bisect.Outcome
+	command := m.OperationEngine.Command(ctx, fmt.Sprintf("bisect-start-%d", generation), m.Discovery.Root, "bisect start", 5*time.Minute, func(ctx context.Context) error {
+		outcome = bisect.Start(ctx, runner, request)
+		return outcome.Err
+	})
+	return func() tea.Msg {
+		result := command()
+		if outcome.Err == nil {
+			outcome.Err = result.Result.Err
+		}
+		return BisectFinishedMsg{Repository: generation, Action: "start", Outcome: outcome}
 	}
 }
 
@@ -5308,6 +5377,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.applySnapshot(v.Outcome.Snapshot)
 		}
 		m.Bisect = v.Outcome.State
+		if v.Action == "start" {
+			m.BisectStartMode, m.BisectStartInput, m.BisectStartConfirm = "", "", false
+		}
 		if v.Outcome.Err != nil {
 			m.State, m.Status = StateError, "bisect "+v.Action+": "+v.Outcome.Err.Error()
 		} else {
@@ -5938,9 +6010,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Bisect {
-		lines[len(lines)-1] = "[g] good  [b] bad  [s] skip  [x] reset  [r] refresh  [1] status  [esc] back  [q] quit"
-		if m.BisectResetConfirm {
-			lines[len(lines)-1] = "confirm reset: [y] yes  [n] no  [esc] cancel"
+		lines[len(lines)-1] = "[S] start  [g] good  [b] bad  [s] skip  [x] reset  [r] refresh  [1] status  [esc] back  [q] quit"
+		if m.BisectResetConfirm || m.BisectStartConfirm || m.BisectStartMode != "" {
+			lines[len(lines)-1] = "bisect prompt: type ref  [enter] next  [y/n] confirm  [esc] cancel"
 		}
 	}
 	if view == workspace.Branches {

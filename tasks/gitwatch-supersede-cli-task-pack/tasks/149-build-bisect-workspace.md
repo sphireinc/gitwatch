@@ -56,6 +56,9 @@ Make manual bisect visually obvious while live worktree status remains available
 - Added keyboard actions for Good, Bad, Skip, refresh, Status navigation, and
   a deliberate Reset confirmation. Mutations run through the operation engine
   and apply authoritative post-command snapshots.
+- Added a deliberate `S` start flow that collects an explicit bad ref and good
+  ref in sequence, confirms the pair, and starts bisect through the typed
+  engine and operation engine. App coverage verifies the full prompt flow.
 - The workspace remains usable while Git status/watch refreshes continue to
   update the active repository model.
 - Starting a new bisect from explicit history refs, candidate inspection/diff,

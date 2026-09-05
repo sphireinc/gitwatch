@@ -756,6 +756,12 @@ func (m Model) bisectWorkspaceView() string {
 	if m.BisectResetConfirm {
 		lines = append(lines, "", "CONFIRM: reset bisect? (y/n)")
 	}
+	if m.BisectStartMode != "" {
+		lines = append(lines, "", "INPUT: known-"+m.BisectStartMode+" ref: "+platform.SafeText(m.BisectStartInput))
+	}
+	if m.BisectStartConfirm {
+		lines = append(lines, "", "CONFIRM: start with bad="+platform.SafeText(m.BisectStartBad)+" good="+platform.SafeText(m.BisectStartGood)+"? (y/n)")
+	}
 	return strings.Join(lines, "\n")
 }
 

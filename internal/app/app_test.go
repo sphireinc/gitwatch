@@ -1049,6 +1049,39 @@ func TestJournalRedoRefusalOpensGuidedReflogRecovery(t *testing.T) {
 	}
 }
 
+func TestBisectWorkspaceCollectsExplicitBadAndGoodRefs(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	m.Workspace.Navigate(workspace.Bisect, "Bisect")
+	updated, _ := m.Update(key("S"))
+	m = updated.(Model)
+	if m.BisectStartMode != "bad" {
+		t.Fatalf("bisect start mode = %q", m.BisectStartMode)
+	}
+	for _, ch := range "bad-ref" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if m.BisectStartMode != "good" || m.BisectStartBad != "bad-ref" {
+		t.Fatalf("bad ref selection = mode=%q bad=%q", m.BisectStartMode, m.BisectStartBad)
+	}
+	for _, ch := range "good-ref" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if !m.BisectStartConfirm || m.BisectStartGood != "good-ref" {
+		t.Fatalf("good ref selection = confirm=%v good=%q", m.BisectStartConfirm, m.BisectStartGood)
+	}
+	updated, cmd := m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending || m.BisectStartConfirm {
+		t.Fatalf("bisect start confirmation = cmdnil=%v state=%v confirm=%v", cmd == nil, m.State, m.BisectStartConfirm)
+	}
+}
+
 func TestOpenDiffFollowsKeyboardSelection(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("a.txt"), Unstaged: true}, {Path: repo.Path("b.txt"), Unstaged: true}}
