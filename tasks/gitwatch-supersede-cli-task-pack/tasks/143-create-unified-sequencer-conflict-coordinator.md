@@ -75,6 +75,9 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 - Conflict attention notifications are now emitted on entry into a conflicted
   state or operation transition, rather than duplicated on every watcher
   refresh. App coverage verifies the single-notification path.
+- Fallback refresh snapshots now carry repository generation metadata and stale
+  snapshots are discarded after a repository switch. App coverage verifies
+  that an old repository cannot overwrite current recovery state.
 - Task remains active: merge/revert entry points, external state transitions,
   repository-switch generation handling, one attention-notification path, and
   native/manual evidence still need completion.

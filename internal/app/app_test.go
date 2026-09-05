@@ -635,6 +635,20 @@ func TestConflictNotificationIsEmittedOncePerOperationTransition(t *testing.T) {
 	}
 }
 
+func TestStaleSnapshotDoesNotCrossRepositoryGeneration(t *testing.T) {
+	m := New()
+	m.repositoryGeneration = 2
+	m.Snapshot = repo.Snapshot{Root: "/current", Branch: repo.Branch{Name: "current"}}
+	updated, cmd := m.Update(SnapshotMsg{
+		Generation: 1,
+		Snapshot:   repo.Snapshot{Root: "/old", Branch: repo.Branch{Name: "old"}},
+	})
+	got := updated.(Model)
+	if cmd != nil || got.Snapshot.Root != "/current" || got.Snapshot.Branch.Name != "current" {
+		t.Fatalf("stale snapshot applied = cmdnil=%v root=%q branch=%q", cmd != nil, got.Snapshot.Root, got.Snapshot.Branch.Name)
+	}
+}
+
 func TestNotificationAttentionBadgeAndDismissal(t *testing.T) {
 	m := New()
 	m.notify(notifications.Conflict, notifications.Error, "conflict", "resolve", true)

@@ -74,7 +74,10 @@ const (
 	StateShutdown
 )
 
-type SnapshotMsg struct{ Snapshot repo.Snapshot }
+type SnapshotMsg struct {
+	Generation uint64
+	Snapshot   repo.Snapshot
+}
 type RefreshStartedMsg struct{}
 type RefreshFinishedMsg struct{ Err error }
 type WatcherStateMsg struct {
@@ -1189,12 +1192,13 @@ func (m Model) refresh() tea.Cmd {
 		}
 	}
 	discovery := m.Discovery
+	generation := m.repositoryGeneration
 	return func() tea.Msg {
 		snapshot, err := git.Snapshot(ctx, discovery, 0)
 		if err != nil {
 			return RefreshFinishedMsg{Err: err}
 		}
-		return SnapshotMsg{Snapshot: snapshot}
+		return SnapshotMsg{Generation: generation, Snapshot: snapshot}
 	}
 }
 
@@ -4172,6 +4176,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.State = StateRefreshing
 		v.Coordinator.Request(v.Context)
 	case SnapshotMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
 		m.applySnapshot(v.Snapshot)
 		m.State = StateReady
 		return m, m.refreshStatusContextIfNeeded()
