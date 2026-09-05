@@ -61,4 +61,7 @@ Expose reflog as a recovery surface and foundation for semantic undo.
   NUL-delimited parsing, actor/action extraction, and output-size bounds.
 - Real-repository tests cover commit reflog records, pagination limits, unsafe
   refs, negative offsets, and malformed timestamps. The workspace/browser and
-  recovery-point actions remain outstanding.
+  recovery-point actions now have an initial bounded browser route through the
+  command palette, selection movement, and page loading; commit inspection,
+  compare-to-HEAD, branch creation, and safe recovery-point actions remain
+  outstanding.

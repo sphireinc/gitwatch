@@ -22,6 +22,7 @@ const (
 	Rebase       View = "rebase"
 	Conflict     View = "conflict"
 	Gitignore    View = "gitignore"
+	Reflog       View = "reflog"
 )
 
 type Breadcrumb struct {

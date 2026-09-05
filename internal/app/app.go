@@ -33,6 +33,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/plugins"
 	"github.com/sphireinc/git-watch/internal/provider"
 	"github.com/sphireinc/git-watch/internal/rebase"
+	"github.com/sphireinc/git-watch/internal/reflog"
 	"github.com/sphireinc/git-watch/internal/registry"
 	"github.com/sphireinc/git-watch/internal/remotes"
 	"github.com/sphireinc/git-watch/internal/repo"
@@ -51,6 +52,7 @@ import (
 	uimouse "github.com/sphireinc/git-watch/internal/ui/mouse"
 	"github.com/sphireinc/git-watch/internal/ui/pluginview"
 	"github.com/sphireinc/git-watch/internal/ui/rebaseview"
+	"github.com/sphireinc/git-watch/internal/ui/reflogview"
 	"github.com/sphireinc/git-watch/internal/ui/remoteview"
 	"github.com/sphireinc/git-watch/internal/ui/repoview"
 	"github.com/sphireinc/git-watch/internal/ui/stashview"
@@ -175,6 +177,13 @@ type BranchesReadyMsg struct {
 type StashesReadyMsg struct {
 	Entries []stash.Entry
 	Err     error
+}
+type ReflogReadyMsg struct {
+	Entries    []reflog.Entry
+	Generation uint64
+	Skip       int
+	HasMore    bool
+	Err        error
 }
 type HistoryReadyMsg struct {
 	Commits []history.Commit
@@ -401,6 +410,9 @@ type Model struct {
 	BranchDeleteTarget       branches.Branch
 	BranchDeleteForce        bool
 	Stashes                  stashview.Model
+	Reflog                   reflogview.Model
+	ReflogSkip               int
+	ReflogLoading            bool
 	History                  historyview.Model
 	Rebase                   rebaseview.Model
 	Conflict                 conflictview.Model
@@ -527,7 +539,7 @@ func New() Model {
 		ReconciliationInterval: 30 * time.Second, WatchDebounce: 75 * time.Millisecond,
 		DiffMaxBytes: 4 << 20, DiffMaxLines: 20_000, GitignoreMaxBytes: security.DefaultMaxDocumentBytes, CommitTreeMaxCommits: config.DefaultCommitTreeCommits,
 		WatchRequested: watch.RequestedAuto, Workspace: workspace.New(), Conflict: conflictview.New(), Gitignore: gitignoreview.RepositoryModel{RepositoryID: domain.RepositoryID(""), Width: 80, Height: 24},
-		Notifications: notifications.New(100, false), OperationEngine: operations.New(4),
+		Notifications: notifications.New(100, false), OperationEngine: operations.New(4), Reflog: reflogview.New("HEAD"),
 	}
 }
 
@@ -538,6 +550,7 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "branches", Label: "Open branches", Shortcut: "b", Enabled: m.Discovery.Root != ""},
 		{ID: "stashes", Label: "Open stashes", Shortcut: "s", Enabled: m.Discovery.Root != ""},
 		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
+		{ID: "reflog", Label: "Open reflog recovery points", Shortcut: "R", Enabled: m.Discovery.Root != ""},
 		{ID: "clear_commit_basket", Label: fmt.Sprintf("Clear commit basket (%d)", m.History.Basket.Count()), Shortcut: "C", Enabled: m.History.Basket.Count() > 0},
 		{ID: "rebase", Label: "Open interactive rebase", Shortcut: "I", Enabled: m.Discovery.Root != "" && len(m.HistoryCommits) > 0},
 		{ID: "cherry_pick_recovery", Label: "Reopen active cherry-pick", Shortcut: "C", Enabled: m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindCherryPick},
@@ -641,6 +654,8 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		return m.navigate(workspace.Stashes, "Stashes")
 	case "history":
 		return m.navigate(workspace.Log, "History")
+	case "reflog":
+		return m.navigate(workspace.Reflog, "Reflog")
 	case "clear_commit_basket":
 		m.History.ClearBasket()
 		return nil
@@ -1838,6 +1853,25 @@ func (m Model) loadStashes() tea.Cmd {
 	}
 }
 
+func (m *Model) loadReflog(appendPage bool) tea.Cmd {
+	if m.Discovery.Root == "" || m.ReflogLoading {
+		return nil
+	}
+	if !appendPage {
+		m.ReflogSkip = 0
+	}
+	ref, skip, generation := m.Reflog.Ref, m.ReflogSkip, m.repositoryGeneration
+	if ref == "" {
+		ref = "HEAD"
+	}
+	m.ReflogLoading = true
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		entries, err := reflog.Load(m.commandContext(), runner, reflog.Request{Ref: ref, Skip: skip})
+		return ReflogReadyMsg{Entries: entries, Generation: generation, Skip: skip, HasMore: len(entries) == reflog.DefaultLimit, Err: err}
+	}
+}
+
 func (m Model) previewSelectedStash() tea.Cmd {
 	if m.Stashes.Selected < 0 || m.Stashes.Selected >= len(m.Stashes.Entries) {
 		return nil
@@ -2383,6 +2417,9 @@ func (m *Model) navigate(view workspace.View, label string) tea.Cmd {
 		return m.loadBranches()
 	case workspace.Stashes:
 		return m.loadStashes()
+	case workspace.Reflog:
+		m.Reflog.Ref = "HEAD"
+		return m.loadReflog(false)
 	case workspace.Log:
 		return m.loadHistory()
 	case workspace.Remotes:
@@ -3392,6 +3429,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Reflog && v.String() == "]" {
+			if m.Reflog.HasMore && !m.ReflogLoading {
+				m.State, m.Status = StateOperationPending, "loading more reflog entries"
+				return m, m.loadReflog(true)
+			}
+			return m, nil
+		}
 		switch v.String() {
 		case "q", "ctrl+c":
 			m.State = StateShutdown
@@ -3884,6 +3928,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Stashes.Move(1)
 			case workspace.Log:
 				m.History.Move(1)
+			case workspace.Reflog:
+				m.Reflog.Move(1)
 			case workspace.Remotes:
 				m.Remotes.Move(1)
 			case workspace.Worktrees:
@@ -3921,6 +3967,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Stashes.Move(-1)
 			case workspace.Log:
 				m.History.Move(-1)
+			case workspace.Reflog:
+				m.Reflog.Move(-1)
 			case workspace.Remotes:
 				m.Remotes.Move(-1)
 			case workspace.Worktrees:
@@ -4516,6 +4564,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.State = StateReady
 		}
+	case ReflogReadyMsg:
+		if v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.ReflogLoading = false
+		if v.Err != nil {
+			m.State, m.Status = StateError, "reflog: "+v.Err.Error()
+		} else if v.Skip == 0 {
+			m.Reflog.SetPage(v.Entries, v.HasMore)
+			m.ReflogSkip = len(v.Entries)
+			m.State, m.Status = StateReady, ""
+		} else {
+			m.Reflog.AppendPage(v.Entries, v.HasMore)
+			m.ReflogSkip = v.Skip + len(v.Entries)
+			m.State = StateReady
+		}
 	case StashPreviewReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -4950,7 +5014,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.Gitignore {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.Gitignore {
 		return m.featureView(view)
 	}
 	if m.Modal == "help" {
@@ -5017,6 +5081,14 @@ func (m Model) featureView(view workspace.View) tea.View {
 				content += "  " + tag.Name + " (" + tag.OID + ")\n"
 			}
 		}
+	case workspace.Reflog:
+		title, content = "gitwatch · reflog", m.Reflog.View()
+		if entry, ok := m.Reflog.SelectedEntry(); ok {
+			content += "\n\nSelected recovery point: " + platform.SafeText(entry.SHA)
+		}
+		if m.ReflogLoading {
+			content += "\n\n" + platform.SafeText(m.Status)
+		}
 	case workspace.Commit:
 		title, content = "gitwatch · commit", m.Composer.View()
 	case workspace.Remotes:
@@ -5060,6 +5132,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Log {
 		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
+	}
+	if view == workspace.Reflog {
+		lines[len(lines)-1] = "[j/k] move  [] load more  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Branches {
 		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"

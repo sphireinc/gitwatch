@@ -587,6 +587,15 @@ func TestCommandPaletteSearchAndExecution(t *testing.T) {
 	}
 }
 
+func TestReflogPaletteRouteStartsBoundedLoad(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	cmd := m.executePaletteAction("reflog")
+	if cmd == nil || m.currentView() != workspace.Reflog {
+		t.Fatalf("reflog palette route = cmdnil=%v view=%q", cmd == nil, m.currentView())
+	}
+}
+
 func TestOperationNotificationsAndToast(t *testing.T) {
 	m := New()
 	updated, _ := m.Update(RemoteOperationFinishedMsg{Operation: "push", Remote: "origin", Err: errors.New("rejected")})
