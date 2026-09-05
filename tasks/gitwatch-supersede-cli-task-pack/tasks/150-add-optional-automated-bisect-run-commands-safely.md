@@ -70,7 +70,8 @@ Support automated bisect testing without violating argv-only execution.
 - Native/manual terminal evidence remains outstanding; the output is captured
   after the bounded operation rather than streamed incrementally.
 - The bounded argv-only run slice is committed at `f0b0509`; the full
-  `make check` gate passed at that revision. The workspace slice is currently
-  uncommitted pending the next full gate. Task 150 remains active until the
+  `make check` gate passed at that revision. The workspace slice is committed
+  at `62e2de1`, with the same full gate passing at that revision. Task 150
+  remains active until the
   dependent custom-command foundation, terminal acceptance, and remaining
   cancellation/timeout evidence are complete.
