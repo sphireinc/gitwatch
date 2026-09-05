@@ -78,6 +78,7 @@ Upgrade the existing bounded operation completion history into a user-facing rec
   scope for two repositories.
 - Validation for this slice: focused history/app tests, `go test ./...`,
   `go test -race ./...`, `go vet ./...`, `gofmt -d`, and `git diff --check`
-  passed. `make check` reached its lint step but could not download the pinned
-  `golangci-lint` module because `proxy.golang.org` was unavailable in the
-  environment.
+- passed. At revision `1e37323`, the escalated `make check` also passed:
+  pinned golangci-lint reported 0 issues, followed by tests, race, vet,
+  security, performance, and diff checks. Native/manual terminal evidence is
+  still required before moving this task to `tasks/completed`.
