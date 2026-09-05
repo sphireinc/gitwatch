@@ -22,6 +22,27 @@ func TestBoundedLogAndDiff(t *testing.T) {
 	}
 }
 
+func TestRedactArgsRemovesCredentialMaterial(t *testing.T) {
+	got := RedactArgs([]string{"fetch", "--token", "secret", "https://user:password@example.com/repo"})
+	want := []string{"fetch", "--token", "<redacted>", "https://example.com/repo"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("redacted args = %#v, want %#v", got, want)
+		}
+	}
+}
+
+func TestOperationRecordIsCopiedByEventReaders(t *testing.T) {
+	log := New(2)
+	args := []string{"merge", "feature"}
+	log.Add(Event{Operation: &OperationRecord{Repository: "/repo", Kind: "merge", Args: RedactArgs(args), Outcome: "success"}})
+	args[1] = "changed"
+	events := log.All()
+	if len(events) != 1 || events[0].Operation == nil || events[0].Operation.Args[1] != "feature" {
+		t.Fatalf("operation record = %#v", events)
+	}
+}
+
 func TestDiffCoalescesLargeRefreshes(t *testing.T) {
 	entries := make([]repo.Entry, 10_000)
 	for i := range entries {

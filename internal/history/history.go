@@ -2,6 +2,8 @@ package history
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,12 +28,53 @@ const (
 const maxDiffEvents = 100
 
 type Event struct {
-	At       time.Time
-	Kind     Kind
-	Path     string
-	Message  string
-	Duration time.Duration
+	At        time.Time
+	Kind      Kind
+	Path      string
+	Message   string
+	Duration  time.Duration
+	Operation *OperationRecord
 }
+
+// OperationRecord describes semantic Git state associated with an activity
+// event. It is intentionally bounded and contains no environment or secrets.
+type OperationRecord struct {
+	Repository string
+	Kind       string
+	Args       []string
+	Target     string
+	OldHead    string
+	NewHead    string
+	Refs       []string
+	Outcome    string
+}
+
+// RedactArgs returns a safe copy suitable for journal storage or rendering.
+func RedactArgs(args []string) []string {
+	redacted := make([]string, len(args))
+	secretNext := false
+	for i, arg := range args {
+		if secretNext {
+			redacted[i] = "<redacted>"
+			secretNext = false
+			continue
+		}
+		lower := strings.ToLower(arg)
+		if lower == "--password" || lower == "--token" || lower == "--auth-token" || lower == "--header" {
+			redacted[i] = arg
+			secretNext = true
+			continue
+		}
+		if parsed, err := url.Parse(arg); err == nil && parsed.User != nil {
+			parsed.User = nil
+			redacted[i] = parsed.String()
+			continue
+		}
+		redacted[i] = arg
+	}
+	return redacted
+}
+
 type Log struct {
 	mu     sync.RWMutex
 	max    int
@@ -47,7 +90,7 @@ func New(max int) *Log {
 func (l *Log) Add(event Event) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.events = append(l.events, event)
+	l.events = append(l.events, cloneEvent(event))
 	if len(l.events) > l.max {
 		l.events = l.events[len(l.events)-l.max:]
 	}
@@ -55,7 +98,21 @@ func (l *Log) Add(event Event) {
 func (l *Log) All() []Event {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	return append([]Event(nil), l.events...)
+	events := make([]Event, len(l.events))
+	for i, event := range l.events {
+		events[i] = cloneEvent(event)
+	}
+	return events
+}
+
+func cloneEvent(event Event) Event {
+	if event.Operation != nil {
+		operation := *event.Operation
+		operation.Args = append([]string(nil), event.Operation.Args...)
+		operation.Refs = append([]string(nil), event.Operation.Refs...)
+		event.Operation = &operation
+	}
+	return event
 }
 func Diff(oldSnapshot, newSnapshot repo.Snapshot) []Event {
 	old := make(map[string]repo.Entry, len(oldSnapshot.Entries))

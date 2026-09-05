@@ -1043,7 +1043,20 @@ func snapshotContainsPath(entries []repo.Entry, path string) bool {
 
 func (m *Model) recordActivity(kind history.Kind, path, message string) {
 	if m.ActivityLog != nil {
-		m.ActivityLog.Add(history.Event{At: time.Now(), Kind: kind, Path: path, Message: message})
+		event := history.Event{At: time.Now(), Kind: kind, Path: path, Message: message}
+		if kind == history.OperationSuccess || kind == history.OperationFailure {
+			outcome := "failure"
+			if kind == history.OperationSuccess {
+				outcome = "success"
+			}
+			event.Operation = &history.OperationRecord{
+				Repository: m.Discovery.Root,
+				Kind:       string(kind),
+				Target:     path,
+				Outcome:    outcome,
+			}
+		}
+		m.ActivityLog.Add(event)
 	}
 }
 

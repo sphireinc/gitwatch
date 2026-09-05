@@ -49,3 +49,13 @@ Upgrade the existing bounded operation completion history into a user-facing rec
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Extended bounded activity events with repository-scoped semantic operation
+  records containing kind, target, outcome, refs, heads, and redacted argv
+  fields, plus defensive copying for journal readers.
+- Added credential and URL-userinfo redaction tests. Existing success/failure
+  activity recording now attaches repository, target, kind, and outcome data;
+  operation-specific HEAD/ref/duration enrichment and a dedicated journal
+  workspace remain outstanding.
