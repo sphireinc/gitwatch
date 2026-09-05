@@ -718,8 +718,14 @@ func (m Model) operationJournalView() string {
 			if len(operation.Args) > 0 {
 				line += " argv=" + strings.Join(operation.Args, " ")
 			}
+			if len(operation.Refs) > 0 {
+				line += " refs=" + strings.Join(operation.Refs, ",")
+			}
 			if operation.RecoverySHA != "" {
 				line += " recovery=" + operation.RecoverySHA
+			}
+			if operation.Duration > 0 {
+				line += " duration=" + operation.Duration.Round(time.Millisecond).String()
 			}
 		}
 		lines = append(lines, fitSafeDisplay(line, width))

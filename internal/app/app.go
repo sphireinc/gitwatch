@@ -2438,10 +2438,11 @@ func (m *Model) remoteCommand(ctx context.Context, operation, remote string, wor
 		m.OperationEngine = operations.New(4)
 	}
 	id, repoRoot, generation := m.RemoteJobID, m.Discovery.Root, m.repositoryGeneration
+	remoteArgs := append(strings.Fields(operation), remote)
 	journal := &history.OperationRecord{
 		Repository: repoRoot,
 		Kind:       operation,
-		Args:       history.RedactArgs(strings.Fields(operation)),
+		Args:       history.RedactArgs(remoteArgs),
 		Target:     remote,
 		OldHead:    m.Snapshot.Branch.OID,
 		Refs:       []string{remote},

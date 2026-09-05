@@ -72,6 +72,10 @@ Upgrade the existing bounded operation completion history into a user-facing rec
 - Sequencer lifecycle completion/abort/skip messages now also carry typed
   semantic journal metadata, covering the shared cherry-pick/revert recovery
   path without assuming that HEAD moved.
+- Remote operation argv now includes the selected remote, and the journal
+  workspace renders refs and duration alongside the semantic action. Added a
+  bounded interleaving test proving records retain independent repository
+  scope for two repositories.
 - Validation for this slice: focused history/app tests, `go test ./...`,
   `go test -race ./...`, `go vet ./...`, `gofmt -d`, and `git diff --check`
   passed. `make check` reached its lint step but could not download the pinned

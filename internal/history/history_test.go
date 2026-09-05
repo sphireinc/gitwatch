@@ -43,6 +43,17 @@ func TestOperationRecordIsCopiedByEventReaders(t *testing.T) {
 	}
 }
 
+func TestOperationRecordsRemainRepositoryScopedWhenInterleaved(t *testing.T) {
+	log := New(3)
+	log.Add(Event{Operation: &OperationRecord{Repository: "/repo-a", Kind: "commit", Target: "main"}})
+	log.Add(Event{Operation: &OperationRecord{Repository: "/repo-b", Kind: "fetch", Target: "origin"}})
+	log.Add(Event{Operation: &OperationRecord{Repository: "/repo-a", Kind: "merge", Target: "feature"}})
+	events := log.All()
+	if len(events) != 3 || events[0].Operation.Repository != "/repo-a" || events[1].Operation.Repository != "/repo-b" || events[2].Operation.Repository != "/repo-a" {
+		t.Fatalf("interleaved operation records = %#v", events)
+	}
+}
+
 func TestDiffCoalescesLargeRefreshes(t *testing.T) {
 	entries := make([]repo.Entry, 10_000)
 	for i := range entries {
