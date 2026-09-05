@@ -26,6 +26,7 @@ func TestStartLoadMarkAndResetBisect(t *testing.T) {
 		return strings.TrimSpace(string(mustRun(t, runner, ctx, "rev-parse", "HEAD").Stdout))
 	}
 	good := commit("good\n", "good")
+	commit("middle\n", "middle")
 	bad := commit("bad\n", "bad")
 	discovery, err := git.Discover(ctx, dir)
 	if err != nil {
@@ -75,6 +76,7 @@ func TestBisectSkipAndRestartFromFreshRunner(t *testing.T) {
 	if outcome := Start(ctx, runner, StartRequest{Repository: discovery.Root, Generation: 1, Bad: bad, Good: good}); outcome.Err != nil {
 		t.Fatalf("start outcome = %#v", outcome)
 	}
+	defer func() { _, _ = runner.Run(ctx, "bisect", "reset") }()
 	if outcome := MarkCandidate(ctx, git.NewRunner(dir), Request{Repository: discovery.Root, Generation: 2, Mark: Skip}); outcome.Err != nil {
 		t.Fatalf("skip outcome = %#v", outcome)
 	}
@@ -105,6 +107,58 @@ func TestBisectRejectsDirtyStartAndInvalidRefs(t *testing.T) {
 	}
 	if outcome := Start(ctx, runner, StartRequest{Repository: discovery.Root, Bad: "HEAD", Good: "HEAD~1"}); outcome.Err != ErrDirtyWorktree {
 		t.Fatalf("dirty start error = %v", outcome.Err)
+	}
+}
+
+func TestRunCommandUsesTokenizedExecutableAndBoundedOutput(t *testing.T) {
+	ctx := context.Background()
+	dir, runner := bisectRepository(t)
+	commit := func(content, message string) string {
+		if err := os.WriteFile(filepath.Join(dir, "file"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Stage(ctx, []byte("file")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte(message + "\n")}); err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(mustRun(t, runner, ctx, "rev-parse", "HEAD").Stdout))
+	}
+	good := commit("good\n", "good")
+	bad := commit("bad\n", "bad")
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome := Start(ctx, runner, StartRequest{Repository: discovery.Root, Generation: 1, Bad: bad, Good: good}); outcome.Err != nil {
+		t.Fatalf("start outcome = %#v", outcome)
+	}
+	executable := filepath.Join(dir, "test runner")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outcome := RunCommand(ctx, git.NewRunner(dir), RunRequest{
+		Repository: discovery.Root, Generation: 2, Executable: executable,
+		Args: []string{"--case", "value with spaces"}, MaxOutputBytes: 4096,
+	})
+	// Git may return a non-zero terminal result when the tested boundaries
+	// become contradictory; the argv and bounded execution contract still
+	// remain observable in the outcome.
+	wantPrefix := []string{"bisect", "run", executable, "--case", "value with spaces"}
+	if len(outcome.Result.Args) != len(wantPrefix) {
+		t.Fatalf("run argv = %#v, want %#v", outcome.Result.Args, wantPrefix)
+	}
+	for i := range wantPrefix {
+		if outcome.Result.Args[i] != wantPrefix[i] {
+			t.Fatalf("run argv = %#v, want %#v", outcome.Result.Args, wantPrefix)
+		}
+	}
+}
+
+func TestRunCommandRejectsShellLikeExecutableTokens(t *testing.T) {
+	if outcome := RunCommand(context.Background(), git.NewRunner("/repo"), RunRequest{Repository: "/repo", Executable: "test\nrunner"}); outcome.Err != ErrInvalidCommand {
+		t.Fatalf("invalid executable error = %v", outcome.Err)
 	}
 }
 

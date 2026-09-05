@@ -19,6 +19,7 @@ var (
 	ErrAlreadyActive   = errors.New("bisect is already active")
 	ErrDirtyWorktree   = errors.New("bisect requires a clean worktree")
 	ErrActiveOperation = errors.New("another Git operation is active")
+	ErrInvalidCommand  = errors.New("bisect run executable is invalid")
 )
 
 const maxLogBytes = 1 << 20
@@ -58,6 +59,16 @@ type Request struct {
 	Repository string
 	Generation uint64
 	Mark       Mark
+}
+
+// RunRequest describes an executable and already-tokenized argv for
+// `git bisect run`. No shell command string is accepted or constructed.
+type RunRequest struct {
+	Repository     string
+	Generation     uint64
+	Executable     string
+	Args           []string
+	MaxOutputBytes int
 }
 
 type Outcome struct {
@@ -157,6 +168,30 @@ func Reset(ctx context.Context, runner git.Runner, request Request) Outcome {
 	return finish(ctx, runner, request.Repository, request.Generation, result, err)
 }
 
+// RunCommand invokes a bounded automated bisect test through Git's argv
+// boundary. The caller should place it behind the operation engine to provide
+// repository serialization, timeout, and cancellation.
+func RunCommand(ctx context.Context, runner git.Runner, request RunRequest) Outcome {
+	if request.Repository == "" || !validExecutable(request.Executable) {
+		return Outcome{Err: ErrInvalidCommand}
+	}
+	state, err := Load(ctx, runner, request.Repository, request.Generation)
+	if err != nil {
+		return Outcome{Err: err}
+	}
+	if !state.Active {
+		return Outcome{State: state, Err: ErrNotActive}
+	}
+	limit := request.MaxOutputBytes
+	if limit <= 0 {
+		limit = maxLogBytes
+	}
+	args := []string{"bisect", "run", request.Executable}
+	args = append(args, request.Args...)
+	result, err := runner.RunBounded(ctx, limit, args...)
+	return finish(ctx, runner, request.Repository, request.Generation, result, err)
+}
+
 func finish(ctx context.Context, runner git.Runner, repository string, generation uint64, result git.Result, commandErr error) Outcome {
 	outcome := Outcome{Result: result, Err: commandErr}
 	if snapshot, err := git.Snapshot(ctx, git.Discovery{Root: repository}, generation); err == nil {
@@ -205,6 +240,10 @@ func validRef(value string) bool {
 }
 
 func validMark(mark Mark) bool { return mark == Good || mark == Bad || mark == Skip }
+
+func validExecutable(value string) bool {
+	return strings.TrimSpace(value) != "" && !strings.HasPrefix(value, "-") && !strings.ContainsAny(value, "\r\n\x00")
+}
 
 func boundedLines(data []byte) []string {
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")

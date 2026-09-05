@@ -53,3 +53,14 @@ Support automated bisect testing without violating argv-only execution.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added `bisect.RunCommand` with an executable plus already-tokenized argv,
+  bounded output, context cancellation support, and authoritative post-run
+  snapshot/state refresh. No shell command string is accepted or built.
+- Real repository coverage exercises `git bisect run` with an executable path
+  containing spaces and an argument containing spaces; validation rejects
+  newline/NUL/option-like executable tokens.
+- Workspace launch controls, streamed output presentation, and native/manual
+  terminal evidence remain outstanding.
