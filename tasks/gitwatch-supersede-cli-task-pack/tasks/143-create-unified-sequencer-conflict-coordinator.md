@@ -78,6 +78,7 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 - Fallback refresh snapshots now carry repository generation metadata and stale
   snapshots are discarded after a repository switch. App coverage verifies
   that an old repository cannot overwrite current recovery state.
-- Task remains active: merge/revert entry points, external state transitions,
-  repository-switch generation handling, one attention-notification path, and
-  native/manual evidence still need completion.
+- The implementation slices now cover merge/revert entry points, external
+  state transitions, repository-switch generation handling, and a single
+  attention-notification path. Task remains active for the final coordinator
+  acceptance audit and native/manual evidence.
