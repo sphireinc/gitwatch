@@ -34,6 +34,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/plugins"
 	"github.com/sphireinc/git-watch/internal/provider"
 	"github.com/sphireinc/git-watch/internal/rebase"
+	redopolicy "github.com/sphireinc/git-watch/internal/redo"
 	"github.com/sphireinc/git-watch/internal/reflog"
 	"github.com/sphireinc/git-watch/internal/registry"
 	"github.com/sphireinc/git-watch/internal/remotes"
@@ -128,6 +129,11 @@ type CherryPickFinishedMsg struct {
 type UndoFinishedMsg struct {
 	Repository uint64
 	Outcome    undopolicy.Outcome
+	Operation  *history.OperationRecord
+}
+type RedoFinishedMsg struct {
+	Repository uint64
+	Outcome    redopolicy.Outcome
 	Operation  *history.OperationRecord
 }
 type RebaseContinueFinishedMsg struct {
@@ -440,6 +446,8 @@ type Model struct {
 	JournalOffset            int
 	UndoConfirm              bool
 	UndoRecord               *history.OperationRecord
+	RedoConfirm              bool
+	RedoRecord               *history.OperationRecord
 	History                  historyview.Model
 	Rebase                   rebaseview.Model
 	Conflict                 conflictview.Model
@@ -2283,6 +2291,22 @@ func (m Model) selectedUndoRecord() *history.OperationRecord {
 	return &record
 }
 
+func (m Model) selectedRedoRecord() *history.OperationRecord {
+	if m.ActivityLog == nil {
+		return nil
+	}
+	events := m.ActivityLog.All()
+	index := len(events) - 1 - m.JournalOffset
+	if index < 0 || index >= len(events) || events[index].Operation == nil {
+		return nil
+	}
+	record := *events[index].Operation
+	if record.Repository != m.Discovery.Root || record.Kind != "undo commit" || record.Outcome != "success" || record.Target == "" || record.OldHead == "" || record.NewHead == "" || record.PostSnapshotFingerprint == "" {
+		return nil
+	}
+	return &record
+}
+
 func (m Model) undoJournalOperation() tea.Cmd {
 	if m.UndoRecord == nil {
 		return nil
@@ -2318,6 +2342,44 @@ func (m Model) undoJournalOperation() tea.Cmd {
 		}
 		attachLatestRecoveryPoint(ctx, runner, completed)
 		return UndoFinishedMsg{Repository: generation, Outcome: outcome, Operation: completed}
+	}
+}
+
+func (m Model) redoJournalOperation() tea.Cmd {
+	if m.RedoRecord == nil {
+		return nil
+	}
+	record := *m.RedoRecord
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	id := fmt.Sprintf("redo-commit-%d-%s", generation, record.OldHead)
+	var outcome redopolicy.Outcome
+	command := m.OperationEngine.Command(ctx, id, m.Discovery.Root, "redo commit", 5*time.Minute, func(ctx context.Context) error {
+		outcome = redopolicy.Execute(ctx, runner, redopolicy.Request{
+			Repository: m.Discovery.Root, Kind: record.Kind, Ref: record.Target,
+			OldHead: record.OldHead, NewHead: record.NewHead,
+			PostSnapshotHash: record.PostSnapshotFingerprint, Discovery: m.Discovery, Generation: generation,
+		})
+		return outcome.Err
+	})
+	return func() tea.Msg {
+		result := command()
+		if outcome.Err == nil {
+			outcome.Err = result.Result.Err
+		}
+		completed := &history.OperationRecord{
+			Repository: m.Discovery.Root, Kind: "redo commit", Args: []string{"reset", "--soft", record.OldHead},
+			Target: record.Target, OldHead: record.NewHead, NewHead: record.OldHead,
+			Refs: append([]string(nil), record.Refs...), Duration: result.Result.Finished.Sub(result.Result.Started),
+		}
+		if outcome.Snapshot.Root != "" {
+			completed.PostSnapshotFingerprint = undopolicy.SnapshotFingerprint(outcome.Snapshot)
+		}
+		attachLatestRecoveryPoint(ctx, runner, completed)
+		return RedoFinishedMsg{Repository: generation, Outcome: outcome, Operation: completed}
 	}
 }
 
@@ -3503,6 +3565,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Journal && m.RedoConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.RedoConfirm, m.State, m.Status = false, StateOperationPending, "redoing selected commit; preserving index and worktree"
+				return m, m.redoJournalOperation()
+			case "n", "N", "esc":
+				m.RedoConfirm, m.RedoRecord, m.Status = false, nil, "redo cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Commit {
 			if v.Mod&tea.ModCtrl != 0 && v.String() == "s" {
 				return m, m.updateComposerKey("ctrl+s")
@@ -4103,7 +4175,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "R":
-			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+			if m.currentView() == workspace.Journal {
+				if record := m.selectedRedoRecord(); record != nil {
+					m.RedoRecord, m.RedoConfirm = record, true
+					m.Status = "redo commit " + record.NewHead + " -> " + record.OldHead + "? (y/n)"
+				} else {
+					m.Status = "selected journal entry has no safe redo"
+				}
+			} else if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
 				branch := m.Branches.Entries[m.Branches.Selected]
 				if branch.Remote {
 					m.Status = "remote branch cannot be renamed here"
@@ -4908,6 +4987,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivityWithOperation(history.OperationSuccess, "undo commit", m.Status, v.Operation)
 		}
 		return m, m.refresh()
+	case RedoFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		m.RedoRecord = nil
+		if v.Outcome.Snapshot.Root != "" {
+			m.applySnapshot(v.Outcome.Snapshot)
+		}
+		if v.Outcome.Err != nil {
+			m.State, m.Status = StateError, "redo commit: "+v.Outcome.Err.Error()
+			m.recordActivityWithOperation(history.OperationFailure, "redo commit", m.Status, v.Operation)
+		} else {
+			m.State, m.Status = StateReady, "redo commit complete"
+			m.recordActivityWithOperation(history.OperationSuccess, "redo commit", m.Status, v.Operation)
+		}
+		return m, m.refresh()
 	case PartialOperationFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
@@ -5623,9 +5718,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [B] branch  [x] checkout  [] load more  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Journal {
-		lines[len(lines)-1] = "[j/k] move  [u] undo commit  [J] newest  [1] status  [esc] back  [q] quit"
-		if m.UndoConfirm {
-			lines[len(lines)-1] = "confirm undo: [y] yes  [n] no  [esc] cancel"
+		lines[len(lines)-1] = "[j/k] move  [u] undo  [R] redo  [J] newest  [1] status  [esc] back  [q] quit"
+		if m.UndoConfirm || m.RedoConfirm {
+			lines[len(lines)-1] = "confirm: [y] yes  [n] no  [esc] cancel"
 		}
 	}
 	if view == workspace.Branches {

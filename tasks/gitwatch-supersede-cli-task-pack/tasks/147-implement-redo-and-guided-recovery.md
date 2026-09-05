@@ -48,3 +48,16 @@ Add redo only for operations whose typed intent and current repository state mak
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added `internal/redo` with a typed replay policy for successful `undo commit`
+  journal records. It requires repository/ref identity, the expected post-undo
+  HEAD, no active sequencer, and an exact post-undo snapshot fingerprint before
+  allowing `reset --soft` to the recorded commit.
+- Added journal `R` confirmation/execution routing through the operation engine,
+  authoritative refresh, and semantic redo result recording.
+- `TestExecuteRedoReplaysSuccessfulSoftUndo` exercises a real repository
+  round-trip; unit coverage verifies the typed command and stale-state refusal.
+- Guided reflog recovery for non-replayable operations, broader external-change
+  refusal coverage, and native/manual terminal evidence remain outstanding.
