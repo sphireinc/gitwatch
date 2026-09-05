@@ -437,6 +437,7 @@ type Model struct {
 	HistoryRevertParentInput string
 	HistoryRevertParent      int
 	HistoryRevertParentMax   int
+	HistoryRevertRunning     bool
 	Composer                 commitview.Composer
 	Hunks                    hunkview.Model
 	HunkDiscardConfirm       bool
@@ -970,6 +971,13 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 	m.Conflict.SetSnapshot(operationKind, operationTarget, snapshot.Conflicts)
 	m.Conflict.SetOperationState(snapshot.Operation)
 	m.Conflict.SetStagedCount(snapshot.Counts.Staged)
+	if m.HistoryRevertRunning && operationKind == sequencer.KindRevert {
+		m.Workspace.Navigate(workspace.Conflict, "Revert recovery")
+		m.Status = "revert paused for conflict recovery"
+	}
+	if snapshot.Operation == nil {
+		m.HistoryRevertRunning = false
+	}
 	if previousOperation && wasConflictView && snapshot.Operation == nil && len(snapshot.Conflicts) == 0 {
 		m.Workspace.Navigate(workspace.Status, "Status")
 		m.Status = "sequencer operation completed or was aborted externally"
@@ -3311,7 +3319,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.Status = "type the exact ordered SHA list to revert"
 					}
 				} else {
-					m.HistoryRevertConfirm, m.HistoryRevertInvalid, m.State, m.Status = false, false, StateOperationPending, "reverting"
+					m.HistoryRevertConfirm, m.HistoryRevertInvalid, m.HistoryRevertRunning, m.State, m.Status = false, false, true, StateOperationPending, "reverting"
 					return m, m.revertSelectedHistory()
 				}
 			default:

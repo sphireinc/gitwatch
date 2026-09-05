@@ -68,6 +68,10 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 - A refresh that observes a previously active sequencer disappear with no
   conflicts now closes the recovery workspace to Status and reports the
   externally completed/aborted transition. App coverage exercises this path.
+- A revert started from History now follows the same authoritative refresh
+  route as merge: when Git leaves a revert sequencer active after a conflict,
+  the app opens the shared Revert recovery workspace with the authoritative
+  conflict list. App coverage verifies the route and status message.
 - Task remains active: merge/revert entry points, external state transitions,
   repository-switch generation handling, one attention-notification path, and
   native/manual evidence still need completion.

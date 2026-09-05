@@ -250,6 +250,29 @@ func TestActiveCherryPickCanReopenProgressFromPalette(t *testing.T) {
 	}
 }
 
+func TestRevertSequencerRefreshRoutesToConflictWorkspace(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	m.HistoryRevertRunning = true
+	state, err := sequencer.NewState("repo", 1, sequencer.KindRevert, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, cmd := m.Update(SnapshotMsg{Snapshot: repo.Snapshot{
+		Root:      m.Discovery.Root,
+		Branch:    repo.Branch{Name: "main"},
+		Operation: &state,
+		Conflicts: []conflicts.Conflict{{Path: []byte("file")}},
+	}})
+	got := updated.(Model)
+	if cmd != nil || got.currentView() != workspace.Conflict || got.Conflict.Operation != sequencer.KindRevert {
+		t.Fatalf("revert recovery route = cmdnil=%v view=%q operation=%s", cmd == nil, got.currentView(), got.Conflict.Operation)
+	}
+	if got.Status != "revert paused for conflict recovery" {
+		t.Fatalf("revert recovery status = %q", got.Status)
+	}
+}
+
 func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 	m := New()
 	m.Discovery.Root = t.TempDir()
