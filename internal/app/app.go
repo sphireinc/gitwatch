@@ -4256,6 +4256,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.refresh()
 		}
 	case tea.MouseWheelMsg:
+		if m.currentView() == workspace.Journal {
+			switch v.Button {
+			case tea.MouseWheelUp:
+				m.JournalOffset = max(0, m.JournalOffset-3)
+			case tea.MouseWheelDown:
+				m.JournalOffset = min(m.journalMaxOffset(), m.JournalOffset+3)
+			}
+			return m, nil
+		}
 		statusLayout := m.statusLayout()
 		if m.currentView() == workspace.Status && m.contextPaneFocused() && statusLayout.CommitTree.Contains(v.X, v.Y) {
 			m.CommitTreeFocused, m.UnpushedFocused = m.showCommitTreePane(), m.showUnpushedPane()
@@ -4284,6 +4293,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
+			if m.currentView() == workspace.Journal {
+				row := v.Y - 4
+				if row >= 0 {
+					m.JournalOffset = min(row, m.journalMaxOffset())
+				}
+				return m, nil
+			}
 			if m.currentView() == workspace.Conflict {
 				action, index := m.Conflict.Click(v.X, v.Y-2, m.Width, m.Height-2)
 				if action == conflictview.MouseSelectConflict {

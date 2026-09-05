@@ -932,6 +932,11 @@ func TestOperationJournalWorkspaceIsBoundedAndNavigable(t *testing.T) {
 	if m.JournalOffset != 1 || !strings.Contains(m.View().Content, "target-1") {
 		t.Fatalf("journal navigation = offset=%d view=%q", m.JournalOffset, m.View().Content)
 	}
+	updated, _ = m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 4, Y: 6})
+	m = updated.(Model)
+	if m.JournalOffset != 2 {
+		t.Fatalf("journal mouse navigation = offset=%d", m.JournalOffset)
+	}
 }
 
 func TestOpenDiffFollowsKeyboardSelection(t *testing.T) {
