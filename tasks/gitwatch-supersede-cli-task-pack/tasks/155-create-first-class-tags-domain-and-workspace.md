@@ -61,3 +61,8 @@ Stop treating tags as incidental history refs and expose them as managed objects
 - Added focused tests for metadata preservation, remote presence, bounds, and
   malformed records. The Tags workspace, on-demand signature verification,
   mutation routing, and manual terminal evidence remain pending.
+- Added a first-class Tags workspace route with bounded asynchronous loading,
+  keyboard selection, name/target/date sorting, sanitized filtering, and
+  palette navigation. App tests cover loading, rendering, sorting, and filter
+  application. Commit/compare/checkout/worktree actions and signature
+  verification remain pending.

@@ -43,6 +43,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/sequencer"
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/submodules"
+	"github.com/sphireinc/git-watch/internal/tags"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
 	"github.com/sphireinc/git-watch/internal/ui/committree"
 	"github.com/sphireinc/git-watch/internal/ui/commitview"
@@ -266,6 +267,11 @@ type HistoryRefReadyMsg struct {
 type HistoryTagsReadyMsg struct {
 	Tags []history.Ref
 	Err  error
+}
+type TagsReadyMsg struct {
+	Generation uint64
+	Snapshot   tags.Snapshot
+	Err        error
 }
 type HistoryActionFinishedMsg struct {
 	Action, Target string
@@ -540,6 +546,14 @@ type Model struct {
 	HistoryRefMode           bool
 	HistoryRefInput          string
 	HistoryTags              []history.Ref
+	TagSnapshot              tags.Snapshot
+	TagsLoading              bool
+	TagsErr                  error
+	TagsSelected             int
+	TagsFilter               string
+	TagsFilterMode           bool
+	TagsSort                 string
+	TagsSortDesc             bool
 	HistoryActionConfirm     bool
 	HistoryActionTarget      string
 	HistoryBranchCreating    bool
@@ -650,6 +664,7 @@ func New() Model {
 		DiffMaxBytes: 4 << 20, DiffMaxLines: 20_000, GitignoreMaxBytes: security.DefaultMaxDocumentBytes, CommitTreeMaxCommits: config.DefaultCommitTreeCommits,
 		WatchRequested: watch.RequestedAuto, Workspace: workspace.New(), Conflict: conflictview.New(), Gitignore: gitignoreview.RepositoryModel{RepositoryID: domain.RepositoryID(""), Width: 80, Height: 24},
 		Notifications: notifications.New(100, false), OperationEngine: operations.New(4), Reflog: reflogview.New("HEAD"),
+		TagsSort: "name",
 	}
 }
 
@@ -660,6 +675,7 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "branches", Label: "Open branches", Shortcut: "b", Enabled: m.Discovery.Root != ""},
 		{ID: "stashes", Label: "Open stashes", Shortcut: "s", Enabled: m.Discovery.Root != ""},
 		{ID: "history", Label: "Open history", Shortcut: "l", Enabled: m.Discovery.Root != ""},
+		{ID: "tags", Label: "Open tags", Shortcut: "t", Enabled: m.Discovery.Root != ""},
 		{ID: "reflog", Label: "Open reflog recovery points", Shortcut: "R", Enabled: m.Discovery.Root != ""},
 		{ID: "journal", Label: "Open operation journal", Shortcut: "J", Enabled: m.Discovery.Root != "" && m.ActivityLog != nil},
 		{ID: "bisect", Label: "Open bisect state", Shortcut: "", Enabled: m.Discovery.Root != ""},
@@ -766,6 +782,8 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		return m.navigate(workspace.Stashes, "Stashes")
 	case "history":
 		return m.navigate(workspace.Log, "History")
+	case "tags":
+		return m.navigate(workspace.Tags, "Tags")
 	case "reflog":
 		return m.navigate(workspace.Reflog, "Reflog")
 	case "journal":
@@ -1052,6 +1070,7 @@ func (m *Model) setRepository(discovery git.Discovery) error {
 		m.StatusCommitCancel = nil
 	}
 	m.Discovery = discovery
+	m.TagSnapshot, m.TagsLoading, m.TagsErr, m.TagsSelected, m.TagsFilter, m.TagsFilterMode = tags.Snapshot{}, false, nil, 0, "", false
 	m.Submodules, m.SubmodulesLoading, m.SubmodulesGeneration, m.SubmodulesErr = submodules.Snapshot{}, false, 0, nil
 	m.SubmoduleAction, m.SubmodulePath, m.SubmoduleInput, m.SubmoduleURL = "", "", "", ""
 	if m.BulkSubmoduleCancel != nil {
@@ -2493,6 +2512,15 @@ func (m Model) loadHistoryTags() tea.Cmd {
 	}
 }
 
+func (m Model) loadTags() tea.Cmd {
+	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		snapshot, err := tags.Load(m.commandContext(), runner, tags.LoadRequest{Repository: m.Discovery.Root})
+		return TagsReadyMsg{Generation: generation, Snapshot: snapshot, Err: err}
+	}
+}
+
 func (m Model) resolveHistoryRef() tea.Cmd {
 	ref := strings.TrimSpace(m.HistoryRefInput)
 	if ref == "" {
@@ -3138,6 +3166,9 @@ func (m *Model) navigate(view workspace.View, label string) tea.Cmd {
 		return m.loadReflog(false)
 	case workspace.Log:
 		return m.loadHistory()
+	case workspace.Tags:
+		m.TagsLoading, m.TagsErr = true, nil
+		return m.loadTags()
 	case workspace.Remotes:
 		return m.loadRemotes()
 	case workspace.GitHub:
@@ -4248,6 +4279,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Branches && m.BranchSearching {
 			return m, m.updateBranchSearch(v.String())
 		}
+		if m.currentView() == workspace.Tags && m.TagsFilterMode {
+			m.updateTagsFilter(v.String())
+			return m, nil
+		}
 		if m.currentView() == workspace.Branches && (m.BranchCreateMode || m.BranchRenameMode || m.BranchUpstreamMode || m.BranchDeleteMode || m.BranchMergeMode) {
 			return m, m.updateBranchMutationKey(v.String())
 		}
@@ -4578,6 +4613,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "branch sort: " + m.Branches.SortLabel()
 				return m, nil
 			}
+			if m.currentView() == workspace.Tags {
+				m.cycleTagsSort()
+				m.Status = "tag sort: " + m.TagsSort
+				return m, nil
+			}
 			return m, m.navigate(workspace.Stashes, "Stashes")
 		case "l":
 			return m, m.navigate(workspace.Log, "History")
@@ -4785,6 +4825,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Branches {
 				m.BranchSearching, m.Status = true, "branch filter: "
 			}
+			if m.currentView() == workspace.Tags {
+				m.TagsFilterMode, m.Status = true, "tag filter: "
+			}
 			if m.currentView() == workspace.Status {
 				m.FileFilterMode, m.FileConflictOnly = true, false
 				m.Files.SetFilter(m.FileFilterInput)
@@ -4952,6 +4995,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.State, m.Status = StateOperationPending, "loading tags"
 				return m, m.loadHistoryTags()
 			}
+			return m, m.navigate(workspace.Tags, "Tags")
 		case "C":
 			if m.currentView() == workspace.Log {
 				m.History.ClearBasket()
@@ -5032,6 +5076,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.State, m.Status = StateOperationPending, "loading commit details"
 				return m, m.inspectSelectedCommit()
 			}
+			if m.currentView() == workspace.Tags {
+				rows := m.filteredTags()
+				if m.TagsSelected >= 0 && m.TagsSelected < len(rows) {
+					m.Status = "selected tag " + platform.SafeText(rows[m.TagsSelected].Name) + " target " + platform.SafeText(rows[m.TagsSelected].TargetID)
+				}
+				return m, nil
+			}
 			if m.currentView() == workspace.Reflog {
 				m.State, m.Status = StateOperationPending, "loading recovery point details"
 				return m, m.inspectSelectedReflog()
@@ -5080,6 +5131,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Conflict.Move(1)
 			case workspace.Plugins:
 				m.Plugins.Move(1)
+			case workspace.Tags:
+				m.moveTags(1)
 			default:
 				m.Files.Move(1, m.statusRowCount())
 				if m.DiffPath != "" {
@@ -5123,6 +5176,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Conflict.Move(-1)
 			case workspace.Plugins:
 				m.Plugins.Move(-1)
+			case workspace.Tags:
+				m.moveTags(-1)
 			default:
 				m.Files.Move(-1, m.statusRowCount())
 				if m.DiffPath != "" {
@@ -6128,6 +6183,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.HistoryTags, m.State, m.Status = v.Tags, StateReady, ""
 		}
+	case TagsReadyMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.TagsLoading = false
+		if v.Err != nil {
+			m.TagsErr, m.State, m.Status = v.Err, StateError, "load tags: "+v.Err.Error()
+		} else {
+			m.TagSnapshot, m.TagsErr, m.TagsSelected, m.State, m.Status = v.Snapshot, nil, 0, StateReady, ""
+		}
 	case HistoryActionFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
@@ -6387,7 +6452,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Journal || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.CherryPick || view == workspace.Gitignore {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Journal || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.CherryPick || view == workspace.Gitignore || view == workspace.Tags {
 		return m.featureView(view)
 	}
 	if m.Modal == "help" {
@@ -6453,6 +6518,11 @@ func (m Model) featureView(view workspace.View) tea.View {
 			for _, tag := range m.HistoryTags {
 				content += "  " + tag.Name + " (" + tag.OID + ")\n"
 			}
+		}
+	case workspace.Tags:
+		title, content = "gitwatch · tags", m.tagsView()
+		if m.TagsFilterMode {
+			content += "\n\nFilter: " + platform.SafeText(m.TagsFilter)
 		}
 	case workspace.Reflog:
 		title, content = "gitwatch · reflog", m.Reflog.View()
@@ -6531,6 +6601,12 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Log {
 		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [P] cherry-pick  [1] status  [esc] back  [q] quit"
+	}
+	if view == workspace.Tags {
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] inspect target  [t] reload  [esc] back  [q] quit"
+		if m.TagsFilterMode {
+			lines[len(lines)-1] = "tag filter: type text  [enter] apply  [esc] cancel"
+		}
 	}
 	if view == workspace.Reflog {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [B] branch  [x] checkout  [] load more  [1] status  [esc] back  [q] quit"

@@ -32,6 +32,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/sequencer"
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/submodules"
+	"github.com/sphireinc/git-watch/internal/tags"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
 	"github.com/sphireinc/git-watch/internal/ui/gitignoreview"
 	"github.com/sphireinc/git-watch/internal/ui/historyview"
@@ -300,6 +301,42 @@ func TestSubmoduleHealthLoadsOutsideAuthoritativeSnapshotAndRendersSummary(t *te
 	m = updated.(Model)
 	if m.SubmodulesLoading || m.SubmodulesErr != nil || !strings.Contains(m.statusView(), "SUBMODULES 1 clean  1 attention") {
 		t.Fatalf("submodule summary = loading=%v err=%v view=%q", m.SubmodulesLoading, m.SubmodulesErr, m.statusView())
+	}
+}
+
+func TestTagsWorkspaceLoadsFiltersAndSortsBoundedSnapshot(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	m.repositoryGeneration = 1
+	m.Workspace.Navigate(workspace.Status, "Status")
+	updated, command := m.Update(key("t"))
+	m = updated.(Model)
+	if command == nil || m.currentView() != workspace.Tags || !m.TagsLoading {
+		t.Fatalf("tags navigation = cmdnil=%v view=%q loading=%v", command == nil, m.currentView(), m.TagsLoading)
+	}
+	updated, _ = m.Update(TagsReadyMsg{Generation: 1, Snapshot: tags.Snapshot{Repository: m.Discovery.Root, Tags: []tags.Tag{
+		{Name: "v2", TargetID: "bbb", Kind: tags.Lightweight, RemotePresence: tags.RemoteAbsent},
+		{Name: "v1", TargetID: "aaa", Kind: tags.Annotated, RemotePresence: tags.RemotePresent, RemoteNames: []string{"origin"}},
+	}}})
+	m = updated.(Model)
+	if m.TagsLoading || m.TagsErr != nil || !strings.Contains(m.View().Content, "v1") {
+		t.Fatalf("tags loaded = loading=%v err=%v view=%q", m.TagsLoading, m.TagsErr, m.View().Content)
+	}
+	updated, _ = m.Update(key("s"))
+	m = updated.(Model)
+	if m.TagsSort != "target" {
+		t.Fatalf("tag sort = %q", m.TagsSort)
+	}
+	updated, _ = m.Update(key("/"))
+	m = updated.(Model)
+	updated, _ = m.Update(key("v"))
+	m = updated.(Model)
+	updated, _ = m.Update(key("1"))
+	m = updated.(Model)
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if m.TagsFilterMode || m.TagsFilter != "v1" || !strings.Contains(m.Status, "1 match") {
+		t.Fatalf("tag filter = mode=%v filter=%q status=%q", m.TagsFilterMode, m.TagsFilter, m.Status)
 	}
 }
 

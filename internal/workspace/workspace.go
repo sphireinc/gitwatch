@@ -26,6 +26,7 @@ const (
 	Reflog       View = "reflog"
 	Journal      View = "journal"
 	Bisect       View = "bisect"
+	Tags         View = "tags"
 )
 
 type Breadcrumb struct {
