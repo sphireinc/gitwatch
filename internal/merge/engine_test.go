@@ -2,6 +2,7 @@ package merge
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,6 +65,47 @@ func TestInvalidMergeSourceAndStrategyAreRejected(t *testing.T) {
 	}
 	if got := engine.Execute(context.Background(), Request{Repository: "repo", Source: "branch", Strategy: Strategy(99)}); got.Err == nil {
 		t.Fatal("invalid strategy was not rejected")
+	}
+}
+
+func TestMergeRejectsCurrentBranchSource(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := setupMergeRepository(t, dir)
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := Engine{Runner: runner, Discovery: discovery, Repository: dir}
+	outcome := engine.Execute(ctx, Request{Repository: dir, Source: "main"})
+	if !errors.Is(outcome.Err, ErrCurrentBranch) {
+		t.Fatalf("current branch outcome = %#v", outcome)
+	}
+}
+
+func TestMergeRejectsSourceCheckedOutInLinkedWorktree(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := setupMergeRepository(t, dir)
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	writeMergeFile(t, runner, dir, "feature\n", "feature")
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(t.TempDir(), "feature-worktree")
+	if _, err := runner.Run(ctx, "worktree", "add", linked, "feature"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = runner.Run(ctx, "worktree", "remove", "--force", linked) }()
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outcome := (Engine{Runner: runner, Discovery: discovery, Repository: dir}).Execute(ctx, Request{Repository: dir, Source: "feature"})
+	if !errors.Is(outcome.Err, ErrSourceOccupied) {
+		t.Fatalf("occupied source outcome = %#v", outcome)
 	}
 }
 

@@ -77,5 +77,8 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
 - Branch merge execution now runs through the repository-scoped operation
   engine, retaining cancellation/serialization lifecycle state; an app
   integration test verifies the real merge and post-merge refresh.
-- Task remains active for deeper branch/worktree occupancy integration and
-  native/manual evidence.
+- Merge preflight now rejects merging the current branch into itself and a
+  local source branch checked out in another linked worktree, using the
+  existing porcelain worktree parser. Integration tests cover both guards.
+- Task remains active for native/manual evidence and any broader occupancy
+  presentation refinements.

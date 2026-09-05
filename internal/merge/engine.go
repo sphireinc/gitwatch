@@ -10,6 +10,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
+	"github.com/sphireinc/git-watch/internal/worktrees"
 )
 
 // Strategy is an explicit merge strategy.
@@ -39,6 +40,8 @@ var (
 	ErrInvalidSource   = errors.New("merge source ref is invalid")
 	ErrDirtyWorktree   = errors.New("merge requires a clean worktree; stash explicitly first")
 	ErrActiveOperation = errors.New("another Git operation is already active")
+	ErrCurrentBranch   = errors.New("merge source is the current branch")
+	ErrSourceOccupied  = errors.New("merge source branch is checked out in another worktree")
 )
 
 // Request describes a merge into the currently checked-out branch.
@@ -125,6 +128,18 @@ func (e Engine) Execute(ctx context.Context, request Request) Outcome {
 	}
 	if len(snapshot.Entries) > 0 {
 		return Outcome{Err: ErrDirtyWorktree}
+	}
+	if request.Source == snapshot.Branch.Name {
+		return Outcome{Err: ErrCurrentBranch}
+	}
+	worktreeEntries, err := worktrees.List(ctx, git.NewRunner(discovery.Root))
+	if err != nil {
+		return Outcome{Err: fmt.Errorf("inspect worktree occupancy: %w", err)}
+	}
+	for _, entry := range worktreeEntries {
+		if strings.TrimPrefix(entry.Branch, "refs/heads/") == request.Source && entry.Path != discovery.Root {
+			return Outcome{Err: fmt.Errorf("%w: %s", ErrSourceOccupied, entry.Path)}
+		}
 	}
 	args := []string{"merge"}
 	switch request.Strategy {
