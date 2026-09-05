@@ -223,21 +223,30 @@ func (m Model) View(width, height int) string {
 		width = 80
 	}
 	title := "Conflict resolver"
-	if m.Operation == sequencer.KindCherryPick {
+	switch m.Operation {
+	case sequencer.KindCherryPick:
 		title = "Cherry-pick progress"
+	case sequencer.KindRevert:
+		title = "Revert progress"
+	case sequencer.KindMerge:
+		title = "Merge recovery"
 	}
 	lines := []string{
 		title,
 		fmt.Sprintf("Operation: %s  Target: %s", m.Operation.String(), platform.SafeText(m.Target)),
 		fmt.Sprintf("Conflicts: %d total, %d resolved", len(m.Conflicts), m.ResolvedCount()),
 	}
-	if m.Operation == sequencer.KindCherryPick && m.Progress != nil {
+	if (m.Operation == sequencer.KindCherryPick || m.Operation == sequencer.KindRevert) && m.Progress != nil {
 		lines = append(lines, fmt.Sprintf("Original HEAD: %s  Current HEAD: %s", platform.SafeText(m.Progress.HeadBefore()), platform.SafeText(m.Progress.HeadCurrent())))
 		lines = append(lines, fmt.Sprintf("Progress: %d completed · %d remaining", m.Progress.Completed(), m.Progress.Remaining()))
 		if current := m.Progress.CurrentCommit(); current != "" {
 			lines = append(lines, "Current commit: "+platform.SafeText(current))
 		}
-		if details := m.Progress.Details().CherryPick; details != nil && len(details.Commits) > 0 {
+		details := m.Progress.Details().CherryPick
+		if m.Operation == sequencer.KindRevert {
+			details = revertProgress(m.Progress.Details().Revert)
+		}
+		if details != nil && len(details.Commits) > 0 {
 			completed := make(map[string]struct{}, len(details.Completed))
 			for _, commit := range details.Completed {
 				completed[commit] = struct{}{}
@@ -298,6 +307,13 @@ func (m Model) View(width, height int) string {
 		lines = lines[:height]
 	}
 	return strings.Join(lines, "\n")
+}
+
+func revertProgress(details *sequencer.RevertDetails) *sequencer.CherryPickDetails {
+	if details == nil {
+		return nil
+	}
+	return &sequencer.CherryPickDetails{Commits: details.Commits, Completed: details.Completed, Skipped: details.Skipped, CurrentIndex: details.CurrentIndex}
 }
 
 func recoveryText(recovery Recovery) string {

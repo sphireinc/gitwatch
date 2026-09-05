@@ -62,6 +62,9 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   to be zero. Skip is limited to Git workflows that support `--skip`.
 - Focused tests cover unresolved and clean-index gating plus the shared
   lifecycle matrix for all four sequencer workflows.
+- Status recovery routing and the progress workspace now include revert and
+  merge alongside rebase and cherry-pick; revert uses the same ordered
+  progress presentation as cherry-pick.
 - Task remains active: merge/revert entry points, external state transitions,
   repository-switch generation handling, one attention-notification path, and
   native/manual evidence still need completion.

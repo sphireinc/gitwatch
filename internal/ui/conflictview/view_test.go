@@ -157,3 +157,25 @@ func TestRecoveryCoordinatorSharesLifecycleRulesAcrossSequencers(t *testing.T) {
 		})
 	}
 }
+
+func TestRevertViewUsesCommonProgressAndRecoveryPresentation(t *testing.T) {
+	m := New()
+	m.SetSnapshot(sequencer.KindRevert, "main", nil)
+	m.SetStagedCount(1)
+	state, err := sequencer.NewState("repo", 2, sequencer.KindRevert, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state = state.WithHistory("before", sequencer.Recovery{}, time.Time{}).WithObservation("after", "current", 1, 1, nil, time.Now())
+	state, err = state.WithDetails(sequencer.Details{Revert: &sequencer.RevertDetails{Commits: []string{"first", "current"}, Completed: []string{"first"}, CurrentIndex: 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.SetOperationState(&state)
+	view := m.View(120, 30)
+	for _, want := range []string{"Revert progress", "Progress: 1 completed · 1 remaining", "completed first", "current current", "[s] skip"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("revert view missing %q:\n%s", want, view)
+		}
+	}
+}
