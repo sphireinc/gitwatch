@@ -23,6 +23,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/plugins"
 	"github.com/sphireinc/git-watch/internal/provider"
 	"github.com/sphireinc/git-watch/internal/rebase"
+	"github.com/sphireinc/git-watch/internal/reflog"
 	"github.com/sphireinc/git-watch/internal/registry"
 	"github.com/sphireinc/git-watch/internal/remotes"
 	"github.com/sphireinc/git-watch/internal/repo"
@@ -593,6 +594,33 @@ func TestReflogPaletteRouteStartsBoundedLoad(t *testing.T) {
 	cmd := m.executePaletteAction("reflog")
 	if cmd == nil || m.currentView() != workspace.Reflog {
 		t.Fatalf("reflog palette route = cmdnil=%v view=%q", cmd == nil, m.currentView())
+	}
+}
+
+func TestReflogRecoveryPointActionsUseExistingSafeFlows(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Reflog, "Reflog")
+	m.Reflog.SetPage([]reflog.Entry{{SHA: "abcdef1234567890", Actor: "actor", Subject: "commit: restore"}}, false)
+	updated, cmd := m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.State != StateOperationPending {
+		t.Fatalf("reflog inspection = cmdnil=%v state=%v", cmd == nil, m.State)
+	}
+	m = New()
+	m.Workspace.Navigate(workspace.Reflog, "Reflog")
+	m.Reflog.SetPage([]reflog.Entry{{SHA: "abcdef1234567890"}}, false)
+	updated, _ = m.Update(key("x"))
+	m = updated.(Model)
+	if !m.HistoryActionConfirm || m.HistoryActionTarget != "abcdef1234567890" {
+		t.Fatalf("reflog checkout confirmation = confirm=%v target=%q", m.HistoryActionConfirm, m.HistoryActionTarget)
+	}
+	m = New()
+	m.Workspace.Navigate(workspace.Reflog, "Reflog")
+	m.Reflog.SetPage([]reflog.Entry{{SHA: "abcdef1234567890"}}, false)
+	updated, _ = m.Update(key("B"))
+	m = updated.(Model)
+	if !m.HistoryBranchCreating || m.HistoryBranchTarget != "abcdef1234567890" {
+		t.Fatalf("reflog branch flow = creating=%v target=%q", m.HistoryBranchCreating, m.HistoryBranchTarget)
 	}
 }
 

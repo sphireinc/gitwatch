@@ -1986,6 +1986,18 @@ func (m Model) inspectSelectedCommit() tea.Cmd {
 	return m.inspectCommit(commit, m.HistoryInspectorParent, m.HistoryInspectorPath)
 }
 
+func (m Model) inspectSelectedReflog() tea.Cmd {
+	entry, ok := m.Reflog.SelectedEntry()
+	if !ok {
+		return nil
+	}
+	short := entry.SHA
+	if len(short) > 12 {
+		short = short[:12]
+	}
+	return m.inspectCommit(history.Commit{SHA: entry.SHA, Short: short, Author: entry.Actor, Subject: entry.Subject, Unix: entry.Timestamp}, "", "")
+}
+
 func (m Model) inspectCommit(commit history.Commit, parent, path string) tea.Cmd {
 	sha := commit.SHA
 	runner := git.NewRunner(m.Discovery.Root)
@@ -3297,7 +3309,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if m.currentView() == workspace.Log && m.HistoryActionConfirm {
+		if (m.currentView() == workspace.Log || m.currentView() == workspace.Reflog) && m.HistoryActionConfirm {
 			switch v.String() {
 			case "y":
 				m.HistoryActionConfirm, m.State, m.Status = false, StateOperationPending, "checking out "+m.HistoryActionTarget
@@ -3307,7 +3319,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if m.currentView() == workspace.Log && m.HistoryBranchCreating {
+		if (m.currentView() == workspace.Log || m.currentView() == workspace.Reflog) && m.HistoryBranchCreating {
 			switch v.String() {
 			case "esc":
 				m.HistoryBranchCreating, m.HistoryBranchName, m.HistoryBranchTarget, m.Status = false, "", "", "branch creation cancelled"
@@ -3701,6 +3713,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.HistoryActionTarget = m.History.Rows[m.History.Selected].Commit.SHA
 				m.HistoryActionConfirm = true
 				m.Status = "checkout commit " + m.HistoryActionTarget + "? (y/n)"
+			} else if m.currentView() == workspace.Reflog {
+				if entry, ok := m.Reflog.SelectedEntry(); ok {
+					m.HistoryActionTarget, m.HistoryActionConfirm = entry.SHA, true
+					m.Status = "checkout recovery point " + entry.SHA + "? (y/n)"
+				}
 			}
 		case "ctrl+n":
 			if m.Notifications != nil {
@@ -3724,6 +3741,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Stashes && m.Stashes.Selected >= 0 && m.Stashes.Selected < len(m.Stashes.Entries) {
 				m.StashBranchRef, m.StashBranchName, m.StashBranchMode = m.Stashes.Entries[m.Stashes.Selected].Ref, "", true
 				m.Status = "branch from " + m.StashBranchRef + ": enter name"
+			}
+			if m.currentView() == workspace.Reflog {
+				if entry, ok := m.Reflog.SelectedEntry(); ok {
+					m.HistoryBranchTarget, m.HistoryBranchName, m.HistoryBranchCreating = entry.SHA, "", true
+					m.Status = "branch at " + entry.SHA + ": enter name"
+				}
 			}
 		case "R":
 			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
@@ -3904,6 +3927,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Log {
 				m.State, m.Status = StateOperationPending, "loading commit details"
 				return m, m.inspectSelectedCommit()
+			}
+			if m.currentView() == workspace.Reflog {
+				m.State, m.Status = StateOperationPending, "loading recovery point details"
+				return m, m.inspectSelectedReflog()
 			}
 			if m.currentView() == workspace.Status && m.showCommitTreePane() && m.CommitTreeFocused {
 				return m, m.inspectStatusCommit(m.StatusCommitSelectedLine)
@@ -5086,6 +5113,15 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if entry, ok := m.Reflog.SelectedEntry(); ok {
 			content += "\n\nSelected recovery point: " + platform.SafeText(entry.SHA)
 		}
+		if m.HistoryInspector.Commit.SHA != "" {
+			content += "\n\n" + inspectorText(m.HistoryInspector)
+		}
+		if m.HistoryActionConfirm {
+			content += "\n\n" + m.Status
+		}
+		if m.HistoryBranchCreating {
+			content += "\n\nBranch name: " + m.HistoryBranchName + "\n" + m.Status
+		}
 		if m.ReflogLoading {
 			content += "\n\n" + platform.SafeText(m.Status)
 		}
@@ -5134,7 +5170,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Reflog {
-		lines[len(lines)-1] = "[j/k] move  [] load more  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [B] branch  [x] checkout  [] load more  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Branches {
 		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"

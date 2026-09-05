@@ -62,6 +62,8 @@ Expose reflog as a recovery surface and foundation for semantic undo.
 - Real-repository tests cover commit reflog records, pagination limits, unsafe
   refs, negative offsets, and malformed timestamps. The workspace/browser and
   recovery-point actions now have an initial bounded browser route through the
-  command palette, selection movement, and page loading; commit inspection,
-  compare-to-HEAD, branch creation, and safe recovery-point actions remain
-  outstanding.
+  command palette, selection movement, and page loading; compare-to-HEAD and
+  detached-checkout safeguards remain outstanding.
+- Selected recovery points now reuse the existing commit inspector, exact
+  checkout confirmation, and explicit branch-at-commit name flow. App tests
+  cover all three actions without adding a hard-reset shortcut.
