@@ -136,8 +136,13 @@ func Load(ctx context.Context, runner git.Runner, request LoadRequest) (Snapshot
 		module.State = status.State
 		module.Divergence = status.Divergence
 		if status.State != StateUninitialized {
-			if _, symbolicErr := runner.Run(ctx, "-C", filepath.Join(request.Repository, module.Path), "symbolic-ref", "--quiet", "--short", "HEAD"); symbolicErr != nil {
+			moduleRoot := filepath.Join(request.Repository, module.Path)
+			if _, symbolicErr := runner.Run(ctx, "-C", moduleRoot, "symbolic-ref", "--quiet", "--short", "HEAD"); symbolicErr != nil {
 				module.State = StateDetached
+			}
+			working, workingErr := runner.RunBounded(ctx, limits.MaxOutputBytes, "-C", moduleRoot, "--no-optional-locks", "status", "--porcelain=v2", "-z", "--untracked-files=all")
+			if workingErr == nil && len(working.Stdout) > 0 {
+				module.State = StateDirty
 			}
 		}
 	}

@@ -69,6 +69,8 @@ Treat submodules as nested repositories with explicit parent-child health instea
   after an authoritative snapshot and renders a sanitized clean/attention
   summary without delaying core status. App coverage verifies the separate
   command and summary rendering.
-- Nested initialized/dirty/detached acceptance and native/manual evidence
-  remain outstanding. This is an uncommitted integration slice pending the
-  next repository gate.
+- Real-repository coverage now exercises initialized, dirty, detached, and
+  uninitialized gitlinks, including a path containing spaces. Native/manual
+  terminal evidence remains outstanding, and the per-module workspace and
+  navigation details are deferred to Task 153. This slice is uncommitted
+  pending the next repository gate.

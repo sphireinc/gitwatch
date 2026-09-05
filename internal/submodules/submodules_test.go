@@ -87,6 +87,37 @@ func TestLoadRealRepositoryUsesGitConfigAndGitlinkStatus(t *testing.T) {
 	if module.URL != "https://example.test/child" {
 		t.Fatalf("redacted URL = %q", module.URL)
 	}
+	gitMustRun(t, ctx, parentRunner, "config", "-f", ".gitmodules", "submodule.alpha.url", "file://"+child)
+	gitMustRun(t, ctx, parentRunner, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--", "nested path")
+	gitMustRun(t, ctx, git.NewRunner(filepath.Join(parent, "nested path")), "checkout", "main")
+	initialized, err := Load(ctx, parentRunner, LoadRequest{Repository: parent, Limits: Limits{MaxOutputBytes: 64 << 10}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(initialized.Modules) != 1 || initialized.Modules[0].State != StateClean {
+		t.Fatalf("initialized module = %+v", initialized)
+	}
+	if err := os.WriteFile(filepath.Join(parent, "nested path", "README"), []byte("dirty\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dirty, err := Load(ctx, parentRunner, LoadRequest{Repository: parent, Limits: Limits{MaxOutputBytes: 64 << 10}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dirty.Modules) != 1 || dirty.Modules[0].State != StateDirty {
+		t.Fatalf("dirty module = %+v", dirty)
+	}
+	if err := os.WriteFile(filepath.Join(parent, "nested path", "README"), []byte("child\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRun(t, ctx, git.NewRunner(filepath.Join(parent, "nested path")), "checkout", "--detach", "HEAD")
+	detached, err := Load(ctx, parentRunner, LoadRequest{Repository: parent, Limits: Limits{MaxOutputBytes: 64 << 10}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detached.Modules) != 1 || detached.Modules[0].State != StateDetached {
+		t.Fatalf("detached module = %+v", detached)
+	}
 }
 
 func gitMustRun(t *testing.T, ctx context.Context, runner git.Runner, args ...string) {
