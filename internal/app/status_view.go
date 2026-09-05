@@ -12,6 +12,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
+	"github.com/sphireinc/git-watch/internal/submodules"
 	"github.com/sphireinc/git-watch/internal/ui/committree"
 	"github.com/sphireinc/git-watch/internal/ui/details"
 	"github.com/sphireinc/git-watch/internal/ui/layout"
@@ -115,6 +116,25 @@ func (m Model) statusView() string {
 	header := fmt.Sprintf("gitwatch · %s · %s · watch:%s", name, stateName(m.State), watchLabel)
 	metrics := fmt.Sprintf("STAGED %d  MODIFIED %d  UNTRACKED %d  CONFLICTS %d", m.Snapshot.Counts.Staged, m.Snapshot.Counts.Unstaged, m.Snapshot.Counts.Untracked, m.Snapshot.Counts.Conflicted)
 	lines := []string{fitSafeDisplay(header, width), fitSafeDisplay(metrics, width), strings.Repeat("─", width)}
+	if m.SubmodulesLoading {
+		lines = append(lines, fitSafeDisplay("SUBMODULES loading in background…", width))
+	} else if m.SubmodulesErr != nil {
+		lines = append(lines, fitSafeDisplay("SUBMODULES unavailable: "+platform.SafeText(m.SubmodulesErr.Error()), width))
+	} else if len(m.Submodules.Modules) > 0 {
+		clean, attention := 0, 0
+		for _, module := range m.Submodules.Modules {
+			if module.State == submodules.StateClean {
+				clean++
+			} else {
+				attention++
+			}
+		}
+		label := fmt.Sprintf("SUBMODULES %d clean  %d attention", clean, attention)
+		if m.Submodules.Truncated {
+			label += "  (bounded)"
+		}
+		lines = append(lines, fitSafeDisplay(label, width))
+	}
 	if m.GitignoreMissing {
 		lines = append(lines, fitSafeDisplay("No .gitignore · press I to create", width))
 	}

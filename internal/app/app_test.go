@@ -31,6 +31,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 	"github.com/sphireinc/git-watch/internal/stash"
+	"github.com/sphireinc/git-watch/internal/submodules"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
 	"github.com/sphireinc/git-watch/internal/ui/gitignoreview"
 	"github.com/sphireinc/git-watch/internal/ui/historyview"
@@ -273,6 +274,32 @@ func TestRevertSequencerRefreshRoutesToConflictWorkspace(t *testing.T) {
 	}
 	if got.Status != "revert paused for conflict recovery" {
 		t.Fatalf("revert recovery status = %q", got.Status)
+	}
+}
+
+func TestSubmoduleHealthLoadsOutsideAuthoritativeSnapshotAndRendersSummary(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	m.repositoryGeneration = 1
+	updated, command := m.Update(SnapshotMsg{Generation: 1, Snapshot: repo.Snapshot{
+		Root:       m.Discovery.Root,
+		Generation: 1,
+		Branch:     repo.Branch{Name: "main"},
+	}})
+	m = updated.(Model)
+	if command == nil || !m.SubmodulesLoading {
+		t.Fatalf("submodule load = cmdnil=%v loading=%v", command == nil, m.SubmodulesLoading)
+	}
+	updated, _ = m.Update(SubmodulesReadyMsg{Generation: 1, Snapshot: submodules.Snapshot{
+		Repository: m.Discovery.Root,
+		Modules: []submodules.Module{
+			{Path: "clean", State: submodules.StateClean},
+			{Path: "dirty", State: submodules.StateDirty},
+		},
+	}})
+	m = updated.(Model)
+	if m.SubmodulesLoading || m.SubmodulesErr != nil || !strings.Contains(m.statusView(), "SUBMODULES 1 clean  1 attention") {
+		t.Fatalf("submodule summary = loading=%v err=%v view=%q", m.SubmodulesLoading, m.SubmodulesErr, m.statusView())
 	}
 }
 

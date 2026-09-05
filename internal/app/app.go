@@ -42,6 +42,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 	"github.com/sphireinc/git-watch/internal/stash"
+	"github.com/sphireinc/git-watch/internal/submodules"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
 	"github.com/sphireinc/git-watch/internal/ui/committree"
 	"github.com/sphireinc/git-watch/internal/ui/commitview"
@@ -83,6 +84,11 @@ const (
 type SnapshotMsg struct {
 	Generation uint64
 	Snapshot   repo.Snapshot
+}
+type SubmodulesReadyMsg struct {
+	Generation uint64
+	Snapshot   submodules.Snapshot
+	Err        error
 }
 type RefreshStartedMsg struct{}
 type RefreshFinishedMsg struct{ Err error }
@@ -374,6 +380,10 @@ type Model struct {
 	Toast                    ToastMsg
 	Notifications            *notifications.Model
 	Snapshot                 repo.Snapshot
+	Submodules               submodules.Snapshot
+	SubmodulesLoading        bool
+	SubmodulesGeneration     uint64
+	SubmodulesErr            error
 	Discovery                git.Discovery
 	Files                    table.Model
 	FileFilterMode           bool
@@ -1012,6 +1022,7 @@ func (m *Model) setRepository(discovery git.Discovery) error {
 		m.StatusCommitCancel = nil
 	}
 	m.Discovery = discovery
+	m.Submodules, m.SubmodulesLoading, m.SubmodulesGeneration, m.SubmodulesErr = submodules.Snapshot{}, false, 0, nil
 	m.LowerPane = ""
 	m.CommitTreeLines, m.CommitTreeHead, m.CommitTreeOffset, m.CommitTreeErr = nil, "", 0, nil
 	m.UnpushedLines, m.UnpushedHead, m.UnpushedUpstream, m.UnpushedOffset, m.UnpushedCount, m.UnpushedErr = nil, "", "", 0, 0, nil
@@ -1480,6 +1491,25 @@ func (m Model) refresh() tea.Cmd {
 			return RefreshFinishedMsg{Err: err}
 		}
 		return SnapshotMsg{Generation: generation, Snapshot: snapshot}
+	}
+}
+
+// loadSubmodules runs independently of the authoritative status refresh so a
+// slow nested repository cannot delay the core worktree snapshot.
+func (m *Model) loadSubmodules(generation uint64) tea.Cmd {
+	if generation == 0 || m.Discovery.Root == "" || m.SubmodulesLoading {
+		return nil
+	}
+	if generation == m.SubmodulesGeneration && m.SubmodulesGeneration != 0 {
+		return nil
+	}
+	m.SubmodulesLoading = true
+	m.SubmodulesGeneration = generation
+	root, ctx := m.Discovery.Root, m.commandContext()
+	runner := git.NewRunner(root)
+	return func() tea.Msg {
+		snapshot, err := submodules.Load(ctx, runner, submodules.LoadRequest{Repository: root})
+		return SubmodulesReadyMsg{Generation: generation, Snapshot: snapshot, Err: err}
 	}
 }
 
@@ -5068,7 +5098,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.applySnapshot(v.Result.Snapshot)
 			m.State = StateReady
 		}
-		return m, tea.Batch(waitForRefresh(v.Coordinator), m.refreshStatusContextIfNeeded())
+		return m, tea.Batch(waitForRefresh(v.Coordinator), m.loadSubmodules(v.Result.Snapshot.Generation), m.refreshStatusContextIfNeeded())
 	case refreshRequestedMsg:
 		if v.Coordinator != m.RefreshCoordinator {
 			return m, nil
@@ -5081,7 +5111,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.applySnapshot(v.Snapshot)
 		m.State = StateReady
-		return m, m.refreshStatusContextIfNeeded()
+		return m, tea.Batch(m.loadSubmodules(v.Snapshot.Generation), m.refreshStatusContextIfNeeded())
+	case SubmodulesReadyMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.SubmodulesLoading, m.SubmodulesErr = false, v.Err
+		if v.Err == nil {
+			m.Submodules = v.Snapshot
+		}
+		return m, nil
 	case GitignoreReadyMsg:
 		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
 			return m, nil

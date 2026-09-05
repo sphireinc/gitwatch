@@ -65,6 +65,10 @@ Treat submodules as nested repositories with explicit parent-child health instea
   detached states.
 - Unit coverage includes NUL/config parsing, URL redaction, path-safe status
   parsing, depth bounds, and a real repository with an uninitialized gitlink.
-- Parent snapshot/dashboard integration, nested initialized/dirty/detached
-  acceptance, and native/manual evidence remain outstanding. This is an
-  uncommitted domain slice pending the next repository gate.
+- Parent status integration now launches the bounded loader asynchronously
+  after an authoritative snapshot and renders a sanitized clean/attention
+  summary without delaying core status. App coverage verifies the separate
+  command and summary rendering.
+- Nested initialized/dirty/detached acceptance and native/manual evidence
+  remain outstanding. This is an uncommitted integration slice pending the
+  next repository gate.
