@@ -72,6 +72,9 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   route as merge: when Git leaves a revert sequencer active after a conflict,
   the app opens the shared Revert recovery workspace with the authoritative
   conflict list. App coverage verifies the route and status message.
+- Conflict attention notifications are now emitted on entry into a conflicted
+  state or operation transition, rather than duplicated on every watcher
+  refresh. App coverage verifies the single-notification path.
 - Task remains active: merge/revert entry points, external state transitions,
   repository-switch generation handling, one attention-notification path, and
   native/manual evidence still need completion.

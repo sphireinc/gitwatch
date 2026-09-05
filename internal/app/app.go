@@ -949,6 +949,11 @@ func (m Model) acceptsRepository(generation uint64) bool {
 
 func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 	previousOperation := m.Snapshot.Operation != nil
+	previousOperationKind := sequencer.KindUnknown
+	if m.Snapshot.Operation != nil {
+		previousOperationKind = m.Snapshot.Operation.Kind()
+	}
+	previousConflicted := m.Snapshot.Counts.Conflicted
 	wasConflictView := m.currentView() == workspace.Conflict
 	if m.ActivityLog != nil && !m.Snapshot.ObservedAt.IsZero() {
 		for _, event := range history.Diff(m.Snapshot, snapshot) {
@@ -988,7 +993,7 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 	if !m.StatusCommitActive {
 		m.Files.SetEntries(snapshot.Entries)
 	}
-	if snapshot.Counts.Conflicted > 0 {
+	if snapshot.Counts.Conflicted > 0 && (previousConflicted == 0 || previousOperationKind != operationKind) {
 		m.notify(notifications.Conflict, notifications.Error, "repository conflicts", fmt.Sprintf("%d conflicted file(s)", snapshot.Counts.Conflicted), true)
 	}
 }

@@ -613,6 +613,28 @@ func TestNotificationsClassifyConflictAndHookFailures(t *testing.T) {
 	}
 }
 
+func TestConflictNotificationIsEmittedOncePerOperationTransition(t *testing.T) {
+	m := New()
+	snapshot := repo.Snapshot{Counts: repo.Counts{Conflicted: 2}}
+	updated, _ := m.Update(SnapshotMsg{Snapshot: snapshot})
+	m = updated.(Model)
+	updated, _ = m.Update(SnapshotMsg{Snapshot: snapshot})
+	m = updated.(Model)
+	if got := len(m.Notifications.Items()); got != 1 {
+		t.Fatalf("repeated conflict refresh notifications = %d", got)
+	}
+	state, err := sequencer.NewState("repo", 1, sequencer.KindRevert, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Operation = &state
+	updated, _ = m.Update(SnapshotMsg{Snapshot: snapshot})
+	m = updated.(Model)
+	if got := len(m.Notifications.Items()); got != 2 {
+		t.Fatalf("operation transition notifications = %d", got)
+	}
+}
+
 func TestNotificationAttentionBadgeAndDismissal(t *testing.T) {
 	m := New()
 	m.notify(notifications.Conflict, notifications.Error, "conflict", "resolve", true)
