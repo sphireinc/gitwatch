@@ -1667,10 +1667,25 @@ func (m Model) mergeSelectedBranch(strategy mergeops.Strategy) tea.Cmd {
 	}
 	request := mergeops.Request{Repository: m.Discovery.Root, Generation: m.repositoryGeneration, Source: m.BranchMergeTarget, Strategy: strategy}
 	runner := git.NewRunner(m.Discovery.Root)
-	generation := m.repositoryGeneration
+	generation, target := m.repositoryGeneration, m.BranchMergeTarget
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	operationID := fmt.Sprintf("merge-%d-%s", generation, target)
+	ctx := m.commandContext()
+	var outcome mergeops.Outcome
+	command := m.OperationEngine.Command(ctx, operationID, m.Discovery.Root, "merge "+target, 5*time.Minute, func(ctx context.Context) error {
+		outcome = mergeops.Engine{Runner: runner, Repository: m.Discovery.Root, Generation: generation}.Execute(ctx, request)
+		return outcome.Err
+	})
+	// Run the typed engine behind operations.Engine so repository serialization
+	// and cancellation apply while retaining its rich paused/snapshot outcome.
 	return func() tea.Msg {
-		engine := mergeops.Engine{Runner: runner, Repository: m.Discovery.Root, Generation: generation}
-		return MergeFinishedMsg{Repository: generation, Outcome: engine.Execute(m.commandContext(), request)}
+		result := command()
+		if outcome.Err == nil {
+			outcome.Err = result.Result.Err
+		}
+		return MergeFinishedMsg{Repository: generation, Outcome: outcome}
 	}
 }
 

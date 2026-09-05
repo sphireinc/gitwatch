@@ -354,6 +354,74 @@ func TestMergeStrategyNames(t *testing.T) {
 	}
 }
 
+func TestBranchMergeRunsThroughOperationEngineAndRefreshes(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := git.NewRunner(dir)
+	for _, args := range [][]string{{"init", "-b", "main", "--", dir}, {"config", "user.name", "test"}, {"config", "user.email", "test@example.com"}, {"config", "commit.gpgsign", "false"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("base.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("base\n")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("feature.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("feature\n")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepositoryWithConfig(discovery, config.Defaults())
+	m.repositoryGeneration = 7
+	m.Snapshot = repo.Snapshot{Root: dir, Branch: repo.Branch{Name: "main"}}
+	m.Branches = branchview.New([]branches.Branch{{Name: "feature"}})
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	updated, cmd := m.Update(key("M"))
+	m = updated.(Model)
+	if cmd != nil || !m.BranchMergeMode {
+		t.Fatalf("merge prompt = mode=%v cmdnil=%v", m.BranchMergeMode, cmd != nil)
+	}
+	for _, value := range []string{"f", "f", "-", "o", "n", "l", "y", "enter"} {
+		updated, cmd = m.Update(key(value))
+		m = updated.(Model)
+	}
+	if cmd == nil {
+		t.Fatal("merge command was not created")
+	}
+	message := cmd()
+	updated, _ = m.Update(message)
+	m = updated.(Model)
+	if m.State != StateReady || m.Status != "merge completed" || m.BranchMergeMode {
+		t.Fatalf("merge completion = state=%v status=%q mode=%v", m.State, m.Status, m.BranchMergeMode)
+	}
+	if len(m.OperationEngine.Snapshot()) == 0 {
+		t.Fatal("operation engine did not retain merge lifecycle result")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "feature.txt")); err != nil {
+		t.Fatalf("merged file missing: %v", err)
+	}
+}
+
 func TestHistoricalRebaseEntryBuildsExplicitEditPlan(t *testing.T) {
 	m := New()
 	m.Snapshot.Branch.Name = "feature"
