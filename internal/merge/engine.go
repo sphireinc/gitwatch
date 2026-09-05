@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
@@ -55,6 +56,10 @@ type Outcome struct {
 	Err    error
 	Paused bool
 	State  *sequencer.State
+	// Snapshot is the authoritative post-command repository refresh. It is
+	// populated even when Git reports a conflict or command failure, when the
+	// refresh itself succeeds.
+	Snapshot *repo.Snapshot
 }
 
 // Abort restores the state recorded by Git for a paused merge.
@@ -66,8 +71,14 @@ func (e Engine) Abort(ctx context.Context) Outcome {
 		discovery, _ = git.Discover(ctx, e.Runner.Dir)
 	}
 	if discovery.Root != "" {
-		if observed, detectErr := git.DetectOperationState(ctx, discovery, e.Generation); detectErr == nil && observed.Found && observed.State.Kind() == sequencer.KindMerge {
-			outcome.Paused, outcome.State = true, statePtr(observed.State)
+		refresh, refreshErr := git.Snapshot(ctx, discovery, e.Generation)
+		if refreshErr == nil {
+			outcome.Snapshot = &refresh
+			if refresh.Operation != nil && refresh.Operation.Kind() == sequencer.KindMerge {
+				outcome.Paused, outcome.State = true, refresh.Operation
+			}
+		} else if outcome.Err == nil {
+			outcome.Err = refreshErr
 		}
 	}
 	return outcome
@@ -138,11 +149,21 @@ func (e Engine) Execute(ctx context.Context, request Request) Outcome {
 	outcome := Outcome{Result: result, Err: commandErr}
 	updated, discoverErr := git.Discover(ctx, e.Runner.Dir)
 	if discoverErr != nil {
+		if outcome.Err == nil {
+			outcome.Err = discoverErr
+		}
 		return outcome
 	}
-	observed, detectErr := git.DetectOperationState(ctx, updated, e.Generation)
-	if detectErr == nil && observed.Found && observed.State.Kind() == sequencer.KindMerge {
-		outcome.Paused, outcome.State = true, statePtr(observed.State)
+	refreshed, refreshErr := git.Snapshot(ctx, updated, e.Generation)
+	if refreshErr != nil {
+		if outcome.Err == nil {
+			outcome.Err = refreshErr
+		}
+		return outcome
+	}
+	outcome.Snapshot = &refreshed
+	if refreshed.Operation != nil && refreshed.Operation.Kind() == sequencer.KindMerge {
+		outcome.Paused, outcome.State = true, refreshed.Operation
 	}
 	return outcome
 }

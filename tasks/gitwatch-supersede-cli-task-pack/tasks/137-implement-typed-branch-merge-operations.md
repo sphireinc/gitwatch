@@ -58,3 +58,16 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- The typed merge engine already covers explicit regular, ff-only, no-ff, and
+  squash strategies with clean-worktree and active-operation preflight.
+- Merge execution and abort now return the authoritative post-command
+  `repo.Snapshot`, including conflict and durable-operation state, so callers
+  can refresh status without inferring truth from Git stderr.
+- Focused integration tests verify a successful fast-forward snapshot, a
+  conflict snapshot entering merge recovery, and an abort snapshot clearing
+  the operation.
+- Task remains active for first-class app entry, operation-engine scheduling,
+  branch/worktree UI integration, and native/manual evidence.

@@ -45,7 +45,7 @@ func TestExecuteFastForwardAndRejectsDirtyWorktree(t *testing.T) {
 	}
 	engine := Engine{Runner: runner, Repository: dir}
 	outcome := engine.Execute(ctx, Request{Repository: dir, Source: "feature", Strategy: FastForwardOnly})
-	if outcome.Err != nil || outcome.Paused {
+	if outcome.Err != nil || outcome.Paused || outcome.Snapshot == nil || outcome.Snapshot.Branch.Name != "main" {
 		t.Fatalf("fast-forward outcome = %#v", outcome)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "dirty"), []byte("dirty\n"), 0o644); err != nil {
@@ -84,8 +84,11 @@ func TestConflictingMergeReturnsPausedStateAndAbortRestoresWorktree(t *testing.T
 	if !outcome.Paused || outcome.State == nil || outcome.State.Kind().String() != "merge" {
 		t.Fatalf("conflict outcome = %#v", outcome)
 	}
+	if outcome.Snapshot == nil || outcome.Snapshot.Operation == nil || outcome.Snapshot.Counts.Conflicted == 0 {
+		t.Fatalf("conflict snapshot = %#v", outcome.Snapshot)
+	}
 	aborted := engine.Abort(ctx)
-	if aborted.Err != nil || aborted.Paused {
+	if aborted.Err != nil || aborted.Paused || aborted.Snapshot == nil || aborted.Snapshot.Operation != nil {
 		t.Fatalf("abort outcome = %#v", aborted)
 	}
 	status, err := runner.Run(ctx, "status", "--porcelain")
