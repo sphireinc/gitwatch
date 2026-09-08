@@ -55,5 +55,6 @@ Make ahead/behind counts actionable by showing exactly what differs before fetch
   selected remote's matching tracking ref second, then opens the read-only
   divergence inspector without fetch, checkout, or mutation.
 - Added focused routing coverage for local-versus-remote assignment. Unique
-  commit lists, file/stat summary, and next-action controls remain to be
-  completed.
+  commit lists are now loaded with bounded `git log` ranges and rendered on
+  each comparison side alongside the existing file/stat summary. Explicit
+  fetch/pull/merge/rebase/push next-action controls remain to be completed.

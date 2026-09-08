@@ -37,6 +37,9 @@ func (r *fakeRunner) Run(_ context.Context, args ...string) (git.Result, error) 
 
 func (r *fakeRunner) RunBounded(_ context.Context, _ int, args ...string) (git.Result, error) {
 	r.args = append(r.args, append([]string(nil), args...))
+	if args[0] == "log" {
+		return git.Result{Args: args, Stdout: []byte("commit-sha\x00Author\x002024-01-03T00:00:00Z\x00subject\x00")}, nil
+	}
 	return git.Result{Args: args, Stdout: []byte("diff --git a/normal b/normal\n")}, nil
 }
 
@@ -82,6 +85,17 @@ func TestCompareHonorsFileLimitAndPatchOutputLimit(t *testing.T) {
 	}
 	if len(result.Changes) != 1 || !result.FilesTruncated {
 		t.Fatalf("file limit = %#v", result)
+	}
+}
+
+func TestCompareLoadsUniqueCommitSummaries(t *testing.T) {
+	runner := &fakeRunner{}
+	result, err := Compare(context.Background(), runner, Request{Left: "a", Right: "b", MaxCommits: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.LeftOnly) != 1 || result.LeftOnly[0].SHA != "commit-sha" || len(result.RightOnly) != 1 || result.CommitsTruncated {
+		t.Fatalf("unique commits = %#v", result)
 	}
 }
 

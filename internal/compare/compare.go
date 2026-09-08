@@ -21,6 +21,8 @@ var (
 const (
 	DefaultMaxFiles      = 2000
 	DefaultMaxPatchBytes = 4 << 20
+	DefaultMaxCommits    = 200
+	MaxCommitOutputBytes = 512 << 10
 )
 
 // Runner is the minimal Git boundary required by Compare.
@@ -34,6 +36,7 @@ type Request struct {
 	Left, Right   string
 	MaxFiles      int
 	MaxPatchBytes int
+	MaxCommits    int
 }
 
 // Revision is an immutable resolved revision.
@@ -43,6 +46,10 @@ type Revision struct {
 
 // Metadata contains bounded commit identity displayed in the comparison.
 type Metadata struct {
+	SHA, Author, Subject, Date string
+}
+
+type CommitSummary struct {
 	SHA, Author, Subject, Date string
 }
 
@@ -58,6 +65,8 @@ type Change struct {
 type Result struct {
 	Left, Right         Revision
 	LeftMeta, RightMeta Metadata
+	LeftOnly, RightOnly []CommitSummary
+	CommitsTruncated    bool
 	Changes             []Change
 	Patch               string
 	FilesTruncated      bool
@@ -107,6 +116,20 @@ func Compare(ctx context.Context, runner Runner, request Request) (Result, error
 	if err != nil {
 		return Result{}, fmt.Errorf("load right metadata: %w", err)
 	}
+	maxCommits := request.MaxCommits
+	if maxCommits <= 0 {
+		maxCommits = DefaultMaxCommits
+	}
+	result.LeftOnly, result.CommitsTruncated, err = loadUniqueCommits(ctx, runner, right.SHA, left.SHA, maxCommits)
+	if err != nil {
+		return Result{}, fmt.Errorf("load left-only commits: %w", err)
+	}
+	var rightTruncated bool
+	result.RightOnly, rightTruncated, err = loadUniqueCommits(ctx, runner, left.SHA, right.SHA, maxCommits)
+	result.CommitsTruncated = result.CommitsTruncated || rightTruncated
+	if err != nil {
+		return Result{}, fmt.Errorf("load right-only commits: %w", err)
+	}
 	nameStatus, err := runner.Run(ctx, "diff", "--name-status", "-z", left.SHA, right.SHA, "--")
 	if err != nil {
 		return Result{}, fmt.Errorf("load changed paths: %w", err)
@@ -128,6 +151,25 @@ func Compare(ctx context.Context, runner Runner, request Request) (Result, error
 		return Result{}, fmt.Errorf("load comparison patch: %w", patchErr)
 	}
 	return result, nil
+}
+
+func loadUniqueCommits(ctx context.Context, runner Runner, base, tip string, limit int) ([]CommitSummary, bool, error) {
+	format := "%H%x00%an%x00%aI%x00%s%x00"
+	result, err := runner.RunBounded(ctx, MaxCommitOutputBytes, "log", "--no-decorate", "--format="+format, "--max-count="+strconv.Itoa(limit), base+".."+tip)
+	truncated := errors.Is(err, git.ErrOutputLimit)
+	if err != nil && !truncated {
+		return nil, false, err
+	}
+	fields := strings.Split(string(result.Stdout), "\x00")
+	commits := make([]CommitSummary, 0, min(limit, len(fields)/4))
+	for index := 0; index+3 < len(fields) && len(commits) < limit; index += 4 {
+		sha := strings.TrimSpace(fields[index])
+		if sha == "" {
+			continue
+		}
+		commits = append(commits, CommitSummary{SHA: sha, Author: strings.TrimSpace(fields[index+1]), Date: strings.TrimSpace(fields[index+2]), Subject: strings.TrimSpace(fields[index+3])})
+	}
+	return commits, truncated || len(commits) == limit, nil
 }
 
 func Resolve(ctx context.Context, runner Runner, ref string) (Revision, error) {

@@ -65,6 +65,17 @@ func (m Model) View() string {
 	if len(m.Result.Changes) == 0 {
 		lines = append(lines, "  No changed files")
 	}
+	lines = append(lines, "", fmt.Sprintf("Commits only in A: %d", len(m.Result.LeftOnly)))
+	for _, commit := range m.Result.LeftOnly {
+		lines = append(lines, "  A "+platform.SafeText(commit.SHA)+" "+platform.SafeText(commit.Subject))
+	}
+	lines = append(lines, fmt.Sprintf("Commits only in B: %d", len(m.Result.RightOnly)))
+	for _, commit := range m.Result.RightOnly {
+		lines = append(lines, "  B "+platform.SafeText(commit.SHA)+" "+platform.SafeText(commit.Subject))
+	}
+	if m.Result.CommitsTruncated {
+		lines = append(lines, "NOTICE: unique-commit list truncated by budget")
+	}
 	patch := m.Result.Patch
 	patchLabel := "Patch:"
 	if m.PatchPath != "" {
