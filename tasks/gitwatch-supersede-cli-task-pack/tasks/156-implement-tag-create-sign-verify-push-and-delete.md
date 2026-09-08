@@ -71,5 +71,12 @@ Match and exceed LZ tag management with signing visibility and explicit remote d
 - Added a separate typed remote-tag deletion operation using the destructive
   `:refs/tags/<name>` refspec, with explicit remote/tag validation and a local
   bare-remote push/delete integration test.
-- Full app mutation routing, refresh integration after new local mutations,
-  and signing/no-key integration fixtures remain pending.
+- Added Tags workspace controls for lightweight, annotated, and signed local
+  creation, plus exact-name local deletion confirmation. Successful local tag
+  mutations request authoritative status, tags, history-tag, and remote
+  refreshes.
+- Added a Remotes workspace action for remote-tag deletion. It requires a
+  selected remote, an explicit tag name, and a separate destructive `y/n`
+  confirmation before issuing the delete refspec.
+- Signing/no-key integration fixtures and native/manual terminal evidence
+  remain pending.

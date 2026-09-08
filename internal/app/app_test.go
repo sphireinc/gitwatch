@@ -396,6 +396,55 @@ func TestTagsWorkspaceLoadsFiltersAndSortsBoundedSnapshot(t *testing.T) {
 	}
 }
 
+func TestTagMutationControlsRequireExplicitInputsAndRefresh(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	m.repositoryGeneration = 1
+	m.Workspace.Navigate(workspace.Tags, "Tags")
+	m.TagSnapshot = tags.Snapshot{Repository: m.Discovery.Root, Tags: []tags.Tag{{Name: "v1", TargetID: "abc123", Kind: tags.Lightweight}}}
+
+	updated, _ := m.Update(key("c"))
+	m = updated.(Model)
+	if m.TagCreateMode != "name" || m.TagCreateKind != tags.CreateLightweight {
+		t.Fatalf("lightweight tag mode = mode=%q kind=%q", m.TagCreateMode, m.TagCreateKind)
+	}
+	for _, ch := range "v2" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if m.TagCreateMode != "target" || m.TagCreateInput != "HEAD" {
+		t.Fatalf("tag target prompt = mode=%q input=%q", m.TagCreateMode, m.TagCreateInput)
+	}
+	updated, command := m.Update(key("enter"))
+	m = updated.(Model)
+	if command == nil || m.State != StateOperationPending || m.TagCreateMode != "" {
+		t.Fatalf("tag create submit = cmdnil=%v state=%v mode=%q", command == nil, m.State, m.TagCreateMode)
+	}
+	updated, command = m.Update(TagMutationFinishedMsg{Generation: 1, Operation: "created", Name: "v2"})
+	m = updated.(Model)
+	if command == nil || m.State != StateReady || !strings.Contains(m.Status, "created tag v2") {
+		t.Fatalf("tag create completion = cmdnil=%v state=%v status=%q", command == nil, m.State, m.Status)
+	}
+
+	m.TagsSelected = 0
+	updated, _ = m.Update(key("D"))
+	m = updated.(Model)
+	if !m.TagDeleteMode || m.TagDeleteTarget != "v1" {
+		t.Fatalf("tag delete mode = mode=%v target=%q", m.TagDeleteMode, m.TagDeleteTarget)
+	}
+	for _, ch := range "v1" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, command = m.Update(key("enter"))
+	m = updated.(Model)
+	if command == nil || m.State != StateOperationPending || m.TagDeleteMode {
+		t.Fatalf("tag delete submit = cmdnil=%v state=%v mode=%v", command == nil, m.State, m.TagDeleteMode)
+	}
+}
+
 func TestSubmoduleLifecycleMenuRequiresExactRemovalConfirmation(t *testing.T) {
 	m := New()
 	m.Discovery.Root = t.TempDir()
@@ -2108,6 +2157,26 @@ func TestRemoteSetUpstreamAndTagPushControls(t *testing.T) {
 	m = updated.(Model)
 	if cmd == nil || len(m.Remotes.Dashboard.ActiveJobs()) != 1 {
 		t.Fatalf("tag push = cmdnil=%v jobs=%#v", cmd == nil, m.Remotes.Dashboard.Jobs)
+	}
+
+	m = New()
+	m.Workspace.Navigate(workspace.Remotes, "Remotes")
+	m.Remotes = remoteview.New(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin"}}})
+	updated, _ = m.Update(key("X"))
+	m = updated.(Model)
+	for _, ch := range "v1.2.3" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if !m.RemoteTagDeleteConfirm || m.RemoteTagDeleteMode || !strings.Contains(m.Status, "DELETE remote tag") {
+		t.Fatalf("remote tag deletion confirmation = confirm=%v mode=%v status=%q", m.RemoteTagDeleteConfirm, m.RemoteTagDeleteMode, m.Status)
+	}
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil || m.RemoteTagDeleteConfirm || len(m.Remotes.Dashboard.ActiveJobs()) != 1 {
+		t.Fatalf("remote tag deletion = cmdnil=%v confirm=%v jobs=%#v", cmd == nil, m.RemoteTagDeleteConfirm, m.Remotes.Dashboard.Jobs)
 	}
 }
 

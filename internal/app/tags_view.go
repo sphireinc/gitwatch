@@ -21,6 +21,114 @@ func (m Model) selectedTag() (tags.Tag, bool) {
 	return rows[m.TagsSelected], true
 }
 
+func (m Model) createTag() tea.Cmd {
+	request := tags.CreateRequest{
+		Name:    strings.TrimSpace(m.TagCreateName),
+		Target:  strings.TrimSpace(m.TagCreateTarget),
+		Message: m.TagCreateMessage,
+		Kind:    m.TagCreateKind,
+	}
+	generation := m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		_, err := tags.Create(m.commandContext(), runner, request)
+		return TagMutationFinishedMsg{Generation: generation, Operation: "created", Name: request.Name, Err: err}
+	}
+}
+
+func (m Model) deleteSelectedTag() tea.Cmd {
+	name := m.TagDeleteTarget
+	confirmed := m.TagDeleteInput
+	generation := m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		_, err := tags.Delete(m.commandContext(), runner, name, confirmed)
+		return TagMutationFinishedMsg{Generation: generation, Operation: "deleted", Name: name, Err: err}
+	}
+}
+
+func (m *Model) resetTagMutation() {
+	m.TagCreateMode, m.TagCreateKind, m.TagCreateName, m.TagCreateTarget = "", "", "", ""
+	m.TagCreateMessage, m.TagCreateInput = "", ""
+	m.TagDeleteMode, m.TagDeleteTarget, m.TagDeleteInput = false, "", ""
+}
+
+func (m *Model) startTagCreation(kind tags.CreateKind) {
+	m.resetTagMutation()
+	m.TagCreateKind, m.TagCreateMode, m.TagCreateInput = kind, "name", ""
+	m.Status = string(kind) + " tag name: "
+}
+
+func (m *Model) updateTagMutationKey(key string) tea.Cmd {
+	if m.TagCreateMode == "" && !m.TagDeleteMode {
+		return nil
+	}
+	if key == "esc" {
+		m.resetTagMutation()
+		m.Status = "tag mutation cancelled"
+		return nil
+	}
+	if key == "backspace" {
+		m.TagCreateInput = removeLastRune(m.TagCreateInput)
+		if m.TagDeleteMode {
+			m.TagDeleteInput = removeLastRune(m.TagDeleteInput)
+		}
+	} else if key == "space" {
+		if m.TagDeleteMode {
+			m.TagDeleteInput += " "
+		} else {
+			m.TagCreateInput += " "
+		}
+	} else if key == "enter" {
+		if m.TagDeleteMode {
+			if strings.TrimSpace(m.TagDeleteInput) == "" {
+				m.Status = "type the exact tag name to confirm deletion"
+				return nil
+			}
+			m.TagDeleteMode, m.State, m.Status = false, StateOperationPending, "deleting tag"
+			return m.deleteSelectedTag()
+		}
+		value := strings.TrimSpace(m.TagCreateInput)
+		if value == "" {
+			m.Status = "tag input is required"
+			return nil
+		}
+		switch m.TagCreateMode {
+		case "name":
+			m.TagCreateName, m.TagCreateTarget, m.TagCreateInput, m.TagCreateMode = value, "", "HEAD", "target"
+			m.Status = "tag target (default HEAD): HEAD"
+			return nil
+		case "target":
+			m.TagCreateTarget, m.TagCreateInput = value, ""
+			if m.TagCreateKind == tags.CreateLightweight {
+				m.TagCreateMode, m.State, m.Status = "", StateOperationPending, "creating lightweight tag"
+				return m.createTag()
+			}
+			m.TagCreateMode = "message"
+			m.Status = "tag message: "
+			return nil
+		case "message":
+			m.TagCreateMessage, m.TagCreateInput, m.TagCreateMode = value, "", ""
+			m.State, m.Status = StateOperationPending, "creating "+string(m.TagCreateKind)+" tag"
+			return m.createTag()
+		}
+	} else if len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00") {
+		if m.TagDeleteMode {
+			m.TagDeleteInput += key
+		} else {
+			m.TagCreateInput += key
+		}
+	} else {
+		return nil
+	}
+	if m.TagDeleteMode {
+		m.Status = "type " + platform.SafeText(m.TagDeleteTarget) + " to confirm deletion: " + platform.SafeText(m.TagDeleteInput)
+	} else {
+		m.Status = "tag " + m.TagCreateMode + ": " + platform.SafeText(m.TagCreateInput)
+	}
+	return nil
+}
+
 func (m *Model) verifySelectedTag() tea.Cmd {
 	selected, ok := m.selectedTag()
 	if !ok {

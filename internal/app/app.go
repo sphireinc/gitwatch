@@ -296,6 +296,12 @@ type TagWorktreeFinishedMsg struct {
 	Path       string
 	Err        error
 }
+type TagMutationFinishedMsg struct {
+	Generation uint64
+	Operation  string
+	Name       string
+	Err        error
+}
 type HistoryActionFinishedMsg struct {
 	Action, Target string
 	Repository     uint64
@@ -578,6 +584,15 @@ type Model struct {
 	TagsSort                 string
 	TagsSortDesc             bool
 	TagSignatureChecking     string
+	TagCreateMode            string
+	TagCreateKind            tags.CreateKind
+	TagCreateName            string
+	TagCreateTarget          string
+	TagCreateMessage         string
+	TagCreateInput           string
+	TagDeleteMode            bool
+	TagDeleteTarget          string
+	TagDeleteInput           string
 	TagCheckoutConfirm       bool
 	TagCheckoutTarget        string
 	TagCompare               string
@@ -631,6 +646,8 @@ type Model struct {
 	RemoteSetUpstream        bool
 	RemoteTag                string
 	RemoteTagMode            bool
+	RemoteTagDeleteMode      bool
+	RemoteTagDeleteConfirm   bool
 	RemoteCancel             context.CancelFunc
 	RemoteJobID              string
 	GitHub                   githubview.Model
@@ -3168,6 +3185,20 @@ func (m *Model) pushSelectedTag() tea.Cmd {
 	})
 }
 
+func (m *Model) deleteSelectedRemoteTag() tea.Cmd {
+	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) || strings.TrimSpace(m.RemoteTag) == "" {
+		return nil
+	}
+	remote, tag := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name, strings.TrimSpace(m.RemoteTag)
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx := m.startRemoteJob("delete remote tag", remote)
+	m.Remotes.Dashboard.Jobs[len(m.Remotes.Dashboard.Jobs)-1].Progress = "deleting tag"
+	return m.remoteCommand(ctx, "delete remote tag "+tag, remote, func(ctx context.Context) error {
+		_, err := remotes.DeleteTag(ctx, runner, remote, tag)
+		return err
+	})
+}
+
 func (m Model) previewSelectedRemotePush() tea.Cmd {
 	if m.Remotes.Selected < 0 || m.Remotes.Selected >= len(m.Remotes.Dashboard.Remotes) || m.Snapshot.Branch.Name == "" {
 		return nil
@@ -4313,6 +4344,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateTagsFilter(v.String())
 			return m, nil
 		}
+		if m.currentView() == workspace.Tags && (m.TagCreateMode != "" || m.TagDeleteMode) {
+			return m, m.updateTagMutationKey(v.String())
+		}
 		if m.currentView() == workspace.Tags && m.TagCheckoutConfirm {
 			switch v.String() {
 			case "y", "Y":
@@ -4385,16 +4419,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Worktrees && m.WorktreeAddMode {
 			return m, m.updateWorktreeAddKey(v.String())
 		}
-		if m.currentView() == workspace.Remotes && m.RemoteTagMode {
+		if m.currentView() == workspace.Remotes && (m.RemoteTagMode || m.RemoteTagDeleteMode) {
 			switch v.String() {
 			case "esc":
-				m.RemoteTagMode, m.RemoteTag = false, ""
-				m.Status = "tag push cancelled"
+				m.RemoteTagMode, m.RemoteTagDeleteMode, m.RemoteTag = false, false, ""
+				m.Status = "remote tag action cancelled"
 			case "backspace":
 				m.RemoteTag = removeLastRune(m.RemoteTag)
 			case "enter":
 				if strings.TrimSpace(m.RemoteTag) == "" {
 					m.Status = "tag name is required"
+				} else if m.RemoteTagDeleteMode {
+					m.RemoteTagDeleteMode, m.RemoteTagDeleteConfirm = false, true
+					m.Status = "confirm DELETE remote tag " + strings.TrimSpace(m.RemoteTag) + "? (y/n)"
 				} else {
 					m.RemoteTagMode, m.RemotePushConfirm = false, true
 					m.Status = "confirm push tag " + strings.TrimSpace(m.RemoteTag) + "? (y/n)"
@@ -4408,6 +4445,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.RemoteTagMode {
 				m.Status = "tag name: " + m.RemoteTag
+			} else if m.RemoteTagDeleteMode {
+				m.Status = "remote tag to DELETE: " + m.RemoteTag
 			}
 			return m, nil
 		}
@@ -4567,6 +4606,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Remotes && m.RemoteTagDeleteConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.RemoteTagDeleteConfirm, m.State, m.Status = false, StateOperationPending, "deleting remote tag"
+				return m, m.deleteSelectedRemoteTag()
+			case "n", "N", "esc":
+				m.RemoteTagDeleteConfirm, m.RemoteTag, m.Status = false, "", "remote tag deletion cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Remotes && m.RemotePushConfirm {
 			switch v.String() {
 			case "y":
@@ -4699,7 +4748,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "v":
 			return m, m.navigate(workspace.Repositories, "Repositories")
 		case "A":
-			if m.currentView() == workspace.Worktrees {
+			if m.currentView() == workspace.Tags {
+				m.startTagCreation(tags.CreateAnnotated)
+				return m, nil
+			} else if m.currentView() == workspace.Worktrees {
 				m.WorktreeAddMode, m.WorktreeAddPath = true, ""
 				m.Status = "worktree path: "
 			} else if m.currentView() == workspace.Rebase {
@@ -4726,6 +4778,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.mutateAll(false)
 			}
 		case "S":
+			if m.currentView() == workspace.Tags {
+				m.startTagCreation(tags.CreateSigned)
+				return m, nil
+			}
 			if m.currentView() == workspace.Status {
 				m.Files.CycleSort()
 				m.Status = "file sort mode changed"
@@ -4749,7 +4805,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "D":
-			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+			if m.currentView() == workspace.Tags {
+				if selected, ok := m.selectedTag(); ok {
+					m.TagDeleteMode, m.TagDeleteTarget, m.TagDeleteInput = true, selected.Name, ""
+					m.Status = "type " + platform.SafeText(selected.Name) + " to confirm deletion: "
+				}
+			} else if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
 				branch := m.Branches.Entries[m.Branches.Selected]
 				if branch.Current || branch.OccupiedPath != "" {
 					m.Status = "cannot delete checked-out or worktree-bound branch"
@@ -4849,7 +4910,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "X":
-			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+			if m.currentView() == workspace.Remotes {
+				if m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
+					m.RemoteTagDeleteMode, m.RemoteTag = true, ""
+					m.Status = "remote tag to DELETE: "
+				}
+			} else if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
 				branch := m.Branches.Entries[m.Branches.Selected]
 				if branch.Current || branch.OccupiedPath != "" {
 					m.Status = "cannot delete checked-out or worktree-bound branch"
@@ -5085,6 +5151,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.mutateAll(true)
 			}
 		case "c":
+			if m.currentView() == workspace.Tags {
+				m.startTagCreation(tags.CreateLightweight)
+				return m, nil
+			}
 			if m.currentView() == workspace.Branches {
 				m.BranchCreateMode, m.BranchMutationInput = true, ""
 				m.Status = "branch name: "
@@ -6301,6 +6371,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.State, m.Status = StateReady, "created worktree "+platform.SafeText(v.Path)+" from tag "+platform.SafeText(v.Name)
 		return m, m.refresh()
+	case TagMutationFinishedMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.resetTagMutation()
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Operation+" tag "+platform.SafeText(v.Name)+": "+v.Err.Error()
+			return m, nil
+		}
+		m.State, m.Status = StateReady, v.Operation+" tag "+platform.SafeText(v.Name)
+		m.recordActivity(history.OperationSuccess, v.Name, m.Status)
+		return m, tea.Batch(m.refresh(), m.loadTags(), m.loadHistoryTags(), m.loadRemotes())
 	case HistoryActionFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
@@ -6420,7 +6502,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
 		}
-		m.RemoteSetUpstream, m.RemoteTag = false, ""
+		m.RemoteSetUpstream, m.RemoteTag, m.RemoteTagDeleteConfirm, m.RemoteTagDeleteMode = false, "", false, false
 		if m.RemoteJobID != "" {
 			for i := range m.Remotes.Dashboard.Jobs {
 				if m.Remotes.Dashboard.Jobs[i].ID == m.RemoteJobID {
@@ -6682,6 +6764,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.RemotePushConfirm {
 			content += "\n\n" + m.Status
 		}
+		if m.RemoteTagDeleteConfirm || m.RemoteTagDeleteMode {
+			content += "\n\n" + m.Status
+		}
 	case workspace.GitHub:
 		title, content = "gitwatch · GitHub", m.GitHub.View()
 	case workspace.Plugins:
@@ -6722,9 +6807,13 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [P] cherry-pick  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Tags {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] inspect  [d] compare  [V] verify  [x] checkout  [w] worktree  [t] reload  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [c] light tag  [A] annotated  [S] signed  [D] delete  [/] filter  [s] sort  [enter] inspect  [d] compare  [V] verify  [x] checkout  [w] worktree  [t] reload  [esc] back  [q] quit"
 		if m.TagsFilterMode {
 			lines[len(lines)-1] = "tag filter: type text  [enter] apply  [esc] cancel"
+		} else if m.TagCreateMode != "" {
+			lines[len(lines)-1] = "tag " + m.TagCreateMode + ": type value  [enter] next  [esc] cancel"
+		} else if m.TagDeleteMode {
+			lines[len(lines)-1] = "type exact tag name  [enter] delete  [esc] cancel"
 		} else if m.TagWorktreeMode {
 			lines[len(lines)-1] = "tag worktree path: type path  [enter] create  [esc] cancel"
 		}
@@ -6754,7 +6843,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [space] select  [tab] filter  [type] search  [a/d] preview/apply  [p] preview  [r] refresh  [b] bundled  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
-		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push preview  [P] force-with-lease  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push preview  [P] force-with-lease  [T] push tag  [X] delete remote tag  [esc] back  [q] quit"
 	}
 	if view == workspace.GitHub {
 		lines[len(lines)-1] = "[r] refresh  [esc] back  [q] quit"
