@@ -59,3 +59,17 @@ Match and exceed LZ tag management with signing visibility and explicit remote d
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added typed local tag creation for lightweight, annotated, and signed tags;
+  signed creation delegates to Git's configured signing capability and never
+  guesses a key.
+- Added exact-name-confirmed local tag deletion with unsafe target/message
+  validation and focused argv tests. Existing explicit tag push support remains
+  in `internal/remotes`.
+- Added a separate typed remote-tag deletion operation using the destructive
+  `:refs/tags/<name>` refspec, with explicit remote/tag validation and a local
+  bare-remote push/delete integration test.
+- Full app mutation routing, refresh integration after new local mutations,
+  and signing/no-key integration fixtures remain pending.

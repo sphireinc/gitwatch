@@ -115,6 +115,18 @@ func PushTag(ctx context.Context, runner git.Runner, remote, tag string) (git.Re
 	return PushWithOptions(ctx, runner, remote, tag, PushOptions{Tag: true})
 }
 
+// DeleteTag removes exactly one named tag from a remote. It is intentionally
+// separate from PushTag so callers must opt into the destructive refspec.
+func DeleteTag(ctx context.Context, runner git.Runner, remote, tag string) (git.Result, error) {
+	if !validArg(remote) {
+		return git.Result{}, ErrMissingRemote
+	}
+	if !validArg(tag) {
+		return git.Result{}, ErrMissingTag
+	}
+	return runner.Run(ctx, "push", "--progress", remote, ":refs/tags/"+tag)
+}
+
 // PushSetUpstream publishes branch and records remote as its upstream.
 func PushSetUpstream(ctx context.Context, runner git.Runner, remote, branch string) (git.Result, error) {
 	return PushWithOptions(ctx, runner, remote, branch, PushOptions{SetUpstream: true})
