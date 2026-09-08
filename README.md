@@ -125,6 +125,12 @@ Use arrows or `j`/`k` to move, click a file row or press `Enter`/`d` to inspect 
 
 See [KEYMAP.md](KEYMAP.md) for the complete keymap and [docs/advanced-workflows.md](docs/advanced-workflows.md) for workflow-specific safety semantics.
 
+From Status, press `h` with a selected path (including while its diff is open)
+to load bounded path history without discarding the live Status selection. In a
+path-history view, `f` explicitly toggles rename-following history, `]` loads
+the next bounded page, `Enter` opens the selected commit’s path inspector, and
+`Y` compares that commit with `HEAD`; `Esc` returns to the prior workspace.
+
 ## Safety model
 
 Git commands are executed with argument vectors, never shell command strings. Machine-readable and NUL-delimited Git formats are used where available, and repository-controlled text is sanitized before terminal rendering.

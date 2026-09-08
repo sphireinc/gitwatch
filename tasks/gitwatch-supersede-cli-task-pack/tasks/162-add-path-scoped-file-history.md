@@ -62,5 +62,13 @@ Provide file history from Status, commit inspection and diff views.
   and modify kinds, tabs, and leading-hyphen paths without concatenating a
   path into a revision expression.
 - Added focused argv, validation, limit-clamping, and rename/path-byte tests.
-  The Status/commit-inspector path-history workspace and return-context wiring
-  remain to be completed.
+- Added the `PathHistory` workspace with cancellable, generation-checked page
+  loading, exact-path/follow modes, bounded pagination, keyboard and mouse
+  selection, commit inspection, compare-to-`HEAD`, and breadcrumb return to
+  Status/diff context.
+- Added app and view tests covering Status-context preservation, result
+  handling, compare routing, selection, pagination, and follow-mode rendering.
+- Final repository gates passed on the implementation revision: `make check`
+  (pinned lint, full tests, race tests, vet, security, and performance), plus
+  `git diff --check` and formatter cleanliness. Host Git signing was disabled
+  only for temporary test repositories via environment configuration.

@@ -22,6 +22,7 @@
 | D / X | Confirm normal / force branch deletion (in Branches view) |
 | s | Stashes view |
 | l | History view |
+| h | Path history for the selected Status/inspected path |
 | ] | Load more history (in History view) |
 | / | Search history (in History view) |
 | Enter | Inspect selected commit (in History view) |
@@ -30,6 +31,10 @@
 | R | Revert selected commit after typing its exact SHA (in History view) |
 | t | Load tag refs (in History view) |
 | M / f / g / y | Inspect next parent / filter inspected path / jump to ref / copy SHA (in History view) |
+
+Path-history controls: `j`/`k` move, `Enter` inspect the selected commit,
+`Y` compare it with `HEAD`, `f` toggle explicit rename-following mode, `]`
+load the next bounded page, and `Esc` return to the prior workspace.
 | n | Remotes view |
 | w | Worktrees view |
 | v / Enter | Repositories dashboard / open selected repository |
