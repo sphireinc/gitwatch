@@ -749,6 +749,20 @@ func TestBranchMergePromptRequiresCleanWorktreeAndExplicitStrategy(t *testing.T)
 	}
 }
 
+func TestRemoteBranchMergeRetainsQualifiedTarget(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	m.Snapshot = repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "main"}}
+	m.Branches = branchview.New([]branches.Branch{{Name: "origin/feature", Remote: true, RemoteName: "origin", RemoteBranch: "feature"}})
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+
+	updated, cmd := m.Update(key("M"))
+	m = updated.(Model)
+	if cmd != nil || !m.BranchMergeMode || m.BranchMergeTarget != "origin/feature" {
+		t.Fatalf("remote merge target = cmdnil=%v mode=%v target=%q", cmd == nil, m.BranchMergeMode, m.BranchMergeTarget)
+	}
+}
+
 func TestMergeStrategyNames(t *testing.T) {
 	for _, test := range []struct {
 		input string

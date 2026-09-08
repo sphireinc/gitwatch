@@ -30,3 +30,17 @@ func TestAddWithCommitRejectsUnsafeArguments(t *testing.T) {
 		t.Fatalf("expected invalid commit, got %v", err)
 	}
 }
+
+func TestAddWithCommitPreservesQualifiedRemoteRef(t *testing.T) {
+	runner := git.NewRunner(t.TempDir())
+	result, _ := AddWithCommit(context.Background(), runner, "/tmp/tree", "", "backup/feature/x")
+	want := []string{"worktree", "add", "/tmp/tree", "backup/feature/x"}
+	if len(result.Args) != len(want) {
+		t.Fatalf("worktree argv = %#v, want %#v", result.Args, want)
+	}
+	for i := range want {
+		if result.Args[i] != want[i] {
+			t.Fatalf("worktree argv = %#v, want %#v", result.Args, want)
+		}
+	}
+}
