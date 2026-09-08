@@ -20,6 +20,7 @@ import (
 	compareops "github.com/sphireinc/git-watch/internal/compare"
 	"github.com/sphireinc/git-watch/internal/config"
 	"github.com/sphireinc/git-watch/internal/conflicts"
+	"github.com/sphireinc/git-watch/internal/customcmd"
 	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
 	"github.com/sphireinc/git-watch/internal/gitignore/document"
@@ -250,6 +251,13 @@ type HistoricalToolReadyMsg struct {
 	Tool       platform.ExternalTool
 	Path       string
 	Content    []byte
+	Err        error
+}
+type CustomCommandFinishedMsg struct {
+	Name       string
+	Repository uint64
+	Refresh    bool
+	Output     customcmd.Output
 	Err        error
 }
 type BranchesReadyMsg struct {
@@ -804,6 +812,7 @@ type Model struct {
 	RepositoryRegistryPath   string
 	RepositoryEngine         *registry.Engine
 	OperationEngine          *operations.Engine
+	CustomCommands           []customcmd.Definition
 	PaletteMode              bool
 	PaletteQuery             string
 	PaletteSelected          int
@@ -867,6 +876,13 @@ func (m Model) paletteActions() []commands.Action {
 		}
 		actions = append(actions, commands.Action{ID: fmt.Sprintf("repository_attention_%d", index), Label: "Open repository attention: " + platform.SafeText(row.Repository.Name), Shortcut: "v", Enabled: true})
 	}
+	for _, definition := range m.CustomCommands {
+		label := definition.Label
+		if label == "" {
+			label = definition.Name
+		}
+		actions = append(actions, commands.Action{ID: "customcmd:" + definition.Name, Label: "Run custom command: " + platform.SafeText(label), Shortcut: definition.Binding, Enabled: m.Discovery.Root != ""})
+	}
 	return append(actions, m.PaletteActions...)
 }
 
@@ -927,6 +943,65 @@ func (m *Model) updatePaletteKey(key string) tea.Cmd {
 	return nil
 }
 
+func (m Model) customCommandContext() customcmd.Context {
+	selectedPath := string(m.Files.SelectedPath())
+	if m.StatusTreeMode {
+		if entry, ok := m.selectedStatusTreeEntry(); ok {
+			selectedPath = string(entry.Path)
+		} else {
+			selectedPath = ""
+		}
+	}
+	selectedSHA := ""
+	if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+		selectedSHA = m.History.Rows[m.History.Selected].Commit.SHA
+	}
+	providerURL := ""
+	if m.currentView() == workspace.GitHub {
+		providerURL = m.GitHub.Pull.URL
+	}
+	return customcmd.Context{RepositoryRoot: m.Discovery.Root, SelectedPath: selectedPath, SelectedSHA: selectedSHA, Branch: m.Snapshot.Branch.Name, ProviderURL: providerURL}
+}
+
+func (m *Model) runCustomCommand(name string) tea.Cmd {
+	var definition *customcmd.Definition
+	for index := range m.CustomCommands {
+		if m.CustomCommands[index].Name == name {
+			definition = &m.CustomCommands[index]
+			break
+		}
+	}
+	if definition == nil {
+		m.Status = "custom command not found: " + platform.SafeText(name)
+		return nil
+	}
+	invocation, err := definition.Expand(m.customCommandContext())
+	if err != nil {
+		m.Status = "custom command: " + platform.SafeText(err.Error())
+		return nil
+	}
+	if invocation.Confirm {
+		m.Status = "custom command requires confirmation; prompt workflow is not yet available"
+		return nil
+	}
+	if m.OperationEngine == nil {
+		m.OperationEngine = operations.New(4)
+	}
+	operationID := fmt.Sprintf("customcmd-%s-%d", name, time.Now().UnixNano())
+	generation, root, parent := m.repositoryGeneration, m.Discovery.Root, m.commandContext()
+	var output customcmd.Output
+	work := func(ctx context.Context) error {
+		var runErr error
+		output, runErr = customcmd.Run(ctx, invocation, int(m.DiffMaxBytes))
+		return runErr
+	}
+	command := m.OperationEngine.Command(parent, operationID, root, "custom command "+name, invocation.Timeout, work)
+	return func() tea.Msg {
+		result := command()
+		return CustomCommandFinishedMsg{Name: name, Repository: generation, Refresh: invocation.Refresh, Output: output, Err: result.Result.Err}
+	}
+}
+
 func (m *Model) executePaletteAction(id string) tea.Cmd {
 	if command := m.PaletteCommands[id]; command != nil {
 		return command()
@@ -938,6 +1013,9 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 			return m.navigate(workspace.Repositories, "Repositories")
 		}
 		return nil
+	}
+	if strings.HasPrefix(id, "customcmd:") {
+		return m.runCustomCommand(strings.TrimPrefix(id, "customcmd:"))
 	}
 	switch id {
 	case "status":
@@ -1154,6 +1232,7 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.ReconciliationInterval = c.Reconciliation
 	m.WatchDebounce = c.Debounce
 	m.DiffMaxBytes, m.DiffMaxLines = c.Diff.MaxBytes, c.Diff.MaxLines
+	m.CustomCommands = append([]customcmd.Definition(nil), c.CustomCommands...)
 	m.EditorTool = platform.ExternalTool{Executable: c.Tools.Editor.Executable, Args: append([]string(nil), c.Tools.Editor.Args...)}
 	m.OpenerTool = platform.ExternalTool{Executable: c.Tools.Opener.Executable, Args: append([]string(nil), c.Tools.Opener.Args...)}
 	m.Difftool = platform.ExternalTool{Executable: c.Tools.Difftool.Executable, Args: append([]string(nil), c.Tools.Difftool.Args...)}
@@ -7109,6 +7188,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Status = v.Name + " exited; refreshing authoritative status"
 		}
 		return m, m.refresh()
+	case CustomCommandFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		m.State = StateReady
+		if v.Err != nil {
+			m.Status = "custom command " + platform.SafeText(v.Name) + ": " + platform.SafeText(platform.RedactSecrets(v.Err.Error()))
+		} else {
+			output := strings.TrimSpace(string(append(append([]byte(nil), v.Output.Stdout...), v.Output.Stderr...)))
+			if output != "" {
+				m.Status = "custom command " + platform.SafeText(v.Name) + ": " + platform.SafeText(platform.RedactSecrets(output))
+			} else {
+				m.Status = "custom command " + platform.SafeText(v.Name) + " complete"
+			}
+		}
+		if v.Refresh {
+			return m, m.refresh()
+		}
+		return m, nil
 	case HistoricalToolReadyMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil

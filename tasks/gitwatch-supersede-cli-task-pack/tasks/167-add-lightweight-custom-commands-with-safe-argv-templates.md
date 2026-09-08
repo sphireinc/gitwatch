@@ -61,5 +61,10 @@ Match LZ’s low-friction custom-command usefulness without requiring a compiled
   Mutating definitions automatically force an authoritative refresh policy.
 - Focused custom-command/config tests, vet, schema parsing, and diff checks
   pass, including injection-shaped path values remaining one argv element.
-- Operation-engine execution, bounded output/cancellation, palette/binding
-  integration, secret redaction, and native acceptance remain pending.
+- Added operation-engine execution with timeout/cancellation, bounded
+  stdout/stderr, palette actions, mutation-driven refresh, and sanitized plus
+  secret-redacted completion/error status. Commands requesting confirmation
+  intentionally remain deferred to Task 168's prompt/form engine.
+- Native terminal acceptance, cancellation UX, and persistent binding
+  collision/confirmation workflow remain pending for the remainder of this
+  task.

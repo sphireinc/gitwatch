@@ -2,11 +2,21 @@
 package customcmd
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 	"time"
 )
+
+var ErrOutputLimit = fmt.Errorf("custom command output exceeds configured limit")
+
+// Output contains bounded command output for status or journal presentation.
+type Output struct {
+	Stdout, Stderr []byte
+}
 
 // Context supplies repository values to one custom command invocation.
 type Context struct {
@@ -51,11 +61,65 @@ type Invocation struct {
 // Command creates an exec.Cmd without involving a shell. It is intentionally
 // the last boundary before the operation/process owner starts the command.
 func (i Invocation) Command() (*exec.Cmd, error) {
+	return i.command(context.Background())
+}
+
+// CommandContext creates an argv-only process bound to ctx.
+func (i Invocation) CommandContext(ctx context.Context) (*exec.Cmd, error) {
+	return i.command(ctx)
+}
+
+func (i Invocation) command(ctx context.Context) (*exec.Cmd, error) {
 	if strings.TrimSpace(i.Executable) == "" {
 		return nil, fmt.Errorf("custom command executable is required")
 	}
-	return exec.Command(i.Executable, i.Args...), nil
+	command := exec.CommandContext(ctx, i.Executable, i.Args...)
+	command.Dir = i.Directory
+	return command, nil
 }
+
+// Run executes one validated invocation with bounded stdout/stderr. The
+// context owns cancellation and timeout; no shell is ever involved.
+func Run(ctx context.Context, invocation Invocation, maxBytes int) (Output, error) {
+	if maxBytes <= 0 {
+		return Output{}, ErrOutputLimit
+	}
+	command, err := invocation.CommandContext(ctx)
+	if err != nil {
+		return Output{}, err
+	}
+	stdout, stderr := &limitedBuffer{limit: maxBytes}, &limitedBuffer{limit: maxBytes}
+	command.Stdout, command.Stderr = stdout, stderr
+	err = command.Run()
+	output := Output{Stdout: stdout.Bytes(), Stderr: stderr.Bytes()}
+	if stdout.exceeded || stderr.exceeded {
+		return output, ErrOutputLimit
+	}
+	if err != nil {
+		return output, fmt.Errorf("custom command %q: %w", invocation.Name, err)
+	}
+	return output, nil
+}
+
+type limitedBuffer struct {
+	bytes.Buffer
+	limit    int
+	exceeded bool
+}
+
+func (b *limitedBuffer) Write(data []byte) (int, error) {
+	if b.Len()+len(data) > b.limit {
+		remaining := b.limit - b.Len()
+		if remaining > 0 {
+			_, _ = b.Buffer.Write(data[:remaining])
+		}
+		b.exceeded = true
+		return len(data), nil
+	}
+	return b.Buffer.Write(data)
+}
+
+var _ io.Writer = (*limitedBuffer)(nil)
 
 // Expand validates and expands one command against a concrete context.
 func (d Definition) Expand(ctx Context) (Invocation, error) {

@@ -1,6 +1,10 @@
 package customcmd
 
-import "testing"
+import (
+	"context"
+	"os"
+	"testing"
+)
 
 func TestExpandKeepsInjectedValuesInOneArg(t *testing.T) {
 	definition := Definition{Name: "inspect", Executable: "tool", Args: []string{"--path={path}", "{branch}"}, Mutates: true}
@@ -35,5 +39,20 @@ func TestValidateRejectsShellControlInArg(t *testing.T) {
 	definition := Definition{Name: "unsafe", Executable: "tool", Args: []string{"a\n b"}}
 	if _, err := definition.Expand(Context{}); err == nil {
 		t.Fatal("newline argv value was accepted")
+	}
+}
+
+func TestRunBoundsOutputAndHonorsCancellation(t *testing.T) {
+	buffer := &limitedBuffer{limit: 3}
+	_, _ = buffer.Write([]byte("123456"))
+	if !buffer.exceeded || string(buffer.Bytes()) != "123" {
+		t.Fatalf("limited buffer = %q exceeded=%v", buffer.Bytes(), buffer.exceeded)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	invocation := Invocation{Name: "cancel", Executable: os.Args[0], Args: []string{"-test.run=TestCustomCmdHelper"}}
+	_, err := Run(ctx, invocation, 100)
+	if err == nil {
+		t.Fatalf("cancellation error = %v", err)
 	}
 }
