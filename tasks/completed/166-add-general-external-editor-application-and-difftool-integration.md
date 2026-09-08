@@ -42,18 +42,18 @@ Let users hand off files and diffs to preferred tools while watcher and reposito
 
 ## Acceptance criteria
 
-- [ ] External tools never require disabling/restarting gitwatch.
-- [ ] Process invocation remains argv-safe.
+- [x] External tools never require disabling/restarting gitwatch.
+- [x] Process invocation remains argv-safe.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: `ab2eab3` (configured handoffs), `773fd5b` (bounded historical handoff), and `e8ef91f` (process-boundary and fixture correction).
+- [x] Exact tested revision recorded: `e8ef91f`.
+- [x] Focused unit/integration tests recorded: platform token/materialization tests, Git difftool/object tests, config tests, and app editor/opener/historical routing tests passed.
+- [x] `go test ./...` recorded through `make check`.
+- [x] Race/vet/lint/format evidence recorded: `make check` passed formatting, golangci-lint with 0 issues, full and race tests, vet, diff checks, security checks, and performance checks.
+- [x] Native/manual evidence recorded as an explicit exception: Bubble Tea process handoff and cleanup paths are covered by tests; maintainer full-screen editor, resize, and native Windows terminal acceptance remain release QA follow-up.
+- [x] Known limitations/deferred work documented: configured tool selection is file/config based, and human terminal acceptance remains outside this environment.
 
 ## Local progress evidence
 
