@@ -56,3 +56,17 @@ Allow users to compare any two commits, branches, tags, remote refs or reflog en
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added `internal/compare` as a read-only typed comparison boundary. It
+  validates revision tokens, resolves both refs with `rev-parse --verify` to
+  immutable commit SHAs before loading details, and never checks out either
+  side.
+- Added bounded name-status, numstat, metadata, and patch loading with
+  rename/copy path pairs, binary stats, unusual path preservation, file and
+  patch limits, and output truncation state.
+- Added focused tests for unsafe refs, rename records, binary files,
+  tab-containing paths, bounded results, and exact resolution argv. The
+  History/Tags/Branches/Reflog assignment UI and cancellation wiring remain
+  to be completed.
