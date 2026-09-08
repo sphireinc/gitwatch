@@ -16,6 +16,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/cherrypick"
 	"github.com/sphireinc/git-watch/internal/commands"
 	"github.com/sphireinc/git-watch/internal/commitmodel"
+	compareops "github.com/sphireinc/git-watch/internal/compare"
 	"github.com/sphireinc/git-watch/internal/config"
 	"github.com/sphireinc/git-watch/internal/conflicts"
 	"github.com/sphireinc/git-watch/internal/git"
@@ -47,6 +48,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
 	"github.com/sphireinc/git-watch/internal/ui/committree"
 	"github.com/sphireinc/git-watch/internal/ui/commitview"
+	"github.com/sphireinc/git-watch/internal/ui/compareview"
 	"github.com/sphireinc/git-watch/internal/ui/conflictview"
 	"github.com/sphireinc/git-watch/internal/ui/details"
 	"github.com/sphireinc/git-watch/internal/ui/githubview"
@@ -190,6 +192,12 @@ type DiffReadyMsg struct {
 	Request    uint64
 	Err        error
 	Truncated  bool
+}
+type CompareReadyMsg struct {
+	Generation uint64
+	Request    uint64
+	Result     compareops.Result
+	Err        error
 }
 type ConflictContentReadyMsg struct {
 	Content    git.ConflictContent
@@ -490,6 +498,15 @@ type Model struct {
 	DiffSearchInput          string
 	DiffSearchMatch          int
 	DiffTruncated            bool
+	Compare                  compareview.Model
+	CompareLeft              string
+	CompareRight             string
+	CompareAssignSide        string
+	CompareLoading           bool
+	CompareErr               error
+	CompareRequest           uint64
+	CompareCancel            context.CancelFunc
+	CompareGeneration        uint64
 	DiffMaxBytes             int64
 	DiffMaxLines             int
 	CommitTreeEnabled        bool
@@ -2049,6 +2066,70 @@ func (m *Model) closeDiff() {
 	m.DiffRequest++
 	m.DiffPath, m.DiffText = "", ""
 	m.DiffBinary, m.DiffStaged, m.DiffLoading, m.DiffErr, m.DiffOffset, m.DiffAdded, m.DiffDeleted, m.DiffTruncated = false, false, false, nil, 0, 0, 0, false
+}
+
+func (m Model) selectedCompareRef() (string, bool) {
+	switch m.currentView() {
+	case workspace.Log:
+		if m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+			return m.History.Rows[m.History.Selected].Commit.SHA, true
+		}
+	case workspace.Tags:
+		if selected, ok := m.selectedTag(); ok {
+			return selected.Name, true
+		}
+	case workspace.Branches:
+		if m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+			return m.Branches.Entries[m.Branches.Selected].Name, true
+		}
+	case workspace.Reflog:
+		if selected, ok := m.Reflog.SelectedEntry(); ok {
+			return selected.SHA, true
+		}
+	}
+	return "", false
+}
+
+func (m *Model) assignCompareSelection() tea.Cmd {
+	ref, ok := m.selectedCompareRef()
+	if !ok {
+		m.Status = "select a revision before assigning comparison side"
+		return nil
+	}
+	if m.CompareLeft == "" {
+		m.CompareLeft = ref
+		m.Status = "comparison A set to " + platform.SafeText(ref) + "; select B and press Y"
+		return nil
+	}
+	if m.CompareRight == "" && ref != m.CompareLeft {
+		m.CompareRight = ref
+		return m.startCompare()
+	}
+	m.CompareLeft, m.CompareRight = ref, ""
+	m.Status = "comparison A reset to " + platform.SafeText(ref) + "; select B and press Y"
+	return nil
+}
+
+func (m *Model) startCompare() tea.Cmd {
+	if m.CompareLeft == "" || m.CompareRight == "" {
+		return nil
+	}
+	if m.CompareCancel != nil {
+		m.CompareCancel()
+	}
+	ctx, cancel := context.WithCancel(m.commandContext())
+	m.CompareCancel = cancel
+	m.CompareRequest++
+	m.CompareGeneration = m.repositoryGeneration
+	request, generation := m.CompareRequest, m.CompareGeneration
+	left, right := m.CompareLeft, m.CompareRight
+	runner := git.NewRunner(m.Discovery.Root)
+	m.CompareLoading, m.CompareErr, m.State, m.Status = true, nil, StateOperationPending, "comparing revisions"
+	m.Workspace.Navigate(workspace.Compare, "Comparison")
+	return func() tea.Msg {
+		result, err := compareops.Compare(ctx, runner, compareops.Request{Left: left, Right: right, MaxFiles: compareops.DefaultMaxFiles, MaxPatchBytes: int(m.DiffMaxBytes)})
+		return CompareReadyMsg{Generation: generation, Request: request, Result: result, Err: err}
+	}
 }
 
 func (m *Model) beginHunks() {
@@ -5028,6 +5109,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.openPalette()
 			return m, nil
 		case "esc":
+			if m.currentView() == workspace.Compare && m.CompareCancel != nil {
+				m.CompareCancel()
+				m.CompareCancel = nil
+				m.CompareLoading = false
+			}
 			if m.RemoteCancel != nil && m.State == StateOperationPending {
 				m.RemoteCancel()
 				m.RemoteCancel = nil
@@ -5556,6 +5642,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "copied pull request URL"
 				return m, tea.SetClipboard(m.GitHub.Pull.URL)
 			}
+		case "Y":
+			if m.currentView() == workspace.Log || m.currentView() == workspace.Tags || m.currentView() == workspace.Branches || m.currentView() == workspace.Reflog {
+				return m, m.assignCompareSelection()
+			}
 		case "t":
 			if m.currentView() == workspace.Log {
 				m.State, m.Status = StateOperationPending, "loading tags"
@@ -5710,6 +5800,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Plugins.Move(1)
 			case workspace.Tags:
 				m.moveTags(1)
+			case workspace.Compare:
+				m.Compare.Move(1)
 			default:
 				m.Files.Move(1, m.statusRowCount())
 				if m.DiffPath != "" {
@@ -5755,6 +5847,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Plugins.Move(-1)
 			case workspace.Tags:
 				m.moveTags(-1)
+			case workspace.Compare:
+				m.Compare.Move(-1)
 			default:
 				m.Files.Move(-1, m.statusRowCount())
 				if m.DiffPath != "" {
@@ -6432,6 +6526,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if m.currentView() == workspace.Hunks {
 			m.beginHunks()
 		}
+	case CompareReadyMsg:
+		if v.Generation != m.CompareGeneration || v.Request != m.CompareRequest {
+			return m, nil
+		}
+		m.CompareCancel, m.CompareLoading = nil, false
+		m.CompareErr = v.Err
+		if v.Err != nil {
+			m.State, m.Status = StateError, "comparison: "+v.Err.Error()
+			return m, nil
+		}
+		m.Compare.SetResult(v.Result)
+		m.State, m.Status = StateReady, "comparison loaded"
 	case CommitTreeReadyMsg:
 		if v.Generation != m.repositoryGeneration || v.Request != m.CommitTreeRequest {
 			return m, nil
@@ -7123,7 +7229,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Journal || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.CherryPick || view == workspace.Gitignore || view == workspace.Tags {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Journal || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.CherryPick || view == workspace.Gitignore || view == workspace.Tags || view == workspace.Compare {
 		return m.featureView(view)
 	}
 	if m.Modal == "help" {
@@ -7284,6 +7390,14 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	case workspace.Gitignore:
 		title, content = "gitwatch · gitignore catalog", "catalog source: "+string(m.GitignoreCatalogSource)+"\n"+m.Gitignore.View()
+	case workspace.Compare:
+		title, content = "gitwatch · comparison", m.Compare.View()
+		if m.CompareLoading {
+			content += "\n\nComparing revisions…"
+		}
+		if m.CompareErr != nil {
+			content += "\n\nComparison error: " + platform.SafeText(m.CompareErr.Error())
+		}
 	}
 	title += " · watch:" + watchModeName(m.WatchMode)
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
@@ -7372,6 +7486,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Rebase {
 		lines[len(lines)-1] = "[j/k] move  [b] choose base  [enter] start  [esc] cancel  [q] quit"
+	}
+	if view == workspace.Compare {
+		lines[len(lines)-1] = "[j/k] move  [Y] assign selected revision  [esc] back  [q] quit"
 	}
 	if view == workspace.Conflict {
 		lines[len(lines)-1] = "[j/k] conflict  [n/p] hunk  [o/t/b] choose  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back  [q] quit"

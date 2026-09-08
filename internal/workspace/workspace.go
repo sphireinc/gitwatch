@@ -27,6 +27,7 @@ const (
 	Journal      View = "journal"
 	Bisect       View = "bisect"
 	Tags         View = "tags"
+	Compare      View = "compare"
 )
 
 type Breadcrumb struct {

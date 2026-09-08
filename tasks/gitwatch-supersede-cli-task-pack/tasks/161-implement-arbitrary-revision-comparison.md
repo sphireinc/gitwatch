@@ -68,5 +68,11 @@ Allow users to compare any two commits, branches, tags, remote refs or reflog en
   patch limits, and output truncation state.
 - Added focused tests for unsafe refs, rename records, binary files,
   tab-containing paths, bounded results, and exact resolution argv. The
-  History/Tags/Branches/Reflog assignment UI and cancellation wiring remain
-  to be completed.
+- Added the Comparison workspace and asynchronous `Y` assignment flow. The
+  selected commit/tag/branch/remote branch/reflog entry can populate side A or
+  B; the second assignment starts a generation-scoped, cancellable comparison
+  and renders immutable SHAs, changed paths, stats, renames, binary markers,
+  bounded patch output, and truncation notices.
+- Added focused view and app tests for selection clamping, rename rendering,
+  cross-workspace assignment, and comparison dispatch. Per-file patch loading
+  and explicit action assignment from every source still need final coverage.

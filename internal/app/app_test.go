@@ -818,6 +818,24 @@ func TestSelectedBranchRebaseUsesQualifiedBaseAndShowsPreview(t *testing.T) {
 	}
 }
 
+func TestCompareAssignsSelectedRevisionsFromDifferentWorkspaces(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Log, "History")
+	m.History = historyview.New([]history.Commit{{SHA: "commit-a", Subject: "A"}})
+	updated, cmd := m.Update(key("Y"))
+	m = updated.(Model)
+	if cmd != nil || m.CompareLeft != "commit-a" || !strings.Contains(m.Status, "select B") {
+		t.Fatalf("comparison A assignment = cmdnil=%v left=%q status=%q", cmd == nil, m.CompareLeft, m.Status)
+	}
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	m.Branches = branchview.New([]branches.Branch{{Name: "origin/main", Remote: true, RemoteName: "origin", RemoteBranch: "main"}})
+	updated, cmd = m.Update(key("Y"))
+	m = updated.(Model)
+	if cmd == nil || m.CompareRight != "origin/main" || m.currentView() != workspace.Compare || !m.CompareLoading {
+		t.Fatalf("comparison B assignment = cmdnil=%v right=%q view=%q loading=%v", cmd == nil, m.CompareRight, m.currentView(), m.CompareLoading)
+	}
+}
+
 func TestMergeStrategyNames(t *testing.T) {
 	for _, test := range []struct {
 		input string
