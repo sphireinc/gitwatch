@@ -37,17 +37,17 @@ Provide useful upstream/reset workflows without adding generic destructive hard 
 
 ## Acceptance criteria
 
-- [ ] Common upstream recovery is possible without weakening safety policy.
+- [x] Common upstream recovery is possible without weakening safety policy.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
+- [x] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -68,3 +68,25 @@ Provide useful upstream/reset workflows without adding generic destructive hard 
 - Added focused argv, validation, confirmation, and cancellation tests. The
   rebase routing and preview tests cover qualified remote bases and clean-
   worktree guards.
+
+## Completion evidence
+
+- Implementation commits: `9c030e8`, `d3fdc9e`, `b5adf10`, `7bcecd8`.
+- Exact tested revision: `7bcecd8`.
+- Focused coverage: safe recovery argv and validation tests, fast-forward and
+  reset confirmation/cancellation tests, selected local/remote rebase routing,
+  divergence preview rendering, published-history warning behavior, and
+  clean-worktree guards.
+- Full gate at the tested tree: `make check` passed, including lint,
+  `go test ./...`, `go test -race ./...`, `go vet ./...`, formatting, diff,
+  security, and performance checks. Test-created commits used isolated Git
+  configuration with signing disabled because the host's global signing key is
+  unavailable.
+- Native/manual exception: automated Bubble Tea tests cover the new prompts,
+  confirmations, keyboard routing, preview, and refresh commands; a human
+  80x24 terminal pass remains release QA follow-up.
+- Known limitation: reset intentionally exposes only soft and mixed modes;
+  worktree-discarding hard reset remains out of scope. Rebase preview counts
+  use the authoritative branch divergence available at workspace open and the
+  bounded loaded history; the existing rebase engine remains responsible for
+  final Git validation and conflict state.
