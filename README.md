@@ -135,6 +135,13 @@ From Status, an inspected path, or path history, press `L` to open bounded
 blame pages. Select a line with `j`/`k` or the mouse and press `Enter` to open
 its origin commit and parent-relative path diff.
 
+In a history commit inspector, press `H` to select lines or hunks for a
+guarded historical edit. Press `Enter` to preview the inverse patch and the
+controlled rebase, which pauses at the selected commit and opens the amend
+composer. `Ctrl-X` aborts the rebase and restores the original history; later
+commits may replay with conflicts, and rewriting published history requires
+coordination.
+
 ## Safety model
 
 Git commands are executed with argument vectors, never shell command strings. Machine-readable and NUL-delimited Git formats are used where available, and repository-controlled text is sanitized before terminal rendering.

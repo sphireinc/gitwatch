@@ -234,6 +234,10 @@ type PartialOperationFinishedMsg struct {
 	Repository uint64
 	Err        error
 }
+type HistoricalPatchAppliedMsg struct {
+	Repository uint64
+	Err        error
+}
 type BranchesReadyMsg struct {
 	Entries []branches.Branch
 	Err     error
@@ -705,6 +709,10 @@ type Model struct {
 	Hunks                    hunkview.Model
 	HunkDiscardConfirm       bool
 	HunkDiscardInput         string
+	HistoricalPatchMode      bool
+	HistoricalPatch          []byte
+	HistoricalPatchTarget    string
+	HistoricalPatchPath      string
 	CommitConfig             git.CommitConfig
 	CommitConfigReady        bool
 	CommitAmendConfirm       bool
@@ -2235,6 +2243,57 @@ func (m *Model) beginHunks() {
 	m.Hunks = hunkview.New(files)
 	m.Workspace.Navigate(workspace.Hunks, "Hunks")
 	m.Status = "hunk selection"
+}
+
+func (m *Model) beginHistoricalHunks() {
+	if m.HistoryInspector.Commit.SHA == "" || m.HistoryInspector.Diff == "" {
+		m.Status = "selected commit has no editable patch"
+		return
+	}
+	files, err := patch.Parse(m.HistoryInspector.Diff)
+	if err != nil || len(files) == 0 {
+		m.Status = "historical commit is not a selectable patch"
+		return
+	}
+	m.Hunks = hunkview.New(files)
+	m.HistoricalPatchMode = true
+	m.HistoricalPatchTarget = m.HistoryInspector.Commit.SHA
+	m.HistoricalPatchPath = ""
+	if len(files) == 1 {
+		m.HistoricalPatchPath = files[0].NewPath
+	}
+	m.Workspace.Navigate(workspace.Hunks, "Historical patch edit")
+	m.Status = "select historical lines to remove, then press Enter"
+}
+
+func (m *Model) applyHistoricalPatch() tea.Cmd {
+	if len(m.HistoricalPatch) == 0 {
+		m.Status = "select historical lines before starting the edit"
+		return nil
+	}
+	patchBytes := append([]byte(nil), m.HistoricalPatch...)
+	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	m.State, m.Status = StateOperationPending, "checking and applying historical patch edit"
+	return func() tea.Msg {
+		_, err := runner.ApplyReversePatchToWorktreeAndIndex(m.commandContext(), git.PartialPatch{Patch: patchBytes})
+		return HistoricalPatchAppliedMsg{Repository: generation, Err: err}
+	}
+}
+
+func (m *Model) beginHistoricalAmend() tea.Cmd {
+	commitSubject := ""
+	for _, commit := range m.HistoryCommits {
+		if commit.SHA == m.HistoricalRebaseTarget {
+			commitSubject = commit.Subject
+			break
+		}
+	}
+	cmd := m.beginCommit()
+	m.Composer.Draft.Amend = true
+	m.Composer.Draft.Subject = commitSubject
+	m.Status = "rebase paused; review the historical patch edit (ctrl+x aborts)"
+	return cmd
 }
 
 func (m Model) applySelectedHunks(discard bool) tea.Cmd {
@@ -3984,14 +4043,19 @@ func (m *Model) openHistoricalRebase(action rebase.Action) tea.Cmd {
 		return nil
 	}
 	entries := view.Plan.Entries()
+	laterCommits := 0
+	targetSeen := false
 	for index, entry := range entries {
+		if targetSeen && entry.Kind() == rebase.CommitEntry {
+			laterCommits++
+		}
 		if entry.Kind() == rebase.CommitEntry && entry.SHA() == selected.SHA {
 			view.Plan, err = view.Plan.ChangeAction(index, action)
 			if err != nil {
 				m.Status = "rebase plan: " + err.Error()
 				return nil
 			}
-			break
+			targetSeen = true
 		}
 	}
 	for _, ref := range selected.Refs {
@@ -4001,6 +4065,9 @@ func (m *Model) openHistoricalRebase(action rebase.Action) tea.Cmd {
 	}
 	m.Rebase, m.HistoricalRebaseAction, m.HistoricalRebaseTarget = view, action, selected.SHA
 	m.Workspace.Navigate(workspace.Rebase, "Historical "+string(action))
+	if len(m.HistoricalPatch) > 0 {
+		m.Status = fmt.Sprintf("historical patch preview: %d later commit(s) will replay; Enter starts the guarded rewrite", laterCommits)
+	}
 	return nil
 }
 
@@ -4378,6 +4445,9 @@ func (m *Model) updateComposerKey(key string) tea.Cmd {
 	}
 	switch key {
 	case "esc":
+		if m.HistoricalPatchMode {
+			m.HistoricalPatchMode, m.HistoricalPatch, m.HistoricalPatchTarget, m.HistoricalPatchPath = false, nil, "", ""
+		}
 		m.Workspace.Back()
 		return nil
 	case "ctrl+s":
@@ -4504,6 +4574,23 @@ func (m *Model) updateHunkKey(key string) tea.Cmd {
 		m.Hunks.Selection.SelectAll(m.Hunks.Files)
 	case "i":
 		m.Hunks.Selection.Invert(m.Hunks.Files)
+	case "enter":
+		if !m.HistoricalPatchMode {
+			return nil
+		}
+		if m.Hunks.Selection.Count() == 0 {
+			m.Status = "select at least one historical line or hunk"
+			return nil
+		}
+		selected, err := m.Hunks.Selection.BuildPatch(m.Hunks.Files)
+		if err != nil {
+			m.Status = "historical patch: " + err.Error()
+			return nil
+		}
+		m.HistoricalPatch = append([]byte(nil), selected...)
+		m.HistoricalPatchMode = false
+		m.Workspace.Back()
+		return m.openHistoricalRebase(rebase.Edit)
 	case "s":
 		m.State, m.Status = StateOperationPending, "applying selected hunks"
 		return m.applySelectedHunks(false)
@@ -6254,7 +6341,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.openDiff()
 		case "H":
-			if m.DiffText != "" {
+			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" {
+				m.beginHistoricalHunks()
+			} else if m.DiffText != "" {
 				m.beginHunks()
 			}
 		case "h":
@@ -6764,22 +6853,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivityWithOperation(history.OperationSuccess, "", m.Status, v.Operation)
 		}
 		return m, m.refresh()
+	case HistoricalPatchAppliedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Err != nil {
+			m.State, m.Status = StateError, "historical patch: "+v.Err.Error()
+			return m, nil
+		}
+		return m, m.beginHistoricalAmend()
 	case RebaseFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
 		}
 		if v.Outcome.Paused {
 			if m.HistoricalRebaseAction == rebase.Reword || m.HistoricalRebaseAction == rebase.Edit {
-				commitSubject := ""
-				for _, commit := range m.HistoryCommits {
-					if commit.SHA == m.HistoricalRebaseTarget {
-						commitSubject = commit.Subject
-						break
-					}
+				if len(m.HistoricalPatch) > 0 {
+					return m, m.applyHistoricalPatch()
 				}
-				cmd := m.beginCommit()
-				m.Composer.Draft.Amend = true
-				m.Composer.Draft.Subject = commitSubject
+				cmd := m.beginHistoricalAmend()
 				m.Status = "rebase paused; amend the selected historical commit (ctrl+x aborts)"
 				return m, cmd
 			}
@@ -7123,6 +7215,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.refresh()
 		}
 		m.HistoricalRebaseAction, m.HistoricalRebaseTarget = "", ""
+		m.HistoricalPatch, m.HistoricalPatchPath = nil, ""
 		m.State, m.Status = StateReady, "historical rebase continued"
 		m.Workspace.Back()
 		return m, tea.Batch(m.refresh(), m.loadHistory())
@@ -7134,6 +7227,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			m.HistoricalRebaseAction, m.HistoricalRebaseTarget = "", ""
+			m.HistoricalPatch, m.HistoricalPatchPath = nil, ""
 			m.State, m.Status = StateReady, "historical rebase aborted"
 			m.Workspace.Back()
 		}
@@ -7780,6 +7874,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		title, content = "gitwatch · plugins", m.Plugins.View()
 	case workspace.Hunks:
 		title, content = "gitwatch · hunk selection", m.Hunks.View()
+		if m.HistoricalPatchMode {
+			content += "\n\nHistorical edit: select lines to remove, then press Enter to preview the controlled rebase."
+		}
 		if m.HunkDiscardConfirm {
 			content += "\n\n" + m.Status + ": " + m.HunkDiscardInput
 		}
@@ -7892,6 +7989,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.Hunks {
 		lines[len(lines)-1] = "[j/k] move  [n/p] hunk  [N/P] file  [c] context  [space] select  [a/A/i] hunk/all/invert  [s] stage  [d] discard  [esc] back  [q] quit"
+		if m.HistoricalPatchMode {
+			lines[len(lines)-1] = "[j/k] move  [n/p] hunk  [N/P] file  [space] select  [a/A/i] hunk/all/invert  [enter] preview edit  [esc] cancel  [q] quit"
+		}
 	}
 	if view == workspace.Commit {
 		lines[len(lines)-1] = "[tab] subject/body  [ctrl+s] commit  [esc] back  [q] quit"

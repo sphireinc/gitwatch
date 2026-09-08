@@ -11,6 +11,22 @@ type PartialPatch struct {
 	Paths [][]byte
 }
 
+// ApplyReversePatchToWorktreeAndIndex checks and reverses a historical patch
+// in both the worktree and index. Both checks complete before either mutation
+// is attempted, so a selected historical edit never relies on fuzzy apply.
+func (r Runner) ApplyReversePatchToWorktreeAndIndex(ctx context.Context, p PartialPatch) (Result, error) {
+	if result, err := r.RunInput(ctx, p.Patch, "apply", "--reverse", "--check", "--whitespace=nowarn", "-"); err != nil {
+		return result, err
+	}
+	if result, err := r.RunInput(ctx, p.Patch, "apply", "--cached", "--reverse", "--check", "--whitespace=nowarn", "-"); err != nil {
+		return result, err
+	}
+	if result, err := r.RunInput(ctx, p.Patch, "apply", "--reverse", "--whitespace=nowarn", "-"); err != nil {
+		return result, err
+	}
+	return r.RunInput(ctx, p.Patch, "apply", "--cached", "--reverse", "--whitespace=nowarn", "-")
+}
+
 // ApplyCachedPatch applies a partial patch to the index after checking it.
 func (r Runner) ApplyCachedPatch(ctx context.Context, p PartialPatch) (Result, error) {
 	if result, err := r.RunInput(ctx, p.Patch, "apply", "--cached", "--check", "--whitespace=nowarn", "-"); err != nil {

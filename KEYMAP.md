@@ -30,6 +30,7 @@
 | x then y | Confirm checkout of selected commit (in History view) |
 | B | Create a named branch at selected commit (in History view) |
 | R | Revert selected commit after typing its exact SHA (in History view) |
+| H | Edit selected historical commit through a guarded patch/rebase flow (in History view) |
 | t | Load tag refs (in History view) |
 | M / f / g / y | Inspect next parent / filter inspected path / jump to ref / copy SHA (in History view) |
 
@@ -39,6 +40,12 @@ load the next bounded page, and `Esc` return to the prior workspace.
 
 Blame controls: `j`/`k` move through loaded lines, `Enter` opens the selected
 origin commit, `]` loads the next bounded line page, and `Esc` returns.
+
+Historical edit controls: from a selected commit inspector, `H` opens the
+parent-relative hunk selector. Select lines or hunks and press `Enter` to
+preview the inverse patch and guarded rebase plan; the paused commit opens the
+existing amend composer. `Ctrl-X` aborts the rebase and restores the original
+history.
 | n | Remotes view |
 | w | Worktrees view |
 | v / Enter | Repositories dashboard / open selected repository |

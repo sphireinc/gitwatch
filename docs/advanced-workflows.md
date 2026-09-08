@@ -17,6 +17,15 @@ Path history and blame are bounded investigation surfaces. Blame uses
 separate from sanitized terminal rendering, and opens the selected origin
 commit against its first parent without changing the worktree.
 
+From a selected history commit inspector, `H` opens the same stable hunk/line
+selection surface used for partial staging. Pressing `Enter` previews an
+inverse patch and an explicit rebase plan that pauses at the selected commit;
+the plan reports later commits that will be replayed. The patch is checked
+against both the worktree and index before it is applied, then the existing
+amend composer is used. Patch or replay conflicts remain in standard recovery,
+and `Ctrl-X` aborts through normal rebase abort semantics. This is a published
+history rewrite and may require coordination with downstream users.
+
 ## Stashes, branches, and worktrees
 
 Stash and branch mutations validate refs/names before invoking Git. Deletion

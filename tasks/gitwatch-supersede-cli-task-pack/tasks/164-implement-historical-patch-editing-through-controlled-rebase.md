@@ -57,3 +57,16 @@ Match LZ’s historical line/file removal capability as a transparent, previewab
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added a typed Git primitive that validates a selected patch in both worktree
+  and index before reversing either copy; no hard reset or shell command is
+  involved.
+- Historical commit inspection can open a selectable hunk workspace, build a
+  selected inverse patch, and generate an explicit `edit` rebase plan with a
+  visible later-commit replay warning.
+- A paused historical rebase applies the checked inverse patch, opens the
+  existing amend composer, and continues through the existing rebase
+  continue/abort lifecycle. Focused tests cover patch application and app
+  routing; full gates and manual terminal acceptance remain pending.
