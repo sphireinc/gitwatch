@@ -52,3 +52,13 @@ Implement blame as an investigation surface that links lines back to commit hist
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added `internal/blame` with bounded `git blame --line-porcelain` pages using
+  typed `-L` ranges and `-- <path>` arguments.
+- The parser retains origin/final SHAs and line numbers, author identity/time,
+  filename, and raw line content without presentation sanitization.
+- Added focused tests for exact argv/path bytes, control-sequence content,
+  output-limit truncation, range clamping, and invalid requests. UI routing,
+  origin-commit inspection, and full repository gates remain pending.
