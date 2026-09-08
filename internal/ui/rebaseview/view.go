@@ -39,6 +39,15 @@ type Model struct {
 	Error            string
 	Published        bool
 	ReachableRemote  bool
+	Ahead            int
+	Behind           int
+	RewriteCount     int
+}
+
+// SetDivergence records the bounded preflight preview shown before a rebase.
+// The values come from authoritative Git branch/history loading in the app.
+func (m *Model) SetDivergence(ahead, behind, rewriteCount int) {
+	m.Ahead, m.Behind, m.RewriteCount = max(0, ahead), max(0, behind), max(0, rewriteCount)
 }
 
 // MouseAction identifies a rebase workspace click.
@@ -219,6 +228,8 @@ func (m Model) View() string {
 	if m.Upstream != "" {
 		lines = append(lines, "Upstream: "+platform.SafeText(m.Upstream))
 	}
+	lines = append(lines, fmt.Sprintf("Divergence: %d ahead · %d behind", m.Ahead, m.Behind))
+	lines = append(lines, fmt.Sprintf("Commits to rewrite: %d", m.RewriteCount))
 	lines = append(lines, fmt.Sprintf("Commits: %d", len(m.Commits)))
 	if m.Published || m.ReachableRemote {
 		lines = append(lines, "WARNING: selected history is published or reachable from a remote-tracking ref")

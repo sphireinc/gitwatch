@@ -3538,17 +3538,7 @@ func (m *Model) navigate(view workspace.View, label string) tea.Cmd {
 	}
 }
 
-func (m *Model) openRebaseWorkspace() tea.Cmd {
-	choices := make([]rebaseview.Base, 0, 2)
-	if m.Snapshot.Branch.Upstream != "" {
-		choices = append(choices, rebaseview.Base{Label: "upstream", Ref: m.Snapshot.Branch.Upstream})
-	}
-	if m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
-		parents := m.History.Rows[m.History.Selected].Commit.Parents
-		if len(parents) > 0 {
-			choices = append(choices, rebaseview.Base{Label: "selected commit parent", Ref: parents[0]})
-		}
-	}
+func (m *Model) openRebaseWorkspaceWithChoices(choices []rebaseview.Base) tea.Cmd {
 	if len(choices) == 0 {
 		m.Status = "interactive rebase requires an explicit base"
 		return nil
@@ -3558,6 +3548,7 @@ func (m *Model) openRebaseWorkspace() tea.Cmd {
 		m.Status = "rebase plan: " + err.Error()
 		return nil
 	}
+	view.SetDivergence(m.Snapshot.Branch.Ahead, m.Snapshot.Branch.Behind, m.Snapshot.Branch.Ahead)
 	for _, commit := range m.HistoryCommits {
 		for _, ref := range commit.Refs {
 			if strings.Contains(ref, "origin/") {
@@ -3569,6 +3560,40 @@ func (m *Model) openRebaseWorkspace() tea.Cmd {
 	m.Rebase = view
 	m.Workspace.Navigate(workspace.Rebase, "Interactive rebase")
 	return nil
+}
+
+func (m *Model) openRebaseWorkspace() tea.Cmd {
+	choices := make([]rebaseview.Base, 0, 2)
+	if m.Snapshot.Branch.Upstream != "" {
+		choices = append(choices, rebaseview.Base{Label: "upstream", Ref: m.Snapshot.Branch.Upstream})
+	}
+	if m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+		parents := m.History.Rows[m.History.Selected].Commit.Parents
+		if len(parents) > 0 {
+			choices = append(choices, rebaseview.Base{Label: "selected commit parent", Ref: parents[0]})
+		}
+	}
+	return m.openRebaseWorkspaceWithChoices(choices)
+}
+
+func (m *Model) openSelectedBranchRebase() tea.Cmd {
+	if m.Branches.Selected < 0 || m.Branches.Selected >= len(m.Branches.Entries) {
+		return nil
+	}
+	branch := m.Branches.Entries[m.Branches.Selected]
+	if branch.Current {
+		m.Status = "cannot rebase the checked-out branch onto itself"
+		return nil
+	}
+	if m.Snapshot.Counts.Staged > 0 || m.Snapshot.Counts.Unstaged > 0 || m.Snapshot.Counts.Untracked > 0 {
+		m.Status = "rebase requires a clean worktree; stash explicitly first"
+		return nil
+	}
+	if len(m.HistoryCommits) == 0 {
+		m.Status = "rebase history is still loading"
+		return nil
+	}
+	return m.openRebaseWorkspaceWithChoices([]rebaseview.Base{{Label: branch.Name, Ref: branch.Name}})
 }
 
 func (m *Model) startRebase(autosquash bool) tea.Cmd {
@@ -5481,6 +5506,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Log {
 				return m, m.openRebaseWorkspace()
 			}
+			if m.currentView() == workspace.Branches {
+				return m, m.openSelectedBranchRebase()
+			}
 			if m.Discovery.Root != "" {
 				m.Workspace.Navigate(workspace.Gitignore, "Gitignore catalog")
 				return m, m.openGitignore()
@@ -7293,7 +7321,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Branches {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout/track  [x] detached  [w] worktree  [F] fast-forward  [z] reset  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout/track  [x] detached  [w] worktree  [F] fast-forward  [z] reset  [I] rebase  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
 		if m.BranchSearching {
 			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Branches.Query) + "  [enter] apply  [esc] cancel"
 		} else if m.RemoteBranchAction == "track" {

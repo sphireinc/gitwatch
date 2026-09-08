@@ -61,5 +61,10 @@ Provide useful upstream/reset workflows without adding generic destructive hard 
 - Added an explicit Branches reset prompt accepting only `soft <ref>` or
   `mixed <ref>` for the checked-out branch. Both modes preserve worktree
   content, and the prompt has no hard-reset variant.
+- Added `[I]` rebase routing from the selected local or remote branch to the
+  existing interactive rebase engine. The planning workspace now displays
+  ahead/behind divergence and a bounded commits-to-rewrite preview before
+  submission, while published or remote-reachable history retains its warning.
 - Added focused argv, validation, confirmation, and cancellation tests. The
-  ahead/behind recovery preview before rebase remains to be completed.
+  rebase routing and preview tests cover qualified remote bases and clean-
+  worktree guards.

@@ -800,6 +800,24 @@ func TestBranchResetPromptOnlyAcceptsSoftOrMixedRef(t *testing.T) {
 	}
 }
 
+func TestSelectedBranchRebaseUsesQualifiedBaseAndShowsPreview(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	m.Snapshot = repo.Snapshot{Branch: repo.Branch{Name: "main", Ahead: 3, Behind: 2}}
+	m.HistoryCommits = []history.Commit{{SHA: "abc", Subject: "change"}}
+	m.Branches = branchview.New([]branches.Branch{{Name: "origin/main", Remote: true, RemoteName: "origin", RemoteBranch: "main"}})
+
+	updated, cmd := m.Update(key("I"))
+	m = updated.(Model)
+	if cmd != nil || m.currentView() != workspace.Rebase || m.Rebase.Base.Ref != "origin/main" {
+		t.Fatalf("branch rebase = cmdnil=%v view=%q base=%q", cmd == nil, m.currentView(), m.Rebase.Base.Ref)
+	}
+	view := m.View().Content
+	if !contains(view, "Divergence: 3 ahead") || !contains(view, "Commits to rewrite: 3") {
+		t.Fatalf("rebase preview missing: %s", view)
+	}
+}
+
 func TestMergeStrategyNames(t *testing.T) {
 	for _, test := range []struct {
 		input string
