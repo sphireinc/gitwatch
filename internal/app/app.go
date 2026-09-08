@@ -2151,6 +2151,19 @@ func (m *Model) startCompare() tea.Cmd {
 	}
 }
 
+func (m *Model) selectCompareRemote() bool {
+	refs := []string{m.CompareLeft, m.CompareRight}
+	for index, remote := range m.Remotes.Dashboard.Remotes {
+		for _, ref := range refs {
+			if strings.HasPrefix(ref, remote.Name+"/") {
+				m.Remotes.Selected = index
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (m *Model) loadComparePatch() tea.Cmd {
 	if m.Compare.Selected < 0 || m.Compare.Selected >= len(m.Compare.Result.Changes) {
 		m.Status = "select a changed path first"
@@ -5377,7 +5390,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "confirm drop " + ref + "? (y/n)"
 			}
 		case "f":
-			if m.currentView() == workspace.Remotes {
+			if m.currentView() == workspace.Compare {
+				if !m.selectCompareRemote() {
+					m.Status = "comparison remote is not loaded"
+					return m, nil
+				}
+				m.State, m.Status = StateOperationPending, "fetching comparison remote"
+				return m, m.fetchSelectedRemote()
+			} else if m.currentView() == workspace.Remotes {
 				m.State, m.Status = StateOperationPending, "fetching"
 				return m, m.fetchSelectedRemote()
 			} else if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" {
@@ -5394,13 +5414,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				break
 			}
-			if m.currentView() == workspace.Remotes {
+			if m.currentView() == workspace.Compare {
+				if !m.selectCompareRemote() {
+					m.Status = "comparison remote is not loaded"
+					return m, nil
+				}
+				strategy := map[string]string{"m": "merge", "e": "rebase", "o": "ff-only"}[v.String()]
+				m.State, m.Status = StateOperationPending, "pulling comparison remote ("+strategy+")"
+				return m, m.pullSelectedRemote(strategy)
+			} else if m.currentView() == workspace.Remotes {
 				strategy := map[string]string{"m": "merge", "e": "rebase", "o": "ff-only"}[v.String()]
 				m.State, m.Status = StateOperationPending, "pulling "+strategy
 				return m, m.pullSelectedRemote(strategy)
 			}
 		case "p":
-			if m.currentView() == workspace.Remotes {
+			if m.currentView() == workspace.Compare {
+				if !m.selectCompareRemote() {
+					m.Status = "comparison remote is not loaded"
+					return m, nil
+				}
+				m.State, m.Status = StateOperationPending, "preparing comparison push preview"
+				return m, m.previewSelectedRemotePush()
+			} else if m.currentView() == workspace.Remotes {
 				m.State, m.Status = StateOperationPending, "preparing push preview"
 				return m, m.previewSelectedRemotePush()
 			}
@@ -7552,7 +7587,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [b] choose base  [enter] start  [esc] cancel  [q] quit"
 	}
 	if view == workspace.Compare {
-		lines[len(lines)-1] = "[j/k] move  [Y] assign selected revision  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [enter] file patch  [f] fetch  [o] ff-only pull  [m] merge pull  [e] rebase pull  [p] push preview  [esc] back  [q] quit"
 	}
 	if view == workspace.Conflict {
 		lines[len(lines)-1] = "[j/k] conflict  [n/p] hunk  [o/t/b] choose  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back  [q] quit"

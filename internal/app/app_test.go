@@ -872,6 +872,22 @@ func TestCompareAssignsCurrentBranchAndSelectedRemote(t *testing.T) {
 	}
 }
 
+func TestComparisonRoutesRemoteActionsThroughRemoteEngine(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Compare, "Comparison")
+	m.CompareLeft, m.CompareRight = "main", "origin/main"
+	m.Snapshot = repo.Snapshot{Branch: repo.Branch{Name: "main"}}
+	m.Remotes = remoteview.New(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin"}}})
+	for _, keyValue := range []string{"f", "o", "m", "e", "p"} {
+		updated, cmd := m.Update(key(keyValue))
+		m = updated.(Model)
+		if cmd == nil || m.Remotes.Selected != 0 {
+			t.Fatalf("comparison action %q = cmdnil=%v remote=%d status=%q", keyValue, cmd == nil, m.Remotes.Selected, m.Status)
+		}
+		m.State = StateReady
+	}
+}
+
 func TestMergeStrategyNames(t *testing.T) {
 	for _, test := range []struct {
 		input string
