@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -2060,11 +2059,11 @@ func (m *Model) openExternalTool(name string, tool platform.ExternalTool, values
 	return m.openExternalProcess(name, command)
 }
 
-func (m *Model) openExternalProcess(name string, command *exec.Cmd) tea.Cmd {
+func (m *Model) openExternalProcess(name string, command *platform.Command) tea.Cmd {
 	return m.openExternalProcessWithCleanup(name, command, nil)
 }
 
-func (m *Model) openExternalProcessWithCleanup(name string, command *exec.Cmd, cleanup func()) tea.Cmd {
+func (m *Model) openExternalProcessWithCleanup(name string, command *platform.Command, cleanup func()) tea.Cmd {
 	m.State, m.Status = StateOperationPending, name+" active"
 	generation := m.repositoryGeneration
 	return tea.ExecProcess(command, func(processErr error) tea.Msg {

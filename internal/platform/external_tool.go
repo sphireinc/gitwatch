@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// Command aliases the OS process type for callers that need to hand a typed
+// command to the terminal process boundary without importing os/exec outside
+// the platform package.
+type Command = exec.Cmd
+
 // ExternalTool is an executable plus already-tokenized arguments. {path} is
 // replaced inside individual argv tokens; no shell parser is ever involved.
 type ExternalTool struct {

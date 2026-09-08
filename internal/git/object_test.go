@@ -20,7 +20,11 @@ func TestShowPathReadsBoundedHistoricalContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := NewRunner(root)
-	runner.Env = []string{"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=commit.gpgsign", "GIT_CONFIG_VALUE_0=false"}
+	runner.Env = []string{
+		"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=commit.gpgsign", "GIT_CONFIG_VALUE_0=false",
+		"GIT_AUTHOR_NAME=Test User", "GIT_AUTHOR_EMAIL=test@example.com",
+		"GIT_COMMITTER_NAME=Test User", "GIT_COMMITTER_EMAIL=test@example.com",
+	}
 	for _, args := range [][]string{{"init"}, {"add", "--", "space name.txt"}, {"commit", "-m", "initial"}} {
 		if _, err := runner.Run(context.Background(), args...); err != nil {
 			t.Fatal(err)
