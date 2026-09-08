@@ -4,15 +4,85 @@ import (
 	"context"
 	"errors"
 	"os"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/sphireinc/git-watch/internal/git"
 )
 
+type captureRemoteRunner struct {
+	args    [][]string
+	results []git.Result
+}
+
+func (r *captureRemoteRunner) Run(_ context.Context, args ...string) (git.Result, error) {
+	r.args = append(r.args, append([]string(nil), args...))
+	if len(r.results) > 0 {
+		result := r.results[0]
+		r.results = r.results[1:]
+		return result, nil
+	}
+	return git.Result{Args: append([]string(nil), args...)}, nil
+}
+
 func TestPullRequiresExplicitStrategy(t *testing.T) {
 	_, err := Pull(context.Background(), git.Runner{}, "origin", "main", "")
 	if !errors.Is(err, ErrStrategyRequired) {
 		t.Fatalf("expected explicit strategy error, got %v", err)
+	}
+}
+
+func TestRemoteLifecycleBuildsTypedArgv(t *testing.T) {
+	var runner captureRemoteRunner
+	if _, err := Add(context.Background(), &runner, "origin", "https://example.com/repo.git"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Rename(context.Background(), &runner, "origin", "upstream"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SetURL(context.Background(), &runner, "upstream", "https://example.com/other.git"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Prune(context.Background(), &runner, "upstream", true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Remove(context.Background(), &runner, "upstream"); err != nil {
+		t.Fatal(err)
+	}
+	want := [][]string{
+		{"remote", "add", "origin", "https://example.com/repo.git"},
+		{"remote", "rename", "origin", "upstream"},
+		{"remote", "set-url", "upstream", "https://example.com/other.git"},
+		{"remote", "prune", "--dry-run", "upstream"},
+		{"remote", "remove", "upstream"},
+	}
+	if !reflect.DeepEqual(runner.args, want) {
+		t.Fatalf("remote lifecycle argv = %#v, want %#v", runner.args, want)
+	}
+}
+
+func TestRemoteLifecycleRejectsUnsafeNamesAndURLs(t *testing.T) {
+	var runner captureRemoteRunner
+	if _, err := Add(context.Background(), &runner, "-origin", "https://example.com/repo.git"); !errors.Is(err, ErrInvalidRemoteName) {
+		t.Fatalf("add unsafe name error = %v", err)
+	}
+	if _, err := Rename(context.Background(), &runner, "origin", "bad/name"); !errors.Is(err, ErrInvalidRemoteName) {
+		t.Fatalf("rename unsafe name error = %v", err)
+	}
+	if _, err := SetURL(context.Background(), &runner, "origin", "https://example.com/bad\nurl"); !errors.Is(err, ErrMissingURL) {
+		t.Fatalf("set-url unsafe URL error = %v", err)
+	}
+}
+
+func TestGetURLRedactsCredentials(t *testing.T) {
+	runner := captureRemoteRunner{results: []git.Result{{Stdout: []byte("https://alice:secret@example.com/repo.git\n")}}}
+	got, err := GetURL(context.Background(), &runner, "origin", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == "" || got == "https://alice:secret@example.com/repo.git" || strings.Contains(got, "secret") {
+		t.Fatalf("get-url leaked credentials: %q", got)
 	}
 }
 

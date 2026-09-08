@@ -10,9 +10,11 @@ import (
 
 var (
 	// ErrMissingRemote indicates that an operation did not name an explicit remote.
-	ErrMissingRemote    = errors.New("remote operation requires an explicit remote")
-	ErrStrategyRequired = errors.New("pull strategy must be explicitly selected")
-	ErrMissingTag       = errors.New("tag push requires an explicit tag")
+	ErrMissingRemote     = errors.New("remote operation requires an explicit remote")
+	ErrStrategyRequired  = errors.New("pull strategy must be explicitly selected")
+	ErrMissingTag        = errors.New("tag push requires an explicit tag")
+	ErrMissingURL        = errors.New("remote operation requires an explicit URL")
+	ErrInvalidRemoteName = errors.New("remote name is invalid")
 )
 
 // RefMovement describes the commits a remote operation would add or remove.
@@ -20,6 +22,78 @@ type RefMovement struct {
 	Remote, Branch string
 	LocalSHA       string
 	RemoteSHA      string
+}
+
+type commandRunner interface {
+	Run(context.Context, ...string) (git.Result, error)
+}
+
+// Add creates a named remote with the URL passed as one opaque argv value.
+func Add(ctx context.Context, runner commandRunner, name, remoteURL string) (git.Result, error) {
+	if !validRemoteName(name) {
+		return git.Result{}, ErrInvalidRemoteName
+	}
+	if !validURL(remoteURL) {
+		return git.Result{}, ErrMissingURL
+	}
+	return runner.Run(ctx, "remote", "add", name, remoteURL)
+}
+
+// Rename changes a remote name without touching its configured URLs.
+func Rename(ctx context.Context, runner commandRunner, oldName, newName string) (git.Result, error) {
+	if !validRemoteName(oldName) || !validRemoteName(newName) {
+		return git.Result{}, ErrInvalidRemoteName
+	}
+	return runner.Run(ctx, "remote", "rename", oldName, newName)
+}
+
+// SetURL replaces the fetch URL for a remote. The URL is never included in a
+// returned error or operation label by this package.
+func SetURL(ctx context.Context, runner commandRunner, name, remoteURL string) (git.Result, error) {
+	if !validRemoteName(name) {
+		return git.Result{}, ErrInvalidRemoteName
+	}
+	if !validURL(remoteURL) {
+		return git.Result{}, ErrMissingURL
+	}
+	return runner.Run(ctx, "remote", "set-url", name, remoteURL)
+}
+
+// Remove deletes one configured remote.
+func Remove(ctx context.Context, runner commandRunner, name string) (git.Result, error) {
+	if !validRemoteName(name) {
+		return git.Result{}, ErrInvalidRemoteName
+	}
+	return runner.Run(ctx, "remote", "remove", name)
+}
+
+// Prune removes stale remote-tracking refs. DryRun exposes Git's affected-ref
+// preview without changing the repository.
+func Prune(ctx context.Context, runner commandRunner, name string, dryRun bool) (git.Result, error) {
+	if !validRemoteName(name) {
+		return git.Result{}, ErrInvalidRemoteName
+	}
+	args := []string{"remote", "prune"}
+	if dryRun {
+		args = append(args, "--dry-run")
+	}
+	return runner.Run(ctx, append(args, name)...)
+}
+
+// GetURL returns one redacted configured remote URL.
+func GetURL(ctx context.Context, runner commandRunner, name string, push bool) (string, error) {
+	if !validRemoteName(name) {
+		return "", ErrInvalidRemoteName
+	}
+	args := []string{"remote", "get-url"}
+	if push {
+		args = append(args, "--push")
+	}
+	result, err := runner.Run(ctx, append(args, name)...)
+	if err != nil {
+		return "", err
+	}
+	return Redact(string(result.Stdout)), nil
 }
 
 // PreviewPush calculates remote ref movement without changing the repository.
@@ -135,4 +209,13 @@ func PushSetUpstream(ctx context.Context, runner git.Runner, remote, branch stri
 func validArg(value string) bool {
 	value = strings.TrimSpace(value)
 	return value != "" && !strings.HasPrefix(value, "-") && !strings.ContainsAny(value, "\r\n\x00")
+}
+
+func validRemoteName(value string) bool {
+	value = strings.TrimSpace(value)
+	return value != "" && !strings.HasPrefix(value, "-") && !strings.ContainsAny(value, "\r\n\x00") && !strings.Contains(value, "..") && !strings.Contains(value, "/")
+}
+
+func validURL(value string) bool {
+	return strings.TrimSpace(value) != "" && !strings.ContainsAny(value, "\r\n\x00")
 }

@@ -57,3 +57,13 @@ Complete remote object management in addition to existing fetch/pull/push.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added typed remote add, rename, set-url, remove, prune, dry-run prune, and
+  redacted get-url operations at the Git boundary.
+- Remote names reject option-like, path-like, traversal, and control-character
+  inputs; URLs remain opaque argv values while control characters are rejected.
+- Added focused argv, validation, and credential-redaction tests. Remotes
+  workspace controls, upstream-impact warnings, and full lifecycle integration
+  remain pending.
