@@ -284,6 +284,18 @@ type TagCheckoutFinishedMsg struct {
 	Name       string
 	Err        error
 }
+type TagCompareReadyMsg struct {
+	Generation uint64
+	Name       string
+	Text       string
+	Err        error
+}
+type TagWorktreeFinishedMsg struct {
+	Generation uint64
+	Name       string
+	Path       string
+	Err        error
+}
 type HistoryActionFinishedMsg struct {
 	Action, Target string
 	Repository     uint64
@@ -568,6 +580,10 @@ type Model struct {
 	TagSignatureChecking     string
 	TagCheckoutConfirm       bool
 	TagCheckoutTarget        string
+	TagCompare               string
+	TagCompareLoading        bool
+	TagWorktreeMode          bool
+	TagWorktreePath          string
 	HistoryActionConfirm     bool
 	HistoryActionTarget      string
 	HistoryBranchCreating    bool
@@ -4309,6 +4325,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Tags && m.TagWorktreeMode {
+			return m, m.updateTagWorktreeKey(v.String())
+		}
 		if m.currentView() == workspace.Branches && (m.BranchCreateMode || m.BranchRenameMode || m.BranchUpstreamMode || m.BranchDeleteMode || m.BranchMergeMode) {
 			return m, m.updateBranchMutationKey(v.String())
 		}
@@ -4671,6 +4690,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.openHistoricalRebase(rebase.Reword)
 			}
 		case "w":
+			if m.currentView() == workspace.Tags {
+				m.TagWorktreeMode, m.TagWorktreePath = true, ""
+				m.Status = "tag worktree path: "
+				return m, nil
+			}
 			return m, m.navigate(workspace.Worktrees, "Worktrees")
 		case "v":
 			return m, m.navigate(workspace.Repositories, "Repositories")
@@ -5269,6 +5293,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Reflog {
 				m.State, m.Status = StateOperationPending, "comparing recovery point to HEAD"
 				return m, m.compareSelectedReflog()
+			}
+			if m.currentView() == workspace.Tags {
+				m.TagCompareLoading = true
+				m.State, m.Status = StateOperationPending, "comparing tag to HEAD"
+				return m, m.compareSelectedTag()
 			}
 			return m, m.openDiff()
 		case "H":
@@ -6251,6 +6280,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Workspace.Navigate(workspace.Status, "Status")
 		m.State, m.Status = StateReady, "checked out tag "+platform.SafeText(v.Name)+" detached"
 		return m, m.refresh()
+	case TagCompareReadyMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.TagCompareLoading, m.TagCompare = false, v.Text
+		if v.Err != nil {
+			m.State, m.Status = StateError, "compare tag "+platform.SafeText(v.Name)+": "+v.Err.Error()
+		} else {
+			m.State, m.Status = StateReady, "tag "+platform.SafeText(v.Name)+" compared to HEAD"
+		}
+	case TagWorktreeFinishedMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.TagWorktreeMode, m.TagWorktreePath = false, ""
+		if v.Err != nil {
+			m.State, m.Status = StateError, "create tag worktree "+platform.SafeText(v.Name)+": "+v.Err.Error()
+			return m, nil
+		}
+		m.State, m.Status = StateReady, "created worktree "+platform.SafeText(v.Path)+" from tag "+platform.SafeText(v.Name)
+		return m, m.refresh()
 	case HistoryActionFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
@@ -6585,6 +6635,14 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.HistoryInspector.Commit.SHA != "" {
 			content += "\n\n" + inspectorText(m.HistoryInspector)
 		}
+		if m.TagCompareLoading {
+			content += "\n\nComparing tag to HEAD…"
+		} else if m.TagCompare != "" {
+			content += "\n\nComparison to HEAD:\n" + platform.SafeText(m.TagCompare)
+		}
+		if m.TagWorktreeMode {
+			content += "\n\n" + platform.SafeText(m.Status)
+		}
 	case workspace.Reflog:
 		title, content = "gitwatch · reflog", m.Reflog.View()
 		if entry, ok := m.Reflog.SelectedEntry(); ok {
@@ -6664,9 +6722,11 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [P] cherry-pick  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Tags {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] inspect  [V] verify  [x] detached checkout  [t] reload  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] inspect  [d] compare  [V] verify  [x] checkout  [w] worktree  [t] reload  [esc] back  [q] quit"
 		if m.TagsFilterMode {
 			lines[len(lines)-1] = "tag filter: type text  [enter] apply  [esc] cancel"
+		} else if m.TagWorktreeMode {
+			lines[len(lines)-1] = "tag worktree path: type path  [enter] create  [esc] cancel"
 		}
 	}
 	if view == workspace.Reflog {

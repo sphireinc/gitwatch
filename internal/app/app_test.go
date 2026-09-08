@@ -353,6 +353,32 @@ func TestTagsWorkspaceLoadsFiltersAndSortsBoundedSnapshot(t *testing.T) {
 	if command == nil || m.State != StateOperationPending {
 		t.Fatalf("tag inspect dispatch = cmdnil=%v state=%v", command == nil, m.State)
 	}
+	updated, command = m.Update(key("d"))
+	m = updated.(Model)
+	if command == nil || !m.TagCompareLoading {
+		t.Fatalf("tag compare dispatch = cmdnil=%v loading=%v", command == nil, m.TagCompareLoading)
+	}
+	updated, _ = m.Update(TagCompareReadyMsg{Generation: 1, Name: "v1", Text: "diff --git a/file b/file"})
+	m = updated.(Model)
+	if m.TagCompareLoading || !strings.Contains(m.TagCompare, "diff --git") {
+		t.Fatalf("tag compare result = loading=%v compare=%q", m.TagCompareLoading, m.TagCompare)
+	}
+	updated, _ = m.Update(key("w"))
+	m = updated.(Model)
+	if !m.TagWorktreeMode {
+		t.Fatalf("tag worktree mode = %v", m.TagWorktreeMode)
+	}
+	m.TagWorktreePath = "/tmp/tag-worktree"
+	updated, command = m.Update(key("enter"))
+	m = updated.(Model)
+	if command == nil || m.State != StateOperationPending || m.TagWorktreeMode {
+		t.Fatalf("tag worktree dispatch = cmdnil=%v state=%v mode=%v", command == nil, m.State, m.TagWorktreeMode)
+	}
+	updated, command = m.Update(TagWorktreeFinishedMsg{Generation: 1, Name: "v1", Path: "/tmp/tag-worktree"})
+	m = updated.(Model)
+	if command == nil || !strings.Contains(m.Status, "created worktree") {
+		t.Fatalf("tag worktree result = cmdnil=%v status=%q", command == nil, m.Status)
+	}
 	updated, _ = m.Update(key("x"))
 	m = updated.(Model)
 	if !m.TagCheckoutConfirm || !strings.Contains(m.Status, "detached checkout") {

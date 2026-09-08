@@ -2,6 +2,7 @@ package tags
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -69,5 +70,20 @@ func TestVerifyIsOnDemandAndRejectsUnsafeNames(t *testing.T) {
 	}
 	if _, err := Verify(context.Background(), tagRunner{}, "-bad"); err != ErrInvalidName {
 		t.Fatalf("unsafe tag verification error = %v", err)
+	}
+}
+
+func TestLoadThousandsOfTagsWithinBound(t *testing.T) {
+	fields := make([]string, 0, 2000*9)
+	for i := 0; i < 2000; i++ {
+		fields = append(fields, fmt.Sprintf("v%04d", i), fmt.Sprintf("%040d", i), "commit", "", "", "", "", "", "fixture tag")
+	}
+	fields = append(fields, "")
+	snapshot, err := Load(context.Background(), tagRunner{tagOutput: []byte(strings.Join(fields, "\x00"))}, LoadRequest{Repository: "/repo", Limits: Limits{MaxTags: 2048}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Tags) != 2000 || snapshot.Truncated || snapshot.Tags[1999].Name != "v1999" {
+		t.Fatalf("large tag fixture = count=%d truncated=%v last=%+v", len(snapshot.Tags), snapshot.Truncated, snapshot.Tags[len(snapshot.Tags)-1])
 	}
 }

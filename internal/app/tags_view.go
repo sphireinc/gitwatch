@@ -10,6 +10,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/tags"
+	"github.com/sphireinc/git-watch/internal/worktrees"
 )
 
 func (m Model) selectedTag() (tags.Tag, bool) {
@@ -76,6 +77,62 @@ func (m Model) checkoutSelectedTag() tea.Cmd {
 		_, err := history.CheckoutCommit(ctx, runner, selected.TargetID)
 		return TagCheckoutFinishedMsg{Generation: generation, Name: name, Err: err}
 	}
+}
+
+func (m Model) compareSelectedTag() tea.Cmd {
+	selected, ok := m.selectedTag()
+	if !ok {
+		return nil
+	}
+	name, generation := selected.Name, m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx := m.commandContext()
+	return func() tea.Msg {
+		inspector, err := history.InspectPath(ctx, runner, selected.TargetID, "HEAD", "")
+		return TagCompareReadyMsg{Generation: generation, Name: name, Text: inspector.Diff, Err: err}
+	}
+}
+
+func (m Model) addSelectedTagWorktree() tea.Cmd {
+	selected, ok := m.selectedTag()
+	path := strings.TrimSpace(m.TagWorktreePath)
+	if !ok || path == "" {
+		return nil
+	}
+	name, generation := selected.Name, m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx := m.commandContext()
+	return func() tea.Msg {
+		_, err := worktrees.AddWithCommit(ctx, runner, path, "", selected.TargetID)
+		return TagWorktreeFinishedMsg{Generation: generation, Name: name, Path: path, Err: err}
+	}
+}
+
+func (m *Model) updateTagWorktreeKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.TagWorktreeMode, m.TagWorktreePath = false, ""
+		m.Status = "tag worktree creation cancelled"
+	case "backspace":
+		m.TagWorktreePath = removeLastRune(m.TagWorktreePath)
+	case "enter":
+		if strings.TrimSpace(m.TagWorktreePath) == "" {
+			m.Status = "worktree path is required"
+		} else {
+			m.TagWorktreeMode, m.State, m.Status = false, StateOperationPending, "creating worktree from tag"
+			return m.addSelectedTagWorktree()
+		}
+	case "space":
+		m.TagWorktreePath += " "
+	default:
+		if len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00") {
+			m.TagWorktreePath += key
+		}
+	}
+	if m.TagWorktreeMode {
+		m.Status = "tag worktree path: " + platform.SafeText(m.TagWorktreePath)
+	}
+	return nil
 }
 
 func (m Model) filteredTags() []tags.Tag {

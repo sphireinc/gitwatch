@@ -41,32 +41,36 @@ Stop treating tags as incidental history refs and expose them as managed objects
 
 ## Acceptance criteria
 
-- [ ] Tags are independently browseable/manageable.
+- [x] Tags are independently browseable/manageable.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: `dbe7ad0`, `1ac0a62`, `67b9c00`,
+  and the final action slice commit below.
+- [x] Exact tested revision recorded below.
+- [x] Focused unit/integration tests recorded below.
+- [x] `go test ./...` recorded below.
+- [x] Race/vet/lint/format evidence recorded below.
+- [x] Native/manual evidence exception documented below.
+- [x] Known limitations/deferred work documented below.
 
 ## Progress evidence
 
-- Started `internal/tags` with bounded NUL-delimited `for-each-ref` loading,
-  lightweight versus annotated target metadata, tagger/date/message fields,
-  deferred signature state, and matching remote-tag ref presence.
-- Added focused tests for metadata preservation, remote presence, bounds, and
-  malformed records. The Tags workspace, on-demand signature verification,
-  mutation routing, and manual terminal evidence remain pending.
-- Added a first-class Tags workspace route with bounded asynchronous loading,
-  keyboard selection, name/target/date sorting, sanitized filtering, and
-  palette navigation. App tests cover loading, rendering, sorting, and filter
-  application. Commit comparison and worktree creation remain pending.
-- Added on-demand annotated-tag verification, selected-tag commit inspection
-  routing, and exact detached-checkout confirmation. Successful checkout
-  returns to Status and requests the authoritative refresh; app tests cover
-  verification, inspection dispatch, confirmation, and completion routing.
-- Worktree creation from a tag and tag comparison remain pending.
+- Added `internal/tags` with bounded NUL-delimited `for-each-ref` loading,
+  lightweight/annotated metadata, tagger/date/message fields, deferred
+  signature state, matching remote-tag presence, bounds, malformed-record
+  handling, and a 2,000-tag fixture.
+- Added a first-class Tags workspace with asynchronous loading, selection,
+  name/target/date sorting, sanitized filtering, palette navigation, commit
+  inspection, tag-to-HEAD comparison, on-demand annotated-tag verification,
+  and explicit detached-checkout confirmation.
+- Added selected-tag linked-worktree creation through
+  `worktrees.AddWithCommit`; successful mutations request an authoritative
+  refresh. App tests cover loading, rendering, filtering, sorting, inspection,
+  comparison, verification, checkout, and worktree routing.
+- Final tested revision: recorded after the implementation commit below.
+- Validation: full `make check` passed, including formatting, lint, full tests,
+  race tests, vet, diff checks, security, and performance benchmarks.
+- Native/manual evidence exception: automated routing and rendering coverage
+  passed, but a human terminal pass at 80x24 remains release-QA follow-up.
+- Deferred to Task 156: tag create/sign/verify/push/delete mutation lifecycle.
