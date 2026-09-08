@@ -10,11 +10,19 @@ import (
 )
 
 type Model struct {
-	Result   compare.Result
-	Selected int
+	Result         compare.Result
+	Selected       int
+	SelectedPatch  string
+	PatchPath      string
+	PatchLoading   bool
+	PatchTruncated bool
 }
 
 func (m *Model) SetResult(result compare.Result) { m.Result, m.Selected = result, 0 }
+
+func (m *Model) SetPatch(path, text string, truncated bool) {
+	m.PatchPath, m.SelectedPatch, m.PatchTruncated, m.PatchLoading = path, text, truncated, false
+}
 
 func (m *Model) Move(delta int) {
 	m.Selected += delta
@@ -57,10 +65,17 @@ func (m Model) View() string {
 	if len(m.Result.Changes) == 0 {
 		lines = append(lines, "  No changed files")
 	}
-	if m.Result.Patch != "" {
-		lines = append(lines, "", "Patch:", platform.SafeText(m.Result.Patch))
+	patch := m.Result.Patch
+	patchLabel := "Patch:"
+	if m.PatchPath != "" {
+		patch, patchLabel = m.SelectedPatch, "Selected patch ("+platform.SafeText(m.PatchPath)+"):"
 	}
-	if m.Result.PatchTruncated {
+	if m.PatchLoading {
+		lines = append(lines, "", "Loading selected patch…")
+	} else if patch != "" {
+		lines = append(lines, "", patchLabel, platform.SafeText(patch))
+	}
+	if m.Result.PatchTruncated || m.PatchTruncated {
 		lines = append(lines, "Patch truncated by budget")
 	}
 	return strings.Join(lines, "\n")

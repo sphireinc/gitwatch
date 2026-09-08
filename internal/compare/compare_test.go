@@ -84,3 +84,15 @@ func TestCompareHonorsFileLimitAndPatchOutputLimit(t *testing.T) {
 		t.Fatalf("file limit = %#v", result)
 	}
 }
+
+func TestFilePatchUsesResolvedSHAsAndPathSeparator(t *testing.T) {
+	runner := &fakeRunner{}
+	text, truncated, err := FilePatch(context.Background(), runner, Result{Left: Revision{SHA: "left"}, Right: Revision{SHA: "right"}}, Change{NewPath: "-leading name"}, 1024)
+	if err != nil || truncated || text == "" {
+		t.Fatalf("file patch = text=%q truncated=%v err=%v", text, truncated, err)
+	}
+	want := []string{"diff", "--no-ext-diff", "left", "right", "--", "-leading name"}
+	if !reflect.DeepEqual(runner.args[len(runner.args)-1], want) {
+		t.Fatalf("file patch argv = %#v, want %#v", runner.args[len(runner.args)-1], want)
+	}
+}

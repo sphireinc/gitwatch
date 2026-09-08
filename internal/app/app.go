@@ -199,6 +199,14 @@ type CompareReadyMsg struct {
 	Result     compareops.Result
 	Err        error
 }
+type ComparePatchReadyMsg struct {
+	Generation uint64
+	Request    uint64
+	Path       string
+	Text       string
+	Truncated  bool
+	Err        error
+}
 type ConflictContentReadyMsg struct {
 	Content    git.ConflictContent
 	Generation uint64
@@ -507,6 +515,9 @@ type Model struct {
 	CompareRequest           uint64
 	CompareCancel            context.CancelFunc
 	CompareGeneration        uint64
+	ComparePatchLoading      bool
+	ComparePatchRequest      uint64
+	ComparePatchCancel       context.CancelFunc
 	DiffMaxBytes             int64
 	DiffMaxLines             int
 	CommitTreeEnabled        bool
@@ -2129,6 +2140,32 @@ func (m *Model) startCompare() tea.Cmd {
 	return func() tea.Msg {
 		result, err := compareops.Compare(ctx, runner, compareops.Request{Left: left, Right: right, MaxFiles: compareops.DefaultMaxFiles, MaxPatchBytes: int(m.DiffMaxBytes)})
 		return CompareReadyMsg{Generation: generation, Request: request, Result: result, Err: err}
+	}
+}
+
+func (m *Model) loadComparePatch() tea.Cmd {
+	if m.Compare.Selected < 0 || m.Compare.Selected >= len(m.Compare.Result.Changes) {
+		m.Status = "select a changed path first"
+		return nil
+	}
+	if m.ComparePatchCancel != nil {
+		m.ComparePatchCancel()
+	}
+	ctx, cancel := context.WithCancel(m.commandContext())
+	m.ComparePatchCancel = cancel
+	m.ComparePatchRequest++
+	request, generation := m.ComparePatchRequest, m.repositoryGeneration
+	change := m.Compare.Result.Changes[m.Compare.Selected]
+	path := change.NewPath
+	if path == "" {
+		path = change.OldPath
+	}
+	result := m.Compare.Result
+	runner := git.NewRunner(m.Discovery.Root)
+	m.ComparePatchLoading, m.Status = true, "loading comparison patch for "+platform.SafeText(path)
+	return func() tea.Msg {
+		text, truncated, err := compareops.FilePatch(ctx, runner, result, change, int(m.DiffMaxBytes))
+		return ComparePatchReadyMsg{Generation: generation, Request: request, Path: path, Text: text, Truncated: truncated, Err: err}
 	}
 }
 
@@ -5114,6 +5151,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.CompareCancel = nil
 				m.CompareLoading = false
 			}
+			if m.currentView() == workspace.Compare && m.ComparePatchCancel != nil {
+				m.ComparePatchCancel()
+				m.ComparePatchCancel = nil
+				m.ComparePatchLoading = false
+			}
 			if m.RemoteCancel != nil && m.State == StateOperationPending {
 				m.RemoteCancel()
 				m.RemoteCancel = nil
@@ -5707,6 +5749,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.beginCommit()
 		case "enter":
+			if m.currentView() == workspace.Compare {
+				return m, m.loadComparePatch()
+			}
 			if m.currentView() == workspace.Rebase {
 				if m.Rebase.BaseMode {
 					if err := m.Rebase.SetBase(m.Rebase.BaseSelected); err != nil {
@@ -6538,6 +6583,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.Compare.SetResult(v.Result)
 		m.State, m.Status = StateReady, "comparison loaded"
+	case ComparePatchReadyMsg:
+		if v.Generation != m.CompareGeneration || v.Request != m.ComparePatchRequest {
+			return m, nil
+		}
+		m.ComparePatchCancel, m.ComparePatchLoading = nil, false
+		if v.Err != nil {
+			m.CompareErr, m.State, m.Status = v.Err, StateError, "comparison patch: "+v.Err.Error()
+			return m, nil
+		}
+		m.Compare.SetPatch(v.Path, v.Text, v.Truncated)
+		m.State, m.Status = StateReady, "comparison patch loaded"
 	case CommitTreeReadyMsg:
 		if v.Generation != m.repositoryGeneration || v.Request != m.CommitTreeRequest {
 			return m, nil

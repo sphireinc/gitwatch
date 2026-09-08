@@ -75,4 +75,7 @@ Allow users to compare any two commits, branches, tags, remote refs or reflog en
   bounded patch output, and truncation notices.
 - Added focused view and app tests for selection clamping, rename rendering,
   cross-workspace assignment, and comparison dispatch. Per-file patch loading
-  and explicit action assignment from every source still need final coverage.
+  is now available with a bounded path-scoped Git request after selecting a
+  changed row and pressing Enter; cancellation is request-scoped alongside the
+  comparison job. Explicit action assignment from every source still needs
+  final coverage.

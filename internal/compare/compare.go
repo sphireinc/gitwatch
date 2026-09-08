@@ -64,6 +64,27 @@ type Result struct {
 	PatchTruncated      bool
 }
 
+// FilePatch loads one bounded path-scoped patch from already-resolved sides.
+// The path is passed after -- and is never parsed as a revision or option.
+func FilePatch(ctx context.Context, runner Runner, result Result, change Change, maxBytes int) (string, bool, error) {
+	path := change.NewPath
+	if path == "" {
+		path = change.OldPath
+	}
+	if path == "" {
+		return "", false, errors.New("comparison change has no path")
+	}
+	if maxBytes <= 0 {
+		maxBytes = DefaultMaxPatchBytes
+	}
+	patch, err := runner.RunBounded(ctx, maxBytes, "diff", "--no-ext-diff", result.Left.SHA, result.Right.SHA, "--", path)
+	truncated := errors.Is(err, git.ErrOutputLimit)
+	if err != nil && !truncated {
+		return "", false, err
+	}
+	return string(patch.Stdout), truncated, nil
+}
+
 func Compare(ctx context.Context, runner Runner, request Request) (Result, error) {
 	left, err := Resolve(ctx, runner, request.Left)
 	if err != nil {
