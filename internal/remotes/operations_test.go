@@ -98,6 +98,60 @@ func TestTrackingBranchesFiltersByRemote(t *testing.T) {
 	}
 }
 
+func TestRemoteLifecycleAgainstLocalRepositoryAndBareRemote(t *testing.T) {
+	ctx := context.Background()
+	localDir := t.TempDir()
+	bareDir := t.TempDir()
+	local := git.NewRunner(localDir)
+	bare := git.NewRunner(bareDir)
+
+	runTestGit(t, bare, "init", "--bare")
+	runTestGit(t, local, "init")
+	runTestGit(t, local, "config", "user.name", "gitwatch test")
+	runTestGit(t, local, "config", "user.email", "gitwatch@example.test")
+	if err := os.WriteFile(localDir+"/README", []byte("remote lifecycle\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runTestGit(t, local, "add", "README")
+	runTestGit(t, local, "-c", "commit.gpgsign=false", "commit", "-m", "initial")
+	runTestGit(t, local, "branch", "-M", "main")
+
+	if _, err := Add(ctx, local, "origin", bareDir); err != nil {
+		t.Fatalf("add remote: %v", err)
+	}
+	if _, err := PushSetUpstream(ctx, local, "origin", "main"); err != nil {
+		t.Fatalf("push upstream: %v", err)
+	}
+	tracking, err := TrackingBranches(ctx, local, "origin")
+	if err != nil || !reflect.DeepEqual(tracking, []TrackingBranch{{Local: "main", Upstream: "origin/main"}}) {
+		t.Fatalf("origin tracking = %#v, err=%v", tracking, err)
+	}
+	if _, err := Rename(ctx, local, "origin", "upstream"); err != nil {
+		t.Fatalf("rename remote: %v", err)
+	}
+	tracking, err = TrackingBranches(ctx, local, "upstream")
+	if err != nil || !reflect.DeepEqual(tracking, []TrackingBranch{{Local: "main", Upstream: "upstream/main"}}) {
+		t.Fatalf("renamed tracking = %#v, err=%v", tracking, err)
+	}
+	if _, err := Prune(ctx, local, "upstream", true); err != nil {
+		t.Fatalf("prune preview: %v", err)
+	}
+	if _, err := SetURL(ctx, local, "upstream", "https://alice:secret@example.com/repo.git"); err != nil {
+		t.Fatalf("set remote URL: %v", err)
+	}
+	redacted, err := GetURL(ctx, local, "upstream", false)
+	if err != nil || strings.Contains(redacted, "secret") {
+		t.Fatalf("redacted URL = %q, err=%v", redacted, err)
+	}
+	if _, err := Remove(ctx, local, "upstream"); err != nil {
+		t.Fatalf("remove remote: %v", err)
+	}
+	entries, err := List(ctx, local)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("remotes after remove = %#v, err=%v", entries, err)
+	}
+}
+
 func TestRemoteOperationsRejectOptionLikeNames(t *testing.T) {
 	_, err := Push(context.Background(), git.Runner{}, "-origin", "main", false)
 	if !errors.Is(err, ErrMissingRemote) {
