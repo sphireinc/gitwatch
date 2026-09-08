@@ -3,8 +3,10 @@ package tags
 import (
 	"context"
 	"errors"
+	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/sphireinc/git-watch/internal/git"
 )
@@ -61,5 +63,34 @@ func TestCreateRejectsUnsafeOrIncompleteRequests(t *testing.T) {
 		if _, err := Create(context.Background(), &runner, request); err == nil {
 			t.Fatalf("accepted invalid request: %+v", request)
 		}
+	}
+}
+
+func TestSignedCreateFailsSafelyWithoutSigningKey(t *testing.T) {
+	repository := t.TempDir()
+	gnupgHome := t.TempDir()
+	runner := git.NewRunner(repository)
+	runner.Env = []string{"GNUPGHOME=" + gnupgHome, "GPG_TTY=/dev/null"}
+	for _, args := range [][]string{
+		{"init"},
+		{"config", "user.name", "gitwatch test"},
+		{"config", "user.email", "gitwatch@example.test"},
+		{"-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "initial"},
+	} {
+		if _, err := runner.Run(context.Background(), args...); err != nil {
+			t.Fatalf("git %v: %v", args, err)
+		}
+	}
+	if err := os.Chmod(gnupgHome, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	result, err := Create(ctx, runner, CreateRequest{Name: "v-no-key", Target: "HEAD", Message: "release", Kind: CreateSigned})
+	if err == nil {
+		t.Fatal("signed tag unexpectedly succeeded without a signing key")
+	}
+	if result.ExitCode == 0 {
+		t.Fatalf("signed tag failure returned success result: %#v", result)
 	}
 }
