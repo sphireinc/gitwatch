@@ -1838,7 +1838,7 @@ func TestStatusCommitInspectionLoadsRealCommitFiles(t *testing.T) {
 	if _, err := runner.Run(ctx, "add", "--", "historical.txt"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := runner.Run(ctx, "-c", "user.name=gitwatch", "-c", "user.email=gitwatch@example.com", "commit", "-m", "initial"); err != nil {
+	if _, err := runner.Run(ctx, "-c", "commit.gpgsign=false", "-c", "user.name=gitwatch", "-c", "user.email=gitwatch@example.com", "commit", "-m", "initial"); err != nil {
 		t.Fatal(err)
 	}
 	shortResult, err := runner.Run(ctx, "rev-parse", "--short", "HEAD")
