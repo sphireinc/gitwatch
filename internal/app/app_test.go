@@ -2180,6 +2180,59 @@ func TestRemoteSetUpstreamAndTagPushControls(t *testing.T) {
 	}
 }
 
+func TestRemoteLifecycleControlsUseImpactConfirmation(t *testing.T) {
+	m := New()
+	m.repositoryGeneration = 1
+	m.Workspace.Navigate(workspace.Remotes, "Remotes")
+	m.Remotes = remoteview.New(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin", FetchURL: "https://example.com/repo.git"}}})
+	updated, _ := m.Update(key("A"))
+	m = updated.(Model)
+	for _, ch := range "backup" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if m.RemoteMutationMode != "add-url" || m.RemoteMutationRemote != "backup" {
+		t.Fatalf("remote add name stage = mode=%q remote=%q", m.RemoteMutationMode, m.RemoteMutationRemote)
+	}
+	for _, ch := range "https://example.com/repo.git" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, command := m.Update(key("enter"))
+	m = updated.(Model)
+	if command == nil || m.State != StateOperationPending || m.RemoteMutationMode != "add" {
+		t.Fatalf("remote add submit = cmdnil=%v state=%v mode=%q", command == nil, m.State, m.RemoteMutationMode)
+	}
+
+	m = New()
+	m.repositoryGeneration = 1
+	m.Workspace.Navigate(workspace.Remotes, "Remotes")
+	m.Remotes = remoteview.New(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin"}}})
+	updated, command = m.Update(key("R"))
+	m = updated.(Model)
+	if command == nil || m.RemoteMutationMode != "rename-loading" {
+		t.Fatalf("remote rename tracking load = cmdnil=%v mode=%q", command == nil, m.RemoteMutationMode)
+	}
+	updated, _ = m.Update(RemoteTrackingReadyMsg{Repository: 1, Remote: "origin", Branches: []remotes.TrackingBranch{{Local: "main", Upstream: "origin/main"}}})
+	m = updated.(Model)
+	for _, ch := range "upstream" {
+		updated, _ = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if !m.RemoteMutationConfirm || !strings.Contains(m.Status, "main -> origin/main") {
+		t.Fatalf("remote rename impact confirmation = confirm=%v status=%q", m.RemoteMutationConfirm, m.Status)
+	}
+	updated, command = m.Update(key("y"))
+	m = updated.(Model)
+	if command == nil || m.State != StateOperationPending {
+		t.Fatalf("remote rename submit = cmdnil=%v state=%v", command == nil, m.State)
+	}
+}
+
 func TestRemoteDashboardMouseSelectsRemote(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Remotes, "Remotes")

@@ -70,3 +70,7 @@ Complete remote object management in addition to existing fetch/pull/push.
 - Added a NUL-delimited tracking-branch query that identifies local branches
   whose upstream belongs to a selected remote, enabling scoped rename/remove
   warnings without parsing human-formatted Git output.
+- Added staged Remotes workspace controls for add, rename, set-url, remove,
+  and prune preview/confirmation. Rename and remove show affected tracking
+  branches; URL input is hidden from status text, and successful remote jobs
+  refresh status, remotes, branches, and provider detection.

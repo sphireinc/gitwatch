@@ -380,6 +380,18 @@ type RemoteOperationFinishedMsg struct {
 	Journal           *history.OperationRecord
 	Err               error
 }
+type RemoteTrackingReadyMsg struct {
+	Remote     string
+	Branches   []remotes.TrackingBranch
+	Repository uint64
+	Err        error
+}
+type RemotePrunePreviewMsg struct {
+	Remote     string
+	Text       string
+	Repository uint64
+	Err        error
+}
 type PushPreviewReadyMsg struct {
 	Preview remotes.RefMovement
 	Err     error
@@ -648,6 +660,15 @@ type Model struct {
 	RemoteTagMode            bool
 	RemoteTagDeleteMode      bool
 	RemoteTagDeleteConfirm   bool
+	RemoteMutationMode       string
+	RemoteMutationRemote     string
+	RemoteMutationInput      string
+	RemoteMutationURL        string
+	RemoteMutationNewName    string
+	RemoteMutationImpact     []remotes.TrackingBranch
+	RemoteMutationConfirm    bool
+	RemotePrunePreview       string
+	RemotePruneConfirm       bool
 	RemoteCancel             context.CancelFunc
 	RemoteJobID              string
 	GitHub                   githubview.Model
@@ -2859,6 +2880,24 @@ func (m Model) loadRemotes() tea.Cmd {
 	}
 }
 
+func (m Model) loadRemoteTracking(remote string) tea.Cmd {
+	generation := m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		branches, err := remotes.TrackingBranches(m.commandContext(), runner, remote)
+		return RemoteTrackingReadyMsg{Remote: remote, Branches: branches, Repository: generation, Err: err}
+	}
+}
+
+func (m Model) previewRemotePrune(remote string) tea.Cmd {
+	generation := m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		result, err := remotes.Prune(m.commandContext(), runner, remote, true)
+		return RemotePrunePreviewMsg{Remote: remote, Text: platform.SafeText(string(result.Stdout)), Repository: generation, Err: err}
+	}
+}
+
 func (m Model) loadGitHub() tea.Cmd {
 	runner := git.NewRunner(m.Discovery.Root)
 	branch := m.Snapshot.Branch.Name
@@ -3197,6 +3236,134 @@ func (m *Model) deleteSelectedRemoteTag() tea.Cmd {
 		_, err := remotes.DeleteTag(ctx, runner, remote, tag)
 		return err
 	})
+}
+
+func (m *Model) executeRemoteLifecycle() tea.Cmd {
+	remote := m.RemoteMutationRemote
+	mode := m.RemoteMutationMode
+	urlValue := m.RemoteMutationURL
+	newName := m.RemoteMutationNewName
+	runner := git.NewRunner(m.Discovery.Root)
+	var operation string
+	var work operations.Work
+	switch mode {
+	case "add":
+		operation = "add remote"
+		work = func(ctx context.Context) error {
+			_, err := remotes.Add(ctx, runner, remote, urlValue)
+			return err
+		}
+	case "rename", "rename-confirm":
+		operation = "rename remote"
+		work = func(ctx context.Context) error {
+			_, err := remotes.Rename(ctx, runner, remote, newName)
+			return err
+		}
+	case "set-url", "set-url-confirm":
+		operation = "set remote URL"
+		work = func(ctx context.Context) error {
+			_, err := remotes.SetURL(ctx, runner, remote, urlValue)
+			return err
+		}
+	case "remove":
+		operation = "remove remote"
+		work = func(ctx context.Context) error {
+			_, err := remotes.Remove(ctx, runner, remote)
+			return err
+		}
+	case "prune":
+		operation = "prune remote"
+		work = func(ctx context.Context) error {
+			_, err := remotes.Prune(ctx, runner, remote, false)
+			return err
+		}
+	default:
+		return nil
+	}
+	ctx := m.startRemoteJob(operation, remote)
+	m.Remotes.Dashboard.Jobs[len(m.Remotes.Dashboard.Jobs)-1].Progress = operation
+	return m.remoteCommand(ctx, operation, remote, work)
+}
+
+func (m *Model) resetRemoteMutation() {
+	m.RemoteMutationMode, m.RemoteMutationRemote, m.RemoteMutationInput = "", "", ""
+	m.RemoteMutationURL, m.RemoteMutationNewName = "", ""
+	m.RemoteMutationImpact, m.RemoteMutationConfirm = nil, false
+	m.RemotePrunePreview, m.RemotePruneConfirm = "", false
+}
+
+func (m *Model) updateRemoteMutationKey(key string) tea.Cmd {
+	if !remoteMutationInputMode(m.RemoteMutationMode) {
+		return nil
+	}
+	if key == "esc" {
+		m.resetRemoteMutation()
+		m.Status = "remote lifecycle action cancelled"
+		return nil
+	}
+	switch key {
+	case "backspace":
+		m.RemoteMutationInput = removeLastRune(m.RemoteMutationInput)
+	case "space":
+		m.RemoteMutationInput += " "
+	case "enter":
+		value := strings.TrimSpace(m.RemoteMutationInput)
+		if value == "" {
+			m.Status = "remote input is required"
+			return nil
+		}
+		switch m.RemoteMutationMode {
+		case "add-name":
+			m.RemoteMutationRemote, m.RemoteMutationInput, m.RemoteMutationMode = value, "", "add-url"
+			m.Status = "URL for remote " + platform.SafeText(value) + ": "
+			return nil
+		case "add-url":
+			m.RemoteMutationURL, m.RemoteMutationInput, m.RemoteMutationMode = value, "", "add"
+			m.State, m.Status = StateOperationPending, "adding remote"
+			return m.executeRemoteLifecycle()
+		case "set-url":
+			m.RemoteMutationURL, m.RemoteMutationInput, m.RemoteMutationMode = value, "", "set-url-confirm"
+			m.State, m.Status = StateOperationPending, "setting remote URL"
+			return m.executeRemoteLifecycle()
+		case "rename":
+			m.RemoteMutationNewName, m.RemoteMutationInput, m.RemoteMutationMode = value, "", "rename-confirm"
+			m.RemoteMutationConfirm = true
+			m.Status = remoteImpactStatus("rename "+m.RemoteMutationRemote+" to "+value, m.RemoteMutationImpact)
+			return nil
+		}
+	default:
+		if len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00") {
+			m.RemoteMutationInput += key
+		}
+	}
+	if m.RemoteMutationMode != "" {
+		if m.RemoteMutationMode == "add-url" || m.RemoteMutationMode == "set-url" {
+			m.Status = "remote URL input: [hidden]"
+		} else {
+			m.Status = "remote " + m.RemoteMutationMode + ": " + platform.SafeText(m.RemoteMutationInput)
+		}
+	}
+	return nil
+}
+
+func remoteMutationInputMode(mode string) bool {
+	switch mode {
+	case "add-name", "add-url", "set-url", "rename":
+		return true
+	default:
+		return false
+	}
+}
+
+func remoteImpactStatus(action string, impact []remotes.TrackingBranch) string {
+	if len(impact) == 0 {
+		return "confirm " + action + " (no local tracking branches found)? (y/n)"
+	}
+	parts := make([]string, 0, len(impact))
+	for _, branch := range impact {
+		parts = append(parts, branch.Local+" -> "+branch.Upstream)
+	}
+	return "confirm " + action + "; affects " + strings.Join(parts, ", ") + "? (y/n)"
 }
 
 func (m Model) previewSelectedRemotePush() tea.Cmd {
@@ -4450,6 +4617,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Remotes && remoteMutationInputMode(m.RemoteMutationMode) {
+			return m, m.updateRemoteMutationKey(v.String())
+		}
+		if m.currentView() == workspace.Remotes && (m.RemoteMutationConfirm || m.RemotePruneConfirm) {
+			switch v.String() {
+			case "y", "Y":
+				m.RemoteMutationConfirm, m.RemotePruneConfirm = false, false
+				m.State, m.Status = StateOperationPending, "applying remote change"
+				return m, m.executeRemoteLifecycle()
+			case "n", "N", "esc":
+				m.resetRemoteMutation()
+				m.Status = "remote lifecycle action cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Stashes && m.StashBranchMode {
 			switch v.String() {
 			case "esc":
@@ -4748,7 +4930,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "v":
 			return m, m.navigate(workspace.Repositories, "Repositories")
 		case "A":
-			if m.currentView() == workspace.Tags {
+			if m.currentView() == workspace.Remotes {
+				m.resetRemoteMutation()
+				m.RemoteMutationMode = "add-name"
+				m.Status = "new remote name: "
+				return m, nil
+			} else if m.currentView() == workspace.Tags {
 				m.startTagCreation(tags.CreateAnnotated)
 				return m, nil
 			} else if m.currentView() == workspace.Worktrees {
@@ -4810,6 +4997,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.TagDeleteMode, m.TagDeleteTarget, m.TagDeleteInput = true, selected.Name, ""
 					m.Status = "type " + platform.SafeText(selected.Name) + " to confirm deletion: "
 				}
+			} else if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
+				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
+				m.resetRemoteMutation()
+				m.RemoteMutationRemote, m.RemoteMutationMode, m.State, m.Status = remote, "remove-loading", StateOperationPending, "loading tracking branches for "+platform.SafeText(remote)
+				return m, m.loadRemoteTracking(remote)
 			} else if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
 				branch := m.Branches.Entries[m.Branches.Selected]
 				if branch.Current || branch.OccupiedPath != "" {
@@ -4898,6 +5090,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
 				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
 				m.RemoteForceConfirm, m.Status = true, "confirm force-with-lease push to "+remote+" for "+m.Snapshot.Branch.Name+" (y/n)"
+			}
+		case "K":
+			if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
+				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
+				m.resetRemoteMutation()
+				m.RemoteMutationRemote, m.RemoteMutationMode, m.State, m.Status = remote, "prune-loading", StateOperationPending, "previewing stale refs for "+platform.SafeText(remote)
+				return m, m.previewRemotePrune(remote)
+			}
+		case "L":
+			if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
+				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected]
+				m.resetRemoteMutation()
+				m.RemoteMutationRemote, m.RemoteMutationMode, m.Status = remote.Name, "set-url", "new URL for "+platform.SafeText(remote.Name)+" (current: "+platform.SafeText(remote.FetchURL)+"): "
+				return m, nil
 			}
 		case "N":
 			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
@@ -5002,7 +5208,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "R":
-			if m.currentView() == workspace.Journal {
+			if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
+				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
+				m.resetRemoteMutation()
+				m.RemoteMutationRemote, m.RemoteMutationMode, m.State, m.Status = remote, "rename-loading", StateOperationPending, "loading tracking branches for "+platform.SafeText(remote)
+				return m, m.loadRemoteTracking(remote)
+			} else if m.currentView() == workspace.Journal {
 				if record := m.selectedRedoRecord(); record != nil {
 					m.RedoRecord, m.RedoConfirm = record, true
 					m.Status = "redo commit " + record.NewHead + " -> " + record.OldHead + "? (y/n)"
@@ -6432,6 +6643,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+	case RemoteTrackingReadyMsg:
+		if v.Repository != 0 && v.Repository != m.repositoryGeneration {
+			return m, nil
+		}
+		if v.Err != nil {
+			m.resetRemoteMutation()
+			m.State, m.Status = StateError, "load remote tracking branches: "+v.Err.Error()
+			return m, nil
+		}
+		m.RemoteMutationImpact = append([]remotes.TrackingBranch(nil), v.Branches...)
+		switch m.RemoteMutationMode {
+		case "rename-loading":
+			m.RemoteMutationMode, m.State = "rename", StateReady
+			m.RemoteMutationInput = ""
+			m.Status = "new name for " + platform.SafeText(v.Remote) + ": "
+		case "remove-loading":
+			m.RemoteMutationMode, m.RemoteMutationConfirm, m.State = "remove", true, StateReady
+			m.Status = remoteImpactStatus("remove "+v.Remote, m.RemoteMutationImpact)
+		}
+	case RemotePrunePreviewMsg:
+		if v.Repository != 0 && v.Repository != m.repositoryGeneration {
+			return m, nil
+		}
+		m.RemoteMutationMode = "prune"
+		if v.Err != nil {
+			m.resetRemoteMutation()
+			m.State, m.Status = StateError, "preview remote prune: "+v.Err.Error()
+			return m, nil
+		}
+		m.RemotePrunePreview, m.RemotePruneConfirm, m.State = v.Text, true, StateReady
+		m.Status = "confirm prune " + platform.SafeText(v.Remote) + "; stale refs: " + platform.SafeText(strings.TrimSpace(v.Text)) + " (y/n)"
 	case PushPreviewReadyMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -6502,6 +6744,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
 		}
+		m.resetRemoteMutation()
 		m.RemoteSetUpstream, m.RemoteTag, m.RemoteTagDeleteConfirm, m.RemoteTagDeleteMode = false, "", false, false
 		if m.RemoteJobID != "" {
 			for i := range m.Remotes.Dashboard.Jobs {
@@ -6540,7 +6783,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateReady, v.Operation+" complete: "+v.Remote
 			m.recordActivityWithOperation(history.OperationSuccess, v.Remote, m.Status, v.Journal)
 		}
-		return m, tea.Batch(m.refresh(), m.loadRemotes())
+		return m, tea.Batch(m.refresh(), m.loadRemotes(), m.loadBranches(), m.loadGitHub())
 	}
 	return m, nil
 }
@@ -6767,6 +7010,12 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.RemoteTagDeleteConfirm || m.RemoteTagDeleteMode {
 			content += "\n\n" + m.Status
 		}
+		if m.RemoteMutationConfirm || m.RemotePruneConfirm || m.RemoteMutationMode != "" {
+			content += "\n\n" + platform.SafeText(m.Status)
+			if m.RemotePrunePreview != "" {
+				content += "\n" + platform.SafeText(m.RemotePrunePreview)
+			}
+		}
 	case workspace.GitHub:
 		title, content = "gitwatch · GitHub", m.GitHub.View()
 	case workspace.Plugins:
@@ -6843,7 +7092,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [space] select  [tab] filter  [type] search  [a/d] preview/apply  [p] preview  [r] refresh  [b] bundled  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
-		lines[len(lines)-1] = "[j/k] move  [f] fetch  [m] merge  [e] rebase  [o] ff-only  [p] push preview  [P] force-with-lease  [T] push tag  [X] delete remote tag  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [A] add  [R] rename  [L] set-url  [D] remove  [K] prune  [f] fetch  [p] push  [T/X] tag  [esc] back  [q] quit"
 	}
 	if view == workspace.GitHub {
 		lines[len(lines)-1] = "[r] refresh  [esc] back  [q] quit"
