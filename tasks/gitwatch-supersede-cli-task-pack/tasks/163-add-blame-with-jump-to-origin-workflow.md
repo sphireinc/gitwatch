@@ -60,5 +60,9 @@ Implement blame as an investigation surface that links lines back to commit hist
 - The parser retains origin/final SHAs and line numbers, author identity/time,
   filename, and raw line content without presentation sanitization.
 - Added focused tests for exact argv/path bytes, control-sequence content,
-  output-limit truncation, range clamping, and invalid requests. UI routing,
-  origin-commit inspection, and full repository gates remain pending.
+  output-limit truncation, range clamping, and invalid requests.
+- Added the bounded Blame workspace with keyboard/mouse line selection,
+  paginated rendering, origin-commit inspection, first-parent path diff
+  loading, and Status/path-history/commit-inspector routing via `L`.
+- Blame UI focused tests pass; full repository gates and final manual terminal
+  acceptance remain pending.

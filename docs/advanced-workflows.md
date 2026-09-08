@@ -12,6 +12,11 @@ load parent-relative patches, changed-file statistics, and a path-filtered
 view. Partial staging builds a patch from stable hunk/line identities and runs
 `git apply --check` before changing the index.
 
+Path history and blame are bounded investigation surfaces. Blame uses
+`git blame --line-porcelain -L <start>,<end> -- <path>`, keeps raw origin data
+separate from sanitized terminal rendering, and opens the selected origin
+commit against its first parent without changing the worktree.
+
 ## Stashes, branches, and worktrees
 
 Stash and branch mutations validate refs/names before invoking Git. Deletion

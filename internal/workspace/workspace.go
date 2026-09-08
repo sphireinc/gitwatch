@@ -29,6 +29,7 @@ const (
 	Tags         View = "tags"
 	Compare      View = "compare"
 	PathHistory  View = "path-history"
+	Blame        View = "blame"
 )
 
 type Breadcrumb struct {

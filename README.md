@@ -131,6 +131,10 @@ path-history view, `f` explicitly toggles rename-following history, `]` loads
 the next bounded page, `Enter` opens the selected commit’s path inspector, and
 `Y` compares that commit with `HEAD`; `Esc` returns to the prior workspace.
 
+From Status, an inspected path, or path history, press `L` to open bounded
+blame pages. Select a line with `j`/`k` or the mouse and press `Enter` to open
+its origin commit and parent-relative path diff.
+
 ## Safety model
 
 Git commands are executed with argument vectors, never shell command strings. Machine-readable and NUL-delimited Git formats are used where available, and repository-controlled text is sanitized before terminal rendering.

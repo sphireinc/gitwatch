@@ -12,6 +12,7 @@ import (
 
 	"charm.land/bubbletea/v2"
 	"github.com/sphireinc/git-watch/internal/bisect"
+	"github.com/sphireinc/git-watch/internal/blame"
 	"github.com/sphireinc/git-watch/internal/branches"
 	"github.com/sphireinc/git-watch/internal/cherrypick"
 	"github.com/sphireinc/git-watch/internal/commands"
@@ -46,6 +47,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/submodules"
 	"github.com/sphireinc/git-watch/internal/tags"
+	"github.com/sphireinc/git-watch/internal/ui/blameview"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
 	"github.com/sphireinc/git-watch/internal/ui/committree"
 	"github.com/sphireinc/git-watch/internal/ui/commitview"
@@ -274,6 +276,16 @@ type PathHistoryReadyMsg struct {
 	Skip       int
 	HasMore    bool
 	Follow     bool
+	Request    uint64
+	Generation uint64
+	Err        error
+}
+type BlameReadyMsg struct {
+	Path       string
+	Start      int
+	Lines      []blame.Line
+	HasMore    bool
+	Truncated  bool
 	Request    uint64
 	Generation uint64
 	Err        error
@@ -639,6 +651,12 @@ type Model struct {
 	PathHistoryRequest       uint64
 	PathHistoryCancel        context.CancelFunc
 	PathHistoryGeneration    uint64
+	Blame                    blameview.Model
+	BlameLoading             bool
+	BlameErr                 error
+	BlameRequest             uint64
+	BlameCancel              context.CancelFunc
+	BlameGeneration          uint64
 	HistoryRefMode           bool
 	HistoryRefInput          string
 	HistoryTags              []history.Ref
@@ -2878,6 +2896,84 @@ func (m *Model) compareSelectedPathHistory() tea.Cmd {
 	return m.startCompare()
 }
 
+func (m *Model) openBlame(path string, start int) tea.Cmd {
+	if path == "" {
+		m.Status = "select a file before opening blame"
+		return nil
+	}
+	if start < 1 {
+		start = 1
+	}
+	if m.BlameCancel != nil {
+		m.BlameCancel()
+	}
+	ctx, cancel := context.WithCancel(m.commandContext())
+	m.BlameCancel = cancel
+	m.BlameRequest++
+	m.BlameGeneration = m.repositoryGeneration
+	request, generation := m.BlameRequest, m.BlameGeneration
+	m.BlameLoading, m.BlameErr = true, nil
+	m.Blame.SetPage(path, start, nil, false)
+	m.State, m.Status = StateOperationPending, "loading blame for "+platform.SafeText(path)
+	m.Workspace.Navigate(workspace.Blame, "Blame: "+platform.SafeText(path))
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		page, err := blame.LoadPage(ctx, runner, blame.Request{Path: path, Start: start, Limit: blame.DefaultLimit})
+		return BlameReadyMsg{Path: path, Start: page.Start, Lines: page.Lines, HasMore: page.HasMore, Truncated: page.Truncated, Request: request, Generation: generation, Err: err}
+	}
+}
+
+func (m *Model) loadBlamePage() tea.Cmd {
+	if m.Blame.Path == "" || m.BlameLoading || !m.Blame.HasMore {
+		return nil
+	}
+	if m.BlameCancel != nil {
+		m.BlameCancel()
+	}
+	ctx, cancel := context.WithCancel(m.commandContext())
+	m.BlameCancel = cancel
+	m.BlameRequest++
+	m.BlameGeneration = m.repositoryGeneration
+	request, generation := m.BlameRequest, m.BlameGeneration
+	start := m.Blame.Start + len(m.Blame.Lines)
+	m.BlameLoading = true
+	path := m.Blame.Path
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		page, err := blame.LoadPage(ctx, runner, blame.Request{Path: path, Start: start, Limit: blame.DefaultLimit})
+		return BlameReadyMsg{Path: path, Start: page.Start, Lines: page.Lines, HasMore: page.HasMore, Truncated: page.Truncated, Request: request, Generation: generation, Err: err}
+	}
+}
+
+func (m Model) inspectSelectedBlame() tea.Cmd {
+	line, ok := m.Blame.SelectedLine()
+	if !ok || line.FinalSHA == "" {
+		return nil
+	}
+	path := line.Filename
+	if path == "" {
+		path = m.Blame.Path
+	}
+	sha := line.FinalSHA
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx := m.commandContext()
+	m.State, m.Status = StateOperationPending, "loading blame origin commit"
+	m.Workspace.Navigate(workspace.Log, "History")
+	return func() tea.Msg {
+		commit, err := history.LoadCommit(ctx, runner, sha)
+		if err != nil {
+			return HistoryInspectorReadyMsg{Err: err}
+		}
+		parent := ""
+		if len(commit.Parents) > 0 {
+			parent = commit.Parents[0]
+		}
+		inspector, inspectErr := history.InspectPath(ctx, runner, sha, parent, path)
+		inspector.Commit = commit
+		return HistoryInspectorReadyMsg{Inspector: inspector, Err: inspectErr}
+	}
+}
+
 func (m Model) inspectSelectedCommit() tea.Cmd {
 	if m.History.Selected < 0 || m.History.Selected >= len(m.History.Rows) {
 		return nil
@@ -4934,6 +5030,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.compareSelectedPathHistory()
 			}
 		}
+		if m.currentView() == workspace.Blame {
+			switch v.String() {
+			case "esc":
+				if m.BlameCancel != nil {
+					m.BlameCancel()
+					m.BlameCancel = nil
+				}
+				m.BlameLoading = false
+				m.Workspace.Back()
+				m.Status = "returned from blame"
+				return m, nil
+			case "]":
+				return m, m.loadBlamePage()
+			case "enter":
+				return m, m.inspectSelectedBlame()
+			}
+		}
 		if m.currentView() == workspace.Branches && m.RemoteBranchAction == "track" {
 			return m, m.updateRemoteBranchKey(v.String())
 		}
@@ -5612,6 +5725,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.RemoteMutationRemote, m.RemoteMutationMode, m.Status = remote.Name, "set-url", "new URL for "+platform.SafeText(remote.Name)+" (current: "+platform.SafeText(remote.FetchURL)+"): "
 				return m, nil
 			}
+			path := ""
+			if m.currentView() == workspace.Status {
+				path = string(m.Files.SelectedPath())
+			} else if m.currentView() == workspace.PathHistory {
+				path = m.PathHistory.Path
+				if entry, ok := m.PathHistory.SelectedEntry(); ok && entry.NewPath != "" {
+					path = entry.NewPath
+				}
+			} else if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" {
+				path = m.HistoryInspectorPath
+				if path == "" {
+					path = string(m.Files.SelectedPath())
+				}
+			}
+			if path != "" {
+				return m, m.openBlame(path, 1)
+			}
 		case "N":
 			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
 				branch := m.Branches.Entries[m.Branches.Selected]
@@ -5979,6 +6109,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.currentView() {
 			case workspace.PathHistory:
 				m.PathHistory.Move(1)
+			case workspace.Blame:
+				m.Blame.Move(1)
 			case workspace.Branches:
 				m.Branches.Move(1)
 			case workspace.Stashes:
@@ -6028,6 +6160,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.currentView() {
 			case workspace.PathHistory:
 				m.PathHistory.Move(-1)
+			case workspace.Blame:
+				m.Blame.Move(-1)
 			case workspace.Branches:
 				m.Branches.Move(-1)
 			case workspace.Stashes:
@@ -6211,6 +6345,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				row := (v.Y - 4) / 2
 				if v.Y >= 4 && row >= 0 && row < len(m.PathHistory.Entries) {
 					m.PathHistory.Selected = row
+				}
+				return m, nil
+			}
+			if m.currentView() == workspace.Blame {
+				row := v.Y - 3 // feature title, blank line, and blame header
+				if v.Y >= 3 && row >= 0 && row < len(m.Blame.Lines) {
+					m.Blame.Selected = row
+					return m, m.inspectSelectedBlame()
 				}
 				return m, nil
 			}
@@ -6783,6 +6925,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.PathHistory.AppendPage(v.Entries, v.HasMore)
 		}
 		m.State, m.Status = StateReady, "path history loaded"
+	case BlameReadyMsg:
+		if v.Generation != m.BlameGeneration || v.Request != m.BlameRequest {
+			return m, nil
+		}
+		m.BlameCancel, m.BlameLoading = nil, false
+		m.BlameErr = v.Err
+		if v.Err != nil {
+			m.State, m.Status = StateError, "blame: "+v.Err.Error()
+			return m, nil
+		}
+		if v.Start == m.Blame.Start || len(m.Blame.Lines) == 0 {
+			m.Blame.SetPage(v.Path, v.Start, v.Lines, v.HasMore)
+		} else {
+			m.Blame.AppendPage(v.Start, v.Lines, v.HasMore)
+		}
+		m.State, m.Status = StateReady, "blame loaded"
 	case ComparePatchReadyMsg:
 		if v.Generation != m.CompareGeneration || v.Request != m.ComparePatchRequest {
 			return m, nil
@@ -7485,7 +7643,7 @@ func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
 	}
-	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Journal || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.CherryPick || view == workspace.Gitignore || view == workspace.Tags || view == workspace.Compare || view == workspace.PathHistory {
+	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Journal || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.CherryPick || view == workspace.Gitignore || view == workspace.Tags || view == workspace.Compare || view == workspace.PathHistory || view == workspace.Blame {
 		return m.featureView(view)
 	}
 	if m.Modal == "help" {
@@ -7662,6 +7820,14 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.PathHistoryErr != nil {
 			content += "\n\nPath-history error: " + platform.SafeText(m.PathHistoryErr.Error())
 		}
+	case workspace.Blame:
+		title, content = "gitwatch · blame", m.Blame.View()
+		if m.BlameLoading {
+			content += "\n\nLoading blame…"
+		}
+		if m.BlameErr != nil {
+			content += "\n\nBlame error: " + platform.SafeText(m.BlameErr.Error())
+		}
 	}
 	title += " · watch:" + watchModeName(m.WatchMode)
 	lines := []string{title, "", content, "", "──────────────────────────────────────────────────────────────", "[j/k] move  [1] status  [b] branches  [s] stashes  [l] history  [n] remotes  [esc] back  [q] quit"}
@@ -7756,6 +7922,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 	}
 	if view == workspace.PathHistory {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect commit  [Y] compare to HEAD  [f] toggle follow  [] load more  [esc] back  [q] quit"
+	}
+	if view == workspace.Blame {
+		lines[len(lines)-1] = "[j/k] move  [enter] inspect origin commit  [] load more  [esc] back  [q] quit"
 	}
 	if view == workspace.Conflict {
 		lines[len(lines)-1] = "[j/k] conflict  [n/p] hunk  [o/t/b] choose  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back  [q] quit"
