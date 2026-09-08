@@ -111,6 +111,12 @@ func TestCustomCommandConfigurationValidatesWithoutShellMode(t *testing.T) {
 	if err := Validate(c); err == nil {
 		t.Fatal("unknown custom-command placeholder was accepted")
 	}
+	c.CustomCommands[0].Args = nil
+	c.CustomCommands = append(c.CustomCommands, customcmd.Definition{Name: "other", Executable: "tool", Binding: "x"})
+	c.CustomCommands[0].Binding = "x"
+	if err := Validate(c); err == nil {
+		t.Fatal("custom-command binding collision was accepted")
+	}
 }
 
 func TestKeymapProfilesPrecedenceAndValidation(t *testing.T) {

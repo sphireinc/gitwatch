@@ -65,6 +65,6 @@ Match LZ’s low-friction custom-command usefulness without requiring a compiled
   stdout/stderr, palette actions, mutation-driven refresh, and sanitized plus
   secret-redacted completion/error status. Commands requesting confirmation
   intentionally remain deferred to Task 168's prompt/form engine.
-- Native terminal acceptance, cancellation UX, and persistent binding
-  collision/confirmation workflow remain pending for the remainder of this
-  task.
+- Added optional key bindings and context restrictions with duplicate-binding
+  validation. Native terminal acceptance and confirmation UX remain pending;
+  the latter is intentionally the next task's prompt/form responsibility.

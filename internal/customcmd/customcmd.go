@@ -96,6 +96,9 @@ func Run(ctx context.Context, invocation Invocation, maxBytes int) (Output, erro
 		return output, ErrOutputLimit
 	}
 	if err != nil {
+		if message := strings.TrimSpace(string(output.Stderr)); message != "" {
+			return output, fmt.Errorf("custom command %q: %w: %s", invocation.Name, err, message)
+		}
 		return output, fmt.Errorf("custom command %q: %w", invocation.Name, err)
 	}
 	return output, nil
@@ -173,6 +176,13 @@ func (d Definition) Validate() error {
 	}
 	if d.Timeout < 0 {
 		return fmt.Errorf("custom command %q timeout cannot be negative", d.Name)
+	}
+	for _, contextName := range d.Contexts {
+		switch contextName {
+		case "status", "history", "compare", "github", "any":
+		default:
+			return fmt.Errorf("custom command %q has unknown context %q", d.Name, contextName)
+		}
 	}
 	allowed := map[string]bool{"repo": true, "path": true, "sha": true, "branch": true, "remote": true, "tag": true, "url": true}
 	for _, token := range append(append([]string(nil), d.Args...), d.Directory) {

@@ -250,9 +250,16 @@ func Validate(c Config) error {
 	if err := ValidateKeymaps(c); err != nil {
 		return err
 	}
+	customBindings := make(map[string]string)
 	for _, command := range c.CustomCommands {
 		if err := command.Validate(); err != nil {
 			return err
+		}
+		if command.Binding != "" {
+			if previous := customBindings[command.Binding]; previous != "" {
+				return fmt.Errorf("custom command binding %q collides with %s", command.Binding, previous)
+			}
+			customBindings[command.Binding] = command.Name
 		}
 	}
 	return nil

@@ -975,6 +975,28 @@ func (m *Model) runCustomCommand(name string) tea.Cmd {
 		m.Status = "custom command not found: " + platform.SafeText(name)
 		return nil
 	}
+	if len(definition.Contexts) > 0 {
+		current := "status"
+		switch m.currentView() {
+		case workspace.Log:
+			current = "history"
+		case workspace.Compare:
+			current = "compare"
+		case workspace.GitHub:
+			current = "github"
+		}
+		allowed := false
+		for _, contextName := range definition.Contexts {
+			if contextName == "any" || contextName == current {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			m.Status = "custom command unavailable in " + current + " context"
+			return nil
+		}
+	}
 	invocation, err := definition.Expand(m.customCommandContext())
 	if err != nil {
 		m.Status = "custom command: " + platform.SafeText(err.Error())
@@ -5666,6 +5688,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.loadReflog(true)
 			}
 			return m, nil
+		}
+		for _, definition := range m.CustomCommands {
+			if definition.Binding == v.String() {
+				return m, m.runCustomCommand(definition.Name)
+			}
 		}
 		switch v.String() {
 		case "q", "ctrl+c":
