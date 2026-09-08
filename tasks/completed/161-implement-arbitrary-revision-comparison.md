@@ -44,18 +44,18 @@ Allow users to compare any two commits, branches, tags, remote refs or reflog en
 
 ## Acceptance criteria
 
-- [ ] Any two resolved revisions can be compared with no checkout.
-- [ ] Compare never blocks live status refresh.
+- [x] Any two resolved revisions can be compared with no checkout.
+- [x] Compare never blocks live status refresh.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
+- [x] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -80,3 +80,21 @@ Allow users to compare any two commits, branches, tags, remote refs or reflog en
   changed row and pressing Enter; cancellation is request-scoped alongside the
   comparison job. Assignment coverage includes History, Tags,
   Branches/remote branches, and Reflog.
+
+## Completion evidence
+
+- Implementation commits: `acac591`, `6e9c0bc`, `d47fcd8`, `31e2039`.
+- Exact tested revision: `31e2039`.
+- Focused coverage: immutable ref resolution, rename/copy and binary parsing,
+  unusual paths, bounded output, selected-file patch argv, comparison view
+  rendering, cancellation/request scoping, and assignment from History, Tags,
+  Branches/remote branches, and Reflog.
+- Full gate at the tested tree: `make check` passed, including lint,
+  `go test ./...`, `go test -race ./...`, `go vet ./...`, formatting, diff,
+  security, and performance checks.
+- Native/manual exception: automated Bubble Tea tests cover the comparison
+  workspace, keyboard assignment, selection, and patch routing; a human 80x24
+  terminal pass remains release QA follow-up.
+- Known limitation: comparison retains bounded complete-side patch output and
+  loads one selected-file patch on demand; it does not yet provide a separate
+  interactive file-diff pane or arbitrary mouse-side assignment.
