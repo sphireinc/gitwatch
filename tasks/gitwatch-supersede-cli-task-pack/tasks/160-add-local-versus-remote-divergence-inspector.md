@@ -47,3 +47,13 @@ Make ahead/behind counts actionable by showing exactly what differs before fetch
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Reused the completed arbitrary-revision comparison workspace to make the
+  Remotes view actionable: `Y` assigns the current local branch first and the
+  selected remote's matching tracking ref second, then opens the read-only
+  divergence inspector without fetch, checkout, or mutation.
+- Added focused routing coverage for local-versus-remote assignment. Unique
+  commit lists, file/stat summary, and next-action controls remain to be
+  completed.

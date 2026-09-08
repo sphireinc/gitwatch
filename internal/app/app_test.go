@@ -855,6 +855,23 @@ func TestCompareAssignsTagsAndReflogEntries(t *testing.T) {
 	}
 }
 
+func TestCompareAssignsCurrentBranchAndSelectedRemote(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Remotes, "Remotes")
+	m.Snapshot = repo.Snapshot{Branch: repo.Branch{Name: "main"}}
+	m.Remotes = remoteview.New(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin"}}})
+	updated, cmd := m.Update(key("Y"))
+	m = updated.(Model)
+	if cmd != nil || m.CompareLeft != "main" {
+		t.Fatalf("remote comparison local assignment = cmdnil=%v left=%q", cmd == nil, m.CompareLeft)
+	}
+	updated, cmd = m.Update(key("Y"))
+	m = updated.(Model)
+	if cmd == nil || m.CompareRight != "origin/main" || m.currentView() != workspace.Compare {
+		t.Fatalf("remote comparison assignment = cmdnil=%v right=%q view=%q", cmd == nil, m.CompareRight, m.currentView())
+	}
+}
+
 func TestMergeStrategyNames(t *testing.T) {
 	for _, test := range []struct {
 		input string

@@ -2097,6 +2097,14 @@ func (m Model) selectedCompareRef() (string, bool) {
 		if selected, ok := m.Reflog.SelectedEntry(); ok {
 			return selected.SHA, true
 		}
+	case workspace.Remotes:
+		if m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) && m.Snapshot.Branch.Name != "" {
+			remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
+			if m.CompareLeft == "" {
+				return m.Snapshot.Branch.Name, true
+			}
+			return remote + "/" + m.Snapshot.Branch.Name, true
+		}
 	}
 	return "", false
 }
@@ -5685,7 +5693,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.SetClipboard(m.GitHub.Pull.URL)
 			}
 		case "Y":
-			if m.currentView() == workspace.Log || m.currentView() == workspace.Tags || m.currentView() == workspace.Branches || m.currentView() == workspace.Reflog {
+			if m.currentView() == workspace.Log || m.currentView() == workspace.Tags || m.currentView() == workspace.Branches || m.currentView() == workspace.Reflog || m.currentView() == workspace.Remotes {
 				return m, m.assignCompareSelection()
 			}
 		case "t":
@@ -7508,7 +7516,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [space] select  [tab] filter  [type] search  [a/d] preview/apply  [p] preview  [r] refresh  [b] bundled  [esc] back  [q] quit"
 	}
 	if view == workspace.Remotes {
-		lines[len(lines)-1] = "[j/k] move  [A] add  [R] rename  [L] set-url  [D] remove  [K] prune  [f] fetch  [p] push  [T/X] tag  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [Y] compare  [A] add  [R] rename  [L] set-url  [D] remove  [K] prune  [f] fetch  [p] push  [T/X] tag  [esc] back  [q] quit"
 	}
 	if view == workspace.GitHub {
 		lines[len(lines)-1] = "[r] refresh  [esc] back  [q] quit"
