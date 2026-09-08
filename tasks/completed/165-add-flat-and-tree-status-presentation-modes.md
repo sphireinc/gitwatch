@@ -42,13 +42,13 @@ Add collapsible directory navigation without changing the underlying authoritati
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded: `c96a1a1` (`feat: add collapsible status tree presentation`).
+- [x] Exact tested revision recorded: `c96a1a1`.
+- [x] Focused unit/integration tests recorded: `GOCACHE=/tmp/git-watch-165-focused-cache ... go test ./internal/ui/filetree ./internal/app`; passed with tree arithmetic, app routing, filtering, selection, and source-snapshot coverage.
+- [x] `go test ./...` recorded: passed through `make check`.
+- [x] Race/vet/lint/format evidence recorded where applicable: `make check` passed formatting, golangci-lint with 0 issues, `go test -race ./...`, `go vet ./...`, `git diff --check`, security, and performance checks.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented: interactive 80x24, `NO_COLOR`, reduced-motion, mouse, and native Windows acceptance still require maintainer-run terminal sessions; automated tests cover the pure presentation and app routing contracts.
 
 ## Local progress evidence
 
@@ -62,4 +62,6 @@ Add collapsible directory navigation without changing the underlying authoritati
 - Focused filetree and app tests cover nested paths, filtered indexes,
   aggregation, collapse/expand, selection preservation, and authoritative
   source-entry preservation. Full repository gates and manual 80x24/native
-  acceptance remain pending.
+  acceptance remain pending; that manual evidence is an explicit release
+  follow-up because this environment does not provide native Windows or a
+  maintainer-operated terminal acceptance session.
