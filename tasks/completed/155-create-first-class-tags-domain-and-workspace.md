@@ -68,7 +68,7 @@ Stop treating tags as incidental history refs and expose them as managed objects
   `worktrees.AddWithCommit`; successful mutations request an authoritative
   refresh. App tests cover loading, rendering, filtering, sorting, inspection,
   comparison, verification, checkout, and worktree routing.
-- Final tested revision: recorded after the implementation commit below.
+- Final tested revision: `1b4daf1`.
 - Validation: full `make check` passed, including formatting, lint, full tests,
   race tests, vet, diff checks, security, and performance benchmarks.
 - Native/manual evidence exception: automated routing and rendering coverage
