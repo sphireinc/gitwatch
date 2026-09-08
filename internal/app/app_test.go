@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/sphireinc/git-watch/internal/bisect"
 	"github.com/sphireinc/git-watch/internal/branches"
 	"github.com/sphireinc/git-watch/internal/commands"
@@ -209,7 +210,7 @@ func TestActiveRebaseWithoutConflictsHasRecoveryRoute(t *testing.T) {
 	}
 	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "feature"}, Operation: &state})
 	m.Width = 200
-	status := m.statusView()
+	status := ansi.Strip(m.statusView())
 	for _, want := range []string{"REBASE paused (edit-stop)", "current: current-commit"} {
 		if !strings.Contains(status, want) {
 			t.Fatalf("status view missing %q:\n%s", want, status)
@@ -299,7 +300,8 @@ func TestSubmoduleHealthLoadsOutsideAuthoritativeSnapshotAndRendersSummary(t *te
 		},
 	}})
 	m = updated.(Model)
-	if m.SubmodulesLoading || m.SubmodulesErr != nil || !strings.Contains(m.statusView(), "SUBMODULES 1 clean  1 attention") {
+	status := ansi.Strip(m.statusView())
+	if m.SubmodulesLoading || m.SubmodulesErr != nil || !strings.Contains(status, "SUBMODULES 1 clean  1 attention") {
 		t.Fatalf("submodule summary = loading=%v err=%v view=%q", m.SubmodulesLoading, m.SubmodulesErr, m.statusView())
 	}
 }
@@ -1773,12 +1775,12 @@ func TestStatusContextPaneShortcutsSelectUnpushedAndBranches(t *testing.T) {
 	m.UnpushedCount = 1
 	updated, command := m.Update(key("P"))
 	m = updated.(Model)
-	if command == nil || m.LowerPane != "unpushed" || !strings.Contains(m.statusView(), "Unpushed commits") {
+	if command == nil || m.LowerPane != "unpushed" || !strings.Contains(ansi.Strip(m.statusView()), "Unpushed commits") {
 		t.Fatalf("unpushed shortcut: commandnil=%v pane=%q", command == nil, m.LowerPane)
 	}
 	updated, _ = m.Update(key("B"))
 	m = updated.(Model)
-	if m.LowerPane != "branches" || !strings.Contains(m.statusView(), "Branches") {
+	if m.LowerPane != "branches" || !strings.Contains(ansi.Strip(m.statusView()), "Branches") {
 		t.Fatalf("branch summary shortcut: pane=%q", m.LowerPane)
 	}
 }
