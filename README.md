@@ -30,6 +30,7 @@ provenance and local playback instructions.
 
 - Live, authoritative porcelain-v2 status with filesystem watching and polling fallback.
 - Responsive status dashboard with branch divergence, staged/unstaged state, conflicts, filtering, sorting, activity, and selected-file details.
+- Flat and collapsible tree status presentation over the same authoritative file snapshot; `O` toggles modes and `[`/`]` collapse or expand directories.
 - Long file paths and diff/details lines wrap to the active panel width instead of being silently truncated.
 - Read-only staged/unstaged diff switching, bounded scrolling/search, and explicit large-diff truncation notices.
 - Optional bottom-pane commit graph with bounded history (`--with-commit-tree` or `show_commit_tree`).

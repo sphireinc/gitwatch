@@ -11,6 +11,8 @@
 | a | Stage all tracked, untracked, and deleted paths (in Status view) |
 | U | Unstage all while preserving working-tree content (in Status view) |
 | S | Cycle status-file sort mode (in Status view) |
+| O | Toggle flat/tree status presentation (in Status view) |
+| [ / ] | Collapse all / expand all status directories (in tree mode) |
 | ! | Toggle conflict-only status filter (in Status view) |
 | R then type `yes` | Restore the selected tracked path after exact-scope confirmation (in Status view) |
 | d | Open diff |

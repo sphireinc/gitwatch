@@ -15,9 +15,39 @@ import (
 	"github.com/sphireinc/git-watch/internal/submodules"
 	"github.com/sphireinc/git-watch/internal/ui/committree"
 	"github.com/sphireinc/git-watch/internal/ui/details"
+	"github.com/sphireinc/git-watch/internal/ui/filetree"
 	"github.com/sphireinc/git-watch/internal/ui/layout"
 	"github.com/sphireinc/git-watch/internal/ui/theme"
 )
+
+func (m *Model) rebuildStatusFileTree() {
+	selected := string(m.Files.SelectedPath())
+	m.FileTree.SetEntries(m.Files.Entries, m.Files.Visible, selected)
+}
+
+func (m *Model) moveStatusFiles(delta int) {
+	if m.StatusTreeMode {
+		m.FileTree.Move(delta, m.statusRowCount())
+		if index, ok := m.FileTree.SelectedEntryIndex(); ok {
+			for visible, entryIndex := range m.Files.Visible {
+				if entryIndex == index {
+					m.Files.Selected = visible
+					break
+				}
+			}
+		}
+		return
+	}
+	m.Files.Move(delta, m.statusRowCount())
+}
+
+func (m *Model) selectedStatusTreeEntry() (repo.Entry, bool) {
+	index, ok := m.FileTree.SelectedEntryIndex()
+	if !ok || index < 0 || index >= len(m.Files.Entries) {
+		return repo.Entry{}, false
+	}
+	return m.Files.Entries[index], true
+}
 
 const (
 	defaultStatusWidth  = 100
@@ -44,7 +74,13 @@ func (m Model) statusRowCount() int {
 	width = max(1, width-1)
 	rows := 0
 	available := max(1, statusLayout.Files.Height-1-m.statusFileHeaderRows(width))
-	for _, height := range m.statusFileRowHeights(width) {
+	var heights []int
+	if m.StatusTreeMode {
+		heights = m.statusTreeRowHeights(width)
+	} else {
+		heights = m.statusFileRowHeights(width)
+	}
+	for _, height := range heights {
 		if rows+height > available {
 			break
 		}
@@ -278,6 +314,12 @@ func (m Model) styleStatusFileLine(line string) string {
 	if strings.Contains(line, "clean worktree") {
 		return m.Theme.Clean.Render(line)
 	}
+	if strings.Contains(line, "▾ ") || strings.Contains(line, "▸ ") {
+		if strings.HasPrefix(line, "> ") {
+			return m.Theme.Selection.Render(line)
+		}
+		return m.Theme.Muted.Render(line)
+	}
 	if len(line) < 6 {
 		return line
 	}
@@ -337,10 +379,25 @@ func (m Model) statusFileLines(width, height int) []string {
 		}
 		lines = append(lines, "Commit: "+label)
 	}
-	for i := m.Files.Offset; i < len(m.Files.Visible) && len(lines) < height; i++ {
-		entry := m.Files.Entries[m.Files.Visible[i]]
-		wrapped := fitSafeDisplayLines(m.statusFileText(entry, i == m.Files.Selected), width)
-		lines = append(lines, wrapped...)
+	if m.StatusTreeMode {
+		for i := m.FileTree.Offset; i < len(m.FileTree.Rows) && len(lines) < height; i++ {
+			row := m.FileTree.Rows[i]
+			if row.Directory {
+				lines = append(lines, fitSafeDisplay(m.statusTreeText(row, i == m.FileTree.Selected), width))
+				continue
+			}
+			if row.EntryIndex < 0 || row.EntryIndex >= len(m.FileTree.Entries) {
+				continue
+			}
+			entry := m.FileTree.Entries[row.EntryIndex]
+			lines = append(lines, fitSafeDisplayLines(m.statusFileText(entry, i == m.FileTree.Selected), width)...)
+		}
+	} else {
+		for i := m.Files.Offset; i < len(m.Files.Visible) && len(lines) < height; i++ {
+			entry := m.Files.Entries[m.Files.Visible[i]]
+			wrapped := fitSafeDisplayLines(m.statusFileText(entry, i == m.Files.Selected), width)
+			lines = append(lines, wrapped...)
+		}
 	}
 	if len(lines) == 0 {
 		lines = append(lines, fitSafeDisplay("  clean worktree", width))
@@ -534,6 +591,34 @@ func (m Model) statusFileRowHeights(width int) []int {
 		heights = append(heights, len(fitSafeDisplayLines(m.statusFileText(entry, i == m.Files.Selected), width)))
 	}
 	return heights
+}
+
+func (m Model) statusTreeRowHeights(width int) []int {
+	heights := make([]int, 0, len(m.FileTree.Rows))
+	for index, row := range m.FileTree.Rows {
+		if row.Directory {
+			heights = append(heights, 1)
+			continue
+		}
+		if row.EntryIndex < 0 || row.EntryIndex >= len(m.FileTree.Entries) {
+			continue
+		}
+		heights = append(heights, len(fitSafeDisplayLines(m.statusFileText(m.FileTree.Entries[row.EntryIndex], index == m.FileTree.Selected), width)))
+	}
+	return heights
+}
+
+func (m Model) statusTreeText(row filetree.Row, selected bool) string {
+	marker := "  "
+	if selected {
+		marker = "> "
+	}
+	counts := fmt.Sprintf("[%dS %dM %d? %d!]", row.Counts.Staged, row.Counts.Unstaged, row.Counts.Untracked, row.Counts.Conflicted)
+	glyph := "▸"
+	if m.FileTree.Expanded[row.Path] {
+		glyph = "▾"
+	}
+	return marker + strings.Repeat("  ", row.Depth) + glyph + " " + platform.SafeText(row.Path) + " " + counts
 }
 
 func (m Model) statusFileText(entry repo.Entry, selected bool) string {

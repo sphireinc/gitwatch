@@ -54,6 +54,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/compareview"
 	"github.com/sphireinc/git-watch/internal/ui/conflictview"
 	"github.com/sphireinc/git-watch/internal/ui/details"
+	"github.com/sphireinc/git-watch/internal/ui/filetree"
 	"github.com/sphireinc/git-watch/internal/ui/githubview"
 	"github.com/sphireinc/git-watch/internal/ui/gitignoreview"
 	"github.com/sphireinc/git-watch/internal/ui/historyview"
@@ -501,6 +502,8 @@ type Model struct {
 	BulkSubmoduleCancel      context.CancelFunc
 	Discovery                git.Discovery
 	Files                    table.Model
+	FileTree                 filetree.Model
+	StatusTreeMode           bool
 	FileFilterMode           bool
 	FileFilterInput          string
 	FileConflictOnly         bool
@@ -1302,6 +1305,7 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 	}
 	if !m.StatusCommitActive {
 		m.Files.SetEntries(snapshot.Entries)
+		m.rebuildStatusFileTree()
 	}
 	if snapshot.Counts.Conflicted > 0 && (previousConflicted == 0 || previousOperationKind != operationKind) {
 		m.notify(notifications.Conflict, notifications.Error, "repository conflicts", fmt.Sprintf("%d conflicted file(s)", snapshot.Counts.Conflicted), true)
@@ -1781,6 +1785,11 @@ func waitForWatcher(manager *watch.Manager) tea.Cmd {
 }
 
 func (m Model) mutate() tea.Cmd {
+	if m.StatusTreeMode {
+		if _, ok := m.selectedStatusTreeEntry(); !ok {
+			return nil
+		}
+	}
 	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
 		return nil
 	}
@@ -1822,6 +1831,12 @@ func (m Model) mutateAll(stage bool) tea.Cmd {
 }
 
 func (m *Model) beginRestore() {
+	if m.StatusTreeMode {
+		if _, ok := m.selectedStatusTreeEntry(); !ok {
+			m.Status = "select a file row before restoring"
+			return
+		}
+	}
 	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
 		return
 	}
@@ -1882,6 +1897,7 @@ func (m *Model) updateFileFilterKey(key string) tea.Cmd {
 	case "esc":
 		m.FileFilterMode, m.FileFilterInput, m.FileConflictOnly = false, "", false
 		m.Files.SetFilter("")
+		m.rebuildStatusFileTree()
 		m.Status = "file filter cleared"
 		return nil
 	case "enter":
@@ -1903,6 +1919,7 @@ func (m *Model) updateFileFilterKey(key string) tea.Cmd {
 	}
 	m.FileConflictOnly = false
 	m.Files.SetFilter(m.FileFilterInput)
+	m.rebuildStatusFileTree()
 	m.Status = "file filter: " + m.FileFilterInput
 	return nil
 }
@@ -1955,6 +1972,11 @@ func (m *Model) seekDiffMatch(start int) bool {
 }
 
 func (m *Model) openDiff() tea.Cmd {
+	if m.StatusTreeMode {
+		if _, ok := m.selectedStatusTreeEntry(); !ok {
+			return nil
+		}
+	}
 	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
 		return nil
 	}
@@ -1963,6 +1985,11 @@ func (m *Model) openDiff() tea.Cmd {
 }
 
 func (m *Model) openDiffMode(staged bool) tea.Cmd {
+	if m.StatusTreeMode {
+		if _, ok := m.selectedStatusTreeEntry(); !ok {
+			return nil
+		}
+	}
 	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
 		return nil
 	}
@@ -2078,6 +2105,7 @@ func (m *Model) clearStatusCommitInspection() {
 	}
 	m.StatusCommitActive, m.StatusCommitInspector, m.StatusCommitSHA, m.StatusCommitSelectedLine, m.StatusCommitLoading, m.StatusCommitErr = false, history.Inspector{}, "", -1, false, nil
 	m.Files.SetEntries(m.Snapshot.Entries)
+	m.rebuildStatusFileTree()
 	m.closeDiff()
 }
 
@@ -5653,6 +5681,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.currentView() == workspace.Status {
 				m.Files.CycleSort()
+				m.rebuildStatusFileTree()
 				m.Status = "file sort mode changed"
 			}
 		case "V":
@@ -5667,9 +5696,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.FileConflictOnly = !m.FileConflictOnly
 				if m.FileConflictOnly {
 					m.Files.SetConflictFilter(true)
+					m.rebuildStatusFileTree()
 					m.Status = "showing conflicted files only"
 				} else {
 					m.Files.SetFilter(m.FileFilterInput)
+					m.rebuildStatusFileTree()
 					m.Status = "conflict filter cleared"
 				}
 			}
@@ -5858,7 +5889,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "]":
-			if m.currentView() == workspace.Log && m.HistoryHasMore {
+			if m.currentView() == workspace.Status && m.StatusTreeMode {
+				m.FileTree.ExpandAll()
+				m.Status = "all directories expanded"
+			} else if m.currentView() == workspace.Log && m.HistoryHasMore {
 				m.State, m.Status = StateOperationPending, "loading more history"
 				return m, m.loadHistoryPage(m.HistorySkip)
 			}
@@ -5883,6 +5917,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Status {
 				m.FileFilterMode, m.FileConflictOnly = true, false
 				m.Files.SetFilter(m.FileFilterInput)
+				m.rebuildStatusFileTree()
 				m.Status = "file filter: " + m.FileFilterInput
 			}
 		case "x":
@@ -6180,6 +6215,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Status && m.selectedSubmodulePath() != "" {
 				return m, m.openSelectedSubmodule()
 			}
+			if m.currentView() == workspace.Status && m.StatusTreeMode && m.FileTree.ToggleSelected() {
+				m.rebuildStatusFileTree()
+				m.Status = "directory toggled"
+				return m, nil
+			}
 			return m, m.openDiff()
 		case "j", "down":
 			if m.currentView() == workspace.Status && m.contextPaneFocused() {
@@ -6227,7 +6267,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case workspace.Compare:
 				m.Compare.Move(1)
 			default:
-				m.Files.Move(1, m.statusRowCount())
+				m.moveStatusFiles(1)
 				if m.DiffPath != "" {
 					return m, m.openDiff()
 				}
@@ -6278,7 +6318,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case workspace.Compare:
 				m.Compare.Move(-1)
 			default:
-				m.Files.Move(-1, m.statusRowCount())
+				m.moveStatusFiles(-1)
 				if m.DiffPath != "" {
 					return m, m.openDiff()
 				}
@@ -6288,17 +6328,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.scrollContextPane(-m.statusLayout().CommitTree.Height)
 				return m, nil
 			}
-			m.scrollDiff(-m.statusRowCount())
+			if m.currentView() == workspace.Status && m.DiffPath == "" {
+				m.moveStatusFiles(-m.statusRowCount())
+			} else {
+				m.scrollDiff(-m.statusRowCount())
+			}
 		case "pgdown":
 			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				m.scrollContextPane(m.statusLayout().CommitTree.Height)
 				return m, nil
 			}
-			m.scrollDiff(m.statusRowCount())
+			if m.currentView() == workspace.Status && m.DiffPath == "" {
+				m.moveStatusFiles(m.statusRowCount())
+			} else {
+				m.scrollDiff(m.statusRowCount())
+			}
 		case "home":
 			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				m.CommitTreeOffset = 0
 				m.UnpushedOffset = 0
+				return m, nil
+			}
+			if m.currentView() == workspace.Status && m.DiffPath == "" {
+				if m.StatusTreeMode {
+					m.FileTree.Home(m.statusRowCount())
+					m.moveStatusFiles(0)
+				} else {
+					m.Files.Selected, m.Files.Offset = 0, 0
+				}
 				return m, nil
 			}
 		case "end":
@@ -6307,6 +6364,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.UnpushedOffset = len(m.UnpushedLines)
 				m.scrollCommitTree(0)
 				m.scrollUnpushed(0)
+				return m, nil
+			}
+			if m.currentView() == workspace.Status && m.DiffPath == "" {
+				if m.StatusTreeMode {
+					m.FileTree.End(m.statusRowCount())
+					m.moveStatusFiles(0)
+				} else if len(m.Files.Visible) > 0 {
+					m.Files.Selected, m.Files.Offset = len(m.Files.Visible)-1, max(0, len(m.Files.Visible)-m.statusRowCount())
+				}
 				return m, nil
 			}
 		case "space":
@@ -6345,6 +6411,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.beginHistoricalHunks()
 			} else if m.DiffText != "" {
 				m.beginHunks()
+			}
+		case "O":
+			if m.currentView() == workspace.Status {
+				m.StatusTreeMode = !m.StatusTreeMode
+				m.rebuildStatusFileTree()
+				if m.StatusTreeMode {
+					m.Status = "tree status mode"
+				} else {
+					m.Status = "flat status mode"
+				}
+			}
+		case "[":
+			if m.currentView() == workspace.Status && m.StatusTreeMode {
+				m.FileTree.CollapseAll()
+				m.Status = "all directories collapsed"
 			}
 		case "h":
 			path := ""
@@ -6563,10 +6644,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				files.Width = max(1, files.Width-1)
 			}
 			files.Width = max(1, files.Width-1)
-			hit := uimouse.HitMap{Files: files, RowTop: files.Y + 1 + m.statusFileHeaderRows(files.Width), RowHeight: 1, Offset: m.Files.Offset, RowHeights: m.statusFileRowHeights(files.Width), StageX: files.X + 1, StageWidth: 3, RowCount: len(m.Files.Visible)}
+			rowOffset, rowHeights, rowCount := m.Files.Offset, m.statusFileRowHeights(files.Width), len(m.Files.Visible)
+			if m.StatusTreeMode {
+				rowOffset, rowHeights, rowCount = m.FileTree.Offset, m.statusTreeRowHeights(files.Width), len(m.FileTree.Rows)
+			}
+			hit := uimouse.HitMap{Files: files, RowTop: files.Y + 1 + m.statusFileHeaderRows(files.Width), RowHeight: 1, Offset: rowOffset, RowHeights: rowHeights, StageX: files.X + 1, StageWidth: 3, RowCount: rowCount}
 			action, row, ok := hit.Hit(v.X, v.Y, 0)
 			if ok {
-				m.Files.Selected = row
+				if m.StatusTreeMode {
+					m.FileTree.Selected = row
+					if row >= 0 && row < len(m.FileTree.Rows) && m.FileTree.Rows[row].Directory {
+						m.FileTree.ToggleSelected()
+						m.Status = "directory toggled"
+						return m, nil
+					}
+					if index, selected := m.FileTree.SelectedEntryIndex(); selected {
+						for visible, entryIndex := range m.Files.Visible {
+							if entryIndex == index {
+								m.Files.Selected = visible
+								break
+							}
+						}
+					}
+				} else {
+					m.Files.Selected = row
+				}
 				if action == uimouse.ToggleStage {
 					return m, m.mutate()
 				}
@@ -7077,6 +7179,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.Files.SetEntries(entries)
 		m.Files.Selected = 0
+		m.rebuildStatusFileTree()
 		m.CommitTreeFocused, m.UnpushedFocused = false, false
 		m.Status = "inspecting commit " + v.Inspector.Commit.Short
 	case UnpushedReadyMsg:

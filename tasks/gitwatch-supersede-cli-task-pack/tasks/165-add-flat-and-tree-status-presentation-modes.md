@@ -37,8 +37,8 @@ Add collapsible directory navigation without changing the underlying authoritati
 
 ## Acceptance criteria
 
-- [ ] Tree mode is purely a view over the same live status snapshot.
-- [ ] Flat/tree toggle never changes refresh semantics.
+- [x] Tree mode is purely a view over the same live status snapshot.
+- [x] Flat/tree toggle never changes refresh semantics.
 
 ## Completion record
 
@@ -49,3 +49,17 @@ Add collapsible directory navigation without changing the underlying authoritati
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Local progress evidence
+
+- Added `internal/ui/filetree`, a pure presentation index that receives the
+  existing filtered/sorted status entry indexes, preserves path selection, and
+  aggregates staged, modified, untracked, and conflict counts for directories.
+- Added `O` flat/tree switching, `Enter` directory toggling, `[`/`]` collapse/
+  expand-all controls, keyboard page/home/end behavior, and mouse selection
+  parity while keeping mutation and diff lookup keyed by the underlying file
+  entry.
+- Focused filetree and app tests cover nested paths, filtered indexes,
+  aggregation, collapse/expand, selection preservation, and authoritative
+  source-entry preservation. Full repository gates and manual 80x24/native
+  acceptance remain pending.

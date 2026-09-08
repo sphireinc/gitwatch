@@ -17,6 +17,12 @@ Path history and blame are bounded investigation surfaces. Blame uses
 separate from sanitized terminal rendering, and opens the selected origin
 commit against its first parent without changing the worktree.
 
+Status presentation remains backed by the same complete flat Git snapshot.
+Press `O` to switch between flat rows and a collapsible directory tree; `[` /
+`]` collapse or expand all directories and `Enter` toggles the selected
+directory. Filtering and sorting happen on file entries before the tree index
+is rebuilt, so directory counts describe only the currently visible children.
+
 From a selected history commit inspector, `H` opens the same stable hunk/line
 selection surface used for partial staging. Pressing `Enter` previews an
 inverse patch and an explicit rebase plan that pauses at the selected commit;
