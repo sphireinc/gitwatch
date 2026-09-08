@@ -67,3 +67,6 @@ Complete remote object management in addition to existing fetch/pull/push.
 - Added focused argv, validation, and credential-redaction tests. Remotes
   workspace controls, upstream-impact warnings, and full lifecycle integration
   remain pending.
+- Added a NUL-delimited tracking-branch query that identifies local branches
+  whose upstream belongs to a selected remote, enabling scoped rename/remove
+  warnings without parsing human-formatted Git output.

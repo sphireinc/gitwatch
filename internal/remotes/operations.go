@@ -24,6 +24,12 @@ type RefMovement struct {
 	RemoteSHA      string
 }
 
+// TrackingBranch identifies a local branch whose upstream points at a remote.
+type TrackingBranch struct {
+	Local    string
+	Upstream string
+}
+
 type commandRunner interface {
 	Run(context.Context, ...string) (git.Result, error)
 }
@@ -94,6 +100,29 @@ func GetURL(ctx context.Context, runner commandRunner, name string, push bool) (
 		return "", err
 	}
 	return Redact(string(result.Stdout)), nil
+}
+
+// TrackingBranches lists local branches tracking the named remote. The query
+// is read-only and uses NUL-delimited fields so branch names are not parsed
+// from human-formatted output.
+func TrackingBranches(ctx context.Context, runner commandRunner, remote string) ([]TrackingBranch, error) {
+	if !validRemoteName(remote) {
+		return nil, ErrInvalidRemoteName
+	}
+	result, err := runner.Run(ctx, "for-each-ref", "--format=%(refname:short)%00%(upstream:short)", "refs/heads")
+	if err != nil {
+		return nil, err
+	}
+	fields := strings.Split(strings.TrimRight(string(result.Stdout), "\x00\n"), "\x00")
+	branches := make([]TrackingBranch, 0)
+	for i := 0; i+1 < len(fields); i += 2 {
+		local, upstream := strings.TrimSpace(fields[i]), strings.TrimSpace(fields[i+1])
+		if local == "" || upstream == "" || !strings.HasPrefix(upstream, remote+"/") {
+			continue
+		}
+		branches = append(branches, TrackingBranch{Local: local, Upstream: upstream})
+	}
+	return branches, nil
 }
 
 // PreviewPush calculates remote ref movement without changing the repository.

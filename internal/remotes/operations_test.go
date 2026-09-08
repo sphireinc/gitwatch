@@ -86,6 +86,18 @@ func TestGetURLRedactsCredentials(t *testing.T) {
 	}
 }
 
+func TestTrackingBranchesFiltersByRemote(t *testing.T) {
+	runner := captureRemoteRunner{results: []git.Result{{Stdout: []byte("main\x00origin/main\x00local\x00\x00feature\x00backup/feature\x00")}}}
+	got, err := TrackingBranches(context.Background(), &runner, "origin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []TrackingBranch{{Local: "main", Upstream: "origin/main"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("tracking branches = %#v, want %#v", got, want)
+	}
+}
+
 func TestRemoteOperationsRejectOptionLikeNames(t *testing.T) {
 	_, err := Push(context.Background(), git.Runner{}, "-origin", "main", false)
 	if !errors.Is(err, ErrMissingRemote) {
