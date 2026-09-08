@@ -19,13 +19,14 @@ var (
 
 // Branch is a parsed local or remote branch and its synchronization metadata.
 type Branch struct {
-	Name, OID, Upstream string
-	OccupiedPath        string
-	LastCommitUnix      int64
-	Subject             string
-	Current, Remote     bool
-	Merged              bool
-	Ahead, Behind       int
+	Name, OID, Upstream      string
+	RemoteName, RemoteBranch string
+	OccupiedPath             string
+	LastCommitUnix           int64
+	Subject                  string
+	Current, Remote          bool
+	Merged                   bool
+	Ahead, Behind            int
 }
 
 // Parse converts NUL-delimited branch records into branch rows.
@@ -37,6 +38,18 @@ func Parse(lines []byte) []Branch {
 			continue
 		}
 		branch := Branch{Name: p[0], OID: p[1], Upstream: p[2], Current: strings.TrimSpace(p[3]) == "*", Remote: strings.HasPrefix(p[0], "remotes/")}
+		if len(p) > 7 {
+			branch.Remote = strings.HasPrefix(strings.TrimSpace(p[7]), "refs/remotes/")
+		}
+		if len(p) == 5 && strings.HasPrefix(strings.TrimSpace(p[4]), "refs/remotes/") {
+			branch.Remote = true
+		}
+		if branch.Remote {
+			name := strings.TrimPrefix(branch.Name, "remotes/")
+			if slash := strings.IndexByte(name, '/'); slash > 0 && slash+1 < len(name) {
+				branch.RemoteName, branch.RemoteBranch = name[:slash], name[slash+1:]
+			}
+		}
 		if len(p) > 4 {
 			branch.Ahead, branch.Behind = ParseTracking(p[4])
 		}
@@ -56,12 +69,12 @@ func Parse(lines []byte) []Branch {
 // List returns local branches and their upstream metadata.
 func List(ctx context.Context, r git.Runner) ([]Branch, error) {
 	// %00 asks Git to emit NUL separators while keeping the argv argument NUL-free.
-	format := "%(refname:short)%00%(objectname)%00%(upstream:short)%00%(HEAD)%00%(upstream:trackshort)%00%(creatordate:unix)%00%(subject)"
+	format := "%(refname:short)%00%(objectname)%00%(upstream:short)%00%(HEAD)%00%(upstream:trackshort)%00%(creatordate:unix)%00%(subject)%00%(refname)"
 	res, err := r.Run(ctx, "for-each-ref", "--format="+format, "refs/heads", "refs/remotes")
 	if err != nil {
 		// Older Git installations may reject one of the optional display atoms.
 		// Retry with the fields required to identify and compare branches.
-		fallback := "%(refname:short)%00%(objectname)%00%(upstream:short)%00%(HEAD)"
+		fallback := "%(refname:short)%00%(objectname)%00%(upstream:short)%00%(HEAD)%00%(refname)"
 		res, err = r.Run(ctx, "for-each-ref", "--format="+fallback, "refs/heads", "refs/remotes")
 	}
 	if err != nil {

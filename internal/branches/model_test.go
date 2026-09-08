@@ -17,6 +17,13 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestParseIdentifiesQualifiedRemoteRef(t *testing.T) {
+	entries := Parse([]byte("origin/main\x00abc\x00\x00 \x00=\x001700000000\x00remote commit\x00refs/remotes/origin/main\n"))
+	if len(entries) != 1 || !entries[0].Remote || entries[0].RemoteName != "origin" || entries[0].RemoteBranch != "main" {
+		t.Fatalf("remote entry = %#v", entries)
+	}
+}
+
 func TestDeleteGuardsCurrentBranchAndExactConfirmation(t *testing.T) {
 	branch := Branch{Name: "feature", Current: false}
 	if _, err := Delete(context.Background(), git.Runner{}, branch, DeletePrompt("feature", false), "wrong"); !errors.Is(err, ErrConfirmation) {

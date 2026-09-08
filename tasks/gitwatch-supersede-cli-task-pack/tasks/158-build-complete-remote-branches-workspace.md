@@ -49,3 +49,15 @@ Expose remote branches as first-class refs with checkout, tracking, merge, rebas
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Corrected branch loading to retain `%(refname)` and identify Git remote
+  refs reliably even though `%(refname:short)` emits names such as
+  `origin/main`, not `remotes/origin/main`.
+- Remote branch rows now carry explicit remote and branch components, and the
+  domain exposes typed tracking checkout, detached checkout, and full
+  remote-qualified deletion with exact confirmation.
+- Added focused parsing and argv tests. The complete remote-branches UI,
+  bounded divergence presentation, and multi-remote integration remain
+  pending.
