@@ -61,3 +61,7 @@ Expose remote branches as first-class refs with checkout, tracking, merge, rebas
 - Added focused parsing and argv tests. The complete remote-branches UI,
   bounded divergence presentation, and multi-remote integration remain
   pending.
+- Added Branches workspace prompts for creating a local tracking branch from a
+  qualified remote ref, detached checkout, and remote deletion with explicit
+  `remote/branch` confirmation. These actions delegate to the typed branch
+  domain operations.

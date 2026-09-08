@@ -2244,19 +2244,14 @@ func TestRemoteDashboardMouseSelectsRemote(t *testing.T) {
 	}
 }
 
-func TestBranchCheckoutRejectsRemoteEntries(t *testing.T) {
+func TestBranchCheckoutPromptsRemoteTrackingName(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Branches, "Branches")
-	m.Branches = branchview.New([]branches.Branch{{Name: "origin/main", Remote: true}})
+	m.Branches = branchview.New([]branches.Branch{{Name: "origin/main", Remote: true, RemoteName: "origin", RemoteBranch: "main"}})
 	updated, cmd := m.Update(key("enter"))
 	m = updated.(Model)
-	if cmd == nil || m.State != StateOperationPending {
-		t.Fatalf("checkout command/state = %v/%v", cmd == nil, m.State)
-	}
-	msg := cmd()
-	finished, ok := msg.(BranchOperationFinishedMsg)
-	if !ok || finished.Err == nil {
-		t.Fatalf("remote checkout result = %#v", msg)
+	if cmd != nil || m.RemoteBranchAction != "track" || m.RemoteBranchInput != "main" {
+		t.Fatalf("remote tracking prompt = cmdnil=%v action=%q input=%q", cmd == nil, m.RemoteBranchAction, m.RemoteBranchInput)
 	}
 }
 
@@ -2541,6 +2536,39 @@ func TestBranchMutationModesGuardAndBuildCommands(t *testing.T) {
 	m = updated.(Model)
 	if m.State != StateReady || !contains(m.Status, "created new") {
 		t.Fatalf("create completion = state=%v status=%q", m.State, m.Status)
+	}
+}
+
+func TestRemoteBranchControlsRequireQualifiedTarget(t *testing.T) {
+	m := New()
+	m.repositoryGeneration = 1
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	m.Branches = branchview.New([]branches.Branch{{Name: "origin/main", Remote: true, RemoteName: "origin", RemoteBranch: "main"}})
+
+	updated, command := m.Update(key("enter"))
+	m = updated.(Model)
+	if command != nil || m.RemoteBranchAction != "track" || m.RemoteBranchInput != "main" {
+		t.Fatalf("remote tracking prompt = cmdnil=%v action=%q input=%q", command == nil, m.RemoteBranchAction, m.RemoteBranchInput)
+	}
+	updated, command = m.Update(key("enter"))
+	m = updated.(Model)
+	if command == nil || m.State != StateOperationPending || m.RemoteBranchAction != "" {
+		t.Fatalf("remote tracking submit = cmdnil=%v state=%v action=%q", command == nil, m.State, m.RemoteBranchAction)
+	}
+
+	m = New()
+	m.repositoryGeneration = 1
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	m.Branches = branchview.New([]branches.Branch{{Name: "origin/main", Remote: true, RemoteName: "origin", RemoteBranch: "main"}})
+	updated, _ = m.Update(key("D"))
+	m = updated.(Model)
+	if !m.RemoteBranchConfirm || !strings.Contains(m.Status, "origin/main") {
+		t.Fatalf("remote delete confirmation = confirm=%v status=%q", m.RemoteBranchConfirm, m.Status)
+	}
+	updated, command = m.Update(key("y"))
+	m = updated.(Model)
+	if command == nil || m.State != StateOperationPending {
+		t.Fatalf("remote delete submit = cmdnil=%v state=%v", command == nil, m.State)
 	}
 }
 

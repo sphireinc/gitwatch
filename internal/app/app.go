@@ -537,6 +537,10 @@ type Model struct {
 	BranchDeleteMode         bool
 	BranchDeleteTarget       branches.Branch
 	BranchDeleteForce        bool
+	RemoteBranchAction       string
+	RemoteBranchTarget       branches.Branch
+	RemoteBranchInput        string
+	RemoteBranchConfirm      bool
 	Stashes                  stashview.Model
 	Reflog                   reflogview.Model
 	ReflogSkip               int
@@ -2090,6 +2094,58 @@ func (m Model) loadBranches() tea.Cmd {
 	}
 }
 
+func (m Model) remoteBranchMutation(operation string, branch branches.Branch, localName, confirmation string) tea.Cmd {
+	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	return func() tea.Msg {
+		var err error
+		switch operation {
+		case "checked out tracking":
+			_, err = branches.CheckoutRemote(m.commandContext(), runner, branch.RemoteName, branch.RemoteBranch, localName)
+		case "checked out detached":
+			_, err = branches.CheckoutRemoteDetached(m.commandContext(), runner, branch.RemoteName, branch.RemoteBranch)
+		case "deleted remote branch":
+			_, err = branches.DeleteRemote(m.commandContext(), runner, branch.RemoteName, branch.RemoteBranch, confirmation)
+		default:
+			err = fmt.Errorf("unknown remote branch operation: %s", operation)
+		}
+		return BranchOperationFinishedMsg{Operation: operation, Name: branch.Name, Repository: generation, Err: err}
+	}
+}
+
+func (m *Model) updateRemoteBranchKey(key string) tea.Cmd {
+	if m.RemoteBranchAction != "track" {
+		return nil
+	}
+	if key == "esc" {
+		m.RemoteBranchAction, m.RemoteBranchInput, m.RemoteBranchTarget = "", "", branches.Branch{}
+		m.Status = "remote branch checkout cancelled"
+		return nil
+	}
+	switch key {
+	case "backspace":
+		m.RemoteBranchInput = removeLastRune(m.RemoteBranchInput)
+	case "space":
+		m.RemoteBranchInput += " "
+	case "enter":
+		name := strings.TrimSpace(m.RemoteBranchInput)
+		if name == "" {
+			m.Status = "local tracking branch name is required"
+			return nil
+		}
+		branch := m.RemoteBranchTarget
+		m.RemoteBranchAction, m.RemoteBranchInput, m.RemoteBranchTarget = "", "", branches.Branch{}
+		m.State, m.Status = StateOperationPending, "checking out tracking branch "+platform.SafeText(name)
+		return m.remoteBranchMutation("checked out tracking", branch, name, "")
+	default:
+		if len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00") {
+			m.RemoteBranchInput += key
+		}
+	}
+	m.Status = "local tracking branch name: " + platform.SafeText(m.RemoteBranchInput)
+	return nil
+}
+
 func (m Model) checkoutSelectedBranch() tea.Cmd {
 	if m.Branches.Selected < 0 || m.Branches.Selected >= len(m.Branches.Entries) {
 		return nil
@@ -2098,7 +2154,7 @@ func (m Model) checkoutSelectedBranch() tea.Cmd {
 	generation := m.repositoryGeneration
 	if branch.Remote {
 		return func() tea.Msg {
-			return BranchOperationFinishedMsg{Name: branch.Name, Repository: generation, Err: fmt.Errorf("remote branch cannot be checked out directly: %s", branch.Name)}
+			return BranchOperationFinishedMsg{Name: branch.Name, Repository: generation, Err: fmt.Errorf("remote branch requires a local tracking name: %s", branch.Name)}
 		}
 	}
 	runner := git.NewRunner(m.Discovery.Root)
@@ -4529,6 +4585,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Tags && m.TagWorktreeMode {
 			return m, m.updateTagWorktreeKey(v.String())
 		}
+		if m.currentView() == workspace.Branches && m.RemoteBranchAction == "track" {
+			return m, m.updateRemoteBranchKey(v.String())
+		}
+		if m.currentView() == workspace.Branches && m.RemoteBranchConfirm {
+			switch v.String() {
+			case "y", "Y":
+				branch, action := m.RemoteBranchTarget, m.RemoteBranchAction
+				m.RemoteBranchConfirm, m.RemoteBranchAction, m.RemoteBranchTarget = false, "", branches.Branch{}
+				m.State, m.Status = StateOperationPending, "applying remote branch action"
+				if action == "detached" {
+					return m, m.remoteBranchMutation("checked out detached", branch, "", "")
+				}
+				return m, m.remoteBranchMutation("deleted remote branch", branch, "", branch.RemoteName+"/"+branch.RemoteBranch)
+
+			case "n", "N", "esc":
+				m.RemoteBranchConfirm, m.RemoteBranchAction, m.RemoteBranchTarget = false, "", branches.Branch{}
+				m.Status = "remote branch action cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Branches && (m.BranchCreateMode || m.BranchRenameMode || m.BranchUpstreamMode || m.BranchDeleteMode || m.BranchMergeMode) {
 			return m, m.updateBranchMutationKey(v.String())
 		}
@@ -5004,7 +5080,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.loadRemoteTracking(remote)
 			} else if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
 				branch := m.Branches.Entries[m.Branches.Selected]
-				if branch.Current || branch.OccupiedPath != "" {
+				if branch.Remote {
+					m.RemoteBranchAction, m.RemoteBranchTarget, m.RemoteBranchConfirm = "delete", branch, true
+					m.Status = "confirm delete remote branch " + platform.SafeText(branch.RemoteName+"/"+branch.RemoteBranch) + "? (y/n)"
+				} else if branch.Current || branch.OccupiedPath != "" {
 					m.Status = "cannot delete checked-out or worktree-bound branch"
 				} else {
 					m.BranchDeleteMode, m.BranchDeleteTarget, m.BranchDeleteForce, m.BranchMutationInput = true, branch, false, ""
@@ -5123,7 +5202,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} else if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
 				branch := m.Branches.Entries[m.Branches.Selected]
-				if branch.Current || branch.OccupiedPath != "" {
+				if branch.Remote {
+					m.RemoteBranchAction, m.RemoteBranchTarget, m.RemoteBranchConfirm = "delete", branch, true
+					m.Status = "confirm delete remote branch " + platform.SafeText(branch.RemoteName+"/"+branch.RemoteBranch) + "? (y/n)"
+				} else if branch.Current || branch.OccupiedPath != "" {
 					m.Status = "cannot delete checked-out or worktree-bound branch"
 				} else {
 					m.BranchDeleteMode, m.BranchDeleteTarget, m.BranchDeleteForce, m.BranchMutationInput = true, branch, true, ""
@@ -5159,7 +5241,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "file filter: " + m.FileFilterInput
 			}
 		case "x":
-			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) && m.Branches.Entries[m.Branches.Selected].Remote {
+				branch := m.Branches.Entries[m.Branches.Selected]
+				m.RemoteBranchAction, m.RemoteBranchTarget, m.RemoteBranchConfirm = "detached", branch, true
+				m.Status = "confirm detached checkout of remote branch " + platform.SafeText(branch.RemoteName+"/"+branch.RemoteBranch) + "? (y/n)"
+			} else if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
 				m.HistoryActionTarget = m.History.Rows[m.History.Selected].Commit.SHA
 				m.HistoryActionConfirm = true
 				m.Status = "checkout commit " + m.HistoryActionTarget + "? (y/n)"
@@ -5404,6 +5490,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.openSelectedRepository()
 			}
 			if m.currentView() == workspace.Branches {
+				if m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) && m.Branches.Entries[m.Branches.Selected].Remote {
+					branch := m.Branches.Entries[m.Branches.Selected]
+					m.RemoteBranchAction, m.RemoteBranchTarget, m.RemoteBranchInput = "track", branch, branch.RemoteBranch
+					m.Status = "local tracking branch name: " + platform.SafeText(m.RemoteBranchInput)
+					return m, nil
+				}
 				m.State, m.Status = StateOperationPending, "checking out"
 				return m, m.checkoutSelectedBranch()
 			}
@@ -7083,9 +7175,13 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Branches {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout/track  [x] detached  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
 		if m.BranchSearching {
 			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Branches.Query) + "  [enter] apply  [esc] cancel"
+		} else if m.RemoteBranchAction == "track" {
+			lines[len(lines)-1] = "remote branch: edit local name  [enter] track  [esc] cancel"
+		} else if m.RemoteBranchConfirm {
+			lines[len(lines)-1] = "remote branch confirmation: [y] yes  [n] no  [esc] cancel"
 		}
 	}
 	if view == workspace.Gitignore {
