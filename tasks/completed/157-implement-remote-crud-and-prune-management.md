@@ -46,17 +46,17 @@ Complete remote object management in addition to existing fetch/pull/push.
 
 ## Acceptance criteria
 
-- [ ] Remote lifecycle is safely manageable inside gitwatch.
+- [x] Remote lifecycle is safely manageable inside gitwatch.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
+- [x] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -74,3 +74,20 @@ Complete remote object management in addition to existing fetch/pull/push.
   and prune preview/confirmation. Rename and remove show affected tracking
   branches; URL input is hidden from status text, and successful remote jobs
   refresh status, remotes, branches, and provider detection.
+
+## Completion evidence
+
+- Implementation commits: `c695cd7`, `042498c`, `4b169eb`.
+- Exact tested revision: `4bade03`.
+- Focused coverage: remote lifecycle argv and validation tests, credential
+  redaction tests, tracking-branch tests, Remotes workspace control tests, and
+  a local bare-remote integration covering add, upstream push, rename,
+  tracking preservation, prune preview, set-url redaction, and remove.
+- Full gate at the tested tree: `make check` passed, including lint,
+  `go test ./...`, `go test -race ./...`, `go vet ./...`, formatting, diff,
+  security, and performance checks.
+- Native/manual exception: automated Bubble Tea tests cover the new prompts,
+  impact warnings, confirmations, hidden URL input, and refresh commands, but
+  a human 80x24 terminal pass remains release QA follow-up.
+- Known limitation: `git remote prune --dry-run` may contact the configured
+  remote; the UI labels it as a preview and keeps it behind explicit action.
