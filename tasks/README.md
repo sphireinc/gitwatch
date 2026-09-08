@@ -7,15 +7,18 @@ is satisfied and its verification evidence is recorded.
 
 ## Current release boundary
 
-Tasks 34, 35, 89, 90, and 120 remain explicitly in progress. Tasks 34, 35, 89,
-and 90 are release and beta evidence lanes; Task 120 is the current v1.x
-context-pane release gate. The implementation lanes through Task 119 are
+Tasks 34, 35, 89, 90, 120, and 207 remain explicitly in progress. Tasks 34, 35,
+89, and 90 are release and beta evidence lanes; Task 120 is the current v1.x
+context-pane release gate; Task 207 is the `.gitignore` manager acceptance and
+release gate. The implementation lanes through Task 119 are
 complete and remain in `tasks/completed/` as the public implementation record.
 Task 120 remains at the root until its operator-owned native release evidence
 is attached. Tasks 121–186 are the Supersede execution lane described in
 `tasks/gitwatch-supersede-cli-task-pack/`.
 
-Task 120 remains the prerequisite release/context gate for this lane. Task 121
+Task 120 remains the prerequisite release/context gate for the Supersede lane.
+Task 207 remains open pending native platform acceptance. Task 208 is a planned
+large-status-list virtualization task that depends on Task 183. Task 121
 resets the public roadmap and establishes the parity matrix; Tasks 122–125
 then establish the shared repository-scoped sequencer, refresh, and
 multi-repository foundations before feature lanes branch.
@@ -69,5 +72,5 @@ Each completed task should record:
 - known limitations, deferred follow-ups, and platform-specific exceptions.
 
 The completed historical task pack remains in `tasks/completed/` for context;
-the four in-progress release tasks remain at the directory root until their
+the in-progress release tasks remain in their task-pack directories until their
 operator evidence is complete.

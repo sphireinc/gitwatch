@@ -10,6 +10,12 @@ All notable user-visible changes to gitwatch are documented here. The project fo
 - Guarded commit, hunk, stash, branch, worktree, history, fetch, pull, and push workflows.
 - Multi-repository dashboards, optional read-only GitHub provider views, notifications, a command palette, and an out-of-process plugin SDK.
 - Versioned configuration, terminal capability handling, reduced-motion support, security diagnostics, integration tests, performance budgets, and cross-platform release tooling.
+- Bounded path-history and blame inspection, including origin-commit navigation.
+- Guarded historical patch editing through an inverse-patch preview and controlled rebase.
+- Flat and collapsible tree status presentation with directory aggregation.
+- Typed-argv editor, opener, and difftool handoffs with bounded temporary materialization.
+- Shell-free custom commands with context restrictions, placeholder validation, bounded output, cancellation, and refresh policy.
+- Repository-scoped `.gitignore` management with an offline catalog, previewed byte-preserving edits, managed-block ownership, and concurrent-edit protection.
 
 ### Changed
 

@@ -37,18 +37,6 @@
 | t | Load tag refs (in History view) |
 | M / f / g / y | Inspect next parent / filter inspected path / jump to ref / copy SHA (in History view) |
 
-Path-history controls: `j`/`k` move, `Enter` inspect the selected commit,
-`Y` compare it with `HEAD`, `f` toggle explicit rename-following mode, `]`
-load the next bounded page, and `Esc` return to the prior workspace.
-
-Blame controls: `j`/`k` move through loaded lines, `Enter` opens the selected
-origin commit, `]` loads the next bounded line page, and `Esc` returns.
-
-Historical edit controls: from a selected commit inspector, `H` opens the
-parent-relative hunk selector. Select lines or hunks and press `Enter` to
-preview the inverse patch and guarded rebase plan; the paused commit opens the
-existing amend composer. `Ctrl-X` aborts the rebase and restores the original
-history.
 | n | Remotes view |
 | w | Worktrees view |
 | v / Enter | Repositories dashboard / open selected repository |
@@ -84,19 +72,55 @@ history.
 | Esc | Close overlay / cancel |
 | q | Quit |
 
+## Path-history controls
+
+| Key | Action |
+|---|---|
+| j / k | Move through the loaded history entries |
+| Enter | Inspect the selected commit |
+| Y | Compare the selected commit with `HEAD` |
+| f | Toggle explicit rename-following mode |
+| ] | Load the next bounded history page |
+| Esc | Return to the prior workspace |
+
+## Blame controls
+
+| Key | Action |
+|---|---|
+| j / k | Move through loaded blame lines |
+| Enter | Open the selected origin commit |
+| ] | Load the next bounded blame-line page |
+| Esc | Return to the prior workspace |
+
+## Historical-edit controls
+
+| Key | Action |
+|---|---|
+| H | Open the parent-relative hunk selector from a selected commit inspector |
+| Enter | Preview the inverse patch and guarded rebase plan; the paused commit then opens the amend composer |
+| Ctrl-X | Abort the rebase and restore the original history |
+
 ## `.gitignore` manager
 
-While the manager is open, `j/k` or arrows move, `Space` selects a template,
-`/` searches, `Tab` changes catalog tabs, `c` clears the search, and `Esc`
-returns to the prior workspace. `a` previews an append (or creates a missing
-file), `p` previews the selected operation, `d` previews exact owned-block
-removal, `u` previews an owned-block update, and `m` previews adoption of a
-matching unmanaged template. Confirm a displayed preview with `y`; cancel
-with `n` or `Esc`. `r` refreshes the optional upstream catalog and `b` returns
-to the embedded offline catalog. Mouse clicks select rows and the visible
-selection control; destructive actions still require the keyboard confirmation.
-
-Destructive actions must use deliberately distinct bindings and confirmation dialogs.
+| Key or input | Action |
+|---|---|
+| j / k or arrows | Move through templates |
+| Space | Select or deselect a template |
+| / | Search the catalog |
+| Tab | Change catalog tabs |
+| c | Clear the search |
+| Esc | Return to the prior workspace |
+| a | Preview an append, or create a missing `.gitignore` |
+| p | Preview the selected operation |
+| d | Preview exact owned-block removal |
+| u | Preview an owned-block update |
+| m | Preview adoption of a matching unmanaged template |
+| y | Confirm the displayed preview |
+| n or Esc | Cancel the displayed preview |
+| r | Refresh the optional upstream catalog |
+| b | Return to the embedded offline catalog |
+| Mouse | Select rows and the visible selection control |
+| Safety | Destructive actions require deliberately distinct bindings and keyboard confirmation |
 
 ## Profiles and validation
 

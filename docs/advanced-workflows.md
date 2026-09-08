@@ -4,6 +4,10 @@ This document describes the advanced workbench surfaces included in the first
 stable release. Commands are exposed only where the corresponding validation,
 confirmation, cancellation, and authoritative refresh workflow is complete.
 
+The release is still gated by native operator acceptance. These workflow notes
+describe implemented behavior; they do not replace the platform evidence in
+the [release checklist](release-checklist.md).
+
 ## History and patch work
 
 History loading uses bounded pages and machine-readable fields for SHA, parents,
@@ -31,6 +35,26 @@ against both the worktree and index before it is applied, then the existing
 amend composer is used. Patch or replay conflicts remain in standard recovery,
 and `Ctrl-X` aborts through normal rebase abort semantics. This is a published
 history rewrite and may require coordination with downstream users.
+
+## External tools and custom commands
+
+From Status, `Ctrl-E` opens the selected path in the configured editor, `Ctrl-O`
+opens it with the configured file opener, and `Ctrl-T` invokes the configured
+difftool. Tool definitions are typed executable-plus-argument templates; they
+never run through a shell. If no difftool is configured, `Ctrl-T` uses Git's
+typed `difftool --no-prompt HEAD -- <path>` operation. gitwatch requests a
+normal authoritative refresh after the external process exits.
+
+Custom commands use the same process boundary. Each command declares an
+executable, an argument array, an allowed context, an optional timeout, and
+whether it mutates repository state. Supported placeholders are `{repo}`,
+`{path}`, `{sha}`, `{branch}`, `{remote}`, `{tag}`, and `{url}`. Commands do
+not accept shell strings or unknown placeholders. Mutating commands request a
+status refresh when they finish; commands requiring confirmation use the
+prompt/form workflow before execution.
+
+See [configuration](configuration.md) for the JSON shape and
+[the keymap](../KEYMAP.md) for the built-in bindings.
 
 ## Stashes, branches, and worktrees
 

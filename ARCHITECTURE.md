@@ -30,7 +30,7 @@ internal/notifications/  bounded user notification model
 
 internal/ui/             UI package documentation
 internal/ui/layout/      responsive layout calculations
-internal/ui/table/       virtualized status table
+internal/ui/table/       status table filtering, sorting, and scrolling
 internal/ui/details/     selected-file metadata
 internal/ui/diff/        diff presentation model
 internal/ui/theme/       semantic terminal capability and color handling

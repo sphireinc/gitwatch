@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The gitwatch documentation, rendered from the repository Markdown sources.">
+  <title>gitwatch documentation</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f1b1b;
+      --muted: #625f5f;
+      --line: #d9d8d3;
+      --paper: #ffffff;
+      --soft: #f4f5f0;
+      --aqua: #dff8ee;
+      --aqua-line: #9ed9c4;
+      --link: #176b52;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 16px/1.65 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: var(--link); }
+    .site-header {
+      position: sticky;
+      z-index: 10;
+      top: 0;
+      border-bottom: 1px solid var(--line);
+      background: rgb(255 255 255 / 94%);
+      backdrop-filter: blur(12px);
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: min(1260px, calc(100% - 2rem));
+      min-height: 68px;
+      margin: auto;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      color: var(--ink);
+      font-weight: 780;
+      letter-spacing: -0.035em;
+      text-decoration: none;
+    }
+    .brand img { width: 34px; height: 34px; border-radius: 8px; }
+    .header-links { display: flex; gap: 1rem; align-items: center; }
+    .header-links a { text-decoration: none; font-size: 0.92rem; font-weight: 650; }
+    .header-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+    .layout {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 820px);
+      gap: 3rem;
+      width: min(1260px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 3rem 0 6rem;
+    }
+    aside { position: sticky; top: 100px; align-self: start; max-height: calc(100vh - 120px); overflow: auto; }
+    aside h2 { margin: 0 0 0.8rem; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; }
+    aside a { display: block; padding: 0.28rem 0; color: var(--muted); font-size: 0.9rem; text-decoration: none; }
+    aside a:hover, aside a[aria-current="page"] { color: var(--link); font-weight: 700; }
+    main { min-width: 0; }
+    .status { margin: 0 0 1.5rem; color: var(--muted); font-size: 0.9rem; }
+    .markdown h1 { margin-top: 0; font-size: clamp(2rem, 5vw, 3.35rem); line-height: 1.1; letter-spacing: -0.045em; }
+    .markdown h2 { margin-top: 2.8rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line); font-size: 1.75rem; line-height: 1.2; }
+    .markdown h3 { margin-top: 2rem; font-size: 1.25rem; }
+    .markdown img { max-width: 100%; height: auto; }
+    .markdown blockquote { margin: 1.5rem 0; padding: 0.8rem 1.1rem; border-left: 4px solid var(--aqua-line); background: var(--aqua); }
+    .markdown code { padding: 0.12rem 0.3rem; border-radius: 4px; background: var(--soft); font-size: 0.9em; }
+    .markdown pre { overflow: auto; padding: 1rem 1.2rem; border-radius: 8px; background: #191717; color: #e8f6ee; }
+    .markdown pre code { padding: 0; background: transparent; color: inherit; }
+    .markdown table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+    .markdown th, .markdown td { padding: 0.55rem 0.75rem; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .markdown th { background: var(--soft); }
+    .markdown hr { margin: 2.5rem 0; border: 0; border-top: 1px solid var(--line); }
+    .error { padding: 1rem; border: 1px solid #d99; border-radius: 8px; background: #fff1f1; }
+    @media (max-width: 850px) {
+      .layout { grid-template-columns: 1fr; gap: 1.5rem; padding-top: 1.5rem; }
+      aside { position: static; max-height: none; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
+      aside nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1rem; }
+    }
+    @media (max-width: 560px) {
+      .header-links a:not(:last-child) { display: none; }
+      .layout { width: min(100% - 1.25rem, 820px); }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="./" aria-label="gitwatch home">
+        <img src="https://raw.githubusercontent.com/sphireinc/gitwatch/main/assets/gitwatch-logo-square.png" alt="">
+        <span>gitwatch docs</span>
+      </a>
+      <nav class="header-links" aria-label="Site navigation">
+        <a href="./">Home</a>
+        <a href="https://github.com/sphireinc/gitwatch">GitHub ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside aria-label="Documentation navigation">
+      <h2>Documentation</h2>
+      <nav id="doc-nav"></nav>
+    </aside>
+    <main>
+      <p class="status" id="status" role="status">Loading the canonical Markdown source…</p>
+      <article class="markdown" id="content"></article>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script>
+    const repository = "https://raw.githubusercontent.com/sphireinc/gitwatch/main/";
+    const docs = [
+      ["Overview", "README.md"],
+      ["Agent instructions", "AGENTS.md"],
+      ["Architecture", "ARCHITECTURE.md"],
+      ["Keymap", "KEYMAP.md"],
+      ["UX specification", "UX_SPEC.md"],
+      ["Changelog", "CHANGELOG.md"],
+      ["Roadmap", "ROADMAP.md"],
+      ["Parity matrix", "PARITY_MATRIX.md"],
+      ["Release criteria", "RELEASE_CRITERIA.md"],
+      ["Third-party notices", "THIRD_PARTY_NOTICES.md"],
+      ["Configuration", "docs/configuration.md"],
+      ["Advanced workflows", "docs/advanced-workflows.md"],
+      ["Gitignore manager", "docs/gitignore-manager.md"],
+      ["Documentation index", "docs/README.md"],
+      ["Beta feedback template", "docs/beta-feedback-template.md"],
+      ["Beta validation matrix", "docs/beta-validation-matrix.md"],
+      ["Context panes", "docs/context-panes.md"],
+      ["Commit tree", "docs/commit-tree.md"],
+      ["Demo guide", "docs/demo.md"],
+      ["Diff view", "docs/diff-view.md"],
+      ["Edge cases", "docs/edge-cases.md"],
+      ["Plugins", "docs/plugins.md"],
+      ["Plugin SDK", "docs/plugin-sdk.md"],
+      ["Performance", "docs/performance.md"],
+      ["Product contract", "docs/product.md"],
+      ["Provider behavior", "docs/provider.md"],
+      ["Migration guide", "docs/migration-v1.md"],
+      ["Native harness", "docs/native-harness.md"],
+      ["macOS operator guide", "docs/operator-macos.md"],
+      ["Terminal operator guide", "docs/operator-terminal.md"],
+      ["Gitignore catalog maintenance", "docs/maintainers/gitignore-catalog.md"],
+      ["Troubleshooting", "docs/troubleshooting.md"],
+      ["Security model", "docs/security.md"],
+      ["Distribution", "docs/distribution.md"],
+      ["Release checklist", "docs/release-checklist.md"],
+      ["Release sign-off", "docs/release-signoff.md"],
+      ["v1.0.0 release notes", "docs/release-v1.0.0.md"],
+      ["Triage", "docs/triage.md"],
+      ["v2 release plan", "docs/v2-release-plan.md"],
+      ["Contributing", "CONTRIBUTING.md"],
+      ["Code of Conduct", "CODE_OF_CONDUCT.md"],
+      ["License", "LICENSE"]
+    ];
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("doc") || "docs/README.md";
+    const known = new Map(docs.map((entry) => [entry[1], entry[0]]));
+    const isMarkdownPath = requested.endsWith(".md") && !requested.includes("..") && !requested.startsWith("/");
+    const path = known.has(requested) || isMarkdownPath ? requested : "docs/README.md";
+    const nav = document.getElementById("doc-nav");
+    const content = document.getElementById("content");
+    const status = document.getElementById("status");
+
+    for (const [label, target] of docs) {
+      const link = document.createElement("a");
+      link.href = `docs.html?doc=${encodeURIComponent(target)}`;
+      link.textContent = label;
+      if (target === path) link.setAttribute("aria-current", "page");
+      nav.appendChild(link);
+    }
+
+    function resolveSourceLink(href, source) {
+      if (!href || href.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(href)) return href;
+      const [rawPath, fragment] = href.split("#", 2);
+      if (!rawPath) return `#${fragment || ""}`;
+      if (rawPath.endsWith(".html")) return href;
+      const base = new URL(source, "https://gitwatch.local/");
+      const resolved = new URL(rawPath, base).pathname.replace(/^\//, "");
+      if (!known.has(resolved) && !resolved.endsWith(".md")) return `${repository}${resolved}${fragment ? `#${fragment}` : ""}`;
+      return `docs.html?doc=${encodeURIComponent(resolved)}${fragment ? `#${fragment}` : ""}`;
+    }
+
+    async function load() {
+      try {
+        const response = await fetch(repository + path, { cache: "no-cache" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const markdown = await response.text();
+        const rendered = marked.parse(markdown, { headerIds: false, mangle: false });
+        content.innerHTML = DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } });
+        for (const image of content.querySelectorAll("img")) {
+          image.src = resolveSourceLink(image.getAttribute("src"), path);
+        }
+        for (const link of content.querySelectorAll("a")) {
+          const href = link.getAttribute("href");
+          link.href = resolveSourceLink(href, path);
+        }
+        const heading = content.querySelector("h1");
+        document.title = `${heading ? heading.textContent : known.get(path)} · gitwatch docs`;
+        status.textContent = `Source: ${path} · rendered from the main branch Markdown file`;
+      } catch (error) {
+        status.textContent = "Documentation could not be loaded.";
+        content.innerHTML = `<div class="error"><strong>Unable to load this document.</strong><p>${DOMPurify.sanitize(String(error))}</p><p>Try again, or open the <a href="https://github.com/sphireinc/gitwatch/blob/main/${path}">source file on GitHub</a>.</p></div>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

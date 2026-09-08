@@ -37,6 +37,8 @@ provenance and local playback instructions.
 - Lower-left context panes for the commit tree, unpushed commits, and a read-only branch summary.
 - Mouse or keyboard file selection that opens the selected file's diff without mutating the repository.
 - Guarded stage, unstage, restore, hunk, commit, stash, branch, worktree, remote, and history workflows.
+- Bounded path history and blame inspection, plus guarded historical patch editing through a controlled rebase.
+- Typed-argv editor, opener, and difftool handoffs, with shell-free custom commands and context-aware bindings.
 - Optional read-only GitHub pull-request/check visibility, multi-repository dashboards, and capability-bounded out-of-process plugins.
 - Keyboard and mouse parity, `NO_COLOR`, semantic themes, high-contrast-safe text, and reduced/off motion.
 - No telemetry.
@@ -48,8 +50,7 @@ catalog. The manager searches and multi-selects templates without changing the
 worktree until you review and confirm a preview with `y` (cancel with `n` or
 `Esc`). It can create a missing `.gitignore`, append a template, adopt an
 existing matching template into a managed block, update an owned block, or
-remove only content that gitwatch can prove it owns. A concise screen capture
-of this workflow should be added here when a feature recording is available.
+remove only content that gitwatch can prove it owns.
 
 The catalog uses these indicators: `*` means the complete template matches,
 `~` means a partial match, `+` means selected for an operation, `-` means an
@@ -64,6 +65,8 @@ the bundled catalog. The upstream assets are distributed under CC0 1.0.
 Changes are written atomically only after a preview and a before-content hash
 check. External edits invalidate an open preview. Status remains the normal
 authoritative Git porcelain refresh, including in the multi-repository view.
+The release gate still requires native acceptance on macOS, Linux, and Windows;
+see the [release checklist](docs/release-checklist.md).
 
 
 ### Colorized static view
@@ -179,9 +182,12 @@ commit.
 
 ## Documentation
 
+- [Documentation index](docs/README.md)
 - [Architecture](ARCHITECTURE.md)
 - [Default keymap](KEYMAP.md)
 - [Advanced workflows](docs/advanced-workflows.md)
+- [Configuration](docs/configuration.md)
+- [`.gitignore` manager](docs/gitignore-manager.md)
 - [Status context panes](docs/context-panes.md)
 - [Plugin contract](docs/plugins.md) and [SDK](docs/plugin-sdk.md)
 - [Performance](docs/performance.md) and [edge cases](docs/edge-cases.md)
