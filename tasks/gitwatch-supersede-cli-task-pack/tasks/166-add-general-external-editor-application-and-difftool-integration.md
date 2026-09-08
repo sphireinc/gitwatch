@@ -54,3 +54,19 @@ Let users hand off files and diffs to preferred tools while watcher and reposito
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Local progress evidence
+
+- Added version-2 typed tool configuration for editor, opener, and difftool
+  executable plus argv-token arrays; placeholders are expanded only inside
+  individual argv tokens and never through a shell.
+- Added `Ctrl-E`, `Ctrl-O`, and `Ctrl-T` status handoffs. Tool completion
+  returns to the Bubble Tea model and requests an authoritative refresh;
+  directory rows in tree mode cannot accidentally launch a tool for a stale
+  file selection.
+- Added a typed Git-native `difftool --no-prompt` command builder and focused
+  tests for paths/revisions containing spaces and special characters. Focused
+  platform/config/Git/app tests, vet, schema parsing, and diff checks pass.
+- Historical-file temporary materialization, arbitrary comparison-side
+  handoff, and native full-screen editor acceptance remain pending for the
+  remainder of this task.

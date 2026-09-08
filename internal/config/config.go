@@ -34,6 +34,7 @@ type Config struct {
 	Notifications     NotificationConfig           `json:"notifications"`
 	Layout            LayoutConfig                 `json:"layout"`
 	Diff              DiffConfig                   `json:"diff"`
+	Tools             ToolsConfig                  `json:"tools"`
 	GitignoreMaxBytes int64                        `json:"gitignore_max_bytes"`
 	ShowCommitTree    bool                         `json:"show_commit_tree"`
 	CommitTree        CommitTreeConfig             `json:"commit_tree"`
@@ -82,6 +83,21 @@ type LayoutConfig struct {
 type DiffConfig struct {
 	MaxBytes int64 `json:"max_bytes"`
 	MaxLines int   `json:"max_lines"`
+}
+
+// ToolConfig describes one executable and its already-tokenized argv
+// template. Supported placeholders are interpreted by the platform boundary;
+// no shell command string is accepted.
+type ToolConfig struct {
+	Executable string   `json:"executable"`
+	Args       []string `json:"args"`
+}
+
+// ToolsConfig contains optional editor, file-opener, and diff-tool commands.
+type ToolsConfig struct {
+	Editor   ToolConfig `json:"editor"`
+	Opener   ToolConfig `json:"opener"`
+	Difftool ToolConfig `json:"difftool"`
 }
 
 // CommitTreeConfig bounds the optional status-workspace history graph.

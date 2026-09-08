@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -236,6 +237,11 @@ type PartialOperationFinishedMsg struct {
 	Err        error
 }
 type HistoricalPatchAppliedMsg struct {
+	Repository uint64
+	Err        error
+}
+type ExternalToolFinishedMsg struct {
+	Name       string
 	Repository uint64
 	Err        error
 }
@@ -551,6 +557,9 @@ type Model struct {
 	ComparePatchCancel       context.CancelFunc
 	DiffMaxBytes             int64
 	DiffMaxLines             int
+	EditorTool               platform.ExternalTool
+	OpenerTool               platform.ExternalTool
+	Difftool                 platform.ExternalTool
 	CommitTreeEnabled        bool
 	CommitTreeMaxCommits     int
 	CommitTreeLines          []string
@@ -1138,6 +1147,9 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.ReconciliationInterval = c.Reconciliation
 	m.WatchDebounce = c.Debounce
 	m.DiffMaxBytes, m.DiffMaxLines = c.Diff.MaxBytes, c.Diff.MaxLines
+	m.EditorTool = platform.ExternalTool{Executable: c.Tools.Editor.Executable, Args: append([]string(nil), c.Tools.Editor.Args...)}
+	m.OpenerTool = platform.ExternalTool{Executable: c.Tools.Opener.Executable, Args: append([]string(nil), c.Tools.Opener.Args...)}
+	m.Difftool = platform.ExternalTool{Executable: c.Tools.Difftool.Executable, Args: append([]string(nil), c.Tools.Difftool.Args...)}
 	m.GitignoreMaxBytes = c.GitignoreMaxBytes
 	if m.GitignoreMaxBytes <= 0 {
 		m.GitignoreMaxBytes = security.DefaultMaxDocumentBytes
@@ -2029,6 +2041,40 @@ func (m *Model) openDiffMode(staged bool) tea.Cmd {
 		added, deleted := diffStat(text)
 		return DiffReadyMsg{Path: string(path), Text: text, Staged: d.Staged, Binary: d.Binary, Added: added, Deleted: deleted, Request: request, Err: err, Truncated: truncated}
 	}
+}
+
+func (m *Model) openExternalTool(name string, tool platform.ExternalTool, values map[string]string) tea.Cmd {
+	command, err := tool.CommandValues(values, m.Discovery.Root, nil)
+	if err != nil {
+		m.Status = name + ": " + err.Error()
+		return nil
+	}
+	return m.openExternalProcess(name, command)
+}
+
+func (m *Model) openExternalProcess(name string, command *exec.Cmd) tea.Cmd {
+	m.State, m.Status = StateOperationPending, name+" active"
+	generation := m.repositoryGeneration
+	return tea.ExecProcess(command, func(processErr error) tea.Msg {
+		return ExternalToolFinishedMsg{Name: name, Repository: generation, Err: processErr}
+	})
+}
+
+func (m *Model) openSelectedExternalTool(name string, tool platform.ExternalTool) tea.Cmd {
+	if m.StatusTreeMode {
+		entry, ok := m.selectedStatusTreeEntry()
+		if !ok {
+			m.Status = name + ": select a file row"
+			return nil
+		}
+		return m.openExternalTool(name, tool, map[string]string{"path": string(entry.Path), "repo": m.Discovery.Root})
+	}
+	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
+		m.Status = name + ": no file selected"
+		return nil
+	}
+	path := string(m.Files.Entries[m.Files.Visible[m.Files.Selected]].Path)
+	return m.openExternalTool(name, tool, map[string]string{"path": path, "repo": m.Discovery.Root})
 }
 
 func (m *Model) inspectStatusCommit(line int) tea.Cmd {
@@ -6406,6 +6452,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.compareSelectedTag()
 			}
 			return m, m.openDiff()
+		case "ctrl+e":
+			if m.currentView() == workspace.Status {
+				return m, m.openSelectedExternalTool("editor", m.EditorTool)
+			}
+		case "ctrl+o":
+			if m.currentView() == workspace.Status {
+				return m, m.openSelectedExternalTool("opener", m.OpenerTool)
+			}
+		case "ctrl+t":
+			if m.currentView() == workspace.Status {
+				if m.StatusTreeMode {
+					if _, ok := m.selectedStatusTreeEntry(); !ok {
+						m.Status = "difftool: select a file row"
+						return m, nil
+					}
+				}
+				path := string(m.Files.SelectedPath())
+				if m.StatusTreeMode {
+					entry, _ := m.selectedStatusTreeEntry()
+					path = string(entry.Path)
+				}
+				if m.Difftool.Executable == "" {
+					command, err := git.NewRunner(m.Discovery.Root).ExternalDiffToolCommand([]byte("HEAD"), nil, []byte(path))
+					if err != nil {
+						m.Status = "difftool: " + err.Error()
+						return m, nil
+					}
+					return m, m.openExternalProcess("difftool", command)
+				}
+				return m, m.openExternalTool("difftool", m.Difftool, map[string]string{"left": "HEAD", "right": "WORKTREE", "path": path, "repo": m.Discovery.Root})
+			}
 		case "H":
 			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" {
 				m.beginHistoricalHunks()
@@ -6953,6 +7030,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Status = v.Name + " complete"
 			m.notify(notifications.JobComplete, notifications.Success, m.Status, "", false)
 			m.recordActivityWithOperation(history.OperationSuccess, "", m.Status, v.Operation)
+		}
+		return m, m.refresh()
+	case ExternalToolFinishedMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		m.State = StateReady
+		if v.Err != nil {
+			m.Status = v.Name + ": " + v.Err.Error()
+		} else {
+			m.Status = v.Name + " exited; refreshing authoritative status"
 		}
 		return m, m.refresh()
 	case HistoricalPatchAppliedMsg:

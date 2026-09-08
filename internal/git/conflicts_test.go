@@ -32,6 +32,22 @@ func TestExternalMergeToolCommandUsesTypedPath(t *testing.T) {
 	}
 }
 
+func TestExternalDiffToolCommandUsesTypedRevisionsAndPath(t *testing.T) {
+	command, err := NewRunner("/repo").ExternalDiffToolCommand([]byte("HEAD"), []byte("feature/ref"), []byte("space name/file.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"git", "difftool", "--no-prompt", "HEAD", "feature/ref", "--", "space name/file.txt"}
+	if len(command.Args) != len(want) {
+		t.Fatalf("args = %#v, want %#v", command.Args, want)
+	}
+	for index, value := range want {
+		if command.Args[index] != value {
+			t.Fatalf("args[%d] = %q, want %q", index, command.Args[index], value)
+		}
+	}
+}
+
 func TestResolveConflictSupportsBothChoice(t *testing.T) {
 	if ChooseBoth != ConflictChoice("both") {
 		t.Fatal("both choice identity changed")

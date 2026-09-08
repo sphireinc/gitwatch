@@ -129,3 +129,27 @@ func (r Runner) ExternalMergeToolCommand(path []byte) (*exec.Cmd, error) {
 	}
 	return (platform.ExternalTool{Executable: binary, Args: []string{"mergetool", "--no-prompt", "--", "{path}"}}).Command(string(path), r.Dir, r.Env)
 }
+
+// ExternalDiffToolCommand returns a typed, interactive Git difftool command.
+// Git resolves the configured difftool and revisions; no shell command is
+// constructed from repository-controlled values.
+func (r Runner) ExternalDiffToolCommand(left, right, path []byte) (*exec.Cmd, error) {
+	if len(left) == 0 || len(path) == 0 {
+		return nil, fmt.Errorf("difftool revision and path are required")
+	}
+	binary := r.Binary
+	if binary == "" {
+		binary = "git"
+	}
+	args := []string{"difftool", "--no-prompt", string(left)}
+	if len(right) > 0 {
+		args = append(args, string(right))
+	}
+	args = append(args, "--", string(path))
+	command := exec.Command(binary, args...)
+	command.Dir = r.Dir
+	if len(r.Env) > 0 {
+		command.Env = append(os.Environ(), r.Env...)
+	}
+	return command, nil
+}

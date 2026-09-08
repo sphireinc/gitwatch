@@ -20,3 +20,23 @@ func TestExternalToolRejectsMissingConfiguration(t *testing.T) {
 		t.Fatal("expected missing path error")
 	}
 }
+
+func TestExternalToolCommandValuesKeepsRevisionArgumentsSeparate(t *testing.T) {
+	command, err := (ExternalTool{Executable: "diff-tool", Args: []string{"--left={left}", "{right}", "--", "{path}"}}).CommandValues(map[string]string{
+		"left":  "HEAD^{commit}",
+		"right": "feature with space",
+		"path":  "dir/file name.txt",
+	}, "/repo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"diff-tool", "--left=HEAD^{commit}", "feature with space", "--", "dir/file name.txt"}
+	if len(command.Args) != len(want) {
+		t.Fatalf("args = %#v, want %#v", command.Args, want)
+	}
+	for index, value := range want {
+		if command.Args[index] != value {
+			t.Fatalf("args[%d] = %q, want %q", index, command.Args[index], value)
+		}
+	}
+}

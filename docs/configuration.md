@@ -25,6 +25,7 @@ The schema-version-2 top-level fields are:
 | `notifications` | Notification preferences; set `quiet` to suppress attention badges while retaining history. |
 | `layout` | Wide status split; `files_percent` controls the left file panel and `details_percent` controls the right details/diff panel. They must be positive and sum to `100`; defaults are `60` and `40`. |
 | `diff` | Diff inspection budgets; `max_bytes` defaults to `4194304` and `max_lines` defaults to `20000`. Truncated diffs show an explicit notice. |
+| `tools` | Optional typed argv templates for `editor`, `opener`, and `difftool`; each has an `executable` and `args` array. Templates support `{path}`, `{repo}`, `{left}`, and `{right}` without shell expansion. |
 | `gitignore_max_bytes` | Maximum interactive `.gitignore` size; defaults to `8388608` (8 MiB). Oversized files remain read-only and are not loaded into mutation previews. |
 | `show_commit_tree`, `commit_tree` | Optional status-pane commit graph; disabled by default, with `max_commits` defaulting to `100` and capped at `1000`. |
 | `profile`, `keymap_profiles` | Optional named keymap profile and profile definitions. |
@@ -87,3 +88,9 @@ The lowercase `b` shortcut continues to open the full branch-management view.
 The machine-readable schema is available at
 [`docs/configuration.schema.json`](configuration.schema.json). Duration values
 use the same JSON nanosecond representation as the Go configuration type.
+
+When configured, `Ctrl-E` opens the selected status file in the editor,
+`Ctrl-O` opens it with the file opener, and `Ctrl-T` invokes the configured
+difftool with `HEAD` and the working-tree path. If no difftool is configured,
+`Ctrl-T` uses Git's typed `difftool --no-prompt HEAD -- <path>` command. After
+any tool exits, gitwatch requests a normal authoritative status refresh.

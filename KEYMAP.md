@@ -16,6 +16,7 @@
 | ! | Toggle conflict-only status filter (in Status view) |
 | R then type `yes` | Restore the selected tracked path after exact-scope confirmation (in Status view) |
 | d | Open diff |
+| Ctrl-E / Ctrl-O / Ctrl-T | Open selected file in editor / opener / difftool (in Status view) |
 | 1 | Status view |
 | b | Branches view |
 | / / s | Filter / sort branches (in Branches view) |
