@@ -36,17 +36,17 @@ Make ahead/behind counts actionable by showing exactly what differs before fetch
 
 ## Acceptance criteria
 
-- [ ] Ahead/behind is inspectable, not merely a number.
+- [x] Ahead/behind is inspectable, not merely a number.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
+- [x] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -59,4 +59,21 @@ Make ahead/behind counts actionable by showing exactly what differs before fetch
   each comparison side alongside the existing file/stat summary. Explicit
   fetch, ff-only pull, merge pull, rebase pull, and push-preview actions now
   route through the existing Remotes engines after selecting the qualified
-  comparison remote. Final full-gate verification remains.
+  comparison remote. The full repository gate passes at the recorded revision.
+
+## Completion evidence
+
+- Implementation commits: `4e78b54`, `f9f7ccc`, `999a92c`.
+- Exact tested revision: `999a92c`.
+- Focused coverage: local/remote assignment, bounded unique commit summaries,
+  changed-file stats and patch output, qualified remote selection, and fetch,
+  ff-only pull, merge pull, rebase pull, and push-preview routing.
+- Full gate at the tested tree: `make check` passed, including lint,
+  `go test ./...`, `go test -race ./...`, `go vet ./...`, formatting, diff,
+  security, and performance checks.
+- Native/manual exception: automated Bubble Tea tests cover the inspector
+  rendering, keyboard assignment, action routing, and refresh paths; a human
+  80x24 terminal pass remains release QA follow-up.
+- Known limitation: comparison actions are routed through the existing remote
+  engines, while the inspector itself remains read-only; fetch/pull/push
+  confirmation and conflict recovery continue in their established workspaces.
