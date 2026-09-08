@@ -32,6 +32,7 @@ func TestFilterSortAndPreserveSelection(t *testing.T) {
 	}
 	m.SetFilter("")
 	m.CycleSort()
+	m.CycleSort()
 	if m.Sort != SortAhead || m.Entries[0].Name != "zeta" {
 		t.Fatalf("sorted entries = sort=%s entries=%#v", m.Sort, m.Entries)
 	}
@@ -49,5 +50,19 @@ func TestViewShowsBranchMetadata(t *testing.T) {
 		if !strings.Contains(view, want) {
 			t.Fatalf("view missing %q: %s", want, view)
 		}
+	}
+}
+
+func TestRemoteSortAndDisplayKeepsQualifiedNames(t *testing.T) {
+	m := New([]branches.Branch{
+		{Name: "origin/main", Remote: true, RemoteName: "origin", RemoteBranch: "main"},
+		{Name: "backup/main", Remote: true, RemoteName: "backup", RemoteBranch: "main"},
+	})
+	m.CycleSort()
+	if m.Sort != SortRemote || m.Entries[0].Name != "backup/main" {
+		t.Fatalf("remote sort = sort=%s entries=%#v", m.Sort, m.Entries)
+	}
+	if !strings.Contains(m.View(), "backup/main") || !strings.Contains(m.View(), "origin/main") {
+		t.Fatalf("qualified remote names missing: %s", m.View())
 	}
 }

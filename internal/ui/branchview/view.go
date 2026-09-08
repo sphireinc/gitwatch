@@ -17,6 +17,8 @@ type SortKey string
 const (
 	// SortName orders branches by name.
 	SortName SortKey = "name"
+	// SortRemote orders remote branches by remote name, then branch name.
+	SortRemote SortKey = "remote"
 	// SortAhead orders branches by ahead count.
 	SortAhead SortKey = "ahead"
 	// SortBehind orders branches by behind count.
@@ -68,7 +70,7 @@ func (m *Model) SetFilter(query string) {
 
 // CycleSort advances through supported sort fields and direction.
 func (m *Model) CycleSort() SortKey {
-	keys := []SortKey{SortName, SortAhead, SortBehind, SortLastCommit}
+	keys := []SortKey{SortName, SortRemote, SortAhead, SortBehind, SortLastCommit}
 	index := 0
 	for i, key := range keys {
 		if key == m.Sort {
@@ -102,6 +104,8 @@ func (m *Model) apply() {
 		left, right := m.Entries[i], m.Entries[j]
 		var less bool
 		switch m.Sort {
+		case SortRemote:
+			less = strings.ToLower(left.RemoteName+"/"+left.RemoteBranch) < strings.ToLower(right.RemoteName+"/"+right.RemoteBranch)
 		case SortAhead:
 			less = left.Ahead < right.Ahead
 		case SortBehind:

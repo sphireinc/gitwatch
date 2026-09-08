@@ -68,3 +68,53 @@ func TestListUsesGitNulFormatAtom(t *testing.T) {
 		t.Fatalf("entries = %#v", entries)
 	}
 }
+
+func TestListKeepsSameBranchNameDistinctAcrossRemotes(t *testing.T) {
+	localDir := t.TempDir()
+	originDir := t.TempDir()
+	backupDir := t.TempDir()
+	local := git.NewRunner(localDir)
+	origin := git.NewRunner(originDir)
+	backup := git.NewRunner(backupDir)
+	runBranchTestGit(t, origin, "init", "--bare")
+	runBranchTestGit(t, backup, "init", "--bare")
+	runBranchTestGit(t, local, "init", "-b", "main")
+	runBranchTestGit(t, local, "config", "user.name", "gitwatch test")
+	runBranchTestGit(t, local, "config", "user.email", "gitwatch@example.test")
+	if err := os.WriteFile(filepath.Join(localDir, "file"), []byte("content\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runBranchTestGit(t, local, "add", "file")
+	runBranchTestGit(t, local, "-c", "commit.gpgsign=false", "commit", "-m", "initial")
+	runBranchTestGit(t, local, "remote", "add", "origin", originDir)
+	runBranchTestGit(t, local, "remote", "add", "backup", backupDir)
+	runBranchTestGit(t, local, "push", "--set-upstream", "origin", "main")
+	runBranchTestGit(t, local, "push", "backup", "main")
+	runBranchTestGit(t, local, "fetch", "backup")
+
+	entries, err := List(context.Background(), local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]Branch{}
+	for _, entry := range entries {
+		if entry.Remote && (entry.Name == "origin/main" || entry.Name == "backup/main") {
+			seen[entry.Name] = entry
+		}
+	}
+	if len(seen) != 2 || seen["origin/main"].RemoteName != "origin" || seen["backup/main"].RemoteName != "backup" {
+		t.Fatalf("remote branch rows = %#v", seen)
+	}
+	for name, entry := range seen {
+		if entry.Ahead != 0 || entry.Behind != 0 {
+			t.Fatalf("%s divergence = ahead %d behind %d", name, entry.Ahead, entry.Behind)
+		}
+	}
+}
+
+func runBranchTestGit(t *testing.T, runner git.Runner, args ...string) {
+	t.Helper()
+	if _, err := runner.Run(context.Background(), args...); err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+}

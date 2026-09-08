@@ -81,8 +81,26 @@ func List(ctx context.Context, r git.Runner) ([]Branch, error) {
 		return nil, err
 	}
 	entries := Parse(res.Stdout)
+	localByName := make(map[string]Branch)
+	for _, entry := range entries {
+		if !entry.Remote {
+			localByName[entry.Name] = entry
+		}
+	}
 	for i := range entries {
-		if entries[i].Upstream == "" || entries[i].Remote {
+		if entries[i].Remote {
+			local, ok := localByName[entries[i].RemoteBranch]
+			if !ok {
+				continue
+			}
+			behind, ahead, divergenceErr := Divergence(ctx, r, entries[i].Name, local.Name)
+			if divergenceErr != nil {
+				return nil, divergenceErr
+			}
+			entries[i].Ahead, entries[i].Behind = ahead, behind
+			continue
+		}
+		if entries[i].Upstream == "" {
 			continue
 		}
 		behind, ahead, err := Divergence(ctx, r, entries[i].Upstream, entries[i].Name)

@@ -65,3 +65,8 @@ Expose remote branches as first-class refs with checkout, tracking, merge, rebas
   qualified remote ref, detached checkout, and remote deletion with explicit
   `remote/branch` confirmation. These actions delegate to the typed branch
   domain operations.
+- Remote rows now compute ahead/behind against matching local branch names,
+  including when two remotes expose the same branch name. Branch sorting now
+  includes a remote-qualified key, while displayed names remain qualified.
+- Added a two-remote integration fixture covering identical branch names,
+  upstream tracking, and zero divergence on both remote rows.
