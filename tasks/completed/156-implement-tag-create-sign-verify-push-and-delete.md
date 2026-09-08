@@ -47,18 +47,18 @@ Match and exceed LZ tag management with signing visibility and explicit remote d
 
 ## Acceptance criteria
 
-- [ ] Signed tags are first-class.
-- [ ] Remote deletion cannot be triggered accidentally.
+- [x] Signed tags are first-class.
+- [x] Remote deletion cannot be triggered accidentally.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
+- [x] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -78,5 +78,23 @@ Match and exceed LZ tag management with signing visibility and explicit remote d
 - Added a Remotes workspace action for remote-tag deletion. It requires a
   selected remote, an explicit tag name, and a separate destructive `y/n`
   confirmation before issuing the delete refspec.
-- Signing/no-key integration fixtures and native/manual terminal evidence
-  remain pending.
+- Added an isolated empty-`GNUPGHOME` integration fixture proving signed-tag
+  creation fails safely when no signing key is available. Signed creation
+  dispatch and explicit `git tag -s` argv are also covered.
+
+## Completion evidence
+
+- Implementation commits: `eaa0447`, `847f272`, `c5ba9f6`.
+- Exact tested revision: `c5ba9f6`.
+- Focused coverage: `go test ./internal/tags ./internal/remotes`, Tags and
+  Remotes workspace mutation tests, bare-remote tag push/delete integration,
+  and no-signing-key signed-tag integration.
+- Full gate at `c5ba9f6`: `make check` passed, including lint, `go test ./...`,
+  `go test -race ./...`, `go vet ./...`, formatting, diff, security, and
+  performance checks.
+- Native/manual exception: automated Bubble Tea routing tests cover the new
+  controls and refresh commands, but a human 80x24 terminal pass with a real
+  signing key and remote credentials remains release QA follow-up.
+- Known limitation: signed-tag cryptographic success and signer identity are
+  delegated to the user's configured Git/GPG signing capability; gitwatch
+  never selects or invents a signing key.
