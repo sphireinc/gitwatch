@@ -58,6 +58,8 @@ Provide useful upstream/reset workflows without adding generic destructive hard 
   branch when it is behind a configured upstream. The action uses `merge
   --ff-only -- <upstream>` and retains the authoritative refresh path used by
   other branch mutations.
+- Added an explicit Branches reset prompt accepting only `soft <ref>` or
+  `mixed <ref>` for the checked-out branch. Both modes preserve worktree
+  content, and the prompt has no hard-reset variant.
 - Added focused argv, validation, confirmation, and cancellation tests. The
-  reset operations are domain-ready; their interactive target/mode prompt and
-  ahead/behind recovery preview remain to be completed.
+  ahead/behind recovery preview before rebase remains to be completed.
