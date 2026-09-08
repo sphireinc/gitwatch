@@ -780,6 +780,26 @@ func TestBranchFastForwardRequiresExplicitConfirmation(t *testing.T) {
 	}
 }
 
+func TestBranchResetPromptOnlyAcceptsSoftOrMixedRef(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	m.Branches = branchview.New([]branches.Branch{{Name: "main", Current: true}})
+	updated, cmd := m.Update(key("z"))
+	m = updated.(Model)
+	if cmd != nil || !m.BranchResetPrompt {
+		t.Fatalf("reset prompt = cmdnil=%v prompt=%v", cmd == nil, m.BranchResetPrompt)
+	}
+	for _, ch := range "soft HEAD~1" {
+		updated, cmd = m.Update(key(string(ch)))
+		m = updated.(Model)
+	}
+	updated, cmd = m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.BranchResetPrompt || m.State != StateOperationPending {
+		t.Fatalf("reset submit = cmdnil=%v prompt=%v state=%v", cmd == nil, m.BranchResetPrompt, m.State)
+	}
+}
+
 func TestMergeStrategyNames(t *testing.T) {
 	for _, test := range []struct {
 		input string

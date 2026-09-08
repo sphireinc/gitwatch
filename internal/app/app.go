@@ -544,6 +544,8 @@ type Model struct {
 	BranchRecoveryAction     string
 	BranchRecoveryTarget     string
 	BranchRecoveryConfirm    bool
+	BranchResetPrompt        bool
+	BranchResetInput         string
 	Stashes                  stashview.Model
 	Reflog                   reflogview.Model
 	ReflogSkip               int
@@ -2264,6 +2266,58 @@ func (m Model) fastForwardBranch(upstream string) tea.Cmd {
 		_, err := branches.FastForward(ctx, runner, upstream)
 		return BranchOperationFinishedMsg{Operation: "fast-forwarded", Name: upstream, Repository: generation, Err: err}
 	}
+}
+
+func (m Model) resetBranch(mode branches.ResetMode, target string) tea.Cmd {
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	label := "soft"
+	if mode == branches.ResetMixed {
+		label = "mixed"
+	}
+	return func() tea.Msg {
+		_, err := branches.Reset(ctx, runner, mode, target)
+		return BranchOperationFinishedMsg{Operation: "reset (" + label + ")", Name: target, Repository: generation, Err: err}
+	}
+}
+
+func (m *Model) updateBranchResetKey(key string) tea.Cmd {
+	if key == "esc" {
+		m.BranchResetPrompt, m.BranchResetInput = false, ""
+		m.Status = "branch reset cancelled"
+		return nil
+	}
+	if key == "backspace" {
+		m.BranchResetInput = removeLastRune(m.BranchResetInput)
+	} else if key == "space" {
+		m.BranchResetInput += " "
+	} else if key == "enter" {
+		parts := strings.Fields(m.BranchResetInput)
+		if len(parts) != 2 {
+			m.Status = "reset format: soft <ref> or mixed <ref>"
+			return nil
+		}
+		mode := branches.ResetMode(255)
+		switch parts[0] {
+		case "soft":
+			mode = branches.ResetSoft
+		case "mixed":
+			mode = branches.ResetMixed
+		default:
+			m.Status = "reset mode must be soft or mixed"
+			return nil
+		}
+		target := parts[1]
+		m.BranchResetPrompt, m.BranchResetInput = false, ""
+		m.State, m.Status = StateOperationPending, "resetting ("+parts[0]+") to "+platform.SafeText(target)
+		return m.resetBranch(mode, target)
+	} else if len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00") {
+		m.BranchResetInput += key
+	} else {
+		return nil
+	}
+	m.Status = "reset: " + platform.SafeText(m.BranchResetInput) + " (soft <ref> or mixed <ref>)"
+	return nil
 }
 
 func (m Model) deleteBranch(branch branches.Branch, force bool, input string) tea.Cmd {
@@ -4604,6 +4658,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.Branches && m.RemoteBranchAction == "track" {
 			return m, m.updateRemoteBranchKey(v.String())
 		}
+		if m.currentView() == workspace.Branches && m.BranchResetPrompt {
+			return m, m.updateBranchResetKey(v.String())
+		}
 		if m.currentView() == workspace.Branches && m.RemoteBranchConfirm {
 			switch v.String() {
 			case "y", "Y":
@@ -5083,6 +5140,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.BranchRecoveryAction, m.BranchRecoveryTarget, m.BranchRecoveryConfirm = "fast-forward", branch.Upstream, true
 					m.Status = "confirm fast-forward to " + platform.SafeText(branch.Upstream) + "? (y/n)"
+				}
+			}
+		case "z":
+			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+				branch := m.Branches.Entries[m.Branches.Selected]
+				if !branch.Current {
+					m.Status = "branch reset requires the checked-out branch"
+				} else {
+					m.BranchResetPrompt, m.BranchResetInput = true, ""
+					m.Status = "reset: soft <ref> or mixed <ref>"
 				}
 			}
 		case "U":
@@ -7226,7 +7293,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Branches {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout/track  [x] detached  [w] worktree  [F] fast-forward  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout/track  [x] detached  [w] worktree  [F] fast-forward  [z] reset  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
 		if m.BranchSearching {
 			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Branches.Query) + "  [enter] apply  [esc] cancel"
 		} else if m.RemoteBranchAction == "track" {
@@ -7235,6 +7302,8 @@ func (m Model) featureView(view workspace.View) tea.View {
 			lines[len(lines)-1] = "remote branch confirmation: [y] yes  [n] no  [esc] cancel"
 		} else if m.BranchRecoveryConfirm {
 			lines[len(lines)-1] = "fast-forward confirmation: [y] yes  [n] no  [esc] cancel"
+		} else if m.BranchResetPrompt {
+			lines[len(lines)-1] = "reset: soft <ref> or mixed <ref>  [enter] apply  [esc] cancel"
 		}
 	}
 	if view == workspace.Gitignore {
