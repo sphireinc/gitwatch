@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sphireinc/git-watch/internal/customcmd"
 )
 
 // CurrentVersion is the configuration schema consumed by the version-2 loader.
@@ -35,6 +37,7 @@ type Config struct {
 	Layout            LayoutConfig                 `json:"layout"`
 	Diff              DiffConfig                   `json:"diff"`
 	Tools             ToolsConfig                  `json:"tools"`
+	CustomCommands    []customcmd.Definition       `json:"custom_commands,omitempty"`
 	GitignoreMaxBytes int64                        `json:"gitignore_max_bytes"`
 	ShowCommitTree    bool                         `json:"show_commit_tree"`
 	CommitTree        CommitTreeConfig             `json:"commit_tree"`
@@ -246,6 +249,11 @@ func Validate(c Config) error {
 	}
 	if err := ValidateKeymaps(c); err != nil {
 		return err
+	}
+	for _, command := range c.CustomCommands {
+		if err := command.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

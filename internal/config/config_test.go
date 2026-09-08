@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sphireinc/git-watch/internal/customcmd"
 )
 
 func TestConfigPrecedenceAndValidation(t *testing.T) {
@@ -96,6 +98,18 @@ func TestDiffBudgetValidation(t *testing.T) {
 	c.Diff.MaxLines = 0
 	if err := Validate(c); err == nil {
 		t.Fatal("zero diff line budget was accepted")
+	}
+}
+
+func TestCustomCommandConfigurationValidatesWithoutShellMode(t *testing.T) {
+	c := Defaults()
+	c.CustomCommands = []customcmd.Definition{{Name: "inspect", Executable: "tool", Args: []string{"{path}"}}}
+	if err := Validate(c); err != nil {
+		t.Fatal(err)
+	}
+	c.CustomCommands[0].Args = []string{"{unknown}"}
+	if err := Validate(c); err == nil {
+		t.Fatal("unknown custom-command placeholder was accepted")
 	}
 }
 

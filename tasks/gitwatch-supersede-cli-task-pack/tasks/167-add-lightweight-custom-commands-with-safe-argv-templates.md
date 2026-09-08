@@ -50,3 +50,16 @@ Match LZ’s low-friction custom-command usefulness without requiring a compiled
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Local progress evidence
+
+- Added `internal/customcmd` with typed command definitions, approved
+  repository/path/SHA/branch/remote/tag/provider placeholders, context
+  validation, timeout/confirmation/mutation/refresh metadata, and shell-free
+  `exec.Cmd` construction.
+- Added version-2 configuration and JSON schema support for `custom_commands`.
+  Mutating definitions automatically force an authoritative refresh policy.
+- Focused custom-command/config tests, vet, schema parsing, and diff checks
+  pass, including injection-shaped path values remaining one argv element.
+- Operation-engine execution, bounded output/cancellation, palette/binding
+  integration, secret redaction, and native acceptance remain pending.

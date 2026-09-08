@@ -73,6 +73,26 @@
         "difftool": { "$ref": "#/$defs/tool" }
       }
     },
+    "custom_commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "executable"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "contexts": { "type": "array", "items": { "type": "string" } },
+          "binding": { "type": "string" },
+          "label": { "type": "string" },
+          "executable": { "type": "string", "minLength": 1 },
+          "args": { "type": "array", "items": { "type": "string" } },
+          "directory": { "type": "string" },
+          "timeout": { "type": "integer", "minimum": 0 },
+          "confirm": { "type": "boolean" },
+          "mutates_repository": { "type": "boolean" },
+          "refresh": { "type": "boolean" }
+        }
+      }
+    },
     "gitignore_max_bytes": { "type": "integer", "minimum": 1 },
     "commit_tree": {
       "type": "object",
