@@ -45,18 +45,18 @@ Match LZ’s historical line/file removal capability as a transparent, previewab
 
 ## Acceptance criteria
 
-- [ ] Historical patch edits are previewed, checked and recoverable.
-- [ ] No direct hard-reset history surgery is used.
+- [x] Historical patch edits are previewed, checked and recoverable.
+- [x] No direct hard-reset history surgery is used.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded: `9b48680` (`feat: add guarded historical patch edits`).
+- [x] Exact tested revision recorded: `9b48680`.
+- [x] Focused unit/integration tests recorded: `GOCACHE=/tmp/git-watch-164-focused-cache ... go test ./internal/git ./internal/app`; passed, including real temporary-repository patch application and app routing coverage.
+- [x] `go test ./...` recorded: passed through `make check`.
+- [x] Race/vet/lint/format evidence recorded where applicable: `make check` passed formatting, golangci-lint, `go test -race ./...`, `go vet ./...`, `git diff --check`, security checks, and performance checks.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented: maintainer should still exercise line, hunk, whole-file, replay-conflict, and 80x24 mouse/keyboard flows manually before release; published-history rewrites require coordination.
 
 ## Progress evidence
 
@@ -69,4 +69,6 @@ Match LZ’s historical line/file removal capability as a transparent, previewab
 - A paused historical rebase applies the checked inverse patch, opens the
   existing amend composer, and continues through the existing rebase
   continue/abort lifecycle. Focused tests cover patch application and app
-  routing; full gates and manual terminal acceptance remain pending.
+  routing; full repository gates passed. Manual terminal acceptance remains a
+  deferred maintainer check for the interactive conflict and small-terminal
+  flows listed in the completion record.
