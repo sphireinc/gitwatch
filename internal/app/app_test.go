@@ -836,6 +836,25 @@ func TestCompareAssignsSelectedRevisionsFromDifferentWorkspaces(t *testing.T) {
 	}
 }
 
+func TestCompareAssignsTagsAndReflogEntries(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Tags, "Tags")
+	m.TagSnapshot = tags.Snapshot{Tags: []tags.Tag{{Name: "v1.2.3"}}}
+	m.TagsSelected = 0
+	updated, cmd := m.Update(key("Y"))
+	m = updated.(Model)
+	if cmd != nil || m.CompareLeft != "v1.2.3" {
+		t.Fatalf("tag comparison assignment = cmdnil=%v left=%q", cmd == nil, m.CompareLeft)
+	}
+	m.Workspace.Navigate(workspace.Reflog, "Reflog")
+	m.Reflog.SetPage([]reflog.Entry{{SHA: "reflog-sha"}}, false)
+	updated, cmd = m.Update(key("Y"))
+	m = updated.(Model)
+	if cmd == nil || m.CompareRight != "reflog-sha" || m.currentView() != workspace.Compare {
+		t.Fatalf("reflog comparison assignment = cmdnil=%v right=%q view=%q", cmd == nil, m.CompareRight, m.currentView())
+	}
+}
+
 func TestMergeStrategyNames(t *testing.T) {
 	for _, test := range []struct {
 		input string

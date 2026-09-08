@@ -67,7 +67,8 @@ Allow users to compare any two commits, branches, tags, remote refs or reflog en
   rename/copy path pairs, binary stats, unusual path preservation, file and
   patch limits, and output truncation state.
 - Added focused tests for unsafe refs, rename records, binary files,
-  tab-containing paths, bounded results, and exact resolution argv. The
+  tab-containing paths, bounded results, exact resolution argv, and
+  path-scoped patch argv.
 - Added the Comparison workspace and asynchronous `Y` assignment flow. The
   selected commit/tag/branch/remote branch/reflog entry can populate side A or
   B; the second assignment starts a generation-scoped, cancellable comparison
@@ -77,5 +78,5 @@ Allow users to compare any two commits, branches, tags, remote refs or reflog en
   cross-workspace assignment, and comparison dispatch. Per-file patch loading
   is now available with a bounded path-scoped Git request after selecting a
   changed row and pressing Enter; cancellation is request-scoped alongside the
-  comparison job. Explicit action assignment from every source still needs
-  final coverage.
+  comparison job. Assignment coverage includes History, Tags,
+  Branches/remote branches, and Reflog.
