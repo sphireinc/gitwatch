@@ -53,3 +53,14 @@ Provide file history from Status, commit inspection and diff views.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added `internal/pathhistory` with bounded paged `git log --name-status -z
+  -- <path>` loading and an explicit `Follow` option for `--follow` history.
+- The parser retains commit metadata, rename/copy old and new paths, delete
+  and modify kinds, tabs, and leading-hyphen paths without concatenating a
+  path into a revision expression.
+- Added focused argv, validation, limit-clamping, and rename/path-byte tests.
+  The Status/commit-inspector path-history workspace and return-context wiring
+  remain to be completed.
