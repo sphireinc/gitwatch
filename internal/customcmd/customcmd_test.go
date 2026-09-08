@@ -45,7 +45,7 @@ func TestValidateRejectsShellControlInArg(t *testing.T) {
 func TestRunBoundsOutputAndHonorsCancellation(t *testing.T) {
 	buffer := &limitedBuffer{limit: 3}
 	_, _ = buffer.Write([]byte("123456"))
-	if !buffer.exceeded || string(buffer.Bytes()) != "123" {
+	if !buffer.exceeded || buffer.String() != "123" {
 		t.Fatalf("limited buffer = %q exceeded=%v", buffer.Bytes(), buffer.exceeded)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

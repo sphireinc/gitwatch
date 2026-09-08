@@ -38,18 +38,18 @@ Match LZ’s low-friction custom-command usefulness without requiring a compiled
 
 ## Acceptance criteria
 
-- [ ] Small custom integrations require config, not plugin compilation.
-- [ ] Default custom commands cannot become shell-injection primitives.
+- [x] Small custom integrations require config, not plugin compilation.
+- [x] Default custom commands cannot become shell-injection primitives.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: `8602bc6` (definitions/configuration), `223015c` (operation/palette execution), and `ca400f5` (bindings/context restrictions).
+- [x] Exact tested revision recorded: the completion commit below, with the implementation tree validated by `make check`.
+- [x] Focused unit/integration tests recorded: customcmd expansion, context rejection, bounded output/cancellation, config validation, app palette/execution, and refresh routing tests passed.
+- [x] `go test ./...` recorded through `make check`.
+- [x] Race/vet/lint/format evidence recorded: `make check` passed lint with 0 issues, full/race tests, vet, formatting, diff, security, and performance checks.
+- [x] Native/manual evidence recorded as an explicit exception: shell-free argv and operation lifecycle are automated; maintainer terminal acceptance remains release QA follow-up.
+- [x] Known limitations/deferred work documented: confirmation-required commands are intentionally handed to Task 168's prompt/form engine, and custom command environment-variable configuration remains future work.
 
 ## Local progress evidence
 
