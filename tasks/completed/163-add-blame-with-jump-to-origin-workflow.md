@@ -41,17 +41,17 @@ Implement blame as an investigation surface that links lines back to commit hist
 
 ## Acceptance criteria
 
-- [ ] Blame remains responsive on large files and jumps directly to origin commits.
+- [x] Blame remains responsive on large files and jumps directly to origin commits.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded: `7525900` (workspace) and `9e177b4` (lint corrections).
+- [x] Exact tested revision recorded: `9e177b4`.
+- [x] Focused unit/integration tests recorded: `go test ./internal/blame ./internal/ui/blameview ./internal/app`.
+- [x] `go test ./...` recorded via the final gate.
+- [x] Race/vet/lint/format/security/performance evidence recorded; `git diff --check` passed.
+- [ ] Native/manual 80x24 terminal evidence recorded; deferred to maintainer manual acceptance.
+- [x] Known limitations/deferred work documented: manual terminal acceptance remains pending; automated keyboard/mouse routing and bounded-rendering coverage is present.
 
 ## Progress evidence
 
@@ -64,5 +64,5 @@ Implement blame as an investigation surface that links lines back to commit hist
 - Added the bounded Blame workspace with keyboard/mouse line selection,
   paginated rendering, origin-commit inspection, first-parent path diff
   loading, and Status/path-history/commit-inspector routing via `L`.
-- Blame UI focused tests pass; full repository gates and final manual terminal
-  acceptance remain pending.
+- Blame UI focused tests and the final repository gates pass; final manual
+  terminal acceptance remains pending as a maintainer check.
