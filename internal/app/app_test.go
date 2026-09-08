@@ -790,7 +790,7 @@ func TestBranchResetPromptOnlyAcceptsSoftOrMixedRef(t *testing.T) {
 		t.Fatalf("reset prompt = cmdnil=%v prompt=%v", cmd == nil, m.BranchResetPrompt)
 	}
 	for _, ch := range "soft HEAD~1" {
-		updated, cmd = m.Update(key(string(ch)))
+		updated, _ = m.Update(key(string(ch)))
 		m = updated.(Model)
 	}
 	updated, cmd = m.Update(key("enter"))

@@ -2297,7 +2297,7 @@ func (m *Model) updateBranchResetKey(key string) tea.Cmd {
 			m.Status = "reset format: soft <ref> or mixed <ref>"
 			return nil
 		}
-		mode := branches.ResetMode(255)
+		var mode branches.ResetMode
 		switch parts[0] {
 		case "soft":
 			mode = branches.ResetSoft
