@@ -2945,7 +2945,7 @@ func (m *Model) loadBlamePage() tea.Cmd {
 	}
 }
 
-func (m Model) inspectSelectedBlame() tea.Cmd {
+func (m *Model) inspectSelectedBlame() tea.Cmd {
 	line, ok := m.Blame.SelectedLine()
 	if !ok || line.FinalSHA == "" {
 		return nil
