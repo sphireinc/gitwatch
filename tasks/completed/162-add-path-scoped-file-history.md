@@ -42,17 +42,17 @@ Provide file history from Status, commit inspection and diff views.
 
 ## Acceptance criteria
 
-- [ ] File history is available without losing live Status context.
+- [x] File history is available without losing live Status context.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commit recorded: `032fbd6` (`feat: add path-scoped file history`).
+- [x] Exact tested revision recorded: `032fbd6`.
+- [x] Focused unit/integration tests recorded: `go test ./internal/pathhistory ./internal/ui/pathhistoryview ./internal/app`.
+- [x] `go test ./...` recorded via `make check`.
+- [x] Race/vet/lint/format evidence recorded via `make check`; `git diff --check` passed.
+- [ ] Native/manual 80x24 terminal evidence recorded; deferred to maintainer manual acceptance.
+- [x] Known limitations/deferred work documented: native/manual terminal acceptance remains pending; the implementation includes automated keyboard/mouse routing coverage.
 
 ## Progress evidence
 
