@@ -37,18 +37,18 @@ Expose remote branches as first-class refs with checkout, tracking, merge, rebas
 
 ## Acceptance criteria
 
-- [ ] Remote branch actions reuse typed engines.
-- [ ] Ambiguous names cannot target the wrong remote.
+- [x] Remote branch actions reuse typed engines.
+- [x] Ambiguous names cannot target the wrong remote.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
+- [x] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -58,9 +58,7 @@ Expose remote branches as first-class refs with checkout, tracking, merge, rebas
 - Remote branch rows now carry explicit remote and branch components, and the
   domain exposes typed tracking checkout, detached checkout, and full
   remote-qualified deletion with exact confirmation.
-- Added focused parsing and argv tests. The complete remote-branches UI,
-  bounded divergence presentation, and multi-remote integration remain
-  pending.
+- Added focused parsing and argv tests for qualified remote actions.
 - Added Branches workspace prompts for creating a local tracking branch from a
   qualified remote ref, detached checkout, and remote deletion with explicit
   `remote/branch` confirmation. These actions delegate to the typed branch
@@ -72,6 +70,28 @@ Expose remote branches as first-class refs with checkout, tracking, merge, rebas
   upstream tracking, and zero divergence on both remote rows.
 - Added remote-branch worktree routing: pressing `w` on a remote row opens the
   worktree path prompt, preserves the full remote-qualified ref, and delegates
-  creation through the typed `worktree add` operation. The focused worktree
-  routing tests pass; the full app package remains subject to the repository's
-  existing GPG-signing test-environment failure.
+  creation through the typed `worktree add` operation.
+- Added focused app and worktree tests proving merge and worktree actions retain
+  qualified remote targets, including remotes with identical branch names.
+
+## Completion evidence
+
+- Implementation commits: `3d83aa2`, `9bd4546`, `530c457`, `4554918`,
+  `c68dc18`.
+- Exact tested revision: `c68dc18`.
+- Focused coverage: remote-ref parsing and typed checkout/delete argv tests,
+  two-remote divergence integration, branch sorting, tracking/detached/delete
+  prompts, qualified merge routing, and qualified worktree argv/routing tests.
+- Full gate at the tested tree: `make check` passed, including lint,
+  `go test ./...`, `go test -race ./...`, `go vet ./...`, formatting, diff,
+  security, and performance checks. The gate was run with isolated Git config
+  and signing disabled only for test-created commits because the host's global
+  signing key is unavailable.
+- Native/manual exception: automated Bubble Tea tests cover the new prompts,
+  confirmations, keyboard routing, and refresh commands; a human 80x24
+  terminal pass remains release QA follow-up.
+- Known limitation: direct remote-row rebase remains routed through the
+  existing interactive rebase workspace and the current branch's upstream;
+  selecting a remote row does not introduce a separate destructive rebase
+  shortcut. Remote refs are still accepted as typed merge/worktree targets,
+  and tracking checkout establishes the upstream needed by the rebase flow.
