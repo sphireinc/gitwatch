@@ -70,3 +70,8 @@ Expose remote branches as first-class refs with checkout, tracking, merge, rebas
   includes a remote-qualified key, while displayed names remain qualified.
 - Added a two-remote integration fixture covering identical branch names,
   upstream tracking, and zero divergence on both remote rows.
+- Added remote-branch worktree routing: pressing `w` on a remote row opens the
+  worktree path prompt, preserves the full remote-qualified ref, and delegates
+  creation through the typed `worktree add` operation. The focused worktree
+  routing tests pass; the full app package remains subject to the repository's
+  existing GPG-signing test-environment failure.

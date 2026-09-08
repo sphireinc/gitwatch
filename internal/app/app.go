@@ -654,6 +654,7 @@ type Model struct {
 	Worktrees                worktreeview.Model
 	WorktreeAddMode          bool
 	WorktreeAddPath          string
+	WorktreeAddCommit        string
 	WorktreeConfirmAction    string
 	WorktreeConfirmTarget    string
 	RemoteForceConfirm       bool
@@ -3124,10 +3125,11 @@ func (m Model) addWorktree() tea.Cmd {
 	if path == "" {
 		return nil
 	}
+	commit := strings.TrimSpace(m.WorktreeAddCommit)
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx, generation := m.commandContext(), m.repositoryGeneration
 	return func() tea.Msg {
-		_, err := worktrees.Add(ctx, runner, path, "")
+		_, err := worktrees.AddWithCommit(ctx, runner, path, "", commit)
 		return WorktreeOperationFinishedMsg{Operation: "added worktree", Target: path, Repository: generation, Err: err}
 	}
 }
@@ -3157,7 +3159,7 @@ func (m Model) executeWorktreeAction() tea.Cmd {
 func (m *Model) updateWorktreeAddKey(key string) tea.Cmd {
 	switch key {
 	case "esc":
-		m.WorktreeAddMode, m.WorktreeAddPath, m.Status = false, "", "worktree creation cancelled"
+		m.WorktreeAddMode, m.WorktreeAddPath, m.WorktreeAddCommit, m.Status = false, "", "", "worktree creation cancelled"
 	case "backspace":
 		m.WorktreeAddPath = removeLastRune(m.WorktreeAddPath)
 	case "enter":
@@ -3165,7 +3167,9 @@ func (m *Model) updateWorktreeAddKey(key string) tea.Cmd {
 			m.Status = "worktree path is required"
 		} else {
 			m.WorktreeAddMode, m.State, m.Status = false, StateOperationPending, "adding worktree"
-			return m.addWorktree()
+			cmd := m.addWorktree()
+			m.WorktreeAddCommit = ""
+			return cmd
 		}
 	case "space":
 		m.WorktreeAddPath += " "
@@ -5002,6 +5006,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "tag worktree path: "
 				return m, nil
 			}
+			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+				branch := m.Branches.Entries[m.Branches.Selected]
+				if branch.Remote {
+					m.WorktreeAddMode, m.WorktreeAddPath, m.WorktreeAddCommit = true, "", branch.Name
+					m.Status = "worktree path for " + platform.SafeText(branch.Name) + ": "
+					return m, m.navigate(workspace.Worktrees, "Worktrees")
+				}
+			}
 			return m, m.navigate(workspace.Worktrees, "Worktrees")
 		case "v":
 			return m, m.navigate(workspace.Repositories, "Repositories")
@@ -5015,7 +5027,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.startTagCreation(tags.CreateAnnotated)
 				return m, nil
 			} else if m.currentView() == workspace.Worktrees {
-				m.WorktreeAddMode, m.WorktreeAddPath = true, ""
+				m.WorktreeAddMode, m.WorktreeAddPath, m.WorktreeAddCommit = true, "", ""
 				m.Status = "worktree path: "
 			} else if m.currentView() == workspace.Rebase {
 				if (m.Rebase.Published || m.Rebase.ReachableRemote) && m.Rebase.Base.Ref != "" {
@@ -6824,6 +6836,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
 		}
+		m.WorktreeAddCommit = ""
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 			m.recordActivity(history.OperationFailure, v.Target, v.Operation+": "+v.Err.Error())
@@ -7175,7 +7188,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Branches {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout/track  [x] detached  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout/track  [x] detached  [w] worktree  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
 		if m.BranchSearching {
 			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Branches.Query) + "  [enter] apply  [esc] cancel"
 		} else if m.RemoteBranchAction == "track" {

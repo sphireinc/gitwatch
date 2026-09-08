@@ -997,6 +997,21 @@ func TestWorktreeMutationRouting(t *testing.T) {
 	}
 }
 
+func TestRemoteBranchWorktreeRouting(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	m.Branches = branchview.New([]branches.Branch{{Name: "origin/feature", Remote: true, RemoteName: "origin", RemoteBranch: "feature"}})
+
+	updated, cmd := m.Update(key("w"))
+	m = updated.(Model)
+	if cmd == nil || m.currentView() != workspace.Worktrees || !m.WorktreeAddMode || m.WorktreeAddCommit != "origin/feature" {
+		t.Fatalf("remote worktree routing = cmdnil=%v view=%q mode=%v commit=%q", cmd == nil, m.currentView(), m.WorktreeAddMode, m.WorktreeAddCommit)
+	}
+	if !contains(m.Status, "origin/feature") {
+		t.Fatalf("remote worktree status = %q", m.Status)
+	}
+}
+
 func TestHistoryLoadCancelsWhenLeavingView(t *testing.T) {
 	m := New()
 	updated, cmd := m.Update(key("l"))
