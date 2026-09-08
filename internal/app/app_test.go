@@ -338,6 +338,36 @@ func TestTagsWorkspaceLoadsFiltersAndSortsBoundedSnapshot(t *testing.T) {
 	if m.TagsFilterMode || m.TagsFilter != "v1" || !strings.Contains(m.Status, "1 match") {
 		t.Fatalf("tag filter = mode=%v filter=%q status=%q", m.TagsFilterMode, m.TagsFilter, m.Status)
 	}
+	updated, command = m.Update(key("V"))
+	m = updated.(Model)
+	if command == nil || m.State != StateOperationPending || m.TagSignatureChecking != "v1" {
+		t.Fatalf("tag verify dispatch = cmdnil=%v state=%v checking=%q", command == nil, m.State, m.TagSignatureChecking)
+	}
+	updated, _ = m.Update(TagSignatureReadyMsg{Generation: 1, Name: "v1", State: tags.SignatureInvalid, Err: errors.New("bad signature")})
+	m = updated.(Model)
+	if m.TagSignatureChecking != "" || m.TagSnapshot.Tags[1].Signature != tags.SignatureInvalid {
+		t.Fatalf("tag verify result = checking=%q tags=%+v", m.TagSignatureChecking, m.TagSnapshot.Tags)
+	}
+	updated, command = m.Update(key("enter"))
+	m = updated.(Model)
+	if command == nil || m.State != StateOperationPending {
+		t.Fatalf("tag inspect dispatch = cmdnil=%v state=%v", command == nil, m.State)
+	}
+	updated, _ = m.Update(key("x"))
+	m = updated.(Model)
+	if !m.TagCheckoutConfirm || !strings.Contains(m.Status, "detached checkout") {
+		t.Fatalf("tag checkout confirmation = confirm=%v status=%q", m.TagCheckoutConfirm, m.Status)
+	}
+	updated, command = m.Update(key("y"))
+	m = updated.(Model)
+	if command == nil || m.State != StateOperationPending || m.TagCheckoutConfirm {
+		t.Fatalf("tag checkout dispatch = cmdnil=%v state=%v confirm=%v", command == nil, m.State, m.TagCheckoutConfirm)
+	}
+	updated, command = m.Update(TagCheckoutFinishedMsg{Generation: 1, Name: "v1"})
+	m = updated.(Model)
+	if command == nil || m.currentView() != workspace.Status || !strings.Contains(m.Status, "checked out tag") {
+		t.Fatalf("tag checkout result = cmdnil=%v view=%q status=%q", command == nil, m.currentView(), m.Status)
+	}
 }
 
 func TestSubmoduleLifecycleMenuRequiresExactRemovalConfirmation(t *testing.T) {

@@ -273,6 +273,17 @@ type TagsReadyMsg struct {
 	Snapshot   tags.Snapshot
 	Err        error
 }
+type TagSignatureReadyMsg struct {
+	Generation uint64
+	Name       string
+	State      tags.SignatureState
+	Err        error
+}
+type TagCheckoutFinishedMsg struct {
+	Generation uint64
+	Name       string
+	Err        error
+}
 type HistoryActionFinishedMsg struct {
 	Action, Target string
 	Repository     uint64
@@ -554,6 +565,9 @@ type Model struct {
 	TagsFilterMode           bool
 	TagsSort                 string
 	TagsSortDesc             bool
+	TagSignatureChecking     string
+	TagCheckoutConfirm       bool
+	TagCheckoutTarget        string
 	HistoryActionConfirm     bool
 	HistoryActionTarget      string
 	HistoryBranchCreating    bool
@@ -4283,6 +4297,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateTagsFilter(v.String())
 			return m, nil
 		}
+		if m.currentView() == workspace.Tags && m.TagCheckoutConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.TagCheckoutConfirm = false
+				m.State, m.Status = StateOperationPending, "checking out tag "+platform.SafeText(m.TagCheckoutTarget)+" detached"
+				return m, m.checkoutSelectedTag()
+			case "n", "N", "esc":
+				m.TagCheckoutConfirm, m.TagCheckoutTarget = false, ""
+				m.Status = "tag checkout cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Branches && (m.BranchCreateMode || m.BranchRenameMode || m.BranchUpstreamMode || m.BranchDeleteMode || m.BranchMergeMode) {
 			return m, m.updateBranchMutationKey(v.String())
 		}
@@ -4684,6 +4710,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Status && m.DiffPath != "" {
 				return m, m.openDiffMode(!m.DiffStaged)
 			}
+			if m.currentView() == workspace.Tags {
+				return m, m.verifySelectedTag()
+			}
 		case "!":
 			if m.currentView() == workspace.Status {
 				m.FileConflictOnly = !m.FileConflictOnly
@@ -4842,6 +4871,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if entry, ok := m.Reflog.SelectedEntry(); ok {
 					m.HistoryActionTarget, m.HistoryActionConfirm = entry.SHA, true
 					m.Status = "checkout recovery point " + entry.SHA + " (detached HEAD)? (y/n)"
+				}
+			} else if m.currentView() == workspace.Tags {
+				if selected, ok := m.selectedTag(); ok {
+					m.TagCheckoutTarget, m.TagCheckoutConfirm = selected.Name, true
+					m.Status = "confirm detached checkout of tag " + platform.SafeText(selected.Name) + "? (y/n)"
 				}
 			}
 		case "ctrl+n":
@@ -5079,7 +5113,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Tags {
 				rows := m.filteredTags()
 				if m.TagsSelected >= 0 && m.TagsSelected < len(rows) {
-					m.Status = "selected tag " + platform.SafeText(rows[m.TagsSelected].Name) + " target " + platform.SafeText(rows[m.TagsSelected].TargetID)
+					m.State, m.Status = StateOperationPending, "loading tag target details"
+					return m, m.inspectSelectedTag()
 				}
 				return m, nil
 			}
@@ -6193,6 +6228,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.TagSnapshot, m.TagsErr, m.TagsSelected, m.State, m.Status = v.Snapshot, nil, 0, StateReady, ""
 		}
+	case TagSignatureReadyMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.TagSignatureChecking = ""
+		m.setTagSignature(v.Name, v.State)
+		if v.Err != nil {
+			m.State, m.Status = StateReady, "tag "+platform.SafeText(v.Name)+" signature: "+string(v.State)
+		} else {
+			m.State, m.Status = StateReady, "tag "+platform.SafeText(v.Name)+" signature verified"
+		}
+	case TagCheckoutFinishedMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		m.TagCheckoutConfirm, m.TagCheckoutTarget = false, ""
+		if v.Err != nil {
+			m.State, m.Status = StateError, "checkout tag "+platform.SafeText(v.Name)+": "+v.Err.Error()
+			return m, nil
+		}
+		m.Workspace.Navigate(workspace.Status, "Status")
+		m.State, m.Status = StateReady, "checked out tag "+platform.SafeText(v.Name)+" detached"
+		return m, m.refresh()
 	case HistoryActionFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
@@ -6524,6 +6582,9 @@ func (m Model) featureView(view workspace.View) tea.View {
 		if m.TagsFilterMode {
 			content += "\n\nFilter: " + platform.SafeText(m.TagsFilter)
 		}
+		if m.HistoryInspector.Commit.SHA != "" {
+			content += "\n\n" + inspectorText(m.HistoryInspector)
+		}
 	case workspace.Reflog:
 		title, content = "gitwatch · reflog", m.Reflog.View()
 		if entry, ok := m.Reflog.SelectedEntry(); ok {
@@ -6603,7 +6664,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [P] cherry-pick  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Tags {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] inspect target  [t] reload  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] inspect  [V] verify  [x] detached checkout  [t] reload  [esc] back  [q] quit"
 		if m.TagsFilterMode {
 			lines[len(lines)-1] = "tag filter: type text  [enter] apply  [esc] cancel"
 		}

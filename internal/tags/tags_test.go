@@ -61,3 +61,13 @@ func TestLoadBoundsTagsAndRejectsMalformedRecords(t *testing.T) {
 		t.Fatalf("malformed error = %v", err)
 	}
 }
+
+func TestVerifyIsOnDemandAndRejectsUnsafeNames(t *testing.T) {
+	state, err := Verify(context.Background(), tagRunner{}, "v2.0.0")
+	if err != nil || state != SignatureValid {
+		t.Fatalf("verify = state=%q err=%v", state, err)
+	}
+	if _, err := Verify(context.Background(), tagRunner{}, "-bad"); err != ErrInvalidName {
+		t.Fatalf("unsafe tag verification error = %v", err)
+	}
+}

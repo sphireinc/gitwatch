@@ -100,6 +100,7 @@ type Snapshot struct {
 var (
 	ErrRepositoryRequired = errors.New("tag repository is required")
 	ErrMalformedRecord    = errors.New("malformed tag ref record")
+	ErrInvalidName        = errors.New("invalid tag name")
 )
 
 const tagFormat = "%(refname:short)%00%(objectname)%00%(objecttype)%00%(*objectname)%00%(*objecttype)%00%(taggername)%00%(taggeremail)%00%(taggerdate:iso8601)%00%(contents:subject)"
@@ -134,6 +135,28 @@ func Load(ctx context.Context, runner Runner, request LoadRequest) (Snapshot, er
 		tags[i].RemoteNames = append([]string(nil), matching...)
 	}
 	return Snapshot{Repository: request.Repository, Tags: tags, Truncated: truncated}, nil
+}
+
+// Verify performs the intentionally on-demand signature check for one
+// annotated tag. Lightweight tags have no signature to verify and are
+// reported as unsigned by the caller before invoking this operation.
+type VerifyRunner interface {
+	Run(context.Context, ...string) (git.Result, error)
+}
+
+func Verify(ctx context.Context, runner VerifyRunner, name string) (SignatureState, error) {
+	if !validName(name) {
+		return SignatureUnknown, ErrInvalidName
+	}
+	if _, err := runner.Run(ctx, "verify-tag", "--", name); err != nil {
+		return SignatureInvalid, err
+	}
+	return SignatureValid, nil
+}
+
+func validName(name string) bool {
+	name = strings.TrimSpace(name)
+	return name != "" && !strings.HasPrefix(name, "-") && !strings.ContainsAny(name, "\x00\r\n")
 }
 
 func parseTagRefs(data []byte, maxTags int) ([]Tag, bool, error) {

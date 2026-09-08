@@ -5,9 +5,78 @@ import (
 	"sort"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
+	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/tags"
 )
+
+func (m Model) selectedTag() (tags.Tag, bool) {
+	rows := m.filteredTags()
+	if m.TagsSelected < 0 || m.TagsSelected >= len(rows) {
+		return tags.Tag{}, false
+	}
+	return rows[m.TagsSelected], true
+}
+
+func (m *Model) verifySelectedTag() tea.Cmd {
+	selected, ok := m.selectedTag()
+	if !ok {
+		m.Status = "select a tag first"
+		return nil
+	}
+	if selected.Kind == tags.Lightweight {
+		m.setTagSignature(selected.Name, tags.SignatureUnsigned)
+		m.Status = "lightweight tag has no signature: " + platform.SafeText(selected.Name)
+		return nil
+	}
+	m.TagSignatureChecking = selected.Name
+	m.State, m.Status = StateOperationPending, "verifying tag "+platform.SafeText(selected.Name)
+	name, generation := selected.Name, m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		state, err := tags.Verify(m.commandContext(), runner, name)
+		return TagSignatureReadyMsg{Generation: generation, Name: name, State: state, Err: err}
+	}
+}
+
+func (m *Model) setTagSignature(name string, state tags.SignatureState) {
+	for i := range m.TagSnapshot.Tags {
+		if m.TagSnapshot.Tags[i].Name == name {
+			m.TagSnapshot.Tags[i].Signature = state
+			return
+		}
+	}
+}
+
+func (m Model) inspectSelectedTag() tea.Cmd {
+	selected, ok := m.selectedTag()
+	if !ok {
+		return nil
+	}
+	commit := history.Commit{SHA: selected.TargetID, Short: selected.TargetID, Subject: selected.Message, Refs: []string{selected.Name}}
+	runner := git.NewRunner(m.Discovery.Root)
+	return func() tea.Msg {
+		inspector, err := history.InspectPath(m.commandContext(), runner, selected.TargetID, "", "")
+		inspector.Commit = commit
+		return HistoryInspectorReadyMsg{Inspector: inspector, Err: err}
+	}
+}
+
+func (m Model) checkoutSelectedTag() tea.Cmd {
+	selected, ok := m.selectedTag()
+	if !ok {
+		return nil
+	}
+	name, generation := selected.Name, m.repositoryGeneration
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx := m.commandContext()
+	return func() tea.Msg {
+		_, err := history.CheckoutCommit(ctx, runner, selected.TargetID)
+		return TagCheckoutFinishedMsg{Generation: generation, Name: name, Err: err}
+	}
+}
 
 func (m Model) filteredTags() []tags.Tag {
 	rows := append([]tags.Tag(nil), m.TagSnapshot.Tags...)
@@ -121,7 +190,7 @@ func (m Model) tagsView() string {
 		if tag.RemotePresence == tags.RemotePresent {
 			remote = "remote: " + strings.Join(tag.RemoteNames, ",")
 		}
-		lines = append(lines, prefix+platform.SafeText(tag.Name)+" · "+string(tag.Kind)+" · "+platform.SafeText(tag.TargetID)+" · "+remote)
+		lines = append(lines, prefix+platform.SafeText(tag.Name)+" · "+string(tag.Kind)+" · "+platform.SafeText(tag.TargetID)+" · signature: "+string(tag.Signature)+" · "+remote)
 	}
 	if len(rows) == 0 {
 		lines = append(lines, "  No matching tags")
