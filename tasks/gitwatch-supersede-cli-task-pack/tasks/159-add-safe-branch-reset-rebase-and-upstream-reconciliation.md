@@ -48,3 +48,16 @@ Provide useful upstream/reset workflows without adding generic destructive hard 
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added a typed branch-recovery boundary for fast-forward, soft reset, and
+  mixed reset. Recovery refs reject option-like, whitespace, and control
+  characters, and hard reset is not represented by the API.
+- Added a Branches workspace fast-forward confirmation for the checked-out
+  branch when it is behind a configured upstream. The action uses `merge
+  --ff-only -- <upstream>` and retains the authoritative refresh path used by
+  other branch mutations.
+- Added focused argv, validation, confirmation, and cancellation tests. The
+  reset operations are domain-ready; their interactive target/mode prompt and
+  ahead/behind recovery preview remain to be completed.

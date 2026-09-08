@@ -763,6 +763,23 @@ func TestRemoteBranchMergeRetainsQualifiedTarget(t *testing.T) {
 	}
 }
 
+func TestBranchFastForwardRequiresExplicitConfirmation(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Branches, "Branches")
+	m.Branches = branchview.New([]branches.Branch{{Name: "main", Current: true, Upstream: "origin/main", Behind: 2}})
+
+	updated, cmd := m.Update(key("F"))
+	m = updated.(Model)
+	if cmd != nil || !m.BranchRecoveryConfirm || m.BranchRecoveryTarget != "origin/main" {
+		t.Fatalf("fast-forward prompt = cmdnil=%v confirm=%v target=%q", cmd == nil, m.BranchRecoveryConfirm, m.BranchRecoveryTarget)
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if cmd != nil || m.BranchRecoveryConfirm || !strings.Contains(m.Status, "cancelled") {
+		t.Fatalf("fast-forward cancellation = cmdnil=%v confirm=%v status=%q", cmd == nil, m.BranchRecoveryConfirm, m.Status)
+	}
+}
+
 func TestMergeStrategyNames(t *testing.T) {
 	for _, test := range []struct {
 		input string

@@ -541,6 +541,9 @@ type Model struct {
 	RemoteBranchTarget       branches.Branch
 	RemoteBranchInput        string
 	RemoteBranchConfirm      bool
+	BranchRecoveryAction     string
+	BranchRecoveryTarget     string
+	BranchRecoveryConfirm    bool
 	Stashes                  stashview.Model
 	Reflog                   reflogview.Model
 	ReflogSkip               int
@@ -2252,6 +2255,15 @@ func (m Model) unsetBranchUpstream(local string) tea.Cmd {
 		_, err := branches.UnsetUpstream(ctx, r, local)
 		return err
 	})
+}
+
+func (m Model) fastForwardBranch(upstream string) tea.Cmd {
+	runner := git.NewRunner(m.Discovery.Root)
+	ctx, generation := m.commandContext(), m.repositoryGeneration
+	return func() tea.Msg {
+		_, err := branches.FastForward(ctx, runner, upstream)
+		return BranchOperationFinishedMsg{Operation: "fast-forwarded", Name: upstream, Repository: generation, Err: err}
+	}
 }
 
 func (m Model) deleteBranch(branch branches.Branch, force bool, input string) tea.Cmd {
@@ -4609,6 +4621,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Branches && m.BranchRecoveryConfirm {
+			switch v.String() {
+			case "y", "Y":
+				target := m.BranchRecoveryTarget
+				m.BranchRecoveryAction, m.BranchRecoveryTarget, m.BranchRecoveryConfirm = "", "", false
+				m.State, m.Status = StateOperationPending, "fast-forwarding to "+platform.SafeText(target)
+				return m, m.fastForwardBranch(target)
+			case "n", "N", "esc":
+				m.BranchRecoveryAction, m.BranchRecoveryTarget, m.BranchRecoveryConfirm = "", "", false
+				m.Status = "branch recovery cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Branches && (m.BranchCreateMode || m.BranchRenameMode || m.BranchUpstreamMode || m.BranchDeleteMode || m.BranchMergeMode) {
 			return m, m.updateBranchMutationKey(v.String())
 		}
@@ -5046,6 +5071,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.State, m.Status = StateOperationPending, "creating fixup commit"
 				return m, m.createFixup()
+			}
+			if m.currentView() == workspace.Branches && m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+				branch := m.Branches.Entries[m.Branches.Selected]
+				if !branch.Current {
+					m.Status = "fast-forward requires the checked-out branch"
+				} else if branch.Upstream == "" {
+					m.Status = "checked-out branch has no upstream"
+				} else if branch.Behind == 0 {
+					m.Status = "branch is not behind its upstream"
+				} else {
+					m.BranchRecoveryAction, m.BranchRecoveryTarget, m.BranchRecoveryConfirm = "fast-forward", branch.Upstream, true
+					m.Status = "confirm fast-forward to " + platform.SafeText(branch.Upstream) + "? (y/n)"
+				}
 			}
 		case "U":
 			if m.currentView() == workspace.Status {
@@ -7188,13 +7226,15 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Branches {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout/track  [x] detached  [w] worktree  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [enter] checkout/track  [x] detached  [w] worktree  [F] fast-forward  [M] merge  [c] create  [R] rename  [u/N] upstream  [D/X] delete  [esc] back  [q] quit"
 		if m.BranchSearching {
 			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Branches.Query) + "  [enter] apply  [esc] cancel"
 		} else if m.RemoteBranchAction == "track" {
 			lines[len(lines)-1] = "remote branch: edit local name  [enter] track  [esc] cancel"
 		} else if m.RemoteBranchConfirm {
 			lines[len(lines)-1] = "remote branch confirmation: [y] yes  [n] no  [esc] cancel"
+		} else if m.BranchRecoveryConfirm {
+			lines[len(lines)-1] = "fast-forward confirmation: [y] yes  [n] no  [esc] cancel"
 		}
 	}
 	if view == workspace.Gitignore {
