@@ -245,6 +245,14 @@ type ExternalToolFinishedMsg struct {
 	Repository uint64
 	Err        error
 }
+type HistoricalToolReadyMsg struct {
+	Name       string
+	Repository uint64
+	Tool       platform.ExternalTool
+	Path       string
+	Content    []byte
+	Err        error
+}
 type BranchesReadyMsg struct {
 	Entries []branches.Branch
 	Err     error
@@ -2053,11 +2061,47 @@ func (m *Model) openExternalTool(name string, tool platform.ExternalTool, values
 }
 
 func (m *Model) openExternalProcess(name string, command *exec.Cmd) tea.Cmd {
+	return m.openExternalProcessWithCleanup(name, command, nil)
+}
+
+func (m *Model) openExternalProcessWithCleanup(name string, command *exec.Cmd, cleanup func()) tea.Cmd {
 	m.State, m.Status = StateOperationPending, name+" active"
 	generation := m.repositoryGeneration
 	return tea.ExecProcess(command, func(processErr error) tea.Msg {
+		if cleanup != nil {
+			cleanup()
+		}
 		return ExternalToolFinishedMsg{Name: name, Repository: generation, Err: processErr}
 	})
+}
+
+func (m *Model) prepareCompareExternalTool(name string, tool platform.ExternalTool) tea.Cmd {
+	if tool.Executable == "" {
+		m.Status = name + ": configure a tool before opening historical content"
+		return nil
+	}
+	if m.Compare.Selected < 0 || m.Compare.Selected >= len(m.Compare.Result.Changes) {
+		m.Status = name + ": select a changed path first"
+		return nil
+	}
+	change := m.Compare.Result.Changes[m.Compare.Selected]
+	path := change.NewPath
+	if path == "" {
+		path = change.OldPath
+	}
+	if path == "" {
+		m.Status = name + ": selected change has no path"
+		return nil
+	}
+	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	commit := m.Compare.Result.Left.SHA
+	ctx := m.commandContext()
+	m.State, m.Status = StateOperationPending, "loading historical file for "+name
+	return func() tea.Msg {
+		content, err := runner.ShowPath(ctx, commit, []byte(path), int(m.DiffMaxBytes))
+		return HistoricalToolReadyMsg{Name: name, Repository: generation, Tool: tool, Path: path, Content: content, Err: err}
+	}
 }
 
 func (m *Model) openSelectedExternalTool(name string, tool platform.ExternalTool) tea.Cmd {
@@ -6456,9 +6500,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Status {
 				return m, m.openSelectedExternalTool("editor", m.EditorTool)
 			}
+			if m.currentView() == workspace.Compare {
+				return m, m.prepareCompareExternalTool("editor", m.EditorTool)
+			}
 		case "ctrl+o":
 			if m.currentView() == workspace.Status {
 				return m, m.openSelectedExternalTool("opener", m.OpenerTool)
+			}
+			if m.currentView() == workspace.Compare {
+				return m, m.prepareCompareExternalTool("opener", m.OpenerTool)
 			}
 		case "ctrl+t":
 			if m.currentView() == workspace.Status {
@@ -6482,6 +6532,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, m.openExternalProcess("difftool", command)
 				}
 				return m, m.openExternalTool("difftool", m.Difftool, map[string]string{"left": "HEAD", "right": "WORKTREE", "path": path, "repo": m.Discovery.Root})
+			}
+			if m.currentView() == workspace.Compare {
+				if m.Compare.Selected < 0 || m.Compare.Selected >= len(m.Compare.Result.Changes) {
+					m.Status = "difftool: select a changed path first"
+					return m, nil
+				}
+				change := m.Compare.Result.Changes[m.Compare.Selected]
+				path := change.NewPath
+				if path == "" {
+					path = change.OldPath
+				}
+				command, err := git.NewRunner(m.Discovery.Root).ExternalDiffToolCommand([]byte(m.Compare.Result.Left.SHA), []byte(m.Compare.Result.Right.SHA), []byte(path))
+				if err != nil {
+					m.Status = "difftool: " + err.Error()
+					return m, nil
+				}
+				return m, m.openExternalProcess("difftool", command)
 			}
 		case "H":
 			if m.currentView() == workspace.Log && m.HistoryInspector.Commit.SHA != "" {
@@ -7043,6 +7110,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Status = v.Name + " exited; refreshing authoritative status"
 		}
 		return m, m.refresh()
+	case HistoricalToolReadyMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Err != nil {
+			m.State, m.Status = StateError, v.Name+": "+v.Err.Error()
+			return m, nil
+		}
+		materialized, err := platform.MaterializeFile(filepath.Base(v.Path), v.Content, int(m.DiffMaxBytes))
+		if err != nil {
+			m.State, m.Status = StateError, v.Name+": "+err.Error()
+			return m, nil
+		}
+		command, err := v.Tool.CommandValues(map[string]string{"path": materialized.Path, "repo": m.Discovery.Root, "left": m.Compare.Result.Left.SHA, "right": m.Compare.Result.Right.SHA}, m.Discovery.Root, nil)
+		if err != nil {
+			materialized.Cleanup()
+			m.State, m.Status = StateError, v.Name+": "+err.Error()
+			return m, nil
+		}
+		return m, m.openExternalProcessWithCleanup(v.Name, command, materialized.Cleanup)
 	case HistoricalPatchAppliedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil

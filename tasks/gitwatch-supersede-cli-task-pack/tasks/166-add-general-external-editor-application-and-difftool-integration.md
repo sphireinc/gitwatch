@@ -67,6 +67,9 @@ Let users hand off files and diffs to preferred tools while watcher and reposito
 - Added a typed Git-native `difftool --no-prompt` command builder and focused
   tests for paths/revisions containing spaces and special characters. Focused
   platform/config/Git/app tests, vet, schema parsing, and diff checks pass.
-- Historical-file temporary materialization, arbitrary comparison-side
-  handoff, and native full-screen editor acceptance remain pending for the
-  remainder of this task.
+- Native full-screen editor acceptance remains pending for the remainder of
+  this task.
+- Added bounded `git show` loading from resolved full commit IDs and private
+  0700-directory/0600-file materialization with cleanup after tool exit.
+  Comparison-side editor/opener handoff now loads the selected historical file;
+  comparison-side and status-side difftool commands remain typed argv paths.
