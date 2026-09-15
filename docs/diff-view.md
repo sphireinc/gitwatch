@@ -7,7 +7,7 @@ otherwise mutates repository content.
 
 ## Controls
 
-- `Enter` or `d` opens the selected path's default diff mode.
+- The initial changed-file selection and every mouse or keyboard file selection automatically preview the selected path's default diff mode. `Enter` or `d` also opens it on demand.
 - `V` switches between the staged/index and unstaged/worktree diff for the
   selected path and reloads it asynchronously.
 - `PageUp`, `PageDown`, and the mouse wheel scroll the diff.

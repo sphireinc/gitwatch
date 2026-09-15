@@ -35,7 +35,7 @@ provenance and local playback instructions.
 - Read-only staged/unstaged diff switching, bounded scrolling/search, and explicit large-diff truncation notices.
 - Optional bottom-pane commit graph with bounded history (`--with-commit-tree` or `show_commit_tree`).
 - Lower-left context panes for the commit tree, unpushed commits, and a read-only branch summary.
-- Mouse or keyboard file selection that opens the selected file's diff without mutating the repository.
+- The initial changed-file selection and subsequent mouse or keyboard selections preview that file's diff without mutating the repository; working-tree changes use the unstaged diff even when the file also has staged changes.
 - Guarded stage, unstage, restore, hunk, commit, stash, branch, worktree, remote, and history workflows.
 - Bounded path history and blame inspection, plus guarded historical patch editing through a controlled rebase.
 - Typed-argv editor, opener, and difftool handoffs, with shell-free custom commands and context-aware bindings.
@@ -98,7 +98,7 @@ go build ./cmd/gitwatch
 ./gitwatch --version
 ```
 
-Development builds report `1.0.0-dev`; tagged release builds embed the release version, commit, and build date.
+Development builds report `1.0.0-dev`; tagged release builds embed the release version, commit, and build date. A source install from a release tag also reports that tag's version. The top-level `./release.sh vX.Y.Z` helper refreshes the local Go installation with the newly released identity after it pushes the signed tag.
 
 ## Quick start
 

@@ -554,6 +554,7 @@ type Model struct {
 	DiffDeleted              int
 	DiffRequest              uint64
 	DiffCancel               context.CancelFunc
+	DiffAutoPreviewed        bool
 	DiffSearchMode           bool
 	DiffSearchInput          string
 	DiffSearchMatch          int
@@ -1309,6 +1310,7 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 func (m *Model) setRepository(discovery git.Discovery) error {
 	var closeErr error
 	m.closeDiff()
+	m.DiffAutoPreviewed = false
 	m.repositoryGeneration++
 	if m.repositoryCancel != nil {
 		m.repositoryCancel()
@@ -2102,6 +2104,17 @@ func (m *Model) openDiff() tea.Cmd {
 	}
 	e := m.Files.Entries[m.Files.Visible[m.Files.Selected]]
 	return m.openDiffMode(e.Staged && !e.Unstaged)
+}
+
+// previewSelectedStatusDiff opens the first status selection once per
+// repository. Later refreshes do not reopen a diff the user explicitly
+// closed, while keyboard selection continues to preview every changed file.
+func (m *Model) previewSelectedStatusDiff() tea.Cmd {
+	if m.DiffAutoPreviewed || m.currentView() != workspace.Status || m.StatusCommitActive || len(m.Files.Visible) == 0 {
+		return nil
+	}
+	m.DiffAutoPreviewed = true
+	return m.openDiff()
 }
 
 func (m *Model) openDiffMode(staged bool) tea.Cmd {
@@ -6463,9 +6476,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Compare.Move(1)
 			default:
 				m.moveStatusFiles(1)
-				if m.DiffPath != "" {
-					return m, m.openDiff()
-				}
+				command := m.openDiff()
+				return m, command
 			}
 		case "k", "up":
 			if m.currentView() == workspace.Status && m.contextPaneFocused() {
@@ -6514,9 +6526,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Compare.Move(-1)
 			default:
 				m.moveStatusFiles(-1)
-				if m.DiffPath != "" {
-					return m, m.openDiff()
-				}
+				command := m.openDiff()
+				return m, command
 			}
 		case "pgup":
 			if m.currentView() == workspace.Status && m.contextPaneFocused() {
@@ -6944,7 +6955,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.applySnapshot(v.Result.Snapshot)
 			m.State = StateReady
 		}
-		return m, tea.Batch(waitForRefresh(v.Coordinator), m.loadSubmodules(v.Result.Snapshot.Generation), m.refreshStatusContextIfNeeded())
+		preview := m.previewSelectedStatusDiff()
+		return m, tea.Batch(waitForRefresh(v.Coordinator), m.loadSubmodules(v.Result.Snapshot.Generation), m.refreshStatusContextIfNeeded(), preview)
 	case refreshRequestedMsg:
 		if v.Coordinator != m.RefreshCoordinator {
 			return m, nil
@@ -6957,7 +6969,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.applySnapshot(v.Snapshot)
 		m.State = StateReady
-		return m, tea.Batch(m.loadSubmodules(v.Snapshot.Generation), m.refreshStatusContextIfNeeded())
+		preview := m.previewSelectedStatusDiff()
+		return m, tea.Batch(m.loadSubmodules(v.Snapshot.Generation), m.refreshStatusContextIfNeeded(), preview)
 	case SubmodulesReadyMsg:
 		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
 			return m, nil

@@ -1658,22 +1658,52 @@ func TestBisectWorkspaceCollectsAutomatedRunArgvBeforeConfirmation(t *testing.T)
 	}
 }
 
-func TestOpenDiffFollowsKeyboardSelection(t *testing.T) {
+func TestKeyboardSelectionOpensDiffWithoutPriorExplicitOpen(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
-	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("a.txt"), Unstaged: true}, {Path: repo.Path("b.txt"), Unstaged: true}}
+	m.Snapshot.Entries = []repo.Entry{
+		{Path: repo.Path("a-staged.txt"), Staged: true},
+		{Path: repo.Path("b-mixed.txt"), Staged: true, Unstaged: true},
+		{Path: repo.Path("c-unstaged.txt"), Unstaged: true},
+	}
 	m.Files.SetEntries(m.Snapshot.Entries)
-	updated, first := m.Update(key("d"))
+
+	updated, first := m.Update(key("down"))
 	m = updated.(Model)
-	if first == nil || m.DiffPath != "a.txt" {
-		t.Fatalf("first diff = commandnil=%v path=%q", first == nil, m.DiffPath)
+	if first == nil || m.Files.Selected != 1 || m.DiffPath != "b-mixed.txt" || m.DiffStaged || !m.DiffLoading {
+		t.Fatalf("mixed selection diff = commandnil=%v selected=%d path=%q staged=%v loading=%v", first == nil, m.Files.Selected, m.DiffPath, m.DiffStaged, m.DiffLoading)
 	}
 	firstRequest := m.DiffRequest
-	updated, second := m.Update(key("j"))
+	updated, second := m.Update(key("down"))
 	m = updated.(Model)
-	if second == nil || m.Files.Selected != 1 || m.DiffPath != "b.txt" || m.DiffRequest <= firstRequest {
-		t.Fatalf("selection diff = commandnil=%v selected=%d path=%q request=%d", second == nil, m.Files.Selected, m.DiffPath, m.DiffRequest)
+	if second == nil || m.Files.Selected != 2 || m.DiffPath != "c-unstaged.txt" || m.DiffStaged || m.DiffRequest <= firstRequest {
+		t.Fatalf("unstaged selection diff = commandnil=%v selected=%d path=%q staged=%v request=%d", second == nil, m.Files.Selected, m.DiffPath, m.DiffStaged, m.DiffRequest)
+	}
+	updated, third := m.Update(key("up"))
+	m = updated.(Model)
+	if third == nil || m.Files.Selected != 1 || m.DiffPath != "b-mixed.txt" || m.DiffStaged {
+		t.Fatalf("up selection diff = commandnil=%v selected=%d path=%q staged=%v", third == nil, m.Files.Selected, m.DiffPath, m.DiffStaged)
+	}
+	updated, fourth := m.Update(key("up"))
+	m = updated.(Model)
+	if fourth == nil || m.Files.Selected != 0 || m.DiffPath != "a-staged.txt" || !m.DiffStaged {
+		t.Fatalf("staged selection diff = commandnil=%v selected=%d path=%q staged=%v", fourth == nil, m.Files.Selected, m.DiffPath, m.DiffStaged)
 	}
 	m.closeDiff()
+}
+
+func TestInitialStatusSnapshotPreviewsSelectedUnstagedDiffOnce(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	updated, command := m.Update(SnapshotMsg{Snapshot: repo.Snapshot{Entries: []repo.Entry{{Path: repo.Path("notes.txt"), Unstaged: true}}}})
+	m = updated.(Model)
+	if command == nil || !m.DiffAutoPreviewed || !m.DiffLoading || m.DiffPath != "notes.txt" || m.DiffStaged {
+		t.Fatalf("initial preview = commandnil=%v previewed=%v loading=%v path=%q staged=%v", command == nil, m.DiffAutoPreviewed, m.DiffLoading, m.DiffPath, m.DiffStaged)
+	}
+	m.closeDiff()
+	updated, command = m.Update(SnapshotMsg{Snapshot: repo.Snapshot{Entries: []repo.Entry{{Path: repo.Path("notes.txt"), Unstaged: true}}}})
+	m = updated.(Model)
+	if command != nil || m.DiffPath != "" || m.DiffLoading {
+		t.Fatalf("refresh reopened closed preview = commandnil=%v path=%q loading=%v", command == nil, m.DiffPath, m.DiffLoading)
+	}
 }
 
 func TestRepositoriesRouteLoadsRows(t *testing.T) {
