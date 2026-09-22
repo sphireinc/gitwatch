@@ -73,3 +73,10 @@ Round out high-value repository-provider integration without turning gitwatch in
   routes. Remaining provider URL actions for commits, branches, tags, and
   workflow runs, plus native/manual acceptance for disabled/no-auth/
   partial-scope states.
+
+- Added palette actions for the selected local commit, branch, and tag. These
+  construct HTTPS provider URLs from the loaded repository identity with
+  escaped refs and route through the platform URL opener; no provider request
+  or Git mutation is performed. App coverage verifies all three actions.
+  Workflow-run URL actions and native/manual provider-state acceptance remain
+  open.

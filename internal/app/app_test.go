@@ -2778,6 +2778,25 @@ func TestGitHubIssueAndReleasePaletteSelectionDrivesURLActions(t *testing.T) {
 	}
 }
 
+func TestGitHubPaletteOpensSelectedLocalCommitBranchAndTag(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.GitHub.SetData(provider.Repository{Host: "github.com", Owner: "octo", Name: "repo"}, "main", provider.PullRequest{}, provider.ChecksSnapshot{})
+	m.History = historyview.New([]history.Commit{{SHA: "abc123", Subject: "commit"}})
+	m.Branches = branchview.New([]branches.Branch{{Name: "feature/x"}})
+	m.TagSnapshot = tags.Snapshot{Tags: []tags.Tag{{Name: "v1.2.3"}}}
+	for _, test := range []struct {
+		id, want string
+	}{
+		{"github_commit_selected", "opening GitHub commit abc123"},
+		{"github_branch_selected", "opening GitHub tree feature/x"},
+		{"github_tag_selected", "opening GitHub releases/tag v1.2.3"},
+	} {
+		if command := m.executePaletteAction(test.id); command == nil || m.Status != test.want {
+			t.Fatalf("palette %q = command=%v status=%q, want %q", test.id, command != nil, m.Status, test.want)
+		}
+	}
+}
+
 func TestRepositoryBatchFetchRequiresExplicitConfirmation(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{})
 	m.Workspace.Navigate(workspace.Repositories, "Repositories")

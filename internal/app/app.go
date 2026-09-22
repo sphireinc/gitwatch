@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -977,6 +978,17 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "unpushed", Label: "Show unpushed commits", Shortcut: m.Keymap["unpushed"], Enabled: m.Discovery.Root != ""},
 		{ID: "branch_summary", Label: "Show branch summary", Shortcut: m.Keymap["branch_summary"], Enabled: m.Discovery.Root != ""},
 	}
+	if m.GitHub.Repository.Owner != "" && m.GitHub.Repository.Name != "" {
+		if m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+			actions = append(actions, commands.Action{ID: "github_commit_selected", Label: "Open selected commit on GitHub", Category: "provider", Enabled: true})
+		}
+		if m.Branches.Selected >= 0 && m.Branches.Selected < len(m.Branches.Entries) {
+			actions = append(actions, commands.Action{ID: "github_branch_selected", Label: "Open selected branch on GitHub", Category: "provider", Enabled: true})
+		}
+		if _, ok := m.selectedTag(); ok {
+			actions = append(actions, commands.Action{ID: "github_tag_selected", Label: "Open selected tag on GitHub", Category: "provider", Enabled: true})
+		}
+	}
 	for index, branch := range m.Branches.Entries {
 		if index >= paletteIndexLimit {
 			break
@@ -1355,6 +1367,21 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		}
 	}
 	switch id {
+	case "github_commit_selected":
+		if m.History.Selected < 0 || m.History.Selected >= len(m.History.Rows) {
+			return nil
+		}
+		return m.openGitHubResource("commit", m.History.Rows[m.History.Selected].Commit.SHA)
+	case "github_branch_selected":
+		if m.Branches.Selected < 0 || m.Branches.Selected >= len(m.Branches.Entries) {
+			return nil
+		}
+		return m.openGitHubResource("tree", m.Branches.Entries[m.Branches.Selected].Name)
+	case "github_tag_selected":
+		if selected, ok := m.selectedTag(); ok {
+			return m.openGitHubResource("releases/tag", selected.Name)
+		}
+		return nil
 	case "status":
 		m.Workspace.Navigate(workspace.Status, "Status")
 	case "gitignore":
@@ -1410,6 +1437,25 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		return m.selectLowerPane("branches")
 	}
 	return nil
+}
+
+func (m *Model) openGitHubResource(kind, ref string) tea.Cmd {
+	if m.GitHub.Repository.Owner == "" || m.GitHub.Repository.Name == "" || ref == "" {
+		m.Status = "GitHub URL unavailable"
+		return nil
+	}
+	host := m.GitHub.Repository.Host
+	if host == "" {
+		host = "github.com"
+	}
+	resourceURL := url.URL{Scheme: "https", Host: host, Path: "/" + m.GitHub.Repository.Owner + "/" + m.GitHub.Repository.Name + "/" + kind + "/" + url.PathEscape(ref)}
+	command, err := platform.OpenURLCommand(resourceURL.String())
+	if err != nil {
+		m.Status = "GitHub URL unavailable: " + platform.SafeText(err.Error())
+		return nil
+	}
+	m.Status = "opening GitHub " + kind + " " + platform.SafeText(ref)
+	return tea.ExecProcess(command, nil)
 }
 
 func (m Model) activeGitignoreCatalog() (*catalog.Catalog, error) {
