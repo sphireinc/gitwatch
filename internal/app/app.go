@@ -978,8 +978,10 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "unpushed", Label: "Show unpushed commits", Shortcut: m.Keymap["unpushed"], Enabled: m.Discovery.Root != ""},
 		{ID: "branch_summary", Label: "Show branch summary", Shortcut: m.Keymap["branch_summary"], Enabled: m.Discovery.Root != ""},
 	}
-	if operation := m.Snapshot.Operation; operation != nil && recoverableOperation(operation.Kind()) {
-		actions = append(actions, commands.Action{ID: "operation_recovery", Label: "Reopen active " + operation.Kind().String() + " recovery", Category: "recovery", Enabled: true})
+	if operation := m.Snapshot.Operation; operation != nil {
+		if _, ok := recoveryWorkspaceRoute(operation.Kind()); ok {
+			actions = append(actions, commands.Action{ID: "operation_recovery", Label: "Reopen active " + recoveryWorkspaceLabel(operation.Kind()), Category: "recovery", Enabled: true})
+		}
 	}
 	if m.GitHub.Repository.Owner != "" && m.GitHub.Repository.Name != "" {
 		if m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
@@ -1372,18 +1374,17 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 	switch id {
 	case "operation_recovery":
 		operation := m.Snapshot.Operation
-		if operation == nil || !recoverableOperation(operation.Kind()) {
+		if operation == nil {
 			return nil
 		}
-		if operation.Kind() == sequencer.KindBisect {
+		view, ok := recoveryWorkspaceRoute(operation.Kind())
+		if !ok {
+			return nil
+		}
+		if view == workspace.Bisect {
 			return m.openBisectWorkspace()
 		}
-		view := workspace.Conflict
-		label := operation.Kind().String() + " recovery"
-		if operation.Kind() == sequencer.KindCherryPick {
-			view, label = workspace.CherryPick, "Cherry-pick progress"
-		}
-		return m.navigate(view, label)
+		return m.navigate(view, recoveryWorkspaceLabel(operation.Kind()))
 	case "github_commit_selected":
 		if m.History.Selected < 0 || m.History.Selected >= len(m.History.Rows) {
 			return nil
@@ -1813,7 +1814,9 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 	m.Conflict.SetOperationState(snapshot.Operation)
 	m.Conflict.SetStagedCount(snapshot.Counts.Staged)
 	if m.HistoryRevertRunning && operationKind == sequencer.KindRevert {
-		m.Workspace.Navigate(workspace.Conflict, "Revert recovery")
+		if view, ok := recoveryWorkspaceRoute(operationKind); ok {
+			m.Workspace.Navigate(view, recoveryWorkspaceLabel(operationKind))
+		}
 		m.Status = "revert paused for conflict recovery"
 	}
 	if snapshot.Operation == nil {
@@ -1836,12 +1839,30 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 }
 
 func recoverableOperation(kind sequencer.Kind) bool {
-	switch kind {
-	case sequencer.KindRebase, sequencer.KindCherryPick, sequencer.KindRevert, sequencer.KindMerge, sequencer.KindBisect:
-		return true
-	default:
-		return false
+	_, ok := recoveryWorkspaceRoute(kind)
+	return ok
+}
+
+func recoveryWorkspaceRoute(kind sequencer.Kind) (workspace.View, bool) {
+	route, ok := sequencer.RouteFor(kind)
+	if !ok {
+		return "", false
 	}
+	switch route.View {
+	case sequencer.RecoveryCherryPickView:
+		return workspace.CherryPick, true
+	case sequencer.RecoveryBisectView:
+		return workspace.Bisect, true
+	default:
+		return workspace.Conflict, true
+	}
+}
+
+func recoveryWorkspaceLabel(kind sequencer.Kind) string {
+	if route, ok := sequencer.RouteFor(kind); ok {
+		return route.Label
+	}
+	return "Recovery"
 }
 
 func (m *Model) updateBisectKey(key string) tea.Cmd {
@@ -7677,9 +7698,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "stash message: "
 			} else if m.currentView() == workspace.Status && (len(m.Snapshot.Conflicts) > 0 || (m.Snapshot.Operation != nil && recoverableOperation(m.Snapshot.Operation.Kind()))) {
 				view, label := workspace.Conflict, "Conflicts"
-				if m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindCherryPick {
-					view, label = workspace.CherryPick, "Cherry-pick progress"
-				} else if m.Snapshot.Operation != nil && m.Snapshot.Operation.Kind() == sequencer.KindBisect {
+				if m.Snapshot.Operation != nil {
+					if routed, ok := recoveryWorkspaceRoute(m.Snapshot.Operation.Kind()); ok {
+						view, label = routed, recoveryWorkspaceLabel(m.Snapshot.Operation.Kind())
+					}
+				}
+				if view == workspace.Bisect {
 					return m, m.openBisectWorkspace()
 				}
 				m.Workspace.Navigate(view, label)
@@ -9374,7 +9398,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if v.Paused {
 			m.State, m.Status = StateReady, "revert paused for conflict recovery"
-			m.Workspace.Navigate(workspace.Conflict, "Revert recovery")
+			if view, ok := recoveryWorkspaceRoute(sequencer.KindRevert); ok {
+				m.Workspace.Navigate(view, recoveryWorkspaceLabel(sequencer.KindRevert))
+			}
 			m.recordActivityWithOperation(history.OperationFailure, "revert", m.Status, v.Operation)
 			if len(m.Snapshot.Conflicts) > 0 {
 				return m, m.loadConflictContent()

@@ -7,6 +7,25 @@ import (
 	"time"
 )
 
+func TestRouteForCoversAllDurableRecoveryKinds(t *testing.T) {
+	tests := map[Kind]RecoveryRoute{
+		KindRebase:     {View: RecoveryConflictView, Label: "Rebase recovery"},
+		KindCherryPick: {View: RecoveryCherryPickView, Label: "Cherry-pick progress"},
+		KindRevert:     {View: RecoveryConflictView, Label: "Revert recovery"},
+		KindMerge:      {View: RecoveryConflictView, Label: "Merge recovery"},
+		KindBisect:     {View: RecoveryBisectView, Label: "Bisect"},
+	}
+	for kind, want := range tests {
+		got, ok := RouteFor(kind)
+		if !ok || got != want {
+			t.Fatalf("route for %s = %#v, ok=%v; want %#v", kind, got, ok, want)
+		}
+	}
+	if _, ok := RouteFor(KindUnknown); ok {
+		t.Fatal("unknown operation received a recovery route")
+	}
+}
+
 func TestNewStateRequiresRepositoryAndSupportsAllOperationKinds(t *testing.T) {
 	for _, kind := range []Kind{KindUnknown, KindRebase, KindCherryPick, KindRevert, KindMerge, KindBisect} {
 		state, err := NewState("repo-a", 7, kind, PhaseUnknown)
