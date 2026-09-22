@@ -94,3 +94,11 @@ Support automated bisect testing without violating argv-only execution.
   under the race detector; the full `go test ./...` and `go vet ./...` gates
   also pass at this revision. Native terminal acceptance and in-flight
   timeout evidence remain open.
+
+- Revision `5f40631` connects the bounded stream to the Bubble Tea bisect
+  workspace through repository-generation-tagged messages. Stdout/stderr are
+  sanitized, displayed incrementally, and capped at 64 KiB; dropped display
+  fragments cannot affect the authoritative final `git bisect run` result.
+  Focused normal and race tests cover the display sanitizer/bound and the
+  existing argv collection path. Native terminal acceptance and in-flight
+  timeout evidence remain open.
