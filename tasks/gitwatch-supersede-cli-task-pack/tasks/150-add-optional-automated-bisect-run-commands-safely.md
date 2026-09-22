@@ -75,3 +75,13 @@ Support automated bisect testing without violating argv-only execution.
   remains active until the
   dependent custom-command foundation, terminal acceptance, and remaining
   cancellation/timeout evidence are complete.
+
+## Progress evidence (2026-09-22)
+
+- Added `TestRunCommandPropagatesCancelledContext`, which starts a real
+  disposable bisect, invokes the typed run boundary with an already-cancelled
+  context, and asserts the Git cancellation sentinel is preserved. This keeps
+  cancellation observable without introducing shell-based test helpers.
+- Task 150 remains open for in-flight process timeout evidence, incremental
+  output streaming, native terminal acceptance, and the dependent custom
+  command foundation.

@@ -2,6 +2,7 @@ package bisect
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -159,6 +160,40 @@ func TestRunCommandUsesTokenizedExecutableAndBoundedOutput(t *testing.T) {
 func TestRunCommandRejectsShellLikeExecutableTokens(t *testing.T) {
 	if outcome := RunCommand(context.Background(), git.NewRunner("/repo"), RunRequest{Repository: "/repo", Executable: "test\nrunner"}); outcome.Err != ErrInvalidCommand {
 		t.Fatalf("invalid executable error = %v", outcome.Err)
+	}
+}
+
+func TestRunCommandPropagatesCancelledContext(t *testing.T) {
+	ctx := context.Background()
+	dir, runner := bisectRepository(t)
+	commit := func(content, message string) string {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, "file"), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Stage(ctx, []byte("file")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte(message + "\n")}); err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(mustRun(t, runner, ctx, "rev-parse", "HEAD").Stdout))
+	}
+	good := commit("good\n", "good")
+	bad := commit("bad\n", "bad")
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome := Start(ctx, runner, StartRequest{Repository: discovery.Root, Generation: 1, Bad: bad, Good: good}); outcome.Err != nil {
+		t.Fatalf("start outcome = %#v", outcome)
+	}
+
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	outcome := RunCommand(cancelled, git.NewRunner(dir), RunRequest{Repository: discovery.Root, Generation: 2, Executable: "git"})
+	if !errors.Is(outcome.Err, git.ErrCancelled) {
+		t.Fatalf("cancelled outcome error = %v, want %v", outcome.Err, git.ErrCancelled)
 	}
 }
 
