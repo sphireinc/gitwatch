@@ -102,3 +102,11 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   disposable-repository and watcher lanes. This makes those package-level
   claims part of the repeatable parity gate rather than relying on the broader
   default test command.
+
+- On revision `638f217`, the disposable integration and watcher lanes passed,
+  followed by the bisect/cherry-pick/submodule, remotes/provider/multirepo, and
+  custom-command/plugin protocol lanes from `scripts/parity-check.sh`. The
+  latest pushed CI workflow also has green quality, Ubuntu, macOS, and
+  full-history secret-scan jobs; the Windows job remains the final in-flight
+  cross-platform result. Native terminal, PTY, Windows path/CRLF, and full
+  parity-matrix evidence remain open.
