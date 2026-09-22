@@ -258,6 +258,11 @@ func (w *Watcher) restoreMetadataWatches() error {
 			continue
 		}
 		if err := w.addTree(directory); err != nil {
+			if os.IsNotExist(err) {
+				// The metadata directory may disappear again while Git replaces
+				// its worktree state. The next native hint will retry the walk.
+				continue
+			}
 			return err
 		}
 	}

@@ -184,25 +184,6 @@ func awaitFilesystemEvent(t *testing.T, events <-chan Event) {
 	}
 }
 
-func awaitFilesystemPathEvent(t *testing.T, events <-chan Event, want string) {
-	t.Helper()
-	deadline := time.NewTimer(time.Second)
-	defer deadline.Stop()
-	for {
-		select {
-		case event := <-events:
-			if event.Err != nil || event.Mode != ModeFS {
-				t.Fatalf("unexpected event while waiting for %q: %#v", want, event)
-			}
-			if event.Path == want {
-				return
-			}
-		case <-deadline.C:
-			t.Fatalf("watcher did not emit event for %q", want)
-		}
-	}
-}
-
 func writeAndAwaitFilesystemPathEvent(t *testing.T, events <-chan Event, path string, content []byte) {
 	t.Helper()
 	deadline := time.NewTimer(2 * time.Second)
