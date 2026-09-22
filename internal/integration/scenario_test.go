@@ -3,11 +3,14 @@ package integration_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/sphireinc/git-watch/internal/branches"
 	"github.com/sphireinc/git-watch/internal/git"
@@ -16,12 +19,143 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/manage"
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/hunks"
+	"github.com/sphireinc/git-watch/internal/multirepo"
 	"github.com/sphireinc/git-watch/internal/patch"
 	"github.com/sphireinc/git-watch/internal/registry"
 	"github.com/sphireinc/git-watch/internal/remotes"
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/worktrees"
 )
+
+func TestBatchFetchFiftyDisposableRepositoriesIsBoundedAndFailureIsolated(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	root := t.TempDir()
+	const repositoryCount = 50
+	const workers = 4
+	requests := make([]multirepo.Request, repositoryCount)
+
+	for i := 0; i < repositoryCount; i++ {
+		repositoryRoot := filepath.Join(root, "repo", fmt.Sprintf("%02d", i))
+		remoteRoot := filepath.Join(root, "remote", fmt.Sprintf("%02d.git", i))
+		if err := os.MkdirAll(filepath.Dir(repositoryRoot), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Dir(remoteRoot), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := git.NewRunner(root).Run(ctx, "init", "--bare", "--", remoteRoot); err != nil {
+			t.Fatalf("init bare remote %d: %v", i, err)
+		}
+		if err := os.MkdirAll(repositoryRoot, 0700); err != nil {
+			t.Fatal(err)
+		}
+		runner := git.NewRunner(repositoryRoot)
+		for _, args := range [][]string{
+			{"init", "-b", "main", "--", repositoryRoot},
+			{"config", "user.name", "gitwatch-batch"},
+			{"config", "user.email", "gitwatch-batch@example.com"},
+			{"remote", "add", "origin", remoteRoot},
+		} {
+			if _, err := runner.Run(ctx, args...); err != nil {
+				t.Fatalf("repo %d setup %v: %v", i, args, err)
+			}
+		}
+		if err := os.WriteFile(filepath.Join(repositoryRoot, "state.txt"), []byte(fmt.Sprintf("repo-%02d\n", i)), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Stage(ctx, []byte("state.txt")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("initial\n")}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Run(ctx, "push", "--set-upstream", "origin", "main"); err != nil {
+			t.Fatalf("push repo %d: %v", i, err)
+		}
+		// Keep the fixture mixed without changing the fetch contract: dirty
+		// repositories must still be fetchable, while a local-only commit
+		// represents a diverged local history for the batch status view.
+		switch i % 4 {
+		case 1:
+			if err := os.WriteFile(filepath.Join(repositoryRoot, "dirty.txt"), []byte("uncommitted\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+		case 2:
+			if err := os.WriteFile(filepath.Join(repositoryRoot, "local.txt"), []byte("local-only\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := runner.Stage(ctx, []byte("local.txt")); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("local-only\n")}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		remote := "origin"
+		if i%10 == 0 {
+			remote = "missing"
+		}
+		requests[i] = multirepo.Request{
+			Repository: multirepo.Repository{ID: domain.RepositoryID(repositoryRoot), Root: repositoryRoot},
+			Remote:     remote,
+			Action:     multirepo.ActionFetch,
+		}
+	}
+
+	var active, peak, calls atomic.Int32
+	batchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	results := multirepo.Run(batchCtx, requests, workers, func(runCtx context.Context, request multirepo.Request) error {
+		current := active.Add(1)
+		defer active.Add(-1)
+		for {
+			observed := peak.Load()
+			if current <= observed || peak.CompareAndSwap(observed, current) {
+				break
+			}
+		}
+		select {
+		case <-time.After(5 * time.Millisecond):
+		case <-runCtx.Done():
+		}
+		if runCtx.Err() != nil {
+			return runCtx.Err()
+		}
+		_, err := remotes.Fetch(runCtx, git.NewRunner(request.Repository.Root), request.Remote)
+		if err == nil && calls.Add(1) == 8 {
+			cancel()
+		}
+		return err
+	})
+
+	if len(results) != repositoryCount {
+		t.Fatalf("batch returned %d results, want %d", len(results), repositoryCount)
+	}
+	if peak.Load() > workers {
+		t.Fatalf("peak active operations=%d, want <= %d", peak.Load(), workers)
+	}
+	var succeeded, failed, cancelled int
+	var firstErr error
+	for _, result := range results {
+		switch result.Status {
+		case "succeeded":
+			succeeded++
+		case "failed":
+			failed++
+			if firstErr == nil {
+				firstErr = result.Err
+			}
+		case "cancelled":
+			cancelled++
+		default:
+			t.Fatalf("unexpected batch result: %#v", result)
+		}
+	}
+	if succeeded == 0 || failed == 0 || cancelled == 0 {
+		t.Fatalf("mixed batch outcomes = succeeded:%d failed:%d cancelled:%d first error: %v", succeeded, failed, cancelled, firstErr)
+	}
+}
 
 func TestRepositoryWorkbenchScenario(t *testing.T) {
 	ctx := context.Background()

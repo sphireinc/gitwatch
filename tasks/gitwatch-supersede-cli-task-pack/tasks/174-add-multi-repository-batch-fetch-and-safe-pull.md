@@ -109,3 +109,11 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   bounded queued/running progress, failed-subset retry, and cancellation.
   Real 50-repository remote cancellation and native/manual acceptance remain
   open.
+
+- Added `TestBatchFetchFiftyDisposableRepositoriesIsBoundedAndFailureIsolated`,
+  which creates 50 disposable repositories with local bare remotes, mixes clean,
+  dirty, and local-only histories, injects missing-remote failures, runs real
+  typed fetches through the four-worker batch executor, and verifies successful,
+  failed, and cancelled outcomes without exceeding the worker bound. The test
+  is included in `scripts/parity-check.sh` and passed at the current revision.
+  Native cancellation and watcher-responsiveness evidence remain open.
