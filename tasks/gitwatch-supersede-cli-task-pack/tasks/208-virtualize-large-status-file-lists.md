@@ -197,3 +197,10 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   opens help, and exits cleanly. The macOS arm64 run passed; hosted
   Windows/Linux and interactive mouse/NO_COLOR/reduced-motion evidence remain
   open.
+
+- At revision `cda216f`, the isolated-cache native macOS arm64 PTY lane was
+  rerun against the current binary with exactly 14,953 untracked files. It
+  passed startup, authoritative `UNTRACKED 14953` visibility at 80x24, help
+  rendering, and clean quit. The lane used the real tmux PTY with poll watch
+  mode and reduced/off motion. Automated NO_COLOR and motion-mode coverage is
+  also green; hosted Windows/Linux and native mouse interaction remain open.
