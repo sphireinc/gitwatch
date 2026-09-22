@@ -22,8 +22,13 @@ func Classify(ctx context.Context, err error) State {
 		switch httpErr.Status {
 		case http.StatusUnauthorized:
 			return StateUnauthorized
-		case http.StatusForbidden, http.StatusTooManyRequests:
+		case http.StatusTooManyRequests:
 			return StateRateLimited
+		case http.StatusForbidden:
+			if httpErr.IsRateLimited() {
+				return StateRateLimited
+			}
+			return StateUnauthorized
 		}
 	}
 	if errors.Is(err, ErrRateLimited) {

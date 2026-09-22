@@ -37,8 +37,10 @@ const (
 
 // HTTPError preserves an unsuccessful provider response and status code.
 type HTTPError struct {
-	Status     int
-	RetryAfter string
+	Status             int
+	RetryAfter         string
+	RateLimitRemaining string
+	RateLimitReset     string
 }
 
 func (e *HTTPError) Error() string {
@@ -49,10 +51,29 @@ func (e *HTTPError) Error() string {
 }
 
 func (e *HTTPError) Unwrap() error {
-	if e.Status == http.StatusForbidden || e.Status == http.StatusTooManyRequests {
+	if e.IsRateLimited() {
 		return ErrRateLimited
 	}
 	return ErrProviderUnavailable
+}
+
+// IsRateLimited distinguishes GitHub quota responses from permission-denied
+// 403 responses. Header values are retained as bounded metadata only; response
+// bodies are deliberately never exposed in provider errors.
+func (e *HTTPError) IsRateLimited() bool {
+	if e == nil {
+		return false
+	}
+	return e.Status == http.StatusTooManyRequests || e.RetryAfter != "" || strings.TrimSpace(e.RateLimitRemaining) == "0"
+}
+
+func newHTTPError(response *http.Response) *HTTPError {
+	return &HTTPError{
+		Status:             response.StatusCode,
+		RetryAfter:         response.Header.Get("Retry-After"),
+		RateLimitRemaining: response.Header.Get("X-RateLimit-Remaining"),
+		RateLimitReset:     response.Header.Get("X-RateLimit-Reset"),
+	}
 }
 
 // GitHubClient fetches optional GitHub data using a token source.
@@ -243,7 +264,7 @@ func (c GitHubClient) CreatePullRequest(ctx context.Context, repository Reposito
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return PullRequest{}, &HTTPError{Status: response.StatusCode, RetryAfter: response.Header.Get("Retry-After")}
+		return PullRequest{}, newHTTPError(response)
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
 	if err != nil {
@@ -423,7 +444,7 @@ func (c GitHubClient) postJSON(ctx context.Context, path string, payload []byte,
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return &HTTPError{Status: response.StatusCode, RetryAfter: response.Header.Get("Retry-After")}
+		return newHTTPError(response)
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
 	if err != nil {
@@ -482,7 +503,7 @@ func (c GitHubClient) getJSON(ctx context.Context, path string, target any) (ret
 		}
 	}()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		httpErr := &HTTPError{Status: response.StatusCode, RetryAfter: response.Header.Get("Retry-After")}
+		httpErr := newHTTPError(response)
 		if _, err := io.Copy(io.Discard, io.LimitReader(response.Body, 4096)); err != nil {
 			return fmt.Errorf("%w: discard response body: %v", httpErr, err)
 		}

@@ -60,5 +60,6 @@ Provide optional remote awareness without surprising history changes or compromi
 - Persisted last auto-fetch timestamp, status, error class, and elapsed milliseconds in the versioned repository registry; registry merges preserve this metadata across discovery refreshes and process restarts.
 - Added selected-profile auto-fetch policy overrides with validation, schema, documentation, and app-level selection coverage.
 - Exposed measured fetch duration as repository-dashboard latency metadata and expanded Git transport classification for credential prompts/HTTP-style auth failures.
+- Provider HTTP failures now preserve bounded `Retry-After`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` metadata, distinguish quota 403 responses from permission-denied 403 responses, and classify each state without exposing response bodies. Focused provider tests pass under normal, race, and vet checks.
 - Focused tests cover a 20-repository concurrency cap, active-operation skipping, failure backoff, cancellation, configuration defaults, and enabled-interval validation.
 - Remaining: provider-specific rate-limit/auth signals beyond Git transport text, and native/manual acceptance evidence.
