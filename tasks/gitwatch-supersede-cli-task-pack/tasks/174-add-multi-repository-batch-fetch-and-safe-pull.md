@@ -91,5 +91,7 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   counts, and the repository path while the existing bounded worker pool runs;
   the terminal result still drives authoritative result storage and refresh.
   `TestRepositoryBatchProgressCommandPreservesEventStream` covers delivery
-  from progress through the terminal result; real-disposable-repository,
-  cancellation, and native acceptance remain open.
+  from progress through the terminal result, while
+  `TestRepositoryBatchOperationEmitsBoundedProgressBeforeResults` exercises a
+  real command stream through a failed repository operation; successful
+  disposable-repository, cancellation, and native acceptance remain open.

@@ -2823,6 +2823,33 @@ func TestRepositoryBatchProgressCommandPreservesEventStream(t *testing.T) {
 	}
 }
 
+func TestRepositoryBatchOperationEmitsBoundedProgressBeforeResults(t *testing.T) {
+	root := t.TempDir()
+	m := NewRepositoryWithConfig(git.Discovery{Root: root}, config.Config{})
+	m.Repositories = repoview.New([]registry.Row{{Repository: registry.Repository{Path: root, Name: "one"}}})
+	m.RepositoryBatchAction = multirepo.ActionFetch
+	command := m.runRepositoryBatchFetch()
+	var statuses []string
+	for message := command(); ; {
+		switch value := message.(type) {
+		case RepositoryBatchProgressMsg:
+			statuses = append(statuses, value.Status)
+			command = batchProgressCommand(value.Events)
+			message = command()
+		case RepositoryBatchFinishedMsg:
+			if len(value.Results) != 1 || value.Results[0].Status != "failed" {
+				t.Fatalf("batch result = %#v", value.Results)
+			}
+			if strings.Join(statuses, ",") != "queued,running,failed" {
+				t.Fatalf("progress statuses = %v", statuses)
+			}
+			return
+		default:
+			t.Fatalf("unexpected batch message %T", message)
+		}
+	}
+}
+
 func TestPluginWorkspaceTogglesSelectedEntry(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{}, config.Config{Plugins: config.PluginConfig{Enabled: true}})
 	m.PluginStatePath = filepath.Join(t.TempDir(), "plugins.json")
