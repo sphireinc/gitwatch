@@ -117,7 +117,7 @@ func TestWatcherSeesExternalGitMetadataAndRecreatedDirectory(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(metadata, "index"), []byte("index"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	awaitFilesystemEvent(t, events)
+	awaitFilesystemPathEvent(t, events, filepath.Join(metadata, "index"))
 	drainFilesystemEvents(events, 25*time.Millisecond)
 	ref := filepath.Join(metadata, "refs", "heads", "topic")
 	if err := os.WriteFile(ref, []byte("0123456789abcdef\n"), 0o600); err != nil {
