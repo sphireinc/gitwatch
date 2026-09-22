@@ -4,9 +4,10 @@ This file records evidence for the exact candidate below. Automated evidence is
 complete for the candidate; native operator rows remain explicitly pending, so
 this record is not a v1 publication approval.
 
-- Release commit: `c0a7d46` (`fix: honor release check version`)
+- Release commit: `0f10d5d` (`fix: isolate demo fixture signing`)
 - Release tag:
-- Candidate date: 2026-08-28
+- Candidate version: `1.0.9`
+- Candidate date: 2026-09-22
 - Release owner: project maintainer
 
 ## Automated evidence
@@ -19,17 +20,17 @@ this record is not a v1 publication approval.
 - [x] `./scripts/performance-check.sh`
 - [x] `./scripts/secret-scan.sh --history`
 - [ ] `make check` exact shell invocation (individual constituent gates above passed)
-- [x] `VERSION=1.0.6 ./scripts/release-check.sh` on a clean release candidate
+- [x] `VERSION=1.0.9 ./scripts/release-check.sh` on a clean release candidate
 - [ ] CI matrix and native runtime smoke checks for the release candidate
 - [x] release archive extraction, identity, dependency-license, and SHA256 verification
 - [ ] SBOM and build provenance
 
-Evidence links/output: local command output for candidate `c0a7d46`; CI and
+Evidence links/output: local command output for candidate `0f10d5d`; CI and
 release workflow links must be attached before publication. The release-check
-run generated and verified the five `gitwatch_1.0.6_*` archives, release
-metadata, and checksums. The exact `make check` invocation also passed on the
-current docs-only descendant `a1fc799`; rerun it on the final tagged candidate
-before signing.
+run generated and verified the five `gitwatch_1.0.9_*` archives, release
+metadata, and checksums. The exact `make check` invocation passed on the
+current pre-release descendant `28d34b5`; rerun it on the final tagged
+candidate before signing.
 
 ## Operator evidence
 
