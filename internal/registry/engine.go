@@ -53,6 +53,7 @@ type Engine struct {
 	Stashes          func(context.Context, git.Discovery) (int, error)
 	Remotes          func(context.Context, git.Discovery) (int, error)
 	Worktrees        func(context.Context, git.Discovery) (int, error)
+	CommitConfig     func(context.Context, git.Discovery) git.CommitConfig
 	mu               sync.Mutex
 	cache            map[string]StatusResult
 }
@@ -62,7 +63,7 @@ func NewEngine(workers int) *Engine {
 	if workers < 1 {
 		workers = 1
 	}
-	return &Engine{Workers: workers, InactiveAfter: 5 * time.Minute, Budget: 15 * time.Second, Discover: git.Discover, Snapshot: git.Snapshot, Stashes: stashCount, Remotes: remoteCount, Worktrees: worktreeCount, cache: make(map[string]StatusResult)}
+	return &Engine{Workers: workers, InactiveAfter: 5 * time.Minute, Budget: 15 * time.Second, Discover: git.Discover, Snapshot: git.Snapshot, Stashes: stashCount, Remotes: remoteCount, Worktrees: worktreeCount, CommitConfig: commitConfig, cache: make(map[string]StatusResult)}
 }
 
 // Refresh reads all repositories and returns results in input order.
@@ -160,6 +161,10 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 				err = nil
 			}
 		}
+		if err == nil && discovery.Root != "" && e.CommitConfig != nil {
+			config := e.CommitConfig(ctx, discovery)
+			result.Health = health.ApplySigning(result.Health, config.SignEnabled, config.SignFormat)
+		}
 	}
 	result.Error = err
 	if err == nil {
@@ -180,6 +185,10 @@ func worktreeCount(ctx context.Context, discovery git.Discovery) (int, error) {
 		return 0, err
 	}
 	return len(entries), nil
+}
+
+func commitConfig(ctx context.Context, discovery git.Discovery) git.CommitConfig {
+	return git.NewRunner(discovery.Root).CommitConfig(ctx)
 }
 
 func inspectGitignore(root string) GitignoreHealth {

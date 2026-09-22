@@ -37,3 +37,14 @@ func TestComputeCountsDirtySubmodulesAsWarningAttention(t *testing.T) {
 		t.Fatalf("submodule health = %#v", summary)
 	}
 }
+
+func TestApplySigningDoesNotExposeKeyMaterialAndFlagsMissingFormat(t *testing.T) {
+	summary := ApplySigning(Compute(repo.Snapshot{}, 0, 0, nil), true, "")
+	if !summary.SigningEnabled || summary.SigningFormat != "" || summary.Severity != SeverityWarning || len(summary.Attention) != 1 || summary.Attention[0] != "signing format unset" {
+		t.Fatalf("signing health = %#v", summary)
+	}
+	known := ApplySigning(Compute(repo.Snapshot{}, 0, 0, nil), true, "ssh")
+	if known.Severity != SeverityHealthy || known.Attention != nil {
+		t.Fatalf("known signing health = %#v", known)
+	}
+}

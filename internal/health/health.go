@@ -29,6 +29,8 @@ type Summary struct {
 	Worktrees       int
 	ActiveOperation string
 	SubmoduleIssues int
+	SigningEnabled  bool
+	SigningFormat   string
 	Attention       []string
 	FreshAt         time.Time
 	Source          string
@@ -87,6 +89,29 @@ func CountSubmoduleIssues(snapshot repo.Snapshot) int {
 		count++
 	}
 	return count
+}
+
+// ApplySigning adds non-secret Git signing configuration to a local health
+// summary. Key material and credential-helper state are intentionally never
+// inspected. Unknown formats are surfaced as configuration attention rather
+// than guessed or silently normalized.
+func ApplySigning(summary Summary, enabled bool, format string) Summary {
+	summary.SigningEnabled = enabled
+	summary.SigningFormat = strings.TrimSpace(format)
+	if !enabled {
+		return summary
+	}
+	switch summary.SigningFormat {
+	case "", "openpgp", "ssh", "x509":
+		if summary.SigningFormat == "" {
+			summary.Severity = maxSeverity(summary.Severity, SeverityWarning)
+			summary.Attention = append(summary.Attention, "signing format unset")
+		}
+	default:
+		summary.Severity = maxSeverity(summary.Severity, SeverityWarning)
+		summary.Attention = append(summary.Attention, "unknown signing format")
+	}
+	return summary
 }
 
 func maxSeverity(left, right Severity) Severity {

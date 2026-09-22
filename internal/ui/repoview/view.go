@@ -115,6 +115,13 @@ func (m Model) View() string {
 			activity = []int{row.Ahead, row.Behind, row.Dirty, row.Conflicts}
 		}
 		line += fmt.Sprintf(" heat:%s%d diff:%s activity:%s", activityviz.HeatGlyph(heat), heat, activityviz.Bar(row.Staged+row.Unstaged, 10, 5), activityviz.Sparkline(activity, 4))
+		if row.Health.SigningEnabled {
+			format := row.Health.SigningFormat
+			if format == "" {
+				format = "unset"
+			}
+			line += " signing:" + platform.SafeText(format)
+		}
 		if row.Operation != "" {
 			line += " op:" + platform.SafeText(row.Operation)
 		}
