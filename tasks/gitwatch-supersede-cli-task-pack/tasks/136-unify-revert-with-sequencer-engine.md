@@ -92,3 +92,10 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 - This lifecycle slice is committed at `354e7c4`; the full `make check` gate
   passed at that revision. The task remains active for the unified coordinator,
   broader restart/abort integration evidence, and native acceptance.
+
+- Revision `fc20c04` adds `TestRevertConflictAbortAfterFreshRunnerParityScenario`.
+  It starts a real revert conflict, reconstructs the Git runner as a restarted
+  process, rediscovers the durable revert state, aborts through the typed
+  lifecycle boundary, and verifies the authoritative clean snapshot and
+  original worktree content. Focused normal and race runs pass; native
+  acceptance remains open.
