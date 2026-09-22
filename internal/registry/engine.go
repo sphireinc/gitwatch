@@ -68,23 +68,31 @@ func (e *Engine) Refresh(ctx context.Context, repositories []Repository, activeP
 	if workers < 1 {
 		workers = 1
 	}
-	jobs := make(chan Repository)
-	results := make(chan StatusResult, len(repositories))
+	type indexedRepository struct {
+		index      int
+		repository Repository
+	}
+	type indexedResult struct {
+		index  int
+		result StatusResult
+	}
+	jobs := make(chan indexedRepository)
+	results := make(chan indexedResult, len(repositories))
 	var group sync.WaitGroup
 	for i := 0; i < workers; i++ {
 		group.Add(1)
 		go func() {
 			defer group.Done()
-			for repository := range jobs {
-				results <- e.refreshOne(ctx, repository, activePath)
+			for job := range jobs {
+				results <- indexedResult{index: job.index, result: e.refreshOne(ctx, job.repository, activePath)}
 			}
 		}()
 	}
 	go func() {
 		defer close(jobs)
-		for _, repository := range repositories {
+		for index, repository := range repositories {
 			select {
-			case jobs <- repository:
+			case jobs <- indexedRepository{index: index, repository: repository}:
 			case <-ctx.Done():
 				return
 			}
@@ -92,9 +100,15 @@ func (e *Engine) Refresh(ctx context.Context, repositories []Repository, activeP
 	}()
 	group.Wait()
 	close(results)
-	output := make([]StatusResult, 0, len(repositories))
+	indexed := make(map[int]StatusResult, len(repositories))
 	for result := range results {
-		output = append(output, result)
+		indexed[result.index] = result.result
+	}
+	output := make([]StatusResult, 0, len(indexed))
+	for index := range repositories {
+		if result, ok := indexed[index]; ok {
+			output = append(output, result)
+		}
 	}
 	return output
 }

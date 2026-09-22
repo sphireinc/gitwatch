@@ -178,3 +178,57 @@ func TestEngineKeepsMixedAdvancedAttentionAcrossTwentyRepositories(t *testing.T)
 		t.Fatalf("broken repository isolation = %#v", rows)
 	}
 }
+
+func TestEngineRefreshKeepsHundredRepositoriesWithinWorkerBound(t *testing.T) {
+	const (
+		repositoryCount = 100
+		workers         = 8
+	)
+	engine := NewEngine(workers)
+	engine.Stashes, engine.Remotes = nil, nil
+	var active atomic.Int32
+	var peak atomic.Int32
+	engine.Discover = func(ctx context.Context, path string) (git.Discovery, error) {
+		current := active.Add(1)
+		for {
+			old := peak.Load()
+			if current <= old || peak.CompareAndSwap(old, current) {
+				break
+			}
+		}
+		defer active.Add(-1)
+		select {
+		case <-time.After(time.Millisecond):
+			return git.Discovery{Root: path}, nil
+		case <-ctx.Done():
+			return git.Discovery{}, ctx.Err()
+		}
+	}
+	engine.Snapshot = func(_ context.Context, discovery git.Discovery, _ uint64) (repo.Snapshot, error) {
+		return repo.Snapshot{Root: discovery.Root, Branch: repo.Branch{Name: "main"}}, nil
+	}
+	repositories := make([]Repository, repositoryCount)
+	for i := range repositories {
+		repositories[i] = Repository{Path: fmt.Sprintf("/repo-%03d", i)}
+	}
+	results := engine.Refresh(context.Background(), repositories, repositories[0].Path)
+	if len(results) != repositoryCount {
+		t.Fatalf("refresh result count = %d, want %d", len(results), repositoryCount)
+	}
+	if got := peak.Load(); got > workers {
+		t.Fatalf("peak concurrent refreshes = %d, want <= %d", got, workers)
+	}
+	seen := make(map[string]struct{}, len(results))
+	for index, result := range results {
+		if result.Error != nil || result.Snapshot.Root == "" {
+			t.Fatalf("result[%d] = %#v", index, result)
+		}
+		if result.Snapshot.Root != repositories[index].Path {
+			t.Fatalf("result[%d] root = %q, want %q", index, result.Snapshot.Root, repositories[index].Path)
+		}
+		seen[result.Snapshot.Root] = struct{}{}
+	}
+	if len(seen) != repositoryCount {
+		t.Fatalf("distinct refreshed repositories = %d, want %d", len(seen), repositoryCount)
+	}
+}
