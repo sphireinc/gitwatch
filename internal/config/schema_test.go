@@ -1,16 +1,23 @@
 package config
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
+const configurationSchemaV3SHA256 = "fcca5988dc5393782cbbf23be342c007db822df1d7c2c27a44a5ee85609545f2"
+
 func TestDocumentedSchemaV3CoversAdvancedConfigurationSurface(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "configuration.schema.json"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != configurationSchemaV3SHA256 {
+		t.Fatalf("configuration schema golden hash = %s, want %s", got, configurationSchemaV3SHA256)
 	}
 	var schema struct {
 		ID         string                     `json:"$id"`
