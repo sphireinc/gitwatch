@@ -165,3 +165,8 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   a filter rehomes selection against the complete authoritative set. Focused
   coverage passes repeatedly; native 80x24, NO_COLOR, reduced-motion, and
   cross-platform terminal evidence remain outstanding.
+
+- At revision `2597122`, `GOCACHE=/tmp/gitwatch-go-cache go test ./...` passed,
+  and CI run `35759468178` passed the Windows, macOS, and Ubuntu test/build
+  matrix plus the performance gate. The large-list benchmark and native
+  80x24/NO_COLOR/reduced-motion acceptance remain required for completion.

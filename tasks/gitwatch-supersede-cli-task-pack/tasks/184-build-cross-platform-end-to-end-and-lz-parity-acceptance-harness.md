@@ -110,3 +110,9 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   full-history secret-scan jobs; the Windows job remains the final in-flight
   cross-platform result. Native terminal, PTY, Windows path/CRLF, and full
   parity-matrix evidence remain open.
+
+- On revision `2597122`, the full local `go test ./...` gate passed. GitHub CI
+  run `35759468178` then passed the quality/policy, full-history secret scan,
+  Ubuntu 24.04, macOS 15, and Windows 2025 matrix jobs, including the Windows
+  runtime smoke check. This supersedes the earlier in-flight Windows result;
+  native PTY/operator evidence and the remaining parity lanes are still open.
