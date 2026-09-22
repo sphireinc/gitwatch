@@ -171,6 +171,58 @@ func TestExecuteRefusesUnrelatedCommitAfterRecordedOperation(t *testing.T) {
 	}
 }
 
+func TestExecuteRefusesActiveSequencerBeforeMutation(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := git.NewRunner(dir)
+	for _, args := range [][]string{{"init", "-b", "main", "--", dir}, {"config", "user.name", "test"}, {"config", "user.email", "test@example.com"}, {"config", "commit.gpgsign", "false"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeCommit := func(value, message string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, "file"), []byte(value), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Stage(ctx, []byte("file")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte(message + "\n")}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeCommit("base\n", "base")
+	if _, err := runner.Run(ctx, "checkout", "-b", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	writeCommit("feature\n", "feature")
+	if _, err := runner.Run(ctx, "checkout", "main"); err != nil {
+		t.Fatal(err)
+	}
+	writeCommit("main\n", "main")
+	if _, err := runner.Run(ctx, "merge", "feature"); err == nil {
+		t.Fatal("merge unexpectedly completed without conflict")
+	}
+	defer func() { _, _ = runner.Run(ctx, "merge", "--abort") }()
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := git.Snapshot(ctx, discovery, 1)
+	if err != nil || snapshot.Operation == nil {
+		t.Fatalf("active merge snapshot = %#v, err=%v", snapshot, err)
+	}
+	outcome := Execute(ctx, runner, Request{
+		Repository: discovery.Root, Kind: "commit", Ref: "main",
+		OldHead: oldHead, NewHead: snapshot.Branch.OID,
+		PostSnapshotHash: SnapshotFingerprint(snapshot), Discovery: discovery, Generation: 1,
+	})
+	if !errors.Is(outcome.Err, ErrActiveOperation) {
+		t.Fatalf("active operation outcome = %v, want ErrActiveOperation", outcome.Err)
+	}
+}
+
 func TestPlanRefusesForeignRepository(t *testing.T) {
 	snapshot := repo.Snapshot{Root: "/repo-b", Branch: repo.Branch{Name: "main", OID: newHead}}
 	_, err := Plan(Request{
