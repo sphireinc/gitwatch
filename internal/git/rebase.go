@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/sphireinc/git-watch/internal/atomicreplace"
 	"github.com/sphireinc/git-watch/internal/rebase"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 )
@@ -223,7 +224,7 @@ func HandleSequenceEditor(args []string, environment []string) error {
 	if err := temporary.Close(); err != nil {
 		return fmt.Errorf("close sequence-editor replacement: %w", err)
 	}
-	if err := os.Rename(temporaryPath, todoPath); err != nil {
+	if err := atomicreplace.File(temporaryPath, todoPath); err != nil {
 		return fmt.Errorf("install sequence-editor plan: %w", err)
 	}
 	return nil

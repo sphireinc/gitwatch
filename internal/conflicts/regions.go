@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/sphireinc/git-watch/internal/atomicreplace"
 )
 
 var ErrStaleDocument = errors.New("conflict document changed externally")
@@ -134,7 +136,7 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) error {
 	if err := temporary.Close(); err != nil {
 		return err
 	}
-	return os.Rename(temporaryPath, path)
+	return atomicreplace.File(temporaryPath, path)
 }
 
 type UndoStack struct {

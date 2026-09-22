@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/sphireinc/git-watch/internal/atomicreplace"
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/gitignore/security"
 )
@@ -64,7 +65,7 @@ func Apply(plan domain.MutationPlan) error {
 	if err := temporary.Close(); err != nil {
 		return fmt.Errorf("close temporary gitignore: %w", err)
 	}
-	if err := os.Rename(temporaryPath, path); err != nil {
+	if err := atomicreplace.File(temporaryPath, path); err != nil {
 		return fmt.Errorf("replace gitignore: %w", err)
 	}
 	// Directory fsync is the final durability step on Unix. Windows does not
