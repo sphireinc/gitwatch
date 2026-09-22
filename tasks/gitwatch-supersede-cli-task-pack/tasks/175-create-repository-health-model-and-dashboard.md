@@ -66,3 +66,10 @@ Turn gitwatch’s htop identity into a concrete repository-health surface.
 - Remaining: worktree/submodule/config-signing enrichments, cached provider
   freshness labels, actual remote-latency timestamps, single-repository detail
   presentation, and native/manual acceptance evidence.
+
+- Revision `36c845a` populates `Summary.SubmoduleIssues` from the authoritative
+  porcelain-v2 submodule field, treats `S...` as clean, and raises warning
+  severity with a `submodules` attention marker for changed/modified/untracked
+  submodule content. Registry/dashboard tests and race/vet checks pass. The
+  remaining worktree/config-signing/provider freshness/detail and native
+  acceptance evidence remain open.
