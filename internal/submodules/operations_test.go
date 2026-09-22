@@ -60,7 +60,7 @@ func TestLifecycleOperationsUseRealLocalRepositoryAndExactRemoval(t *testing.T) 
 	runner := git.NewRunner(parent)
 	runner.Env = []string{"GIT_ALLOW_PROTOCOL=file"}
 	gitMustRun(t, ctx, runner, "init", "-b", "main", "--", parent)
-	added := Add(ctx, runner, AddRequest{Repository: parent, Path: "nested path", URL: "file://" + child})
+	added := Add(ctx, runner, AddRequest{Repository: parent, Path: "nested path", URL: localFileURL(t, child)})
 	if added.Err != nil {
 		t.Fatalf("add outcome = %+v", added)
 	}

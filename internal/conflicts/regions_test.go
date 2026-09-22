@@ -3,6 +3,7 @@ package conflicts
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -64,7 +65,7 @@ func TestAtomicWritePreservesMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o751 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o751 {
 		t.Fatalf("mode = %o", info.Mode().Perm())
 	}
 }

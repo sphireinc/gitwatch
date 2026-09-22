@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/gitignore/security"
@@ -66,15 +67,21 @@ func Apply(plan domain.MutationPlan) error {
 	if err := os.Rename(temporaryPath, path); err != nil {
 		return fmt.Errorf("replace gitignore: %w", err)
 	}
-	directory, err := os.Open(plan.Root)
-	if err == nil {
-		syncErr := directory.Sync()
-		closeErr := directory.Close()
-		if syncErr != nil {
-			return syncErr
-		}
-		if closeErr != nil {
-			return closeErr
+	// Directory fsync is the final durability step on Unix. Windows does not
+	// expose directory handles with the same Sync contract; treating its
+	// unsupported operation as a mutation failure makes a successful replace
+	// report "access denied" and suppresses the authoritative refresh.
+	if runtime.GOOS != "windows" {
+		directory, err := os.Open(plan.Root)
+		if err == nil {
+			syncErr := directory.Sync()
+			closeErr := directory.Close()
+			if syncErr != nil {
+				return syncErr
+			}
+			if closeErr != nil {
+				return closeErr
+			}
 		}
 	}
 	return nil

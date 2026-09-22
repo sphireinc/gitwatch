@@ -2,6 +2,7 @@ package submodules
 
 import (
 	"context"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -87,7 +88,7 @@ func TestLoadRealRepositoryUsesGitConfigAndGitlinkStatus(t *testing.T) {
 	if module.URL != "https://example.test/child" {
 		t.Fatalf("redacted URL = %q", module.URL)
 	}
-	gitMustRun(t, ctx, parentRunner, "config", "-f", ".gitmodules", "submodule.alpha.url", "file://"+child)
+	gitMustRun(t, ctx, parentRunner, "config", "-f", ".gitmodules", "submodule.alpha.url", localFileURL(t, child))
 	gitMustRun(t, ctx, parentRunner, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--", "nested path")
 	gitMustRun(t, ctx, git.NewRunner(filepath.Join(parent, "nested path")), "checkout", "main")
 	initialized, err := Load(ctx, parentRunner, LoadRequest{Repository: parent, Limits: Limits{MaxOutputBytes: 64 << 10}})
@@ -118,6 +119,11 @@ func TestLoadRealRepositoryUsesGitConfigAndGitlinkStatus(t *testing.T) {
 	if len(detached.Modules) != 1 || detached.Modules[0].State != StateDetached {
 		t.Fatalf("detached module = %+v", detached)
 	}
+}
+
+func localFileURL(t *testing.T, path string) string {
+	t.Helper()
+	return (&url.URL{Scheme: "file", Path: filepath.ToSlash(path)}).String()
 }
 
 func gitMustRun(t *testing.T, ctx context.Context, runner git.Runner, args ...string) {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/sphireinc/git-watch/internal/rebase"
@@ -178,7 +179,7 @@ func HandleSequenceEditor(args []string, environment []string) error {
 		return errors.New("sequence-editor handoff is not active")
 	}
 	manifestInfo, err := os.Stat(manifestPath)
-	if err != nil || manifestInfo.Mode().Perm()&0o077 != 0 {
+	if err != nil || (runtime.GOOS != "windows" && manifestInfo.Mode().Perm()&0o077 != 0) {
 		return errors.New("sequence-editor handoff is inaccessible or not private")
 	}
 	data, err := os.ReadFile(manifestPath)
