@@ -170,3 +170,10 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   and CI run `35759468178` passed the Windows, macOS, and Ubuntu test/build
   matrix plus the performance gate. The large-list benchmark and native
   80x24/NO_COLOR/reduced-motion acceptance remain required for completion.
+
+- At revision `4d64f7d`, the repeatable performance gate passed again. The
+  bounded 14,953-entry status mouse-height path measured approximately 187
+  microseconds, 46 KB, and 299 allocations versus 18.9 milliseconds, 1.43 MB,
+  and 64,402 allocations for the full-scan baseline; the 50,000-entry scaling
+  sample remained bounded. Native 80x24/NO_COLOR/reduced-motion acceptance
+  remains open.

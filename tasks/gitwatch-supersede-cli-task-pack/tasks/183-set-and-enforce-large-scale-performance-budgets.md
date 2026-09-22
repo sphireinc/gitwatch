@@ -78,3 +78,10 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
 - The task remains open for 50k-path end-to-end responsiveness, process/
   goroutine leak evidence, provider/history scale coverage, and native terminal
   acceptance.
+
+- At revision `4d64f7d`, `GOCACHE=/tmp/gitwatch-performance-cache
+  ./scripts/performance-check.sh` passed patch, history, registry, 14,953-row
+  status, 50,000-row status-scaling, and 50-repository palette benchmarks.
+  The 50,000-row bounded status sample remained approximately 115 microseconds,
+  46 KB, and 299 allocations per iteration. Leak/process and native evidence
+  remain open.
