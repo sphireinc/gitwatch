@@ -15,3 +15,9 @@ go test ./internal/bisect ./internal/cherrypick ./internal/submodules -count=1
 go test ./internal/remotes ./internal/provider ./internal/multirepo -count=1
 go test ./internal/customcmd ./internal/plugins ./pkg/plugin -count=1
 go test ./internal/app -run 'TestCustomCommand(PromptFormBlocksExecutionUntilSubmit|ConfirmationCanBeCancelled)$' -count=1
+
+if [ "${GITWATCH_PTY:-0}" = "1" ]; then
+	: "${GITWATCH_PTY_BINARY:?GITWATCH_PTY_BINARY is required when GITWATCH_PTY=1}"
+	: "${GITWATCH_PTY_REPOSITORY:?GITWATCH_PTY_REPOSITORY is required when GITWATCH_PTY=1}"
+	./scripts/pty-smoke.sh "$GITWATCH_PTY_BINARY" "$GITWATCH_PTY_REPOSITORY" "${GITWATCH_PTY_EVIDENCE:-}"
+fi

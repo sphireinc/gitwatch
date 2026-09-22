@@ -136,3 +136,11 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   path after modification and untracked creation. The scenario passes in
   normal and race modes; native terminal/PTy evidence and broader Windows
   process/path acceptance remain open.
+
+- Added `scripts/pty-smoke.sh`, a bounded tmux-backed smoke flow that starts the
+  real binary, verifies workspace rendering, resizes to 80x24, opens help,
+  captures the pane, and requires a clean `q` shutdown. `scripts/parity-check.sh`
+  exposes the same lane with `GITWATCH_PTY=1`, `GITWATCH_PTY_BINARY`, and
+  `GITWATCH_PTY_REPOSITORY`. Local macOS evidence passed with an isolated
+  disposable fixture; hosted native Windows and broader operator evidence
+  remain open.
