@@ -111,7 +111,7 @@ func TestLoadRealRepositoryUsesGitConfigAndGitlinkStatus(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(parent, "nested path", "README"), []byte("child\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	gitMustRun(t, ctx, git.NewRunner(filepath.Join(parent, "nested path")), "checkout", "--detach", "HEAD")
+	gitMustRun(t, ctx, git.NewRunner(filepath.Join(parent, "nested path")), "checkout", "--force", "--detach", "HEAD")
 	detached, err := Load(ctx, parentRunner, LoadRequest{Repository: parent, Limits: Limits{MaxOutputBytes: 64 << 10}})
 	if err != nil {
 		t.Fatal(err)
