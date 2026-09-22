@@ -150,6 +150,12 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   security, performance, and diff checks on macOS arm64. Hosted Windows/Linux
   and native operator evidence remain open.
 
+- Revision `29eb743` adds an opt-in large-status PTY lane to the parity harness;
+  it runs the real binary against a disposable 14,953-file repository and
+  asserts the authoritative status count before the existing 80x24 help and
+  clean-shutdown checks. The macOS arm64 lane passed; hosted Windows/Linux
+  PTY and broader native operator evidence remain open.
+
 - Added `TestPathAndCRLFStatusScenarioPreservesGitBytesAndNames` to the parity
   gate. It uses real Git with `core.autocrlf=false`, preserves CRLF file bytes,
   and verifies status identity for a unicode/space path and a leading-hyphen

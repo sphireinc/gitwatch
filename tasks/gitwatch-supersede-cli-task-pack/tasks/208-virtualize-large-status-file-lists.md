@@ -190,3 +190,10 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   color escapes under `NO_COLOR`, and preservation of the selected offscreen
   path across full, reduced, and off motion modes. Normal, race, and vet
   focused checks pass; native terminal evidence remains open.
+
+- Revision `29eb743` adds the disposable `scripts/pty-large-status-smoke.sh`
+  lane. It creates exactly 14,953 untracked files, runs the real binary in a
+  tmux PTY, waits for the authoritative `UNTRACKED 14953` refresh at 80x24,
+  opens help, and exits cleanly. The macOS arm64 run passed; hosted
+  Windows/Linux and interactive mouse/NO_COLOR/reduced-motion evidence remain
+  open.
