@@ -240,6 +240,22 @@ func (w *Watcher) removeWatchedTree(root string) {
 	}
 }
 
+// detachWatchedTree removes both the bookkeeping and native registrations for
+// a metadata tree. Native backends can report a replacement directory without
+// reporting every child removal; retaining those paths in watched would then
+// prevent restoreMetadataWatches from re-adding the new directories.
+func (w *Watcher) detachWatchedTree(root string) {
+	root = filepath.Clean(root)
+	prefix := root + string(filepath.Separator)
+	for watched := range w.watched {
+		if watched != root && !strings.HasPrefix(watched, prefix) {
+			continue
+		}
+		_ = w.fs.Remove(watched)
+		delete(w.watched, watched)
+	}
+}
+
 // restoreMetadataWatches repairs native watcher registrations after a Git
 // metadata directory is atomically replaced. Some platforms report the
 // remove/create notifications in an order that can leave the in-memory
@@ -257,6 +273,7 @@ func (w *Watcher) restoreMetadataWatches() error {
 		if !info.IsDir() {
 			continue
 		}
+		w.detachWatchedTree(directory)
 		if err := w.addTree(directory); err != nil {
 			if os.IsNotExist(err) {
 				// The metadata directory may disappear again while Git replaces
