@@ -89,3 +89,9 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   sequencer snapshot. App coverage exercises rebase, cherry-pick, revert, and
   merge routing. The task remains open for final coordinator audit and native
   acceptance evidence.
+
+- At revision `1e1edc9`, the focused coordinator tests passed under race
+  detection, and the parity harness passed the real cherry-pick, merge,
+  rebase, revert, bisect, watcher, and multi-repository lanes. Native/manual
+  terminal acceptance and the final requirement-by-requirement coordinator
+  audit remain open.

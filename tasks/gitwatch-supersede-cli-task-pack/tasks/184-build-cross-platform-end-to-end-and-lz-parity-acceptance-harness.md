@@ -116,3 +116,9 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   Ubuntu 24.04, macOS 15, and Windows 2025 matrix jobs, including the Windows
   runtime smoke check. This supersedes the earlier in-flight Windows result;
   native PTY/operator evidence and the remaining parity lanes are still open.
+
+- At revision `1e1edc9`, `GOCACHE=/tmp/gitwatch-parity-cache
+  ./scripts/parity-check.sh` passed the disposable integration, watcher,
+  bisect, cherry-pick, submodule, remote, provider, multi-repository,
+  custom-command, plugin, and app lanes. The parity task remains open for
+  Windows path/CRLF, PTY, and native operator evidence.
