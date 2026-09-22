@@ -47,6 +47,11 @@ Add useful htop-style visuals—change heat, diff magnitude and activity sparkli
 - Added unit coverage for heat weighting, bar clamping, and bounded sparkline behavior.
 - Remaining: optional/configurable dashboard space, large changed-file performance evidence, and native 80x24/NO_COLOR/reduced-motion acceptance.
 
+- Shared status presentation coverage now includes an explicit 80x24,
+  `NO_COLOR`, and full/reduced/off motion regression over 14,953 logical
+  entries. Visualization-specific native acceptance and configurable dashboard
+  space remain open.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.

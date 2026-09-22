@@ -85,3 +85,7 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   The 50,000-row bounded status sample remained approximately 115 microseconds,
   46 KB, and 299 allocations per iteration. Leak/process and native evidence
   remain open.
+
+- Added an 80x24/`NO_COLOR`/motion-mode regression for the 14,953-entry status
+  presentation path. The test passes normally, under race detection, and with
+  vet; native responsiveness and process/goroutine leak evidence remain open.

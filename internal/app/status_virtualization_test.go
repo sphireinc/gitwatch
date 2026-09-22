@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/sphireinc/git-watch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/ui/theme"
 )
 
 func TestStatusMouseRowHeightsAreViewportBounded(t *testing.T) {
@@ -96,6 +97,35 @@ func TestStatusVirtualizationPreservesOffscreenSelectionAndFiltering(t *testing.
 	m.Files.SetFilter("generated/14952")
 	if len(m.Files.Visible) != 1 || m.Files.Selected != 0 || m.Files.SelectedPath() != "generated/14952.txt" {
 		t.Fatalf("filtered offscreen selection = visible=%d selected=%d path=%q", len(m.Files.Visible), m.Files.Selected, m.Files.SelectedPath())
+	}
+}
+
+func TestStatusVirtualizationAt80x24HonorsNoColorAndMotionModes(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	entries := make([]repo.Entry, 14953)
+	for index := range entries {
+		entries[index] = repo.Entry{Path: repo.Path(fmt.Sprintf("generated/%05d.txt", index)), Untracked: true}
+	}
+
+	m := New()
+	m.Width, m.Height = 80, 24
+	m.Theme = theme.New(theme.Dark, false)
+	m.Files.SetEntries(entries)
+	m.Files.Selected = 14952
+	m.Files.Offset = 14940
+	for _, motion := range []Motion{MotionFull, MotionReduced, MotionOff} {
+		m.Motion = motion
+		content := m.View().Content
+		lines := strings.Split(content, "\n")
+		if len(lines) != m.Height {
+			t.Fatalf("motion %q rendered %d lines at 80x24, want %d", motion, len(lines), m.Height)
+		}
+		if strings.Contains(content, "\x1b[") {
+			t.Fatalf("motion %q emitted terminal color under NO_COLOR", motion)
+		}
+		if !strings.Contains(content, "generated/14952.txt") {
+			t.Fatalf("motion %q omitted selected offscreen logical path", motion)
+		}
 	}
 }
 

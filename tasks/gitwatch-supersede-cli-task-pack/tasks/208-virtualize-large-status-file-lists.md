@@ -177,3 +177,9 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   and 64,402 allocations for the full-scan baseline; the 50,000-entry scaling
   sample remained bounded. Native 80x24/NO_COLOR/reduced-motion acceptance
   remains open.
+
+- Added `TestStatusVirtualizationAt80x24HonorsNoColorAndMotionModes`. With
+  14,953 logical entries it asserts exact 80x24 output height, no terminal
+  color escapes under `NO_COLOR`, and preservation of the selected offscreen
+  path across full, reduced, and off motion modes. Normal, race, and vet
+  focused checks pass; native terminal evidence remains open.
