@@ -137,6 +137,11 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
 - The remaining parity gaps are Windows-specific path/process acceptance, hosted
   PTY coverage, and native operator evidence.
 
+- At revision `142ec7d`, `GOCACHE=/tmp/gitwatch-parity-current-cache
+  ./scripts/parity-check.sh` passed the full disposable integration, watcher
+  event-storm, bisect, cherry-pick, submodule, remote, provider,
+  multi-repository, custom-command, plugin, and app lanes.
+
 - Added `TestPathAndCRLFStatusScenarioPreservesGitBytesAndNames` to the parity
   gate. It uses real Git with `core.autocrlf=false`, preserves CRLF file bytes,
   and verifies status identity for a unicode/space path and a leading-hyphen
