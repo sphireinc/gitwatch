@@ -39,3 +39,13 @@ func TestBuildGraphKeepsOctopusParentsDistinct(t *testing.T) {
 		t.Fatalf("octopus lane topology = %#v", rows)
 	}
 }
+
+func TestBuildGraphPagePreservesLaneContinuityAcrossPagination(t *testing.T) {
+	first := []Commit{{SHA: "merge", Parents: []string{"main", "side"}}, {SHA: "main", Parents: []string{"root"}}}
+	second := []Commit{{SHA: "side", Parents: []string{"root"}}, {SHA: "root"}}
+	firstRows, cursor := BuildGraphPage(first, GraphCursor{})
+	secondRows, _ := BuildGraphPage(second, cursor)
+	if firstRows[1].Lane != 0 || secondRows[0].Lane != 1 || secondRows[1].Lane != 0 {
+		t.Fatalf("page boundary lanes = first=%#v second=%#v", firstRows, secondRows)
+	}
+}

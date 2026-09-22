@@ -14,11 +14,18 @@ type GraphRow struct {
 	Head     bool
 }
 
-// BuildGraph assigns stable lanes while walking commits newest-first. Existing
-// parent lanes are reused; a merge keeps its first parent in place and places
-// additional parents in newly allocated lanes.
-func BuildGraph(commits []Commit) []GraphRow {
-	lanes := make([]string, 0, len(commits))
+// GraphCursor carries the active lanes across a paginated history load. It is
+// intentionally opaque to callers other than the graph builder so a page can
+// continue the topology established by the preceding page.
+type GraphCursor struct {
+	lanes []string
+}
+
+// BuildGraphPage renders one page and returns the cursor needed by the next
+// page. The cursor must be the one returned by the immediately preceding page
+// for lane continuity to be preserved.
+func BuildGraphPage(commits []Commit, cursor GraphCursor) ([]GraphRow, GraphCursor) {
+	lanes := append([]string(nil), cursor.lanes...)
 	rows := make([]GraphRow, 0, len(commits))
 	for _, commit := range commits {
 		lane := indexOf(lanes, commit.SHA)
@@ -44,6 +51,14 @@ func BuildGraph(commits []Commit) []GraphRow {
 		rows = append(rows, row)
 		lanes = advanceLanes(lanes, lane, commit.Parents)
 	}
+	return rows, GraphCursor{lanes: lanes}
+}
+
+// BuildGraph assigns stable lanes while walking commits newest-first. Existing
+// parent lanes are reused; a merge keeps its first parent in place and places
+// additional parents in newly allocated lanes.
+func BuildGraph(commits []Commit) []GraphRow {
+	rows, _ := BuildGraphPage(commits, GraphCursor{})
 	return rows
 }
 

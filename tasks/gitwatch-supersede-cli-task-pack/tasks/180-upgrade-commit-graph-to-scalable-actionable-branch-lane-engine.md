@@ -44,7 +44,8 @@ Make the history graph competitive with LZ while retaining bounded loading and s
 
 - Kept DAG topology in `history.GraphRow` separate from terminal rendering and upgraded history rendering to preserve every active lane in the row prefix instead of collapsing multi-lane rows to one glyph.
 - Added octopus-parent topology coverage and a multi-lane rendering test. Existing scoped history basket, compare, cherry-pick, rebase, branch, worktree, and tag routes remain attached to the selected graph row.
-- Remaining: pagination continuity golden fixtures, explicit range-selection acceptance, ASCII/`NO_COLOR` graph fallback evidence, large-history performance samples, and native/manual acceptance.
+- Added `history.BuildGraphPage`/`GraphCursor` and wired paginated history appends through `historyview.AppendCommits`, preserving active merge lanes across page boundaries; added history and view continuity tests.
+- Remaining: explicit range-selection acceptance, ASCII/`NO_COLOR` graph fallback evidence, large-history performance samples, and native/manual acceptance.
 
 ## Completion record
 

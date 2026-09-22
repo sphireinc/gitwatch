@@ -17,6 +17,8 @@ type Model struct {
 	Filter   string
 	Pulse    uint8
 	Basket   history.Selection
+	commits  []history.Commit
+	cursor   history.GraphCursor
 }
 
 // SetScope binds the basket to the current repository and ref. A scope switch
@@ -49,7 +51,11 @@ func (m *Model) ToggleBasket() error {
 func (m *Model) ClearBasket() { m.Basket = m.Basket.Clear() }
 
 // New creates a history view from commits ordered by the history service.
-func New(commits []history.Commit) Model { return Model{Rows: history.BuildGraph(commits)} }
+func New(commits []history.Commit) Model {
+	var model Model
+	model.SetCommits(commits)
+	return model
+}
 
 // SetCommits replaces history rows and preserves the selected position.
 func (m *Model) SetCommits(commits []history.Commit) {
@@ -57,7 +63,9 @@ func (m *Model) SetCommits(commits []history.Commit) {
 	if m.Selected >= 0 && m.Selected < len(m.Rows) {
 		selectedSHA = m.Rows[m.Selected].Commit.SHA
 	}
-	m.Rows = history.BuildGraph(history.Filter(commits, m.Filter))
+	m.commits = append([]history.Commit(nil), commits...)
+	m.Rows = history.BuildGraph(history.Filter(m.commits, m.Filter))
+	_, m.cursor = history.BuildGraphPage(m.commits, history.GraphCursor{})
 	m.Selected = 0
 	for i, row := range m.Rows {
 		if row.Commit.SHA == selectedSHA {
@@ -65,6 +73,22 @@ func (m *Model) SetCommits(commits []history.Commit) {
 			break
 		}
 	}
+}
+
+// AppendCommits adds the next unfiltered history page without recomputing
+// existing lanes. This preserves merge topology at the page boundary.
+func (m *Model) AppendCommits(commits []history.Commit) {
+	if len(commits) == 0 {
+		return
+	}
+	m.commits = append(m.commits, commits...)
+	if m.Filter != "" {
+		m.SetCommits(m.commits)
+		return
+	}
+	rows, cursor := history.BuildGraphPage(commits, m.cursor)
+	m.Rows = append(m.Rows, rows...)
+	m.cursor = cursor
 }
 
 // SetFilter applies a subject, author, or SHA filter to commits.

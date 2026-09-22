@@ -94,3 +94,14 @@ func TestViewPreservesMultipleGraphLanes(t *testing.T) {
 		t.Fatalf("multi-lane graph rendering = %q", view)
 	}
 }
+
+func TestAppendCommitsPreservesPaginationLaneContinuity(t *testing.T) {
+	m := New([]history.Commit{
+		{SHA: "merge", Short: "merge", Subject: "merge", Parents: []string{"main", "side"}},
+		{SHA: "main", Short: "main", Subject: "main", Parents: []string{"root"}},
+	})
+	m.AppendCommits([]history.Commit{{SHA: "side", Short: "side", Subject: "side", Parents: []string{"root"}}})
+	if len(m.Rows) != 3 || m.Rows[2].Lane != 1 {
+		t.Fatalf("appended graph rows = %#v", m.Rows)
+	}
+}

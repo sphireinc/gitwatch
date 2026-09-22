@@ -9311,7 +9311,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.History = historyview.New(m.HistoryCommits)
 				m.History.Basket = basket
 			} else {
-				m.History.SetCommits(m.HistoryCommits)
+				m.History.AppendCommits(v.Commits)
 			}
 			m.HistorySkip, m.HistoryHasMore, m.State = v.Skip+len(v.Commits), v.HasMore, StateReady
 			m.Repositories.SetRows(m.applyCommitActivity(m.Repositories.AllRows))
