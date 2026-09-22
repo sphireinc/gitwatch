@@ -38,8 +38,9 @@ func TestEngineUsesBoundedWorkersAndCachesInactiveRepositories(t *testing.T) {
 	engine.Snapshot = func(context.Context, git.Discovery, uint64) (repo.Snapshot, error) { return repo.Snapshot{}, nil }
 	engine.Stashes = func(context.Context, git.Discovery) (int, error) { return 3, nil }
 	engine.Remotes = func(context.Context, git.Discovery) (int, error) { return 2, nil }
+	engine.Worktrees = func(context.Context, git.Discovery) (int, error) { return 4, nil }
 	entries := []Repository{{Path: "one"}, {Path: "two"}, {Path: "three"}}
-	if got := engine.Refresh(context.Background(), entries, "one"); len(got) != 3 || peak.Load() > 2 || got[0].Stashes != 3 || got[0].Remotes != 2 {
+	if got := engine.Refresh(context.Background(), entries, "one"); len(got) != 3 || peak.Load() > 2 || got[0].Stashes != 3 || got[0].Remotes != 2 || got[0].Worktrees != 4 || got[0].Health.Worktrees != 4 {
 		t.Fatalf("unexpected refresh: len=%d peak=%d", len(got), peak.Load())
 	}
 	if calls.Load() != 3 {
@@ -121,6 +122,7 @@ func TestEngineRecordsAuxiliaryWarningsAndRefreshMetadata(t *testing.T) {
 	engine.Snapshot = func(context.Context, git.Discovery, uint64) (repo.Snapshot, error) { return repo.Snapshot{}, nil }
 	engine.Stashes = func(context.Context, git.Discovery) (int, error) { return 0, errors.New("stash unavailable") }
 	engine.Remotes = func(context.Context, git.Discovery) (int, error) { return 0, errors.New("remote unavailable") }
+	engine.Worktrees = nil
 	results := engine.Refresh(context.Background(), []Repository{{Path: "/repo", Name: "repo"}}, "/repo")
 	if len(results) != 1 || len(results[0].Warnings) != 2 || results[0].Refreshed.IsZero() || results[0].Duration < 0 {
 		t.Fatalf("refresh metadata = %#v", results)
@@ -129,7 +131,7 @@ func TestEngineRecordsAuxiliaryWarningsAndRefreshMetadata(t *testing.T) {
 
 func TestEngineKeepsMixedAdvancedAttentionAcrossTwentyRepositories(t *testing.T) {
 	engine := NewEngine(4)
-	engine.Stashes, engine.Remotes = nil, nil
+	engine.Stashes, engine.Remotes, engine.Worktrees = nil, nil, nil
 	root := t.TempDir()
 	repositories := make([]Repository, 20)
 	for i := range repositories {
@@ -185,7 +187,7 @@ func TestEngineRefreshKeepsHundredRepositoriesWithinWorkerBound(t *testing.T) {
 		workers         = 8
 	)
 	engine := NewEngine(workers)
-	engine.Stashes, engine.Remotes = nil, nil
+	engine.Stashes, engine.Remotes, engine.Worktrees = nil, nil, nil
 	var active atomic.Int32
 	var peak atomic.Int32
 	engine.Discover = func(ctx context.Context, path string) (git.Discovery, error) {

@@ -16,6 +16,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/match"
 	"github.com/sphireinc/git-watch/internal/health"
 	"github.com/sphireinc/git-watch/internal/repo"
+	"github.com/sphireinc/git-watch/internal/worktrees"
 )
 
 // StatusResult contains one repository's refresh outcome.
@@ -24,6 +25,7 @@ type StatusResult struct {
 	Snapshot   repo.Snapshot
 	Stashes    int
 	Remotes    int
+	Worktrees  int
 	Error      error
 	Skipped    bool
 	SkipReason string
@@ -50,6 +52,7 @@ type Engine struct {
 	Snapshot         func(context.Context, git.Discovery, uint64) (repo.Snapshot, error)
 	Stashes          func(context.Context, git.Discovery) (int, error)
 	Remotes          func(context.Context, git.Discovery) (int, error)
+	Worktrees        func(context.Context, git.Discovery) (int, error)
 	mu               sync.Mutex
 	cache            map[string]StatusResult
 }
@@ -59,7 +62,7 @@ func NewEngine(workers int) *Engine {
 	if workers < 1 {
 		workers = 1
 	}
-	return &Engine{Workers: workers, InactiveAfter: 5 * time.Minute, Budget: 15 * time.Second, Discover: git.Discover, Snapshot: git.Snapshot, Stashes: stashCount, Remotes: remoteCount, cache: make(map[string]StatusResult)}
+	return &Engine{Workers: workers, InactiveAfter: 5 * time.Minute, Budget: 15 * time.Second, Discover: git.Discover, Snapshot: git.Snapshot, Stashes: stashCount, Remotes: remoteCount, Worktrees: worktreeCount, cache: make(map[string]StatusResult)}
 }
 
 // Refresh reads all repositories and returns results in input order.
@@ -150,11 +153,18 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 				err = nil
 			}
 		}
+		if err == nil && discovery.Root != "" && e.Worktrees != nil {
+			result.Worktrees, err = e.Worktrees(ctx, discovery)
+			if err != nil {
+				result.Warnings = append(result.Warnings, "worktree summary: "+err.Error())
+				err = nil
+			}
+		}
 	}
 	result.Error = err
 	if err == nil {
 		result.Gitignore = inspectGitignore(discovery.Root)
-		result.Health = health.ComputeWithSubmoduleIssues(result.Snapshot, result.Stashes, 0, health.CountSubmoduleIssues(result.Snapshot), result.Warnings)
+		result.Health = health.ComputeWithSubmoduleIssues(result.Snapshot, result.Stashes, result.Worktrees, health.CountSubmoduleIssues(result.Snapshot), result.Warnings)
 	}
 	result.Duration = time.Since(started)
 	result.Refreshed = time.Now()
@@ -162,6 +172,14 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 	e.cache[repository.Path] = result
 	e.mu.Unlock()
 	return result
+}
+
+func worktreeCount(ctx context.Context, discovery git.Discovery) (int, error) {
+	entries, err := worktrees.List(ctx, git.NewRunner(discovery.Root))
+	if err != nil {
+		return 0, err
+	}
+	return len(entries), nil
 }
 
 func inspectGitignore(root string) GitignoreHealth {

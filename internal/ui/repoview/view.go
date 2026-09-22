@@ -108,7 +108,7 @@ func (m Model) View() string {
 			prefix = "> "
 		}
 		state := row.State
-		line := fmt.Sprintf("%s%s · %s [%s] health:%s dirty:%d +%d/-%d stashes:%d remotes:%d", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), state, platform.SafeText(string(row.Health.Severity)), row.Dirty, row.Ahead, row.Behind, row.Stashes, row.Remotes)
+		line := fmt.Sprintf("%s%s · %s [%s] health:%s dirty:%d +%d/-%d stashes:%d worktrees:%d remotes:%d", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), state, platform.SafeText(string(row.Health.Severity)), row.Dirty, row.Ahead, row.Behind, row.Stashes, row.Worktrees, row.Remotes)
 		heat := activityviz.HeatLevel(row.Staged, row.Unstaged, row.Untracked, row.Conflicts)
 		activity := row.Activity
 		if len(activity) == 0 {
