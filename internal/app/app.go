@@ -895,6 +895,7 @@ type Model struct {
 	RepositoryBatchRetry      bool
 	RepositoryBatchAction     multirepo.Action
 	RepositoryBatchStrategy   string
+	RepositoryBatchCancel     context.CancelFunc
 	RepositoryBatchResults    []multirepo.Result
 	RepositoryRegistry        []registry.Repository
 	RepositoryRegistryPath    string
@@ -4657,6 +4658,7 @@ func (m *Model) startRepositoryBatchFetch() tea.Cmd {
 	}
 	m.RepositoryBatchRetry, m.RepositoryBatchConfirm = false, true
 	m.RepositoryBatchAction, m.RepositoryBatchStrategy = multirepo.ActionFetch, ""
+	m.RepositoryBatchCancel = nil
 	m.RepositoryBatchResults = nil
 	m.Status = fmt.Sprintf("fetch %d discovered repositories? (y/n)", len(m.Repositories.Rows))
 	return nil
@@ -4671,6 +4673,7 @@ func (m *Model) startRepositoryBatchPull() tea.Cmd {
 	// explicitly supplies per-repository merge/rebase policy.
 	m.RepositoryBatchRetry, m.RepositoryBatchConfirm = false, true
 	m.RepositoryBatchAction, m.RepositoryBatchStrategy = multirepo.ActionPull, "ff-only"
+	m.RepositoryBatchCancel = nil
 	m.RepositoryBatchResults = nil
 	m.Status = fmt.Sprintf("pull %d discovered repositories with ff-only? (y/n)", len(m.Repositories.Rows))
 	return nil
@@ -4705,7 +4708,7 @@ func (m *Model) startRepositoryBatchRetry() tea.Cmd {
 	return nil
 }
 
-func (m Model) runRepositoryBatchFetch() tea.Cmd {
+func (m *Model) runRepositoryBatchFetch() tea.Cmd {
 	rows := append([]registry.Row(nil), m.Repositories.Rows...)
 	if m.RepositoryBatchRetry {
 		failed := make(map[string]struct{})
@@ -4722,7 +4725,8 @@ func (m Model) runRepositoryBatchFetch() tea.Cmd {
 		}
 		rows = filtered
 	}
-	ctx := m.commandContext()
+	ctx, cancel := context.WithCancel(m.commandContext())
+	m.RepositoryBatchCancel = cancel
 	workers := 2
 	if m.RepositoryEngine != nil && m.RepositoryEngine.Workers > 0 {
 		workers = m.RepositoryEngine.Workers
@@ -7257,7 +7261,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.RemoteForceConfirm, m.Status = true, "confirm force-with-lease push to "+remote+" for "+m.Snapshot.Branch.Name+" (y/n)"
 			}
 		case "K":
-			if m.currentView() == workspace.Journal {
+			if m.currentView() == workspace.Repositories && m.RepositoryBatchCancel != nil {
+				m.RepositoryBatchCancel()
+				m.Status = "cancelling repository batch"
+			} else if m.currentView() == workspace.Journal {
 				active := m.activeJournalOperations()
 				if len(active) == 0 {
 					m.Status = "no running journal operation to cancel"
@@ -9399,6 +9406,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Status = fmt.Sprintf("batch %s: %d/%d complete · %s %s", action, v.Completed, v.Total, v.Status, platform.SafeText(v.Path))
 		return m, batchProgressCommand(v.Events)
 	case RepositoryBatchFinishedMsg:
+		if m.RepositoryBatchCancel != nil {
+			m.RepositoryBatchCancel()
+			m.RepositoryBatchCancel = nil
+		}
 		m.RepositoryBatchConfirm, m.RepositoryBatchRetry = false, false
 		m.RepositoryBatchResults = append([]multirepo.Result(nil), v.Results...)
 		succeeded, failed, cancelled, skipped := 0, 0, 0, 0
@@ -9974,7 +9985,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Repositories {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [F] fetch all  [P] pull ff-only  [R] retry failed  [v] refresh  [enter] open  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [F] fetch all  [P] pull ff-only  [R] retry failed  [K] cancel  [v] refresh  [enter] open  [esc] back  [q] quit"
 		if m.RepositoryBatchConfirm {
 			content += "\n\n" + platform.SafeText(m.Status)
 		}

@@ -2850,6 +2850,18 @@ func TestRepositoryBatchOperationEmitsBoundedProgressBeforeResults(t *testing.T)
 	}
 }
 
+func TestRepositoryBatchCancelUsesActiveContext(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{})
+	m.Workspace.Navigate(workspace.Repositories, "Repositories")
+	called := false
+	m.RepositoryBatchCancel = func() { called = true }
+	updated, cmd := m.Update(key("K"))
+	m = updated.(Model)
+	if cmd != nil || !called || m.RepositoryBatchCancel == nil || !strings.Contains(m.Status, "cancelling") {
+		t.Fatalf("batch cancellation = cmd=%v called=%v cancel=%v status=%q", cmd != nil, called, m.RepositoryBatchCancel != nil, m.Status)
+	}
+}
+
 func TestPluginWorkspaceTogglesSelectedEntry(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{}, config.Config{Plugins: config.PluginConfig{Enabled: true}})
 	m.PluginStatePath = filepath.Join(t.TempDir(), "plugins.json")

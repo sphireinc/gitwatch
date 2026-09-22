@@ -95,3 +95,10 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   `TestRepositoryBatchOperationEmitsBoundedProgressBeforeResults` exercises a
   real command stream through a failed repository operation; successful
   disposable-repository, cancellation, and native acceptance remain open.
+
+- Added `[K] cancel` to the repositories dashboard. It cancels the active
+  batch context used by the bounded worker pool, allowing queued work to
+  resolve as cancelled and preserving the authoritative terminal result path.
+  `TestRepositoryBatchCancelUsesActiveContext` verifies the UI control invokes
+  the active cancellation function; successful remote cancellation and native
+  acceptance remain open.
