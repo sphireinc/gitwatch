@@ -1378,7 +1378,8 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		if operation.Kind() == sequencer.KindBisect {
 			return m.openBisectWorkspace()
 		}
-		view, label := workspace.Conflict, "Conflict recovery"
+		view := workspace.Conflict
+		label := "Conflict recovery"
 		if operation.Kind() == sequencer.KindCherryPick {
 			view, label = workspace.CherryPick, "Cherry-pick progress"
 		} else {
