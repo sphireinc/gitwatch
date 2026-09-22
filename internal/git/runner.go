@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -29,6 +30,22 @@ type Result struct {
 	Stderr   []byte
 	ExitCode int
 	Duration time.Duration
+}
+
+// OutputStream identifies the process stream associated with a streamed
+// output chunk.
+type OutputStream string
+
+const (
+	StdoutStream OutputStream = "stdout"
+	StderrStream OutputStream = "stderr"
+)
+
+// OutputChunk is a bounded, process-output fragment. Data is copied before
+// delivery and is safe for the callback to retain.
+type OutputChunk struct {
+	Stream OutputStream
+	Data   []byte
 }
 
 // CommandError classifies a failed Git invocation and retains its result.
@@ -78,6 +95,18 @@ func (r Runner) RunBounded(ctx context.Context, maxBytes int, args ...string) (R
 	return r.run(ctx, nil, maxBytes, args...)
 }
 
+// RunBoundedStreaming executes Git with argv-only semantics and delivers
+// bounded stdout/stderr fragments while the process is running. The callback
+// may be invoked concurrently for the two streams and must not block on
+// process shutdown. Output is retained up to maxBytes per stream for the
+// returned Result.
+func (r Runner) RunBoundedStreaming(ctx context.Context, maxBytes int, onChunk func(OutputChunk), args ...string) (Result, error) {
+	if maxBytes <= 0 {
+		return Result{Args: append([]string(nil), args...)}, fmt.Errorf("git output limit must be positive: %w", ErrOutputLimit)
+	}
+	return r.runWithCallback(ctx, nil, maxBytes, onChunk, args...)
+}
+
 type boundedBuffer struct {
 	data  []byte
 	limit int
@@ -98,6 +127,56 @@ func (b *boundedBuffer) Write(p []byte) (int, error) {
 }
 
 func (r Runner) run(ctx context.Context, input io.Reader, maxBytes int, args ...string) (Result, error) {
+	return r.runWithCallback(ctx, input, maxBytes, nil, args...)
+}
+
+type streamingBuffer struct {
+	mu      sync.Mutex
+	data    []byte
+	limit   int
+	stream  OutputStream
+	over    bool
+	onChunk func(OutputChunk)
+}
+
+func (b *streamingBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	remaining := b.limit - len(b.data)
+	accepted := p
+	if len(p) > remaining {
+		if remaining > 0 {
+			accepted = p[:remaining]
+		} else {
+			accepted = nil
+		}
+		b.over = true
+	}
+	if len(accepted) > 0 {
+		b.data = append(b.data, accepted...)
+	}
+	chunk := append([]byte(nil), accepted...)
+	callback := b.onChunk
+	stream := b.stream
+	b.mu.Unlock()
+	if len(chunk) > 0 && callback != nil {
+		callback(OutputChunk{Stream: stream, Data: chunk})
+	}
+	return len(p), nil
+}
+
+func (b *streamingBuffer) Bytes() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]byte(nil), b.data...)
+}
+
+func (b *streamingBuffer) Exceeded() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.over
+}
+
+func (r Runner) runWithCallback(ctx context.Context, input io.Reader, maxBytes int, onChunk func(OutputChunk), args ...string) (Result, error) {
 	binary := r.Binary
 	if binary == "" {
 		binary = "git"
@@ -110,23 +189,29 @@ func (r Runner) run(ctx context.Context, input io.Reader, maxBytes int, args ...
 	}
 	cmd.Stdin = input
 	var stdout bytes.Buffer
-	var bounded *boundedBuffer
-	if maxBytes > 0 {
-		bounded = &boundedBuffer{limit: maxBytes}
-	}
 	var stderr bytes.Buffer
-	if bounded != nil {
+	var bounded *boundedBuffer
+	var streamedOut, streamedErr *streamingBuffer
+	if onChunk != nil {
+		streamedOut = &streamingBuffer{limit: maxBytes, stream: StdoutStream, onChunk: onChunk}
+		streamedErr = &streamingBuffer{limit: maxBytes, stream: StderrStream, onChunk: onChunk}
+		cmd.Stdout, cmd.Stderr = streamedOut, streamedErr
+	} else if maxBytes > 0 {
+		bounded = &boundedBuffer{limit: maxBytes}
 		cmd.Stdout = bounded
+		cmd.Stderr = &stderr
 	} else {
-		cmd.Stdout = &stdout
+		cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	}
-	cmd.Stderr = &stderr
 	err := cmd.Run()
-	if bounded != nil {
+	if streamedOut != nil {
+		stdout.Write(streamedOut.Bytes())
+		stderr.Write(streamedErr.Bytes())
+	} else if bounded != nil {
 		stdout.Write(bounded.data)
 	}
 	result := Result{Args: append([]string(nil), args...), Stdout: stdout.Bytes(), Stderr: stderr.Bytes(), Duration: time.Since(start), ExitCode: 0}
-	if bounded != nil && bounded.over {
+	if (streamedOut != nil && (streamedOut.Exceeded() || streamedErr.Exceeded())) || (bounded != nil && bounded.over) {
 		return result, &CommandError{Kind: ErrOutputLimit, Args: result.Args, Result: result}
 	}
 	if err == nil {

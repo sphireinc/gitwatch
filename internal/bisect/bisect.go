@@ -69,6 +69,9 @@ type RunRequest struct {
 	Executable     string
 	Args           []string
 	MaxOutputBytes int
+	// OnOutput receives bounded stdout/stderr fragments while Git is running.
+	// The callback may be invoked concurrently for the two streams.
+	OnOutput func(git.OutputChunk)
 }
 
 type Outcome struct {
@@ -188,7 +191,12 @@ func RunCommand(ctx context.Context, runner git.Runner, request RunRequest) Outc
 	}
 	args := []string{"bisect", "run", request.Executable}
 	args = append(args, request.Args...)
-	result, err := runner.RunBounded(ctx, limit, args...)
+	var result git.Result
+	if request.OnOutput != nil {
+		result, err = runner.RunBoundedStreaming(ctx, limit, request.OnOutput, args...)
+	} else {
+		result, err = runner.RunBounded(ctx, limit, args...)
+	}
 	return finish(ctx, runner, request.Repository, request.Generation, result, err)
 }
 

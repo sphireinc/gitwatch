@@ -3,8 +3,11 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -78,6 +81,32 @@ func TestRunnerCancellation(t *testing.T) {
 	}
 }
 
+func TestRunnerBoundedStreamingDeliversBothStreamsAndBoundsRetention(t *testing.T) {
+	runner := Runner{Binary: os.Args[0], Dir: t.TempDir(), Env: []string{"GITWATCH_RUNNER_STREAM_HELPER=1"}}
+	var mu sync.Mutex
+	var chunks []OutputChunk
+	result, err := runner.RunBoundedStreaming(context.Background(), 16, func(chunk OutputChunk) {
+		mu.Lock()
+		defer mu.Unlock()
+		chunks = append(chunks, chunk)
+	}, "-test.run=^TestRunnerStreamingHelper$")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Stdout) > 16 || len(result.Stderr) > 16 {
+		t.Fatalf("retained output exceeded bound: stdout=%d stderr=%d", len(result.Stdout), len(result.Stderr))
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	var combined strings.Builder
+	for _, chunk := range chunks {
+		combined.Write(chunk.Data)
+	}
+	if !strings.Contains(combined.String(), "stream-out") || !strings.Contains(combined.String(), "stream-err") {
+		t.Fatalf("stream chunks = %#v", chunks)
+	}
+}
+
 func TestRunnerCancellationHelper(t *testing.T) {
 	if os.Getenv("GITWATCH_RUNNER_HELPER") != "1" {
 		return
@@ -92,4 +121,12 @@ func TestRunnerCancellationHelper(t *testing.T) {
 	for {
 		time.Sleep(time.Hour)
 	}
+}
+
+func TestRunnerStreamingHelper(t *testing.T) {
+	if os.Getenv("GITWATCH_RUNNER_STREAM_HELPER") != "1" {
+		return
+	}
+	fmt.Fprintln(os.Stdout, "stream-out")
+	fmt.Fprintln(os.Stderr, "stream-err")
 }
