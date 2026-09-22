@@ -1,6 +1,8 @@
 package githubview
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -21,12 +23,15 @@ type Model struct {
 	SelectedRun int
 	Ready       bool
 	Error       string
+	State       provider.State
+	RetryAfter  string
 }
 
 func New() Model { return Model{} }
 
 func (m *Model) SetData(repository provider.Repository, branch string, pull provider.PullRequest, checks provider.ChecksSnapshot) {
 	m.Repository, m.Branch, m.Pull, m.Checks, m.Ready, m.Error = repository, branch, pull, checks, true, ""
+	m.State, m.RetryAfter = provider.StateAvailable, ""
 }
 
 func (m *Model) SetPullRequests(pulls []provider.PullRequest) {
@@ -70,6 +75,12 @@ func (m *Model) SelectRun(delta int) {
 
 func (m *Model) SetError(repository provider.Repository, branch string, err error) {
 	m.Repository, m.Branch, m.Ready = repository, branch, false
+	m.State = provider.Classify(context.Background(), err)
+	m.RetryAfter = ""
+	var httpErr *provider.HTTPError
+	if errors.As(err, &httpErr) {
+		m.RetryAfter = platform.SafeText(httpErr.RetryAfter)
+	}
 	if err == nil {
 		m.Error = "provider unavailable"
 	} else {
@@ -84,7 +95,11 @@ func (m Model) View() string {
 	}
 	lines = append(lines, fmt.Sprintf("Repository: %s/%s", platform.SafeText(m.Repository.Owner), platform.SafeText(m.Repository.Name)), "Branch: "+platform.SafeText(m.Branch))
 	if m.Error != "" {
-		return strings.Join(append(lines, "  "+m.Error), "\n")
+		status := "  provider state: " + platform.SafeText(string(m.State))
+		if m.RetryAfter != "" {
+			status += " (retry after " + m.RetryAfter + ")"
+		}
+		return strings.Join(append(lines, status, "  "+m.Error), "\n")
 	}
 	if !m.Ready {
 		return strings.Join(append(lines, "  Loading provider data…"), "\n")

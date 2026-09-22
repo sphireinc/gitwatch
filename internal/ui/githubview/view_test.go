@@ -1,6 +1,8 @@
 package githubview
 
 import (
+	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -43,5 +45,19 @@ func TestViewRendersSanitizedReviewComments(t *testing.T) {
 	view := m.View()
 	if strings.Contains(view, "\x1b") || !strings.Contains(view, "Review comments: 1") || !strings.Contains(view, "please fix") {
 		t.Fatalf("comments view = %q", view)
+	}
+}
+
+func TestViewShowsProviderStateAndRetryAfter(t *testing.T) {
+	m := New()
+	m.SetError(provider.Repository{Owner: "octo", Name: "repo"}, "main", &provider.HTTPError{Status: http.StatusTooManyRequests, RetryAfter: "30"})
+	view := m.View()
+	for _, want := range []string{"provider state: rate-limited", "retry after 30"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("missing %q: %s", want, view)
+		}
+	}
+	if !errors.Is((&provider.HTTPError{Status: http.StatusTooManyRequests}), provider.ErrRateLimited) {
+		t.Fatal("rate-limit error no longer unwraps to provider state")
 	}
 }
