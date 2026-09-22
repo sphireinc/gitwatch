@@ -66,8 +66,15 @@ Support common review and merge actions while keeping provider state distinct fr
   local refs remain unchanged until fetch.
 - Added typed approve/request-changes/comment review submissions with bounded
   body validation, explicit UI confirmation, and post-submit provider reload.
+- Added a separate, opt-in post-merge remote branch deletion confirmation;
+  branch refs are validated before the typed GitHub DELETE request, local refs
+  remain unchanged, and provider state is reloaded after the action or a
+  cancellation.
 - Focused provider/app/UI tests, provider race tests, vet, and
   `git diff --check` pass.
-- Remaining: branch-deletion-after-merge option, richer provider
+- Evidence for this slice: commit `2009643`; `go test ./internal/provider
+  ./internal/app`, `go test -race ./internal/provider ./internal/app`,
+  `go vet ./internal/provider ./internal/app`, and `git diff --check` pass.
+- Remaining: richer provider
   permission/error presentation, reply-target UI, and native/manual
   acceptance evidence.
