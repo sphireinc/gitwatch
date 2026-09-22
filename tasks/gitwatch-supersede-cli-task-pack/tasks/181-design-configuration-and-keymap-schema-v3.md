@@ -48,6 +48,12 @@ Version configuration deliberately for advanced workbench features instead of ac
 - Added v2 migration fixture coverage plus malformed/limit validation through the existing configuration tests.
 - Remaining: full config-inspect redaction audit, golden schema fixture review, and release/native acceptance evidence.
 
+- `GOCACHE=/tmp/gitwatch-config-cache go run ./cmd/gitwatch --config-inspect`
+  emitted schema version `3` with typed workspace, visuals, watcher, remote,
+  plugin, and keymap settings. The inspection output exposed only the GitHub
+  token environment-variable name (`GITHUB_TOKEN`) and no token/password
+  value. Golden schema review and native/release acceptance remain open.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.
