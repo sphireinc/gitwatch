@@ -2,10 +2,13 @@ package plugins
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	publicplugin "github.com/sphireinc/git-watch/pkg/plugin"
 )
 
 func TestDiscoverBoundsAndSkipsSymlinks(t *testing.T) {
@@ -25,6 +28,43 @@ func TestDiscoverBoundsAndSkipsSymlinks(t *testing.T) {
 	updated := SetEnabled(entries, "one", false)
 	if updated[0].Enabled || !entries[0].Enabled {
 		t.Fatal("set enabled mutated source or failed")
+	}
+}
+
+func TestDecodeContributionsBoundsAndSkipsInvalidMessages(t *testing.T) {
+	valid, err := publicplugin.NewContribution("health", publicplugin.Contribution{SchemaVersion: publicplugin.APIVersion2, Kind: "table", Title: "Health", ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := publicplugin.Encode(valid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := append([]byte(`{"type":"unknown","payload":{}}\n`), encoded...)
+	data = append(data, encoded...)
+	contributions, err := DecodeContributions(data, 1)
+	if err != nil || len(contributions) != 1 || contributions[0].Title != "Health" {
+		t.Fatalf("contributions = %#v, err=%v", contributions, err)
+	}
+	if _, err := DecodeContributions([]byte(fmt.Sprintf("%s\n", string(make([]byte, publicplugin.MaxMessageBytes+1)))), 1); err == nil {
+		t.Fatal("oversized scanner input was accepted")
+	}
+}
+
+func TestProbeRecordsHostRenderedContributionOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("portable executable fixture uses a POSIX script")
+	}
+	directory := t.TempDir()
+	executable := filepath.Join(directory, "probe-plugin")
+	script := "#!/bin/sh\nprintf '%s\\n' '{\"type\":\"handshake\",\"payload\":{\"api_version\":2,\"accepted\":true,\"capabilities\":[\"table\"]}}' '{\"type\":\"contribution\",\"id\":\"health\",\"payload\":{\"schema_version\":2,\"kind\":\"table\",\"title\":\"Health\",\"read_only\":true}}'\n"
+	if err := os.WriteFile(executable, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	entry := Entry{Manifest: Manifest{ID: "probe", Name: "Probe", Version: "2", APIVersion: APIVersion2, Executable: executable, Capabilities: []Capability{CapabilityTable}}, Enabled: true, Healthy: true}
+	entry = Probe(context.Background(), Runtime{}, entry, []Capability{CapabilityTable})
+	if !entry.Healthy || len(entry.Contributions) != 1 || entry.Contributions[0].Title != "Health" {
+		t.Fatalf("probed entry = %#v", entry)
 	}
 }
 

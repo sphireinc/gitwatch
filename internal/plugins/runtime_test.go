@@ -57,7 +57,7 @@ func TestRuntimeContainsHostilePluginOutput(t *testing.T) {
 }
 
 func TestHandshakeRejectsUnsupportedManifestBeforeExecution(t *testing.T) {
-	manifest := Manifest{ID: "plugin", Name: "Plugin", Version: "1", APIVersion: APIVersion + 1, Executable: "missing", Capabilities: []Capability{CapabilityPanel}}
+	manifest := Manifest{ID: "plugin", Name: "Plugin", Version: "1", APIVersion: APIVersion2 + 1, Executable: "missing", Capabilities: []Capability{CapabilityPanel}}
 	result, err := (Runtime{}).Handshake(context.Background(), manifest, nil)
 	if err != nil || result.Accepted {
 		t.Fatalf("handshake negotiation = %#v, %v", result, err)
@@ -78,6 +78,46 @@ func TestHandshakeRejectsCapabilitiesNotGrantedByHost(t *testing.T) {
 	_, err := (Runtime{}).Handshake(context.Background(), manifest, []Capability{CapabilityCommand})
 	if !errors.Is(err, ErrCapabilityDenied) {
 		t.Fatalf("handshake capability validation = %v", err)
+	}
+}
+
+func TestHandshakeSupportsAPI2AndHostRenderedCapabilities(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("portable executable fixture uses a POSIX script")
+	}
+	directory := t.TempDir()
+	executable := filepath.Join(directory, "api2-plugin")
+	script := "#!/bin/sh\nprintf '%s\\n' '{\"type\":\"handshake\",\"payload\":{\"api_version\":2,\"accepted\":true,\"capabilities\":[\"table\"]}}'\n"
+	if err := os.WriteFile(executable, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := Manifest{ID: "api2", Name: "API 2", Version: "2", APIVersion: APIVersion2, Executable: executable, Capabilities: []Capability{CapabilityTable}}
+	negotiation, err := (Runtime{}).Handshake(context.Background(), manifest, []Capability{CapabilityTable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !negotiation.Accepted || negotiation.APIVersion != APIVersion2 || len(negotiation.Capabilities) != 1 || negotiation.Capabilities[0] != CapabilityTable {
+		t.Fatalf("API-2 negotiation = %#v", negotiation)
+	}
+}
+
+func TestHandshakeDegradesUnknownAPI2Capability(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("portable executable fixture uses a POSIX script")
+	}
+	directory := t.TempDir()
+	executable := filepath.Join(directory, "future-plugin")
+	script := "#!/bin/sh\nprintf '%s\\n' '{\"type\":\"handshake\",\"payload\":{\"api_version\":2,\"accepted\":true,\"capabilities\":[]}}'\n"
+	if err := os.WriteFile(executable, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := Manifest{ID: "future", Name: "Future", Version: "2", APIVersion: APIVersion2, Executable: executable, Capabilities: []Capability{Capability("future_surface")}}
+	negotiation, err := (Runtime{}).Handshake(context.Background(), manifest, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !negotiation.Accepted || negotiation.APIVersion != APIVersion2 || len(negotiation.Capabilities) != 0 {
+		t.Fatalf("future capability negotiation = %#v", negotiation)
 	}
 }
 

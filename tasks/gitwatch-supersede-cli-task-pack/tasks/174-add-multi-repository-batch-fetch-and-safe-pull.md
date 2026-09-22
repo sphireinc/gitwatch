@@ -50,3 +50,24 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added a reusable typed batch executor for repository-scoped fetch and pull
+  requests with explicit remote, branch, and strategy validation.
+- The executor uses bounded worker concurrency, records queued/running,
+  succeeded/failed/cancelled/skipped states, and isolates one repository
+  failure from unrelated requests.
+- Added focused unit tests for strategy validation, failure isolation,
+  cancellation, and bounded execution; normal and race tests pass.
+- Remaining: connect the executor to repositories-dashboard controls and typed
+- Added an explicit repositories-dashboard `F` fetch-all confirmation path;
+  each repository discovers its own configured remote and uses the typed
+  remotes fetch operation. Results are summarized and failed repository paths
+  remain visible as attention output before the dashboard reloads.
+- Remaining: add live queued/running progress and failed-subset retry UI,
+- Added `R` retry-failed confirmation that rebuilds the batch from failed
+  repository results only and preserves unrelated successful rows.
+- Remaining: add live queued/running progress, explicit batch-pull controls,
+  and run the disposable-repository/process-count and watcher-responsiveness
+  acceptance matrix.

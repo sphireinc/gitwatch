@@ -22,3 +22,26 @@ func TestViewRendersPullRequestAndChecksSafely(t *testing.T) {
 		t.Fatal("provider error view contains escape")
 	}
 }
+
+func TestViewRendersBoundedPullRequestListAndDetail(t *testing.T) {
+	m := New()
+	m.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 4, Title: "Improve", State: "open"}, provider.ChecksSnapshot{})
+	m.SetPullRequests([]provider.PullRequest{{Number: 4, Title: "Improve", State: "open"}, {Number: 5, Title: "Docs", State: "open"}})
+	m.SetDetail(provider.PullRequestDetail{PullRequest: provider.PullRequest{Number: 4, Title: "Improve", State: "open"}, Commits: []provider.PullRequestCommit{{SHA: "abc"}}, Files: []provider.PullRequestFile{{Path: "main.go", Status: "modified", Additions: 2, Deletions: 1}}})
+	view := m.View()
+	for _, want := range []string{"Open pull requests: 2", "PR #5: Docs", "Commits: 1  Files: 1", "modified main.go +2 -1"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("missing %q: %s", want, view)
+		}
+	}
+}
+
+func TestViewRendersSanitizedReviewComments(t *testing.T) {
+	m := New()
+	m.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 4, Title: "Improve", State: "open"}, provider.ChecksSnapshot{})
+	m.SetComments([]provider.ReviewComment{{ID: 1, Author: "reviewer\x1b", Path: "main.go", Line: 4, Body: "please fix\x1b[2J"}})
+	view := m.View()
+	if strings.Contains(view, "\x1b") || !strings.Contains(view, "Review comments: 1") || !strings.Contains(view, "please fix") {
+		t.Fatalf("comments view = %q", view)
+	}
+}

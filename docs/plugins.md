@@ -27,3 +27,19 @@ meaning, or required-field change requires API 2 plus migration fixtures. The
 host grants capabilities explicitly, limits each process output and runtime,
 and never lets a plugin write terminal control sequences directly. Plugin
 state is opt-in, private, and can be reset by deleting the state file.
+
+## Versioned contributions
+
+The dependency-free SDK exposes API 2 as an additive negotiation path. A
+plugin may advertise `versions: [2, 1]`; the host selects the highest mutually
+supported version. Unknown capabilities are omitted from the grant so a newer
+plugin can degrade to the surfaces the host understands. The API-1
+`api_version` handshake and strict capability negotiation remain unchanged for
+existing plugins.
+
+API-2 contributions are data-only schemas: contextual actions, bounded tables,
+detail fields, notifications, and read-only repository metadata. The host
+renders these schemas and does not load plugin UI code. Contribution builders
+reject terminal control characters and enforce bounded row, field, column, and
+text sizes. Process, network, and Git-mutation permissions are separate
+capabilities and must be granted explicitly by the host.

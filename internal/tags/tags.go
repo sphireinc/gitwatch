@@ -103,7 +103,10 @@ var (
 	ErrInvalidName        = errors.New("invalid tag name")
 )
 
-const tagFormat = "%(refname:short)%00%(objectname)%00%(objecttype)%00%(*objectname)%00%(*objecttype)%00%(taggername)%00%(taggeremail)%00%(taggerdate:iso8601)%00%(contents:subject)"
+// The repeated ref is a non-empty record sentinel because lightweight tags
+// legitimately produce empty trailing annotated-tag fields. A trailing NUL
+// alone would be indistinguishable from command-output padding.
+const tagFormat = "%(refname:short)%00%(objectname)%00%(objecttype)%00%(*objectname)%00%(*objecttype)%00%(taggername)%00%(taggeremail)%00%(taggerdate:iso8601)%00%(contents:subject)%00%(refname:short)%00"
 const remoteFormat = "%(refname:short)%00%(objectname)"
 
 // Load uses NUL-delimited for-each-ref output and never verifies every tag.
@@ -164,17 +167,25 @@ func parseTagRefs(data []byte, maxTags int) ([]Tag, bool, error) {
 		maxTags = defaultMaxTags
 	}
 	fields := splitNULFields(data)
-	tags := make([]Tag, 0, minInt(len(fields)/9, maxTags))
+	for index := range fields {
+		fields[index] = strings.TrimPrefix(fields[index], "\n")
+	}
+	stride := 9
+	if len(fields) >= 10 && fields[9] == fields[0] {
+		stride = 10
+	}
+	tags := make([]Tag, 0, minInt(len(fields)/stride, maxTags))
 	truncated := false
-	for offset := 0; offset < len(fields); offset += 9 {
+	for offset := 0; offset < len(fields); offset += stride {
 		if len(tags) >= maxTags {
 			truncated = true
 			break
 		}
-		if offset+9 > len(fields) || fields[offset] == "" || fields[offset+1] == "" || fields[offset+2] == "" {
+		if offset+stride > len(fields) || fields[offset] == "" || fields[offset+1] == "" || fields[offset+2] == "" {
 			return nil, false, ErrMalformedRecord
 		}
-		if len(fields[offset]) > maxTagNameBytes || len(fields[offset+5]) > maxTaggerFieldBytes || len(fields[offset+6]) > maxTaggerFieldBytes || len(fields[offset+8]) > maxTagMessageBytes {
+		message := fields[offset+8]
+		if len(fields[offset]) > maxTagNameBytes || len(fields[offset+5]) > maxTaggerFieldBytes || len(fields[offset+6]) > maxTaggerFieldBytes || len(message) > maxTagMessageBytes {
 			return nil, false, ErrMalformedRecord
 		}
 		kind := Lightweight
@@ -188,7 +199,7 @@ func parseTagRefs(data []byte, maxTags int) ([]Tag, bool, error) {
 				targetKind = fields[offset+4]
 			}
 		}
-		tag := Tag{Name: fields[offset], ObjectID: fields[offset+1], TargetID: targetID, TargetKind: targetKind, Kind: kind, TaggerName: fields[offset+5], TaggerEmail: fields[offset+6], Signature: SignatureUnknown, RemotePresence: RemoteUnknown, Message: fields[offset+8]}
+		tag := Tag{Name: fields[offset], ObjectID: fields[offset+1], TargetID: targetID, TargetKind: targetKind, Kind: kind, TaggerName: fields[offset+5], TaggerEmail: fields[offset+6], Signature: SignatureUnknown, RemotePresence: RemoteUnknown, Message: message}
 		if fields[offset+7] != "" {
 			parsed, err := time.Parse("2006-01-02 15:04:05 -0700", fields[offset+7])
 			if err != nil {
@@ -198,7 +209,7 @@ func parseTagRefs(data []byte, maxTags int) ([]Tag, bool, error) {
 		}
 		tags = append(tags, tag)
 	}
-	if len(fields)/9 > maxTags {
+	if len(fields)/stride > maxTags {
 		truncated = true
 	}
 	return tags, truncated, nil

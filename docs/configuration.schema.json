@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/sphireinc/git-watch/main/docs/configuration.schema.json",
-  "title": "gitwatch configuration v2",
+  "title": "gitwatch configuration v3",
   "type": "object",
   "properties": {
-    "version": { "const": 2 },
+    "version": { "const": 3 },
     "theme": { "enum": ["auto", "dark", "light", "high-contrast"] },
     "motion": { "enum": ["full", "reduced", "off"] },
     "watch": { "enum": ["auto", "fs", "poll"] },
@@ -21,6 +21,7 @@
         "roots": { "type": "array", "items": { "type": "string" } },
         "groups": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
         "group_refresh": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "group_auto_fetch": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
         "ignore_dirs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "max_depth": { "type": "integer", "minimum": 0 },
         "max_repositories": { "type": "integer", "minimum": 0 }
@@ -31,7 +32,25 @@
       "properties": {
         "pull_strategy": { "enum": ["merge", "rebase", "ff-only"] },
         "stale_after": { "type": "integer", "minimum": 0 },
-        "workers": { "type": "integer", "minimum": 0 }
+        "workers": { "type": "integer", "minimum": 0 },
+        "auto_fetch": { "type": "boolean" },
+        "auto_fetch_interval": { "type": "integer", "minimum": 0 },
+        "auto_fetch_jitter": { "type": "integer", "minimum": 0 },
+        "auto_fetch_backoff": { "type": "integer", "minimum": 0 },
+        "auto_fetch_backoff_max": { "type": "integer", "minimum": 0 },
+        "auto_fetch_profiles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "interval": { "type": "integer", "minimum": 0 },
+              "jitter": { "type": "integer", "minimum": 0 },
+              "backoff": { "type": "integer", "minimum": 0 },
+              "backoff_max": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
       }
     },
     "github": {
@@ -97,6 +116,20 @@
     "commit_tree": {
       "type": "object",
       "properties": { "max_commits": { "type": "integer", "minimum": 1, "maximum": 1000 } }
+    },
+    "workspace": {
+      "type": "object",
+      "properties": {
+        "palette_max_results": { "type": "integer", "minimum": 1, "maximum": 2000 },
+        "status_overscan": { "type": "integer", "minimum": 0, "maximum": 32 }
+      }
+    },
+    "visuals": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "activity_buckets": { "type": "integer", "minimum": 1, "maximum": 32 }
+      }
     },
     "profile": { "type": "string" },
     "keymap": { "type": "object", "additionalProperties": { "type": "string" } },

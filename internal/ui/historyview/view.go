@@ -120,13 +120,7 @@ func (m Model) View() string {
 		if containsSHA(m.Basket.SHAs(), row.Commit.SHA) {
 			prefix = "* "
 		}
-		lane := "│"
-		if row.Lane == 0 {
-			lane = "●"
-		}
-		if i == m.Selected && m.Pulse%2 == 1 {
-			lane = "◉"
-		}
+		lane := graphLanePrefix(row, i == m.Selected && m.Pulse%2 == 1)
 		refs := append([]string{}, row.Branches...)
 		refs = append(refs, row.Tags...)
 		for j := range refs {
@@ -145,6 +139,25 @@ func (m Model) View() string {
 		lines = append(lines, "  No commits")
 	}
 	return strings.Join(lines, "\n")
+}
+
+func graphLanePrefix(row history.GraphRow, pulse bool) string {
+	lanes := row.Lanes
+	if lanes < 1 {
+		lanes = 1
+	}
+	if row.Lane < 0 || row.Lane >= lanes {
+		row.Lane = 0
+	}
+	columns := make([]rune, lanes)
+	for index := range columns {
+		columns[index] = '│'
+	}
+	columns[row.Lane] = '●'
+	if pulse {
+		columns[row.Lane] = '◉'
+	}
+	return string(columns)
 }
 
 func containsSHA(values []string, target string) bool {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,11 +18,14 @@ import (
 	"github.com/sphireinc/git-watch/internal/commands"
 	"github.com/sphireinc/git-watch/internal/config"
 	"github.com/sphireinc/git-watch/internal/conflicts"
+	"github.com/sphireinc/git-watch/internal/customcmd"
 	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/history"
 	mergeops "github.com/sphireinc/git-watch/internal/merge"
+	"github.com/sphireinc/git-watch/internal/multirepo"
 	"github.com/sphireinc/git-watch/internal/notifications"
+	"github.com/sphireinc/git-watch/internal/operations"
 	"github.com/sphireinc/git-watch/internal/patch"
 	"github.com/sphireinc/git-watch/internal/plugins"
 	"github.com/sphireinc/git-watch/internal/provider"
@@ -48,6 +52,41 @@ import (
 	"github.com/sphireinc/git-watch/internal/workspace"
 	"github.com/sphireinc/git-watch/internal/worktrees"
 )
+
+func TestCustomCommandPromptFormBlocksExecutionUntilSubmit(t *testing.T) {
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.Discovery = git.Discovery{Root: t.TempDir()}
+	m.CustomCommands = []customcmd.Definition{{
+		Name:       "ticket",
+		Executable: "tool",
+		Prompts:    []customcmd.Prompt{{ID: "ticket", Label: "Ticket", Kind: customcmd.PromptText, Required: true}},
+		Args:       []string{"--ticket={prompt:ticket}"},
+	}}
+	if command := m.runCustomCommand("ticket"); command != nil || m.CustomCommandForm == nil {
+		t.Fatalf("prompt start = command nil %v form=%v", command == nil, m.CustomCommandForm != nil)
+	}
+	if command := m.updateCustomCommandForm("4"); command != nil || m.CustomCommandForm == nil {
+		t.Fatalf("prompt edit = command nil %v form=%v", command == nil, m.CustomCommandForm != nil)
+	}
+	command := m.updateCustomCommandForm("enter")
+	if command == nil || m.CustomCommandForm != nil {
+		t.Fatalf("prompt submit = command nil %v form=%v", command == nil, m.CustomCommandForm != nil)
+	}
+}
+
+func TestCustomCommandConfirmationCanBeCancelled(t *testing.T) {
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.Discovery = git.Discovery{Root: t.TempDir()}
+	m.CustomCommands = []customcmd.Definition{{Name: "mutate", Executable: "tool", Confirm: true, Mutates: true}}
+	if command := m.runCustomCommand("mutate"); command != nil || m.CustomCommandForm == nil {
+		t.Fatalf("confirmation start = command nil %v form=%v", command == nil, m.CustomCommandForm != nil)
+	}
+	if command := m.updateCustomCommandForm("n"); command != nil || m.CustomCommandForm != nil || m.Status != "custom command cancelled" {
+		t.Fatalf("confirmation cancel = command nil %v form=%v status=%q", command == nil, m.CustomCommandForm != nil, m.Status)
+	}
+}
 
 func TestStateTransitions(t *testing.T) {
 	m := New()
@@ -1535,6 +1574,22 @@ func TestOperationActivityRendersSemanticJournalDetails(t *testing.T) {
 	}
 }
 
+func TestSelectedProfileOverridesAutoFetchPolicy(t *testing.T) {
+	c := config.Defaults()
+	c.Profile = "work"
+	c.Remote.AutoFetchProfiles = map[string]config.AutoFetchProfile{
+		"work": {Enabled: true, Interval: 11 * time.Minute, Jitter: 2 * time.Second},
+	}
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, c)
+	if !m.AutoFetchEnabled || m.AutoFetchScheduler == nil {
+		t.Fatalf("selected auto-fetch profile disabled: enabled=%v scheduler=%v", m.AutoFetchEnabled, m.AutoFetchScheduler != nil)
+	}
+	policy := m.AutoFetchScheduler.Config()
+	if policy.Interval != 11*time.Minute || policy.Jitter != 2*time.Second {
+		t.Fatalf("selected auto-fetch profile = %#v", policy)
+	}
+}
+
 func TestOperationJournalWorkspaceIsBoundedAndNavigable(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Width, m.Height = 160, 24
@@ -1558,6 +1613,126 @@ func TestOperationJournalWorkspaceIsBoundedAndNavigable(t *testing.T) {
 	m = updated.(Model)
 	if m.JournalOffset != 2 {
 		t.Fatalf("journal mouse navigation = offset=%d", m.JournalOffset)
+	}
+}
+
+func TestOperationJournalCanFilterByRepository(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: "/repo-a"})
+	m.Width, m.Height = 160, 24
+	m.recordActivityWithOperation(history.OperationSuccess, "a-target", "completed", &history.OperationRecord{
+		Repository: "/repo-a", Kind: "fetch", Outcome: "success",
+	})
+	m.recordActivityWithOperation(history.OperationFailure, "b-target", "failed", &history.OperationRecord{
+		Repository: "/repo-b", Kind: "pull", Outcome: "failure",
+	})
+	if cmd := m.executePaletteAction("journal"); cmd != nil {
+		t.Fatal("journal navigation unexpectedly returned a command")
+	}
+	updated, _ := m.Update(key("/"))
+	m = updated.(Model)
+	for _, char := range []string{"r", "e", "p", "o", "-", "b", "enter"} {
+		updated, _ = m.Update(key(char))
+		m = updated.(Model)
+	}
+	view := m.View().Content
+	if !strings.Contains(view, "filter: repo-b") || !strings.Contains(view, "b-target") || strings.Contains(view, "a-target") {
+		t.Fatalf("journal repository filter = %q", view)
+	}
+}
+
+func TestOperationJournalSupportsTypedFiltersAndDetails(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: "/repo-a"})
+	m.Width, m.Height = 180, 24
+	m.recordActivityWithOperation(history.OperationSuccess, "merge-target", "completed", &history.OperationRecord{
+		Repository: "/repo-a", Kind: "merge", Outcome: "success", Args: []string{"merge", "--token", "secret"},
+		OldHead: "old", NewHead: "new", Refs: []string{"refs/heads/main"},
+	})
+	m.recordActivityWithOperation(history.OperationFailure, "fetch-target", "failed", &history.OperationRecord{
+		Repository: "/repo-a", Kind: "fetch", Outcome: "failure",
+	})
+	if cmd := m.executePaletteAction("journal"); cmd != nil {
+		t.Fatal("journal navigation unexpectedly returned a command")
+	}
+	updated, _ := m.Update(key("/"))
+	m = updated.(Model)
+	for _, char := range []string{"t", "y", "p", "e", ":", "m", "e", "r", "g", "e", " ", "o", "u", "t", "c", "o", "m", "e", ":", "s", "u", "c", "c", "e", "s", "s", "enter"} {
+		updated, _ = m.Update(key(char))
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	view := m.View().Content
+	if !strings.Contains(view, "merge-target") || strings.Contains(view, "fetch-target") || !strings.Contains(view, "selected operation details") || strings.Contains(view, "secret") || !strings.Contains(view, "<redacted>") {
+		t.Fatalf("typed journal filter/details = %q", view)
+	}
+}
+
+func TestOperationJournalShowsAndCancelsRunningOperation(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: "/repo-a"})
+	m.OperationEngine = operations.New(1)
+	if err := m.OperationEngine.Submit(context.Background(), "journal-running", "/repo-a", "long fetch", time.Minute, func(ctx context.Context) error {
+		<-ctx.Done()
+		return ctx.Err()
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if cmd := m.executePaletteAction("journal"); cmd != nil {
+		t.Fatal("journal navigation unexpectedly returned a command")
+	}
+	if !strings.Contains(m.View().Content, "running operations:") {
+		t.Fatalf("journal omitted running operation: %q", m.View().Content)
+	}
+	updated, _ := m.Update(key("K"))
+	m = updated.(Model)
+	if !m.JournalCancelConfirm {
+		t.Fatalf("cancel confirmation not opened: status=%q", m.Status)
+	}
+	updated, _ = m.Update(key("y"))
+	m = updated.(Model)
+	if !strings.Contains(m.Status, "cancellation requested") {
+		t.Fatalf("cancel status = %q", m.Status)
+	}
+	select {
+	case result := <-m.OperationEngine.Results():
+		if result.State != operations.Cancelled {
+			t.Fatalf("cancel result = %#v", result)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cancelled operation did not finish")
+	}
+}
+
+func TestOperationJournalRetriesReplayableFetch(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: "/repo-a"})
+	m.OperationEngine = operations.New(1)
+	var attempts atomic.Int32
+	if err := m.OperationEngine.SubmitWithOptions(context.Background(), "journal-fetch", "/repo-a", "fetch", time.Minute, func(context.Context) error {
+		if attempts.Add(1) == 1 {
+			return errors.New("temporary failure")
+		}
+		return nil
+	}, operations.Options{Retryable: true}); err != nil {
+		t.Fatal(err)
+	}
+	<-m.OperationEngine.Results()
+	if cmd := m.executePaletteAction("journal"); cmd != nil {
+		t.Fatal("journal navigation unexpectedly returned a command")
+	}
+	updated, _ := m.Update(key("Y"))
+	m = updated.(Model)
+	if !m.JournalRetryConfirm {
+		t.Fatalf("retry confirmation not opened: status=%q", m.Status)
+	}
+	updated, cmd := m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("retry confirmation did not return a command")
+	}
+	message := cmd()
+	updated, _ = m.Update(message)
+	m = updated.(Model)
+	if attempts.Load() != 2 || !strings.Contains(m.Status, "retry complete") {
+		t.Fatalf("retry status=%q attempts=%d", m.Status, attempts.Load())
 	}
 }
 
@@ -2075,6 +2250,141 @@ func TestPaletteAddsRepositoryAttentionJumpTarget(t *testing.T) {
 	}
 }
 
+func TestPaletteIndexesAllRegisteredRepositoriesAndOpensSelectedRepository(t *testing.T) {
+	m := New()
+	m.Repositories = repoview.New([]registry.Row{
+		{Repository: registry.Repository{Name: "alpha", Path: "/alpha"}},
+		{Repository: registry.Repository{Name: "beta", Path: "/beta"}},
+	})
+	m.openPalette()
+	found := ""
+	for _, result := range m.PaletteResults {
+		if strings.Contains(result.Label, "beta") {
+			found = result.ID
+			break
+		}
+	}
+	if found != "repository_open_1" {
+		t.Fatalf("repository palette target = %q", found)
+	}
+	cmd := m.executePaletteAction(found)
+	if cmd == nil || m.Repositories.Selected != 1 || m.State != StateOperationPending {
+		t.Fatalf("repository palette execution = cmdnil=%v selected=%d state=%v", cmd == nil, m.Repositories.Selected, m.State)
+	}
+}
+
+func TestPaletteIndexesLoadedBranchCommitAndFileTargets(t *testing.T) {
+	m := New()
+	m.Discovery.Root = "/repo"
+	m.Branches = branchview.New([]branches.Branch{{Name: "feature"}, {Name: "release"}})
+	m.History = historyview.New([]history.Commit{{Short: "abc123", Subject: "improve search"}})
+	m.Files.SetEntries([]repo.Entry{{Path: repo.Path("README.md"), Untracked: true}})
+	m.openPalette()
+	for _, target := range []struct {
+		id   string
+		view workspace.View
+	}{
+		{id: "palette_branch_1", view: workspace.Branches},
+		{id: "palette_commit_0", view: workspace.Log},
+		{id: "palette_file_0", view: workspace.Status},
+	} {
+		_ = m.executePaletteAction(target.id)
+		if got := m.currentView(); got != target.view {
+			t.Fatalf("palette target %q view = %q, want %q", target.id, got, target.view)
+		}
+	}
+	if m.Branches.Selected != 1 || m.History.Selected != 0 || m.Files.Selected != 0 {
+		t.Fatalf("palette selections = branch %d commit %d file %d", m.Branches.Selected, m.History.Selected, m.Files.Selected)
+	}
+}
+
+func TestPaletteIndexesLoadedProviderAndPluginTargets(t *testing.T) {
+	m := New()
+	m.GitHub.SetPullRequests([]provider.PullRequest{{Number: 7, Title: "Improve provider navigation"}})
+	m.GitHub.SetIssues([]provider.Issue{{Number: 9, Title: "Track acceptance"}})
+	m.GitHub.SetReleases([]provider.Release{{TagName: "v1.2.3", Name: "Stable"}})
+	m.Plugins.SetEntries([]plugins.Entry{{Manifest: plugins.Manifest{ID: "example", Name: "Example plugin"}}})
+	m.openPalette()
+	for _, target := range []struct {
+		id   string
+		view workspace.View
+	}{
+		{id: "palette_pr_0", view: workspace.GitHub},
+		{id: "palette_issue_0", view: workspace.GitHub},
+		{id: "palette_release_0", view: workspace.GitHub},
+		{id: "palette_plugin_0", view: workspace.Plugins},
+	} {
+		_ = m.executePaletteAction(target.id)
+		if got := m.currentView(); got != target.view {
+			t.Fatalf("palette target %q view = %q, want %q", target.id, got, target.view)
+		}
+	}
+	if m.GitHub.Pull.Number != 7 || m.Plugins.Selected != 0 {
+		t.Fatalf("provider/plugin selections = pull %d plugin %d", m.GitHub.Pull.Number, m.Plugins.Selected)
+	}
+}
+
+func TestPaletteReindexesWhenLoadedRepositoryStateChanges(t *testing.T) {
+	m := New()
+	m.Repositories = repoview.New([]registry.Row{{Repository: registry.Repository{Name: "gone", Path: "/gone"}}})
+	m.openPalette()
+	if !containsPaletteID(m.PaletteResults, "repository_open_0") {
+		t.Fatal("initial repository target missing")
+	}
+	updated, _ := m.Update(RepositoriesReadyMsg{Rows: []registry.Row{}, Repositories: []registry.Repository{}})
+	m = updated.(Model)
+	if containsPaletteID(m.PaletteResults, "repository_open_0") {
+		t.Fatalf("stale repository target remained: %#v", m.PaletteResults)
+	}
+}
+
+func TestLateGitHubReadyMessageCannotRepopulateCurrentPalette(t *testing.T) {
+	m := New()
+	m.repositoryGeneration = 2
+	m.GitHub.SetPullRequests([]provider.PullRequest{{Number: 1, Title: "current"}})
+	m.openPalette()
+	if !containsPaletteID(m.PaletteResults, "palette_pr_0") {
+		t.Fatal("current provider target missing")
+	}
+	updated, _ := m.Update(GitHubReadyMsg{
+		Generation: 1,
+		Pulls:      []provider.PullRequest{{Number: 99, Title: "stale"}},
+	})
+	m = updated.(Model)
+	if len(m.GitHub.Pulls) != 1 || m.GitHub.Pulls[0].Number != 1 {
+		t.Fatalf("stale provider data applied: %#v", m.GitHub.Pulls)
+	}
+}
+
+func TestRepositoryDashboardUsesLoadedHistoryActivity(t *testing.T) {
+	m := New()
+	m.Discovery.Root = "/repo"
+	now := time.Now()
+	m.HistoryCommits = []history.Commit{
+		{Unix: now.Unix()},
+		{Unix: now.Add(-24 * time.Hour).Unix()},
+	}
+	rows := m.applyCommitActivity([]registry.Row{
+		{Repository: registry.Repository{Path: "/repo"}},
+		{Repository: registry.Repository{Path: "/other"}},
+	})
+	if len(rows[0].Activity) != 8 || rows[0].Activity[7] != 1 || rows[0].Activity[6] != 1 {
+		t.Fatalf("active repository activity = %#v", rows[0].Activity)
+	}
+	if len(rows[1].Activity) != 0 {
+		t.Fatalf("unrelated repository activity = %#v", rows[1].Activity)
+	}
+}
+
+func containsPaletteID(results []commands.Match, id string) bool {
+	for _, result := range results {
+		if result.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
 func TestSelectedWorktreeOpensThroughRepositoryDiscovery(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Worktrees, "Worktrees")
@@ -2261,6 +2571,226 @@ func TestGitHubWorkspaceLoadsAsynchronouslyWhenEnabled(t *testing.T) {
 	m = updated.(Model)
 	if !m.GitHub.Ready || m.State != StateReady || !strings.Contains(m.GitHub.View(), "PR #1") {
 		t.Fatalf("GitHub result = ready=%v state=%v view=%s", m.GitHub.Ready, m.State, m.GitHub.View())
+	}
+}
+
+func TestGitHubCheckoutRequiresValidatedProviderRefAndExplicitConfirmation(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.GitHub, "GitHub")
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 1, Head: "feature/topic", State: "open"}, provider.ChecksSnapshot{})
+	m.Remotes.SetDashboard(remotes.Dashboard{Remotes: []remotes.Remote{{Name: "origin", FetchURL: "https://github.com/octo/repo.git"}}})
+	updated, cmd := m.Update(key("x"))
+	m = updated.(Model)
+	if cmd != nil || !m.RemoteBranchConfirm || m.RemoteBranchTarget.RemoteName != "origin" || m.RemoteBranchTarget.RemoteBranch != "feature/topic" {
+		t.Fatalf("provider checkout confirmation = cmd=%v confirm=%v target=%#v", cmd != nil, m.RemoteBranchConfirm, m.RemoteBranchTarget)
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if cmd != nil || m.RemoteBranchConfirm || !strings.Contains(m.Status, "cancelled") {
+		t.Fatalf("provider checkout cancellation = cmd=%v confirm=%v status=%q", cmd != nil, m.RemoteBranchConfirm, m.Status)
+	}
+	m.GitHub.Pull.Head = "../escape"
+	updated, _ = m.Update(key("x"))
+	m = updated.(Model)
+	if !strings.Contains(m.Status, "invalid provider checkout ref") {
+		t.Fatalf("unsafe provider ref status = %q", m.Status)
+	}
+}
+
+func TestGitHubCreatePRFormRequiresExplicitConfirmation(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.GitHub, "GitHub")
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Base: "main", State: "open"}, provider.ChecksSnapshot{})
+	m.Snapshot.Branch.Name = "feature"
+	updated, cmd := m.Update(key("n"))
+	m = updated.(Model)
+	if cmd != nil || !m.GitHubCreateMode || m.GitHubCreateField != 0 {
+		t.Fatalf("PR form start = cmd=%v mode=%v field=%d", cmd != nil, m.GitHubCreateMode, m.GitHubCreateField)
+	}
+	m.updateGitHubCreateKey("T")
+	m.updateGitHubCreateKey("enter")
+	m.updateGitHubCreateKey("enter")
+	m.updateGitHubCreateKey("enter")
+	if m.GitHubCreateMode || !m.GitHubCreateConfirm || !strings.Contains(m.Status, "create GitHub PR") {
+		t.Fatalf("PR form confirmation = mode=%v confirm=%v status=%q", m.GitHubCreateMode, m.GitHubCreateConfirm, m.Status)
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if cmd != nil || m.GitHubCreateConfirm || !strings.Contains(m.Status, "cancelled") {
+		t.Fatalf("PR form cancellation = cmd=%v confirm=%v status=%q", cmd != nil, m.GitHubCreateConfirm, m.Status)
+	}
+}
+
+func TestGitHubMergeRefreshesBeforeExplicitConfirmation(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.GitHub, "GitHub")
+	pull := provider.PullRequest{Number: 4, Title: "Improve", State: "open", HeadSHA: "abc", Mergeable: "clean"}
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", pull, provider.ChecksSnapshot{})
+	updated, cmd := m.Update(key("m"))
+	m = updated.(Model)
+	if cmd != nil || !m.GitHubMergeMode {
+		t.Fatalf("merge start = cmd=%v mode=%v", cmd != nil, m.GitHubMergeMode)
+	}
+	updated, _ = m.Update(key("s"))
+	m = updated.(Model)
+	updated, cmd = m.Update(key("enter"))
+	m = updated.(Model)
+	if cmd == nil || m.GitHubMergeMode || !m.GitHubMergeRefresh || m.GitHubMergeConfirm {
+		t.Fatalf("merge refresh = cmd=%v mode=%v refresh=%v confirm=%v", cmd != nil, m.GitHubMergeMode, m.GitHubMergeRefresh, m.GitHubMergeConfirm)
+	}
+	updated, _ = m.Update(GitHubReadyMsg{Repository: provider.Repository{Owner: "octo", Name: "repo"}, Branch: "main", Pull: pull, Checks: provider.ChecksSnapshot{Passing: 1}, Review: provider.ReviewSnapshot{Approved: 1}})
+	m = updated.(Model)
+	if !m.GitHubMergeConfirm || !strings.Contains(m.Status, "squash") {
+		t.Fatalf("merge confirmation = %v status=%q", m.GitHubMergeConfirm, m.Status)
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if cmd != nil || m.GitHubMergeConfirm || !strings.Contains(m.Status, "cancelled") {
+		t.Fatalf("merge cancellation = cmd=%v confirm=%v status=%q", cmd != nil, m.GitHubMergeConfirm, m.Status)
+	}
+}
+
+func TestGitHubReviewActionsRequireIntentAndReason(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.GitHub, "GitHub")
+	pull := provider.PullRequest{Number: 4, Title: "Improve", State: "open", HeadSHA: "abc"}
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", pull, provider.ChecksSnapshot{})
+	updated, cmd := m.Update(key("A"))
+	m = updated.(Model)
+	if cmd != nil || !m.GitHubReviewConfirm || m.GitHubReviewEvent != provider.ReviewEventApprove {
+		t.Fatalf("approve confirmation = cmd=%v confirm=%v event=%q", cmd != nil, m.GitHubReviewConfirm, m.GitHubReviewEvent)
+	}
+	updated, _ = m.Update(key("n"))
+	m = updated.(Model)
+	updated, cmd = m.Update(key("R"))
+	m = updated.(Model)
+	if cmd != nil || !m.GitHubReviewMode || m.GitHubReviewEvent != provider.ReviewEventRequestChanges {
+		t.Fatalf("request-changes mode = cmd=%v mode=%v event=%q", cmd != nil, m.GitHubReviewMode, m.GitHubReviewEvent)
+	}
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if m.GitHubReviewConfirm || !strings.Contains(m.Status, "requires a reason") {
+		t.Fatalf("empty request-changes body = confirm=%v status=%q", m.GitHubReviewConfirm, m.Status)
+	}
+	updated, _ = m.Update(key("x"))
+	m = updated.(Model)
+	updated, _ = m.Update(key("enter"))
+	m = updated.(Model)
+	if !m.GitHubReviewConfirm || !strings.Contains(m.Status, "submit GitHub request_changes") {
+		t.Fatalf("request-changes confirmation = confirm=%v status=%q", m.GitHubReviewConfirm, m.Status)
+	}
+}
+
+func TestGitHubCheckActionsSelectAndConfirm(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.GitHub, "GitHub")
+	pull := provider.PullRequest{Number: 4, Title: "Improve", State: "open", HeadSHA: "abc"}
+	checks := provider.ChecksSnapshot{Runs: []provider.CheckRun{
+		{ID: 12, Name: "build", Status: "completed", Conclusion: "failure"},
+		{ID: 13, Name: "lint", Status: "in_progress"},
+	}}
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", pull, checks)
+	updated, cmd := m.Update(key("j"))
+	m = updated.(Model)
+	if cmd != nil || m.GitHub.SelectedRun != 1 {
+		t.Fatalf("check selection = cmd=%v selected=%d", cmd != nil, m.GitHub.SelectedRun)
+	}
+	updated, cmd = m.Update(key("K"))
+	m = updated.(Model)
+	if cmd != nil || !m.GitHubCheckActionConfirm || m.GitHubCheckAction != "cancel" || m.GitHubCheckActionRunID != 13 {
+		t.Fatalf("cancel confirmation = cmd=%v confirm=%v action=%q id=%d", cmd != nil, m.GitHubCheckActionConfirm, m.GitHubCheckAction, m.GitHubCheckActionRunID)
+	}
+	updated, _ = m.Update(key("n"))
+	m = updated.(Model)
+	if m.GitHubCheckActionConfirm || !strings.Contains(m.Status, "cancelled") {
+		t.Fatalf("cancel state = confirm=%v status=%q", m.GitHubCheckActionConfirm, m.Status)
+	}
+	updated, cmd = m.Update(key("!"))
+	m = updated.(Model)
+	if cmd != nil || !strings.Contains(m.Status, "still running") {
+		t.Fatalf("rerun running check = cmd=%v status=%q", cmd != nil, m.Status)
+	}
+}
+
+func TestGitHubIssueFormRequiresConfirmation(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.GitHub, "GitHub")
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 1, State: "open"}, provider.ChecksSnapshot{})
+	updated, cmd := m.Update(key("I"))
+	m = updated.(Model)
+	if cmd != nil || !m.GitHubIssueMode || m.GitHubIssueField != 0 {
+		t.Fatalf("issue form start = cmd=%v mode=%v field=%d", cmd != nil, m.GitHubIssueMode, m.GitHubIssueField)
+	}
+	m.updateGitHubIssueKey("B")
+	m.updateGitHubIssueKey("enter")
+	m.updateGitHubIssueKey("body")
+	m.updateGitHubIssueKey("enter")
+	m.updateGitHubIssueKey("bug, ui")
+	m.updateGitHubIssueKey("enter")
+	if m.GitHubIssueMode || !m.GitHubIssueConfirm || !strings.Contains(m.Status, "create GitHub issue B") {
+		t.Fatalf("issue confirmation = mode=%v confirm=%v status=%q", m.GitHubIssueMode, m.GitHubIssueConfirm, m.Status)
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if cmd != nil || m.GitHubIssueConfirm || !strings.Contains(m.Status, "cancelled") {
+		t.Fatalf("issue cancellation = cmd=%v confirm=%v status=%q", cmd != nil, m.GitHubIssueConfirm, m.Status)
+	}
+}
+
+func TestGitHubIssueAndReleaseNavigationUsesProviderURLs(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.GitHub, "GitHub")
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 1, State: "open"}, provider.ChecksSnapshot{})
+	m.GitHub.SetIssues([]provider.Issue{{Number: 3, Title: "Bug", URL: "https://github.test/issues/3"}})
+	m.GitHub.SetReleases([]provider.Release{{ID: 4, TagName: "v1.0.0", URL: "https://github.test/releases/4"}})
+	updated, cmd := m.Update(key("O"))
+	m = updated.(Model)
+	if cmd == nil || !strings.Contains(m.Status, "issue #3") {
+		t.Fatalf("issue navigation = cmd=%v status=%q", cmd != nil, m.Status)
+	}
+	updated, cmd = m.Update(key("L"))
+	m = updated.(Model)
+	if cmd == nil || !strings.Contains(m.Status, "v1.0.0") {
+		t.Fatalf("release navigation = cmd=%v status=%q", cmd != nil, m.Status)
+	}
+}
+
+func TestRepositoryBatchFetchRequiresExplicitConfirmation(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{})
+	m.Workspace.Navigate(workspace.Repositories, "Repositories")
+	m.Repositories = repoview.New([]registry.Row{{Repository: registry.Repository{Path: "/one", Name: "one"}}})
+	updated, cmd := m.Update(key("F"))
+	m = updated.(Model)
+	if cmd != nil || !m.RepositoryBatchConfirm || !strings.Contains(m.Status, "1 discovered repositories") {
+		t.Fatalf("batch confirmation = cmd=%v confirm=%v status=%q", cmd != nil, m.RepositoryBatchConfirm, m.Status)
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if cmd != nil || m.RepositoryBatchConfirm || !strings.Contains(m.Status, "cancelled") {
+		t.Fatalf("batch cancellation = cmd=%v confirm=%v status=%q", cmd != nil, m.RepositoryBatchConfirm, m.Status)
+	}
+}
+
+func TestRepositoryBatchRetryOnlyTargetsFailedResults(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{})
+	m.Workspace.Navigate(workspace.Repositories, "Repositories")
+	m.Repositories = repoview.New([]registry.Row{
+		{Repository: registry.Repository{Path: "/one", Name: "one"}},
+		{Repository: registry.Repository{Path: "/two", Name: "two"}},
+	})
+	m.RepositoryBatchResults = []multirepo.Result{
+		{Request: multirepo.Request{Repository: multirepo.Repository{Root: "/one"}}, Status: "failed"},
+		{Request: multirepo.Request{Repository: multirepo.Repository{Root: "/two"}}, Status: "succeeded"},
+	}
+	updated, cmd := m.Update(key("R"))
+	m = updated.(Model)
+	if cmd != nil || !m.RepositoryBatchConfirm || !m.RepositoryBatchRetry || !strings.Contains(m.Status, "1 failed") {
+		t.Fatalf("retry confirmation = cmd=%v confirm=%v retry=%v status=%q", cmd != nil, m.RepositoryBatchConfirm, m.RepositoryBatchRetry, m.Status)
+	}
+	updated, _ = m.Update(key("n"))
+	m = updated.(Model)
+	if m.RepositoryBatchConfirm || m.RepositoryBatchRetry || !strings.Contains(m.Status, "cancelled") {
+		t.Fatalf("retry cancellation = confirm=%v retry=%v status=%q", m.RepositoryBatchConfirm, m.RepositoryBatchRetry, m.Status)
 	}
 }
 

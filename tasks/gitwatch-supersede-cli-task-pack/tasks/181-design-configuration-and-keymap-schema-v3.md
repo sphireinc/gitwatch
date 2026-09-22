@@ -40,6 +40,14 @@ Version configuration deliberately for advanced workbench features instead of ac
 - [ ] Existing users upgrade without losing watcher/multi-repo/plugin behavior.
 - [ ] New advanced config is typed and validated.
 
+## Progress evidence (2026-09-22)
+
+- Advanced configuration has been promoted to schema version 3 with typed `workspace` bounds (`palette_max_results`, `status_overscan`) and typed `visuals` activity-bucket settings.
+- Deterministic v2-to-v3 in-memory migration reporting preserves watcher mode, interval, plugin enablement, repository limits, keymaps, and all existing v2 fields; source files remain read-only.
+- v3 defaults and bounds are enforced by `Validate`, exposed in the machine-readable JSON schema, and consumed by palette/status presentation limits.
+- Added v2 migration fixture coverage plus malformed/limit validation through the existing configuration tests.
+- Remaining: full config-inspect redaction audit, golden schema fixture review, and release/native acceptance evidence.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.

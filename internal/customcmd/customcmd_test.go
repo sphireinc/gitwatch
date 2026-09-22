@@ -56,3 +56,110 @@ func TestRunBoundsOutputAndHonorsCancellation(t *testing.T) {
 		t.Fatalf("cancellation error = %v", err)
 	}
 }
+
+func TestFormValidatesTextSelectSecretAndCancelWithoutSubmitting(t *testing.T) {
+	form, err := NewForm([]Prompt{
+		{ID: "ticket", Label: "Ticket", Kind: PromptText, Required: true, Pattern: `^[A-Z]+-[0-9]+$`},
+		{ID: "branch", Label: "Branch", Kind: PromptSelect, Options: []string{"main", "feature"}},
+		{ID: "token", Label: "Token", Kind: PromptSecret, Required: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if event, err := form.Handle("X"); err != nil || event != FormChanged {
+		t.Fatalf("text event = %v, err=%v", event, err)
+	}
+	if event, err := form.Handle("enter"); err == nil || event != FormChanged {
+		t.Fatalf("invalid text event = %v, err=%v", event, err)
+	}
+	if _, err := form.Handle("backspace"); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"A", "-", "1", "2", "3"} {
+		if _, err := form.Handle(key); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if event, err := form.Handle("enter"); err != nil || event != FormChanged {
+		t.Fatalf("accepted text event = %v, err=%v", event, err)
+	}
+	if _, err := form.Handle("down"); err != nil {
+		t.Fatal(err)
+	}
+	if event, err := form.Handle("enter"); err != nil || event != FormChanged {
+		t.Fatalf("select event = %v, err=%v", event, err)
+	}
+	if _, err := form.Handle("s"); err != nil {
+		t.Fatal(err)
+	}
+	if event, err := form.Handle("esc"); err != nil || event != FormCancelled {
+		t.Fatalf("cancel event = %v, err=%v", event, err)
+	}
+	if values := form.Values(); values != nil {
+		t.Fatalf("cancelled form exposed values: %#v", values)
+	}
+}
+
+func TestFormSubmitsTypedValuesAndRedactsSecrets(t *testing.T) {
+	form, err := NewForm([]Prompt{
+		{ID: "confirm", Label: "Confirm", Kind: PromptConfirm},
+		{ID: "targets", Label: "Targets", Kind: PromptMultiSelect, Options: []string{"one", "two"}},
+		{ID: "token", Label: "Token", Kind: PromptSecret},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if event, err := form.Handle("y"); err != nil || event != FormChanged {
+		t.Fatalf("confirm event = %v, err=%v", event, err)
+	}
+	if _, err := form.Handle("space"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := form.Handle("down"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := form.Handle("space"); err != nil {
+		t.Fatal(err)
+	}
+	if event, err := form.Handle("enter"); err != nil || event != FormChanged {
+		t.Fatalf("multi-select event = %v, err=%v", event, err)
+	}
+	for _, key := range []string{"s", "e", "c", "r", "e", "t"} {
+		if _, err := form.Handle(key); err != nil {
+			t.Fatal(err)
+		}
+	}
+	event, err := form.Handle("enter")
+	if err != nil || event != FormSubmitted {
+		t.Fatalf("submit event = %v, err=%v", event, err)
+	}
+	values := form.Values()
+	if values["confirm"] != "true" || values["targets"] != "one,two" || values["token"] != "secret" {
+		t.Fatalf("submitted values = %#v", values)
+	}
+	if redacted := form.RedactedValues(); redacted["token"] != "[redacted]" || redacted["targets"] != "one,two" {
+		t.Fatalf("redacted values = %#v", redacted)
+	}
+}
+
+func TestDefinitionPromptsExpandOnlyAfterValuesAreSupplied(t *testing.T) {
+	definition := Definition{Name: "ticket", Executable: "tool", Prompts: []Prompt{{ID: "ticket", Label: "Ticket", Kind: PromptText, Required: true}}, Args: []string{"--ticket={prompt:ticket}"}}
+	if _, err := definition.Expand(Context{}); err == nil {
+		t.Fatal("missing prompt value was accepted")
+	}
+	invocation, err := definition.Expand(Context{PromptValues: map[string]string{"ticket": "ABC-42"}})
+	if err != nil || len(invocation.Args) != 1 || invocation.Args[0] != "--ticket=ABC-42" {
+		t.Fatalf("prompt expansion = %#v, err=%v", invocation, err)
+	}
+}
+
+func TestResolvePromptsUsesLoadedRepositoryOptionsWithoutRunningCommands(t *testing.T) {
+	prompts := []Prompt{{ID: "branch", Label: "Branch", Kind: PromptSelect, OptionsSource: "branches"}}
+	resolved, err := ResolvePrompts(prompts, Context{OptionValues: map[string][]string{"branches": {"main", "feature"}}})
+	if err != nil || len(resolved) != 1 || len(resolved[0].Options) != 2 || resolved[0].Options[1] != "feature" {
+		t.Fatalf("resolved prompts = %#v, err=%v", resolved, err)
+	}
+	if _, err := ResolvePrompts(prompts, Context{}); err == nil {
+		t.Fatal("empty dynamic option source was accepted")
+	}
+}

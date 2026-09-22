@@ -46,7 +46,11 @@ func (r Runtime) Handshake(ctx context.Context, manifest Manifest, supported []C
 	for i, capability := range negotiation.Capabilities {
 		capabilities[i] = publicplugin.Capability(capability)
 	}
-	payload, err := json.Marshal(publicplugin.HandshakeRequest{APIVersion: APIVersion, Capabilities: capabilities})
+	versions := []int{APIVersion}
+	if manifest.APIVersion >= APIVersion2 {
+		versions = []int{APIVersion2, APIVersion}
+	}
+	payload, err := json.Marshal(publicplugin.HandshakeRequest{APIVersion: manifest.APIVersion, Versions: versions, Capabilities: capabilities})
 	if err != nil {
 		return Negotiation{}, err
 	}
@@ -54,11 +58,17 @@ func (r Runtime) Handshake(ctx context.Context, manifest Manifest, supported []C
 	if err != nil {
 		return Negotiation{}, err
 	}
-	result, err := r.RunWithCapabilities(ctx, manifest, message, negotiation.Capabilities)
+	// The handshake itself is the authorization negotiation boundary. It must
+	// be runnable even when the host will omit one or more requested optional
+	// capabilities; capability enforcement applies to subsequent work.
+	result, err := r.runProcess(ctx, manifest, message)
 	if err != nil {
 		return Negotiation{}, err
 	}
 	response, err := publicplugin.Decode(result.Stdout)
+	if index := bytes.IndexByte(result.Stdout, '\n'); index >= 0 {
+		response, err = publicplugin.Decode(result.Stdout[:index+1])
+	}
 	if err != nil || response.Type != publicplugin.MessageHandshake {
 		return Negotiation{}, ErrPluginProtocol
 	}
@@ -66,8 +76,8 @@ func (r Runtime) Handshake(ctx context.Context, manifest Manifest, supported []C
 	if err := json.Unmarshal(response.Payload, &handshake); err != nil {
 		return Negotiation{}, ErrPluginProtocol
 	}
-	if handshake.APIVersion != APIVersion || !handshake.Accepted {
-		return Negotiation{Reason: handshake.Reason}, nil
+	if !handshake.Accepted || !containsInt(versions, handshake.APIVersion) {
+		return Negotiation{Reason: handshake.Reason, Output: append([]byte(nil), result.Stdout...)}, nil
 	}
 	granted := make(map[Capability]bool, len(negotiation.Capabilities))
 	for _, capability := range negotiation.Capabilities {
@@ -80,7 +90,18 @@ func (r Runtime) Handshake(ctx context.Context, manifest Manifest, supported []C
 		}
 		negotiation.Capabilities = append(negotiation.Capabilities, Capability(capability))
 	}
+	negotiation.APIVersion = handshake.APIVersion
+	negotiation.Output = append([]byte(nil), result.Stdout...)
 	return negotiation, nil
+}
+
+func containsInt(values []int, want int) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func (r Runtime) Run(ctx context.Context, manifest Manifest, input []byte) (Result, error) {
@@ -104,7 +125,15 @@ func (r Runtime) RunWithCapabilities(ctx context.Context, manifest Manifest, inp
 	if limit <= 0 {
 		limit = MaxOutputBytes
 	}
+	return r.runProcess(ctx, manifest, input)
+}
+
+func (r Runtime) runProcess(ctx context.Context, manifest Manifest, input []byte) (Result, error) {
 	started := time.Now()
+	limit := r.OutputLimit
+	if limit <= 0 {
+		limit = MaxOutputBytes
+	}
 	command := exec.CommandContext(ctx, manifest.Executable, "--gitwatch-plugin")
 	command.Stdin = bytes.NewReader(input)
 	var stdout, stderr bytes.Buffer

@@ -1,0 +1,1 @@
+{"type":"contribution","id":"health","payload":{"schema_version":2,"kind":"table","title":"Repository health","columns":[{"id":"state","title":"State"}],"rows":[{"state":"clean"}],"read_only":true}}

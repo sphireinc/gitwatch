@@ -48,3 +48,16 @@ Make Ctrl-P a workspace-wide navigator across repositories and already-loaded Gi
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence (2026-09-22)
+
+- Extended the existing bounded command palette index with one repository-target action per already-loaded repository row. Labels include sanitized repository name and path, so fuzzy search can locate registered repositories without crawling worktrees or spawning Git commands.
+- Selecting a healthy repository target starts the existing generation-safe repository discovery/open command; attention targets retain their repositories-workspace jump behavior.
+- Added app coverage for indexing all loaded repositories and routing a selected target through repository opening.
+- Added typed action categories and pure `repo:`/`repository:`/`category:` palette prefixes, allowing repository-only search without changing the bounded action index or spawning Git commands.
+- Added bounded actions for up to 200 already-loaded branches, history commits, and changed files, with selection-preserving routes into their existing workspaces and focused app coverage.
+- Added bounded provider targets for loaded pull requests, issues, and releases plus loaded plugin targets, with provider/plugin categories and existing workspace routing; no provider fetch is started by palette indexing or selection.
+- Added centralized palette reindexing after repository, provider, and plugin ready messages so removed loaded rows cannot remain selectable while the palette is open; app coverage verifies stale repository targets are removed.
+- Added repository-generation tagging and stale-result rejection for asynchronous GitHub loads so late provider responses cannot repopulate the current repository's palette or GitHub view.
+- Added a deterministic 50-repository palette benchmark and allocation regression test; the performance gate now executes the benchmark and maintainer documentation records its bounded in-memory scope and 2,500-allocation threshold.
+- Remaining: recorded cross-platform latency samples and native/manual acceptance.

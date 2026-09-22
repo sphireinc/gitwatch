@@ -27,6 +27,8 @@ type Context struct {
 	Remote         string
 	Tag            string
 	ProviderURL    string
+	PromptValues   map[string]string
+	OptionValues   map[string][]string
 }
 
 // Definition is the JSON/configuration representation of a custom command.
@@ -43,6 +45,7 @@ type Definition struct {
 	Confirm    bool          `json:"confirm"`
 	Mutates    bool          `json:"mutates_repository"`
 	Refresh    bool          `json:"refresh"`
+	Prompts    []Prompt      `json:"prompts,omitempty"`
 }
 
 // Invocation is a validated, expanded process request.
@@ -138,6 +141,14 @@ func (d Definition) Expand(ctx Context) (Invocation, error) {
 		"tag":    ctx.Tag,
 		"url":    ctx.ProviderURL,
 	}
+	for promptID, value := range ctx.PromptValues {
+		values["prompt:"+promptID] = value
+	}
+	for _, prompt := range d.Prompts {
+		if _, exists := values["prompt:"+prompt.ID]; !exists {
+			values["prompt:"+prompt.ID] = ""
+		}
+	}
 	args := make([]string, len(d.Args))
 	for index, token := range d.Args {
 		for name, value := range values {
@@ -185,6 +196,16 @@ func (d Definition) Validate() error {
 		}
 	}
 	allowed := map[string]bool{"repo": true, "path": true, "sha": true, "branch": true, "remote": true, "tag": true, "url": true}
+	promptIDs := make(map[string]bool, len(d.Prompts))
+	for _, prompt := range d.Prompts {
+		if _, exists := promptIDs[prompt.ID]; exists {
+			return fmt.Errorf("custom command %q has duplicate prompt %q", d.Name, prompt.ID)
+		}
+		if _, err := NewForm([]Prompt{prompt}); err != nil {
+			return fmt.Errorf("custom command %q prompt %q: %w", d.Name, prompt.ID, err)
+		}
+		promptIDs[prompt.ID] = true
+	}
 	for _, token := range append(append([]string(nil), d.Args...), d.Directory) {
 		for start := strings.IndexByte(token, '{'); start >= 0; {
 			end := strings.IndexByte(token[start:], '}')
@@ -192,7 +213,7 @@ func (d Definition) Validate() error {
 				return fmt.Errorf("custom command %q has an unterminated placeholder", d.Name)
 			}
 			name := token[start+1 : start+end]
-			if !allowed[name] {
+			if !allowed[name] && !(strings.HasPrefix(name, "prompt:") && promptIDs[strings.TrimPrefix(name, "prompt:")]) {
 				return fmt.Errorf("custom command %q has unknown placeholder {%s}", d.Name, name)
 			}
 			token = token[start+end+1:]

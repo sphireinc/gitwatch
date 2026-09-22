@@ -19,7 +19,7 @@ func TestManifestRejectsInvalidAPIAndDuplicateCapabilities(t *testing.T) {
 		t.Fatal("duplicate capabilities were accepted")
 	}
 	manifest.Capabilities = nil
-	manifest.APIVersion++
+	manifest.APIVersion = APIVersion2 + 1
 	if manifest.Validate() == nil {
 		t.Fatal("unsupported API was accepted")
 	}

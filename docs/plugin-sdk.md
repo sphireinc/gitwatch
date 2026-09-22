@@ -18,14 +18,16 @@ must treat all host payloads as untrusted and must not assume that a message
 will be followed by another message after a failure.
 
 Buildable examples live under `examples/plugin-command`,
-`examples/plugin-panel`, and `examples/plugin-widget`. Each example imports
-only `pkg/plugin`, has a matching API-1 manifest, and demonstrates one
-extension capability. Build them with, for example:
+`examples/plugin-panel`, `examples/plugin-widget`, and
+`examples/plugin-contribution`. Each imports only `pkg/plugin`, has a matching
+manifest, and demonstrates one extension capability. Build them with, for
+example:
 
 ```sh
 go build ./examples/plugin-command
 go build ./examples/plugin-panel
 go build ./examples/plugin-widget
+go build ./examples/plugin-contribution
 ```
 
 The examples intentionally echo protocol payloads rather than invoking Git or
@@ -37,3 +39,9 @@ SDK helpers such as `NewHandshake`, `NewCommand`, `NewPanel`, `NewWidget`, and
 packages. Use `Encode` for newline-delimited transport and `Decode` for every
 incoming record. Errors should use bounded `WireError` codes/messages and must
 not include tokens, full remote URLs, or repository file contents.
+
+For additive API-2 clients, use `NewHandshakeVersions` and
+`NegotiateVersions`. `NewContribution` constructs host-rendered, data-only
+contributions. The SDK bounds contribution collections and rejects terminal
+control characters before encoding; unknown capabilities are deliberately
+degraded during versioned negotiation.

@@ -126,3 +126,35 @@ behavior without introducing a JavaScript runtime or web UI dependency.
 - [ ] Race/vet/lint/format/performance evidence recorded.
 - [ ] Native/manual terminal evidence recorded.
 - [ ] Known limitations/deferred work documented.
+
+## Current implementation evidence
+
+- Status page sizing and mouse hit-testing now measure only rows that can occupy
+  the current viewport; the complete `Files.Entries`/`Files.Visible` model and
+  logical offsets remain authoritative for selection and mutations.
+- Added the pure `internal/ui/virtualrange` range model with clamped offsets,
+  viewport size, bounded overscan, and arithmetic tests. Flat and tree status
+  rendering use it without changing the logical selected row or authoritative
+  snapshot.
+- Deterministic flat and tree tests cover 14,953 entries and assert that visible
+  row-height work is bounded by the viewport: `TestStatusMouseRowHeightsAreViewportBounded`
+  and `TestStatusTreeMouseRowHeightsAreViewportBounded`.
+- Benchmark command:
+  `GOCACHE=/tmp/gitwatch-go-cache go test ./internal/app -run '^$' -bench BenchmarkStatusMouseRowHeights14953 -benchmem -count=3`
+- macOS arm64 / Apple M1 Pro sample: 75.9–81.3 microseconds/op, approximately
+  6.2 KB/op and 287 allocations/op for a 14,953-entry logical set with a
+  22-row viewport.
+- Comparative baseline sample from the same run: bounded measurement averaged
+  approximately 72.8 microseconds/op, 6.2 KB/op, and 287 allocations/op versus
+  the pre-virtualization full scan at approximately 16.2 milliseconds/op,
+  1.4 MB/op, and 64,394 allocations/op. The benchmark is implemented as
+  `BenchmarkStatusMouseRowHeights14953/{bounded-viewport,full-scan-baseline}`.
+- `scripts/performance-check.sh` now runs this benchmark as part of the
+  repeatable project performance gate.
+- `GOCACHE=/tmp/gitwatch-performance-cache ./scripts/performance-check.sh`
+  passed on macOS arm64 / Apple M1 Pro. Its one-iteration status benchmark
+  measured 213 microseconds and 46 KB for the bounded path versus 31.0 ms and
+  1.43 MB for the full-scan baseline.
+- Full virtualization, before/after baseline comparison, 80x24 native
+  acceptance, and cross-platform evidence remain outstanding; this task stays
+  open.

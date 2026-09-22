@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/operations"
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/repo"
@@ -18,6 +19,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/filetree"
 	"github.com/sphireinc/git-watch/internal/ui/layout"
 	"github.com/sphireinc/git-watch/internal/ui/theme"
+	"github.com/sphireinc/git-watch/internal/ui/virtualrange"
 )
 
 func (m *Model) rebuildStatusFileTree() {
@@ -72,15 +74,26 @@ func (m Model) statusRowCount() int {
 		width = max(1, width-1)
 	}
 	width = max(1, width-1)
-	rows := 0
 	available := max(1, statusLayout.Files.Height-1-m.statusFileHeaderRows(width))
-	var heights []int
 	if m.StatusTreeMode {
-		heights = m.statusTreeRowHeights(width)
-	} else {
-		heights = m.statusFileRowHeights(width)
+		rows := 0
+		for index := m.FileTree.Offset; index < len(m.FileTree.Rows); index++ {
+			height := 1
+			row := m.FileTree.Rows[index]
+			if !row.Directory && row.EntryIndex >= 0 && row.EntryIndex < len(m.FileTree.Entries) {
+				height = len(fitSafeDisplayLines(m.statusFileText(m.FileTree.Entries[row.EntryIndex], index == m.FileTree.Selected), width))
+			}
+			if rows+height > available {
+				break
+			}
+			rows++
+		}
+		return max(1, rows)
 	}
-	for _, height := range heights {
+	rows := 0
+	for index := m.Files.Offset; index < len(m.Files.Visible); index++ {
+		entry := m.Files.Entries[m.Files.Visible[index]]
+		height := len(fitSafeDisplayLines(m.statusFileText(entry, index == m.Files.Selected), width))
 		if rows+height > available {
 			break
 		}
@@ -369,6 +382,10 @@ func (m Model) styleStatusDetailsLine(line string, heading bool) string {
 
 func (m Model) statusFileLines(width, height int) []string {
 	lines := make([]string, 0, height)
+	overscan := m.StatusOverscan
+	if overscan < 0 {
+		overscan = 0
+	}
 	if m.StatusCommitActive || m.StatusCommitLoading || m.StatusCommitErr != nil {
 		label := m.StatusCommitSHA
 		if label == "" {
@@ -380,7 +397,9 @@ func (m Model) statusFileLines(width, height int) []string {
 		lines = append(lines, "Commit: "+label)
 	}
 	if m.StatusTreeMode {
-		for i := m.FileTree.Offset; i < len(m.FileTree.Rows) && len(lines) < height; i++ {
+		rows := virtualrange.Compute(len(m.FileTree.Rows), m.FileTree.Offset, height, overscan)
+		start := max(m.FileTree.Offset, rows.Start)
+		for i := start; i < rows.End && len(lines) < height; i++ {
 			row := m.FileTree.Rows[i]
 			if row.Directory {
 				lines = append(lines, fitSafeDisplay(m.statusTreeText(row, i == m.FileTree.Selected), width))
@@ -393,7 +412,9 @@ func (m Model) statusFileLines(width, height int) []string {
 			lines = append(lines, fitSafeDisplayLines(m.statusFileText(entry, i == m.FileTree.Selected), width)...)
 		}
 	} else {
-		for i := m.Files.Offset; i < len(m.Files.Visible) && len(lines) < height; i++ {
+		rows := virtualrange.Compute(len(m.Files.Visible), m.Files.Offset, height, overscan)
+		start := max(m.Files.Offset, rows.Start)
+		for i := start; i < rows.End && len(lines) < height; i++ {
 			entry := m.Files.Entries[m.Files.Visible[i]]
 			wrapped := fitSafeDisplayLines(m.statusFileText(entry, i == m.Files.Selected), width)
 			lines = append(lines, wrapped...)
@@ -584,26 +605,36 @@ func (m Model) renderCommitTreeLine(line string) string {
 	return rendered.String()
 }
 
-func (m Model) statusFileRowHeights(width int) []int {
-	heights := make([]int, 0, len(m.Files.Visible))
-	for i := m.Files.Offset; i < len(m.Files.Visible); i++ {
+func (m Model) statusFileRowHeights(width, height int) []int {
+	heights := make([]int, 0, min(height, len(m.Files.Visible)-m.Files.Offset))
+	used := 0
+	for i := m.Files.Offset; i < len(m.Files.Visible) && used < height; i++ {
 		entry := m.Files.Entries[m.Files.Visible[i]]
-		heights = append(heights, len(fitSafeDisplayLines(m.statusFileText(entry, i == m.Files.Selected), width)))
+		rowHeight := len(fitSafeDisplayLines(m.statusFileText(entry, i == m.Files.Selected), width))
+		if used+rowHeight > height {
+			break
+		}
+		heights = append(heights, rowHeight)
+		used += rowHeight
 	}
 	return heights
 }
 
-func (m Model) statusTreeRowHeights(width int) []int {
-	heights := make([]int, 0, len(m.FileTree.Rows))
-	for index, row := range m.FileTree.Rows {
+func (m Model) statusTreeRowHeights(width, height int) []int {
+	heights := make([]int, 0, min(height, len(m.FileTree.Rows)-m.FileTree.Offset))
+	used := 0
+	for index := m.FileTree.Offset; index < len(m.FileTree.Rows) && used < height; index++ {
+		row := m.FileTree.Rows[index]
+		rowHeight := 1
 		if row.Directory {
-			heights = append(heights, 1)
-			continue
+		} else if row.EntryIndex >= 0 && row.EntryIndex < len(m.FileTree.Entries) {
+			rowHeight = len(fitSafeDisplayLines(m.statusFileText(m.FileTree.Entries[row.EntryIndex], index == m.FileTree.Selected), width))
 		}
-		if row.EntryIndex < 0 || row.EntryIndex >= len(m.FileTree.Entries) {
-			continue
+		if used+rowHeight > height {
+			break
 		}
-		heights = append(heights, len(fitSafeDisplayLines(m.statusFileText(m.FileTree.Entries[row.EntryIndex], index == m.FileTree.Selected), width)))
+		heights = append(heights, rowHeight)
+		used += rowHeight
 	}
 	return heights
 }
@@ -793,15 +824,64 @@ func (m Model) journalMaxOffset() int {
 	if m.ActivityLog == nil {
 		return 0
 	}
-	return max(0, len(m.ActivityLog.All())-1)
+	return max(0, len(m.filteredJournalEvents())-1)
+}
+
+func (m Model) filteredJournalEvents() []history.Event {
+	if m.ActivityLog == nil {
+		return nil
+	}
+	return history.FilterEvents(m.ActivityLog.All(), history.ParseTimelineFilter(m.JournalFilterInput))
+}
+
+func journalEventDetails(event *history.Event) string {
+	if event == nil {
+		return ""
+	}
+	lines := []string{
+		"selected operation details",
+		"time: " + platform.SafeText(event.At.Format(time.RFC3339)),
+		"event: " + platform.SafeText(string(event.Kind)),
+	}
+	if event.Path != "" {
+		lines = append(lines, "path: "+platform.SafeText(event.Path))
+	}
+	if event.Message != "" {
+		lines = append(lines, "message: "+platform.SafeText(event.Message))
+	}
+	if event.Operation == nil {
+		return strings.Join(lines, "\n")
+	}
+	operation := event.Operation
+	lines = append(lines,
+		"repository: "+platform.SafeText(operation.Repository),
+		"type: "+platform.SafeText(operation.Kind),
+		"outcome: "+platform.SafeText(operation.Outcome),
+		"target: "+platform.SafeText(operation.Target),
+		"argv: "+platform.SafeText(strings.Join(operation.Args, " ")),
+	)
+	if operation.OldHead != "" || operation.NewHead != "" {
+		lines = append(lines, "HEAD: "+platform.SafeText(operation.OldHead)+" -> "+platform.SafeText(operation.NewHead))
+	}
+	if len(operation.Refs) > 0 {
+		lines = append(lines, "refs: "+platform.SafeText(strings.Join(operation.Refs, ", ")))
+	}
+	if operation.Duration > 0 {
+		lines = append(lines, "duration: "+platform.SafeText(operation.Duration.Round(time.Millisecond).String()))
+	}
+	if operation.RecoverySHA != "" {
+		lines = append(lines, "recovery: "+platform.SafeText(operation.RecoverySHA))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (m Model) operationJournalView() string {
 	if m.ActivityLog == nil {
 		return "operation journal unavailable"
 	}
-	events := m.ActivityLog.All()
-	if len(events) == 0 {
+	events := m.filteredJournalEvents()
+	active := m.activeJournalOperations()
+	if len(events) == 0 && len(active) == 0 {
 		return "operation journal is empty"
 	}
 	width := m.Width
@@ -809,8 +889,25 @@ func (m Model) operationJournalView() string {
 		width = defaultStatusWidth
 	}
 	rows := max(1, m.Height-8)
-	start := len(events) - 1 - min(m.JournalOffset, len(events)-1)
-	lines := []string{"repository: " + platform.SafeText(m.Discovery.Root), ""}
+	start := -1
+	if len(events) > 0 {
+		start = len(events) - 1 - min(m.JournalOffset, len(events)-1)
+	}
+	header := "repository: " + platform.SafeText(m.Discovery.Root)
+	if strings.TrimSpace(m.JournalFilterInput) != "" {
+		header += " · filter: " + platform.SafeText(m.JournalFilterInput)
+	}
+	lines := []string{header, ""}
+	if len(active) > 0 {
+		lines = append(lines, "running operations:")
+		for _, operation := range active {
+			lines = append(lines, "  "+platform.SafeText(operation.State.String())+" · "+platform.SafeText(operation.Name)+" · "+platform.SafeText(operation.ID))
+		}
+		lines = append(lines, "")
+	}
+	if len(events) == 0 {
+		lines = append(lines, "operation journal is empty")
+	}
 	for index := 0; index < rows && start-index >= 0; index++ {
 		event := events[start-index]
 		prefix := "  "
@@ -825,7 +922,7 @@ func (m Model) operationJournalView() string {
 			line += " · " + event.Message
 		}
 		if operation := event.Operation; operation != nil {
-			line += " · " + operation.Kind
+			line += " · [" + history.OperationClass(operation.Kind) + "] " + operation.Kind
 			if operation.Target != "" {
 				line += " target=" + operation.Target
 			}
@@ -855,6 +952,9 @@ func (m Model) operationJournalView() string {
 		lines = append(lines, fitSafeDisplay(line, width))
 	}
 	lines = append(lines, "", fmt.Sprintf("newest offset %d/%d", m.JournalOffset, m.journalMaxOffset()))
+	if m.JournalDetailMode && len(events) > 0 {
+		lines = append(lines, "", journalEventDetails(&events[start]))
+	}
 	return strings.Join(lines, "\n")
 }
 

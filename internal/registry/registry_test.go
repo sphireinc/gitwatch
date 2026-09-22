@@ -93,9 +93,10 @@ func TestDiscoverSkipsSymlinkedGitMetadata(t *testing.T) {
 func TestMergePreservesMetadataAndAppliesConfiguredGroups(t *testing.T) {
 	discovered := []Repository{{Path: "/repo", Name: "repo"}}
 	opened := time.Now().Add(-time.Hour)
-	stored := []Repository{{Path: "/repo", Name: "renamed", LastOpened: opened, Favorite: true, Groups: []string{"oss"}}}
+	lastFetch := time.Now().Add(-time.Minute)
+	stored := []Repository{{Path: "/repo", Name: "renamed", LastOpened: opened, Favorite: true, Groups: []string{"oss"}, LastAutoFetch: lastFetch, LastAutoFetchStatus: "failed", LastAutoFetchError: "offline", LastAutoFetchMillis: 42}}
 	merged := Merge(discovered, stored, map[string][]string{"work": {"/repo"}})
-	if len(merged) != 1 || merged[0].Name != "renamed" || !merged[0].Favorite || !merged[0].LastOpened.Equal(opened) {
+	if len(merged) != 1 || merged[0].Name != "renamed" || !merged[0].Favorite || !merged[0].LastOpened.Equal(opened) || !merged[0].LastAutoFetch.Equal(lastFetch) || merged[0].LastAutoFetchStatus != "failed" || merged[0].LastAutoFetchError != "offline" || merged[0].LastAutoFetchMillis != 42 {
 		t.Fatalf("merged metadata = %#v", merged)
 	}
 	if len(merged[0].Groups) != 2 || merged[0].Groups[0] != "oss" || merged[0].Groups[1] != "work" {

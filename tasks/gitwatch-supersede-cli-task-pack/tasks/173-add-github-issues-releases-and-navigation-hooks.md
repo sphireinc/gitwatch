@@ -48,3 +48,24 @@ Round out high-value repository-provider integration without turning gitwatch in
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added bounded provider-neutral issue parsing, pull-request exclusion,
+  issue title/body/label validation, paginated issue listing, and typed issue
+  creation with non-retrying POST behavior.
+- Added bounded release parsing and paginated read-only release listing.
+- Added focused parser/client tests covering bounds, invalid data, query
+  clamping, issue creation, and release summaries.
+- Remaining: add GitHub workspace issue/release summaries and open/create
+- Added stale-tolerant cached issue and release loading to the GitHub workspace
+  and sanitized bounded issue/release summaries in the terminal view.
+- Added a guarded three-field issue form (title, body, comma-separated labels)
+  with typed validation, explicit confirmation, non-retrying creation, and
+  provider reload after creation.
+- Remaining: add open/list navigation hooks for issue and release URLs,
+- Added explicit browser navigation for the first bounded open issue (`O`)
+  and release (`L`) summaries, with safe missing-URL handling and tests.
+- Remaining: provider URL actions for commits, branches, tags, workflow runs,
+  and individually selected issue/release entries, plus native/manual
+  acceptance evidence for disabled/no-auth/partial-scope states.

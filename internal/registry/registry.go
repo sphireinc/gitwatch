@@ -12,11 +12,15 @@ import (
 )
 
 type Repository struct {
-	Path       string    `json:"path"`
-	Name       string    `json:"name"`
-	LastOpened time.Time `json:"last_opened,omitempty"`
-	Favorite   bool      `json:"favorite,omitempty"`
-	Groups     []string  `json:"groups,omitempty"`
+	Path                string    `json:"path"`
+	Name                string    `json:"name"`
+	LastOpened          time.Time `json:"last_opened,omitempty"`
+	Favorite            bool      `json:"favorite,omitempty"`
+	Groups              []string  `json:"groups,omitempty"`
+	LastAutoFetch       time.Time `json:"last_auto_fetch,omitempty"`
+	LastAutoFetchStatus string    `json:"last_auto_fetch_status,omitempty"`
+	LastAutoFetchError  string    `json:"last_auto_fetch_error,omitempty"`
+	LastAutoFetchMillis int64     `json:"last_auto_fetch_millis,omitempty"`
 }
 
 const registryVersion = 1
@@ -63,6 +67,7 @@ func Merge(discovered, stored []Repository, groups map[string][]string) []Reposi
 		repository.Path = filepath.Clean(repository.Path)
 		if prior, ok := metadata[repository.Path]; ok {
 			repository.Name, repository.LastOpened, repository.Favorite, repository.Groups = prior.Name, prior.LastOpened, prior.Favorite, append([]string(nil), prior.Groups...)
+			repository.LastAutoFetch, repository.LastAutoFetchStatus, repository.LastAutoFetchError, repository.LastAutoFetchMillis = prior.LastAutoFetch, prior.LastAutoFetchStatus, prior.LastAutoFetchError, prior.LastAutoFetchMillis
 		}
 		if repository.Name == "" {
 			repository.Name = filepath.Base(repository.Path)

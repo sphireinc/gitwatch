@@ -29,8 +29,10 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/match"
 	"github.com/sphireinc/git-watch/internal/gitignore/recommend"
 	"github.com/sphireinc/git-watch/internal/gitignore/security"
+	"github.com/sphireinc/git-watch/internal/health"
 	"github.com/sphireinc/git-watch/internal/history"
 	mergeops "github.com/sphireinc/git-watch/internal/merge"
+	"github.com/sphireinc/git-watch/internal/multirepo"
 	"github.com/sphireinc/git-watch/internal/notifications"
 	"github.com/sphireinc/git-watch/internal/operations"
 	"github.com/sphireinc/git-watch/internal/patch"
@@ -42,12 +44,14 @@ import (
 	redopolicy "github.com/sphireinc/git-watch/internal/redo"
 	"github.com/sphireinc/git-watch/internal/reflog"
 	"github.com/sphireinc/git-watch/internal/registry"
+	"github.com/sphireinc/git-watch/internal/remoteintel"
 	"github.com/sphireinc/git-watch/internal/remotes"
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/submodules"
 	"github.com/sphireinc/git-watch/internal/tags"
+	"github.com/sphireinc/git-watch/internal/ui/activityviz"
 	"github.com/sphireinc/git-watch/internal/ui/blameview"
 	"github.com/sphireinc/git-watch/internal/ui/branchview"
 	"github.com/sphireinc/git-watch/internal/ui/committree"
@@ -179,6 +183,10 @@ type RebaseAbortFinishedMsg struct {
 	Err        error
 }
 type TickMsg struct{ At time.Time }
+type AutoFetchFinishedMsg struct {
+	Results []remoteintel.Result
+	Err     error
+}
 type ToastMsg struct {
 	Text  string
 	Error bool
@@ -434,6 +442,10 @@ type RepositoriesReadyMsg struct {
 	Repositories []registry.Repository
 	Err          error
 }
+type RepositoryBatchFinishedMsg struct {
+	Results []multirepo.Result
+	Err     error
+}
 type RepositoryOpenedMsg struct {
 	Path           string
 	Discovery      git.Discovery
@@ -463,12 +475,38 @@ type PushPreviewReadyMsg struct {
 	Err     error
 }
 type GitHubReadyMsg struct {
+	Generation uint64
 	Repository provider.Repository
 	Branch     string
 	Pull       provider.PullRequest
+	Pulls      []provider.PullRequest
+	Issues     []provider.Issue
+	Releases   []provider.Release
+	Detail     *provider.PullRequestDetail
+	Comments   []provider.ReviewComment
 	Checks     provider.ChecksSnapshot
 	Review     provider.ReviewSnapshot
 	Err        error
+}
+type GitHubPullRequestCreatedMsg struct {
+	Pull provider.PullRequest
+	Err  error
+}
+type GitHubMergeFinishedMsg struct {
+	Result provider.MergeResult
+	Err    error
+}
+type GitHubReviewFinishedMsg struct {
+	Result provider.ReviewSubmissionResult
+	Err    error
+}
+type GitHubCheckActionFinishedMsg struct {
+	Action string
+	Err    error
+}
+type GitHubIssueCreatedMsg struct {
+	Issue provider.Issue
+	Err   error
 }
 type PluginsReadyMsg struct {
 	Entries []plugins.Entry
@@ -501,326 +539,374 @@ type GitignoreCatalogReadyMsg struct {
 type PluginStateSavedMsg struct{ Err error }
 
 type Model struct {
-	State                    State
-	Width, Height            int
-	Focus, Modal, Status     string
-	Motion                   Motion
-	Keymap                   map[string]string
-	Toast                    ToastMsg
-	Notifications            *notifications.Model
-	Snapshot                 repo.Snapshot
-	Submodules               submodules.Snapshot
-	SubmodulesLoading        bool
-	SubmodulesGeneration     uint64
-	SubmodulesErr            error
-	SubmoduleAction          string
-	SubmodulePath            string
-	SubmoduleInput           string
-	SubmoduleURL             string
-	BulkSubmoduleAction      string
-	BulkSubmodulePaths       []string
-	BulkSubmoduleOutcome     *submodules.BulkOutcome
-	BulkSubmoduleCancel      context.CancelFunc
-	Discovery                git.Discovery
-	Files                    table.Model
-	FileTree                 filetree.Model
-	StatusTreeMode           bool
-	FileFilterMode           bool
-	FileFilterInput          string
-	FileConflictOnly         bool
-	Theme                    theme.Roles
-	PanelSplit               layout.Split
-	DetailsCache             *details.Cache
-	ActivityLog              *history.Log
-	ctx                      context.Context
-	cancel                   context.CancelFunc
-	repositoryCtx            context.Context
-	repositoryCancel         context.CancelFunc
-	RefreshInterval          time.Duration
-	ReconciliationInterval   time.Duration
-	WatchDebounce            time.Duration
-	WatchRequested           watch.RequestedMode
-	WatchMode                watch.Mode
-	WatchManager             *watch.Manager
-	RefreshCoordinator       *git.RefreshCoordinator
-	repositoryGeneration     uint64
-	DiffPath, DiffText       string
-	DiffBinary               bool
-	DiffStaged               bool
-	DiffLoading              bool
-	DiffErr                  error
-	DiffOffset               int
-	DiffAdded                int
-	DiffDeleted              int
-	DiffRequest              uint64
-	DiffCancel               context.CancelFunc
-	DiffAutoPreviewed        bool
-	DiffSearchMode           bool
-	DiffSearchInput          string
-	DiffSearchMatch          int
-	DiffTruncated            bool
-	Compare                  compareview.Model
-	CompareLeft              string
-	CompareRight             string
-	CompareAssignSide        string
-	CompareLoading           bool
-	CompareErr               error
-	CompareRequest           uint64
-	CompareCancel            context.CancelFunc
-	CompareGeneration        uint64
-	ComparePatchLoading      bool
-	ComparePatchRequest      uint64
-	ComparePatchCancel       context.CancelFunc
-	DiffMaxBytes             int64
-	DiffMaxLines             int
-	EditorTool               platform.ExternalTool
-	OpenerTool               platform.ExternalTool
-	Difftool                 platform.ExternalTool
-	CommitTreeEnabled        bool
-	CommitTreeMaxCommits     int
-	CommitTreeLines          []string
-	CommitTreeHead           string
-	CommitTreeOffset         int
-	CommitTreeFocused        bool
-	CommitTreeLoading        bool
-	CommitTreeErr            error
-	CommitTreeRequest        uint64
-	CommitTreeCancel         context.CancelFunc
-	LowerPane                string
-	UnpushedLines            []string
-	UnpushedHead             string
-	UnpushedUpstream         string
-	UnpushedCount            int
-	UnpushedOffset           int
-	UnpushedFocused          bool
-	UnpushedLoading          bool
-	UnpushedErr              error
-	UnpushedRequest          uint64
-	UnpushedCancel           context.CancelFunc
-	StatusCommitActive       bool
-	StatusCommitInspector    history.Inspector
-	StatusCommitSHA          string
-	StatusCommitSelectedLine int
-	StatusCommitLoading      bool
-	StatusCommitErr          error
-	StatusCommitRequest      uint64
-	StatusCommitCancel       context.CancelFunc
-	Restore                  Confirmation
-	RestoreInput             string
-	HunkContext              int
-	Workspace                *workspace.Model
-	Branches                 branchview.Model
-	BranchSearching          bool
-	BranchCreateMode         bool
-	BranchRenameMode         bool
-	BranchRenameOld          string
-	BranchUpstreamMode       bool
-	BranchMergeMode          bool
-	BranchMergeTarget        string
-	BranchMutationInput      string
-	BranchDeleteMode         bool
-	BranchDeleteTarget       branches.Branch
-	BranchDeleteForce        bool
-	RemoteBranchAction       string
-	RemoteBranchTarget       branches.Branch
-	RemoteBranchInput        string
-	RemoteBranchConfirm      bool
-	BranchRecoveryAction     string
-	BranchRecoveryTarget     string
-	BranchRecoveryConfirm    bool
-	BranchResetPrompt        bool
-	BranchResetInput         string
-	Stashes                  stashview.Model
-	Reflog                   reflogview.Model
-	ReflogSkip               int
-	ReflogLoading            bool
-	ReflogCompare            string
-	ReflogCompareLoading     bool
-	JournalOffset            int
-	Bisect                   bisect.State
-	BisectLoading            bool
-	BisectResetConfirm       bool
-	BisectStartMode          string
-	BisectStartBad           string
-	BisectStartGood          string
-	BisectStartInput         string
-	BisectStartConfirm       bool
-	BisectRunMode            string
-	BisectRunExecutable      string
-	BisectRunInput           string
-	BisectRunArgs            []string
-	BisectRunConfirm         bool
-	BisectRunOutput          string
-	UndoConfirm              bool
-	UndoRecord               *history.OperationRecord
-	RedoConfirm              bool
-	RedoRecord               *history.OperationRecord
-	History                  historyview.Model
-	Rebase                   rebaseview.Model
-	Conflict                 conflictview.Model
-	ConflictContentLoading   bool
-	ConflictContentRequest   uint64
-	ConflictContentCancel    context.CancelFunc
-	RebaseConfirmAction      rebase.Action
-	RebaseAutosquashConfirm  bool
-	HistoricalRebaseAction   rebase.Action
-	HistoricalRebaseTarget   string
-	HistoryCommits           []history.Commit
-	HistorySkip              int
-	HistoryHasMore           bool
-	HistoryCancel            context.CancelFunc
-	HistoryPulse             uint8
-	WatchPulse               uint8
-	HistoryFilter            string
-	HistorySearching         bool
-	HistoryInspector         history.Inspector
-	HistoryInspectorParent   string
-	HistoryInspectorPathMode bool
-	HistoryInspectorPath     string
-	PathHistory              pathhistoryview.Model
-	PathHistoryLoading       bool
-	PathHistoryErr           error
-	PathHistoryRequest       uint64
-	PathHistoryCancel        context.CancelFunc
-	PathHistoryGeneration    uint64
-	Blame                    blameview.Model
-	BlameLoading             bool
-	BlameErr                 error
-	BlameRequest             uint64
-	BlameCancel              context.CancelFunc
-	BlameGeneration          uint64
-	HistoryRefMode           bool
-	HistoryRefInput          string
-	HistoryTags              []history.Ref
-	TagSnapshot              tags.Snapshot
-	TagsLoading              bool
-	TagsErr                  error
-	TagsSelected             int
-	TagsFilter               string
-	TagsFilterMode           bool
-	TagsSort                 string
-	TagsSortDesc             bool
-	TagSignatureChecking     string
-	TagCreateMode            string
-	TagCreateKind            tags.CreateKind
-	TagCreateName            string
-	TagCreateTarget          string
-	TagCreateMessage         string
-	TagCreateInput           string
-	TagDeleteMode            bool
-	TagDeleteTarget          string
-	TagDeleteInput           string
-	TagCheckoutConfirm       bool
-	TagCheckoutTarget        string
-	TagCompare               string
-	TagCompareLoading        bool
-	TagWorktreeMode          bool
-	TagWorktreePath          string
-	HistoryActionConfirm     bool
-	HistoryActionTarget      string
-	HistoryBranchCreating    bool
-	HistoryBranchTarget      string
-	HistoryBranchName        string
-	HistoryRevertConfirm     bool
-	HistoryRevertTarget      string
-	HistoryRevertCommits     []string
-	HistoryRevertInput       string
-	HistoryRevertInvalid     bool
-	HistoryRevertParentMode  bool
-	HistoryRevertParentInput string
-	HistoryRevertParent      int
-	HistoryRevertParentMax   int
-	HistoryRevertRunning     bool
-	CherryPickConfirm        bool
-	CherryPickCommits        []string
-	Composer                 commitview.Composer
-	Hunks                    hunkview.Model
-	HunkDiscardConfirm       bool
-	HunkDiscardInput         string
-	HistoricalPatchMode      bool
-	HistoricalPatch          []byte
-	HistoricalPatchTarget    string
-	HistoricalPatchPath      string
-	CommitConfig             git.CommitConfig
-	CommitConfigReady        bool
-	CommitAmendConfirm       bool
-	CommitAuthorMode         bool
-	StashPreview             string
-	StashPreviewRef          string
-	StashCreateMode          bool
-	StashCreateMessage       string
-	StashIncludeUntracked    bool
-	StashConfirmAction       string
-	StashConfirmRef          string
-	StashBranchMode          bool
-	StashBranchRef           string
-	StashBranchName          string
-	Remotes                  remoteview.Model
-	Worktrees                worktreeview.Model
-	WorktreeAddMode          bool
-	WorktreeAddPath          string
-	WorktreeAddCommit        string
-	WorktreeConfirmAction    string
-	WorktreeConfirmTarget    string
-	RemoteForceConfirm       bool
-	RemotePushConfirm        bool
-	RemotePushPreview        remotes.RefMovement
-	RemoteSetUpstream        bool
-	RemoteTag                string
-	RemoteTagMode            bool
-	RemoteTagDeleteMode      bool
-	RemoteTagDeleteConfirm   bool
-	RemoteMutationMode       string
-	RemoteMutationRemote     string
-	RemoteMutationInput      string
-	RemoteMutationURL        string
-	RemoteMutationNewName    string
-	RemoteMutationImpact     []remotes.TrackingBranch
-	RemoteMutationConfirm    bool
-	RemotePrunePreview       string
-	RemotePruneConfirm       bool
-	RemoteCancel             context.CancelFunc
-	RemoteJobID              string
-	GitHub                   githubview.Model
-	GitHubEnabled            bool
-	GitHubTokenEnv           string
-	GitHubCache              *provider.PullRequestCache
-	GitHubChecksCache        *provider.Cache[provider.ChecksSnapshot]
-	GitHubReviewsCache       *provider.Cache[provider.ReviewSnapshot]
-	Plugins                  pluginview.Model
-	Gitignore                gitignoreview.RepositoryModel
-	GitignoreMissing         bool
-	GitignoreCreateConfirm   bool
-	GitignoreCreatePlan      domain.MutationPlan
-	GitignoreMutationAction  string
-	GitignoreReturnToStatus  bool
-	GitignoreReadOnly        bool
-	GitignoreMaxBytes        int64
-	GitignoreCatalog         *catalog.Catalog
-	GitignoreCatalogSource   catalog.SourceKind
-	PluginsEnabled           bool
-	PluginDirectories        []string
-	PluginStatePath          string
-	Repositories             repoview.Model
-	RepositorySearching      bool
-	RepositoryRoots          []string
-	RepositoryGroups         map[string][]string
-	RepositoryGroup          string
-	RepositoryMaxDepth       int
-	RepositoryMaxCount       int
-	RepositoryIgnoreDirs     []string
-	RepositoryRegistry       []registry.Repository
-	RepositoryRegistryPath   string
-	RepositoryEngine         *registry.Engine
-	OperationEngine          *operations.Engine
-	CustomCommands           []customcmd.Definition
-	PaletteMode              bool
-	PaletteQuery             string
-	PaletteSelected          int
-	PaletteResults           []commands.Match
-	PaletteActions           []commands.Action
-	PaletteCommands          map[string]func() tea.Cmd
-	repositoryParents        []repositoryParent
+	State                     State
+	Width, Height             int
+	Focus, Modal, Status      string
+	Motion                    Motion
+	Keymap                    map[string]string
+	Toast                     ToastMsg
+	Notifications             *notifications.Model
+	Snapshot                  repo.Snapshot
+	Submodules                submodules.Snapshot
+	SubmodulesLoading         bool
+	SubmodulesGeneration      uint64
+	SubmodulesErr             error
+	SubmoduleAction           string
+	SubmodulePath             string
+	SubmoduleInput            string
+	SubmoduleURL              string
+	BulkSubmoduleAction       string
+	BulkSubmodulePaths        []string
+	BulkSubmoduleOutcome      *submodules.BulkOutcome
+	BulkSubmoduleCancel       context.CancelFunc
+	Discovery                 git.Discovery
+	Files                     table.Model
+	FileTree                  filetree.Model
+	StatusTreeMode            bool
+	FileFilterMode            bool
+	FileFilterInput           string
+	FileConflictOnly          bool
+	Theme                     theme.Roles
+	PanelSplit                layout.Split
+	DetailsCache              *details.Cache
+	ActivityLog               *history.Log
+	ctx                       context.Context
+	cancel                    context.CancelFunc
+	repositoryCtx             context.Context
+	repositoryCancel          context.CancelFunc
+	RefreshInterval           time.Duration
+	ReconciliationInterval    time.Duration
+	WatchDebounce             time.Duration
+	WatchRequested            watch.RequestedMode
+	WatchMode                 watch.Mode
+	WatchManager              *watch.Manager
+	RefreshCoordinator        *git.RefreshCoordinator
+	repositoryGeneration      uint64
+	DiffPath, DiffText        string
+	DiffBinary                bool
+	DiffStaged                bool
+	DiffLoading               bool
+	DiffErr                   error
+	DiffOffset                int
+	DiffAdded                 int
+	DiffDeleted               int
+	DiffRequest               uint64
+	DiffCancel                context.CancelFunc
+	DiffAutoPreviewed         bool
+	DiffSearchMode            bool
+	DiffSearchInput           string
+	DiffSearchMatch           int
+	DiffTruncated             bool
+	Compare                   compareview.Model
+	CompareLeft               string
+	CompareRight              string
+	CompareAssignSide         string
+	CompareLoading            bool
+	CompareErr                error
+	CompareRequest            uint64
+	CompareCancel             context.CancelFunc
+	CompareGeneration         uint64
+	ComparePatchLoading       bool
+	ComparePatchRequest       uint64
+	ComparePatchCancel        context.CancelFunc
+	DiffMaxBytes              int64
+	DiffMaxLines              int
+	EditorTool                platform.ExternalTool
+	OpenerTool                platform.ExternalTool
+	Difftool                  platform.ExternalTool
+	CommitTreeEnabled         bool
+	CommitTreeMaxCommits      int
+	CommitTreeLines           []string
+	CommitTreeHead            string
+	CommitTreeOffset          int
+	CommitTreeFocused         bool
+	CommitTreeLoading         bool
+	CommitTreeErr             error
+	CommitTreeRequest         uint64
+	CommitTreeCancel          context.CancelFunc
+	LowerPane                 string
+	UnpushedLines             []string
+	UnpushedHead              string
+	UnpushedUpstream          string
+	UnpushedCount             int
+	UnpushedOffset            int
+	UnpushedFocused           bool
+	UnpushedLoading           bool
+	UnpushedErr               error
+	UnpushedRequest           uint64
+	UnpushedCancel            context.CancelFunc
+	StatusCommitActive        bool
+	StatusCommitInspector     history.Inspector
+	StatusCommitSHA           string
+	StatusCommitSelectedLine  int
+	StatusCommitLoading       bool
+	StatusCommitErr           error
+	StatusCommitRequest       uint64
+	StatusCommitCancel        context.CancelFunc
+	Restore                   Confirmation
+	RestoreInput              string
+	HunkContext               int
+	Workspace                 *workspace.Model
+	Branches                  branchview.Model
+	BranchSearching           bool
+	BranchCreateMode          bool
+	BranchRenameMode          bool
+	BranchRenameOld           string
+	BranchUpstreamMode        bool
+	BranchMergeMode           bool
+	BranchMergeTarget         string
+	BranchMutationInput       string
+	BranchDeleteMode          bool
+	BranchDeleteTarget        branches.Branch
+	BranchDeleteForce         bool
+	RemoteBranchAction        string
+	RemoteBranchTarget        branches.Branch
+	RemoteBranchInput         string
+	RemoteBranchConfirm       bool
+	BranchRecoveryAction      string
+	BranchRecoveryTarget      string
+	BranchRecoveryConfirm     bool
+	BranchResetPrompt         bool
+	BranchResetInput          string
+	Stashes                   stashview.Model
+	Reflog                    reflogview.Model
+	ReflogSkip                int
+	ReflogLoading             bool
+	ReflogCompare             string
+	ReflogCompareLoading      bool
+	JournalOffset             int
+	JournalFilterMode         bool
+	JournalFilterInput        string
+	JournalDetailMode         bool
+	JournalCancelID           string
+	JournalCancelConfirm      bool
+	JournalRetryID            string
+	JournalRetryConfirm       bool
+	Bisect                    bisect.State
+	BisectLoading             bool
+	BisectResetConfirm        bool
+	BisectStartMode           string
+	BisectStartBad            string
+	BisectStartGood           string
+	BisectStartInput          string
+	BisectStartConfirm        bool
+	BisectRunMode             string
+	BisectRunExecutable       string
+	BisectRunInput            string
+	BisectRunArgs             []string
+	BisectRunConfirm          bool
+	BisectRunOutput           string
+	UndoConfirm               bool
+	UndoRecord                *history.OperationRecord
+	RedoConfirm               bool
+	RedoRecord                *history.OperationRecord
+	History                   historyview.Model
+	Rebase                    rebaseview.Model
+	Conflict                  conflictview.Model
+	ConflictContentLoading    bool
+	ConflictContentRequest    uint64
+	ConflictContentCancel     context.CancelFunc
+	RebaseConfirmAction       rebase.Action
+	RebaseAutosquashConfirm   bool
+	HistoricalRebaseAction    rebase.Action
+	HistoricalRebaseTarget    string
+	HistoryCommits            []history.Commit
+	HistorySkip               int
+	HistoryHasMore            bool
+	HistoryCancel             context.CancelFunc
+	HistoryPulse              uint8
+	WatchPulse                uint8
+	HistoryFilter             string
+	HistorySearching          bool
+	HistoryInspector          history.Inspector
+	HistoryInspectorParent    string
+	HistoryInspectorPathMode  bool
+	HistoryInspectorPath      string
+	PathHistory               pathhistoryview.Model
+	PathHistoryLoading        bool
+	PathHistoryErr            error
+	PathHistoryRequest        uint64
+	PathHistoryCancel         context.CancelFunc
+	PathHistoryGeneration     uint64
+	Blame                     blameview.Model
+	BlameLoading              bool
+	BlameErr                  error
+	BlameRequest              uint64
+	BlameCancel               context.CancelFunc
+	BlameGeneration           uint64
+	HistoryRefMode            bool
+	HistoryRefInput           string
+	HistoryTags               []history.Ref
+	TagSnapshot               tags.Snapshot
+	TagsLoading               bool
+	TagsErr                   error
+	TagsSelected              int
+	TagsFilter                string
+	TagsFilterMode            bool
+	TagsSort                  string
+	TagsSortDesc              bool
+	TagSignatureChecking      string
+	TagCreateMode             string
+	TagCreateKind             tags.CreateKind
+	TagCreateName             string
+	TagCreateTarget           string
+	TagCreateMessage          string
+	TagCreateInput            string
+	TagDeleteMode             bool
+	TagDeleteTarget           string
+	TagDeleteInput            string
+	TagCheckoutConfirm        bool
+	TagCheckoutTarget         string
+	TagCompare                string
+	TagCompareLoading         bool
+	TagWorktreeMode           bool
+	TagWorktreePath           string
+	HistoryActionConfirm      bool
+	HistoryActionTarget       string
+	HistoryBranchCreating     bool
+	HistoryBranchTarget       string
+	HistoryBranchName         string
+	HistoryRevertConfirm      bool
+	HistoryRevertTarget       string
+	HistoryRevertCommits      []string
+	HistoryRevertInput        string
+	HistoryRevertInvalid      bool
+	HistoryRevertParentMode   bool
+	HistoryRevertParentInput  string
+	HistoryRevertParent       int
+	HistoryRevertParentMax    int
+	HistoryRevertRunning      bool
+	CherryPickConfirm         bool
+	CherryPickCommits         []string
+	Composer                  commitview.Composer
+	Hunks                     hunkview.Model
+	HunkDiscardConfirm        bool
+	HunkDiscardInput          string
+	HistoricalPatchMode       bool
+	HistoricalPatch           []byte
+	HistoricalPatchTarget     string
+	HistoricalPatchPath       string
+	CommitConfig              git.CommitConfig
+	CommitConfigReady         bool
+	CommitAmendConfirm        bool
+	CommitAuthorMode          bool
+	StashPreview              string
+	StashPreviewRef           string
+	StashCreateMode           bool
+	StashCreateMessage        string
+	StashIncludeUntracked     bool
+	StashConfirmAction        string
+	StashConfirmRef           string
+	StashBranchMode           bool
+	StashBranchRef            string
+	StashBranchName           string
+	Remotes                   remoteview.Model
+	Worktrees                 worktreeview.Model
+	WorktreeAddMode           bool
+	WorktreeAddPath           string
+	WorktreeAddCommit         string
+	WorktreeConfirmAction     string
+	WorktreeConfirmTarget     string
+	RemoteForceConfirm        bool
+	RemotePushConfirm         bool
+	RemotePushPreview         remotes.RefMovement
+	RemoteSetUpstream         bool
+	RemoteTag                 string
+	RemoteTagMode             bool
+	RemoteTagDeleteMode       bool
+	RemoteTagDeleteConfirm    bool
+	RemoteMutationMode        string
+	RemoteMutationRemote      string
+	RemoteMutationInput       string
+	RemoteMutationURL         string
+	RemoteMutationNewName     string
+	RemoteMutationImpact      []remotes.TrackingBranch
+	RemoteMutationConfirm     bool
+	RemotePrunePreview        string
+	RemotePruneConfirm        bool
+	RemoteCancel              context.CancelFunc
+	RemoteJobID               string
+	GitHub                    githubview.Model
+	GitHubEnabled             bool
+	GitHubTokenEnv            string
+	GitHubCache               *provider.PullRequestCache
+	GitHubPullsCache          *provider.Cache[[]provider.PullRequest]
+	GitHubDetailsCache        *provider.Cache[provider.PullRequestDetail]
+	GitHubCommentsCache       *provider.Cache[[]provider.ReviewComment]
+	GitHubChecksCache         *provider.Cache[provider.ChecksSnapshot]
+	GitHubReviewsCache        *provider.Cache[provider.ReviewSnapshot]
+	GitHubIssuesCache         *provider.Cache[[]provider.Issue]
+	GitHubReleasesCache       *provider.Cache[[]provider.Release]
+	GitHubCreateMode          bool
+	GitHubCreateField         int
+	GitHubCreateTitle         string
+	GitHubCreateBody          string
+	GitHubCreateBase          string
+	GitHubCreateConfirm       bool
+	GitHubMergeMode           bool
+	GitHubMergeMethod         provider.MergeMethod
+	GitHubMergeRefresh        bool
+	GitHubMergeConfirm        bool
+	GitHubReviewMode          bool
+	GitHubReviewEvent         provider.ReviewEvent
+	GitHubReviewBody          string
+	GitHubReviewConfirm       bool
+	GitHubCheckAction         string
+	GitHubCheckActionRunID    int64
+	GitHubCheckActionConfirm  bool
+	GitHubIssueMode           bool
+	GitHubIssueField          int
+	GitHubIssueTitle          string
+	GitHubIssueBody           string
+	GitHubIssueLabels         string
+	GitHubIssueConfirm        bool
+	Plugins                   pluginview.Model
+	Gitignore                 gitignoreview.RepositoryModel
+	GitignoreMissing          bool
+	GitignoreCreateConfirm    bool
+	GitignoreCreatePlan       domain.MutationPlan
+	GitignoreMutationAction   string
+	GitignoreReturnToStatus   bool
+	GitignoreReadOnly         bool
+	GitignoreMaxBytes         int64
+	GitignoreCatalog          *catalog.Catalog
+	GitignoreCatalogSource    catalog.SourceKind
+	PluginsEnabled            bool
+	PluginDirectories         []string
+	PluginOutputLimit         int64
+	PluginStatePath           string
+	Repositories              repoview.Model
+	RepositorySearching       bool
+	RepositoryRoots           []string
+	RepositoryGroups          map[string][]string
+	RepositoryGroup           string
+	RepositoryMaxDepth        int
+	RepositoryMaxCount        int
+	RepositoryIgnoreDirs      []string
+	RepositoryBatchConfirm    bool
+	RepositoryBatchRetry      bool
+	RepositoryBatchResults    []multirepo.Result
+	RepositoryRegistry        []registry.Repository
+	RepositoryRegistryPath    string
+	RepositoryEngine          *registry.Engine
+	AutoFetchScheduler        *remoteintel.Scheduler
+	AutoFetchEnabled          bool
+	AutoFetchRunning          bool
+	AutoFetchResults          map[string]remoteintel.Result
+	OperationEngine           *operations.Engine
+	CustomCommands            []customcmd.Definition
+	CustomCommandForm         *customcmd.Form
+	CustomCommandPending      string
+	CustomCommandPromptValues map[string]string
+	PaletteMode               bool
+	PaletteQuery              string
+	PaletteSelected           int
+	PaletteResults            []commands.Match
+	PaletteActions            []commands.Action
+	PaletteCommands           map[string]func() tea.Cmd
+	PaletteMaxResults         int
+	StatusOverscan            int
+	repositoryParents         []repositoryParent
 }
 
 type repositoryParent struct {
@@ -833,10 +919,15 @@ func New() Model {
 	return Model{
 		State: StateLoading, Focus: "files", Motion: MotionFull,
 		Keymap: config.DefaultKeymap(), GitHub: githubview.New(),
-		GitHubCache:        provider.NewPullRequestCache(2 * time.Minute),
-		GitHubChecksCache:  provider.NewCache[provider.ChecksSnapshot](2 * time.Minute),
-		GitHubReviewsCache: provider.NewCache[provider.ReviewSnapshot](2 * time.Minute),
-		Plugins:            pluginview.New(nil), Theme: theme.New(theme.Auto, false), PanelSplit: layout.DefaultSplit(),
+		GitHubCache:         provider.NewPullRequestCache(2 * time.Minute),
+		GitHubPullsCache:    provider.NewCache[[]provider.PullRequest](2 * time.Minute),
+		GitHubDetailsCache:  provider.NewCache[provider.PullRequestDetail](2 * time.Minute),
+		GitHubCommentsCache: provider.NewCache[[]provider.ReviewComment](2 * time.Minute),
+		GitHubChecksCache:   provider.NewCache[provider.ChecksSnapshot](2 * time.Minute),
+		GitHubReviewsCache:  provider.NewCache[provider.ReviewSnapshot](2 * time.Minute),
+		GitHubIssuesCache:   provider.NewCache[[]provider.Issue](2 * time.Minute),
+		GitHubReleasesCache: provider.NewCache[[]provider.Release](2 * time.Minute),
+		Plugins:             pluginview.New(nil), Theme: theme.New(theme.Auto, false), PanelSplit: layout.DefaultSplit(),
 		DetailsCache: details.NewCache(), ActivityLog: history.New(100),
 		ctx: ctx, cancel: cancel, RefreshInterval: 2 * time.Second,
 		ReconciliationInterval: 30 * time.Second, WatchDebounce: 75 * time.Millisecond,
@@ -848,6 +939,10 @@ func New() Model {
 }
 
 func (m Model) paletteActions() []commands.Action {
+	paletteIndexLimit := m.PaletteMaxResults
+	if paletteIndexLimit < 1 {
+		paletteIndexLimit = 200
+	}
 	actions := []commands.Action{
 		{ID: "status", Label: "Show status", Shortcut: "1", Enabled: m.Discovery.Root != ""},
 		{ID: "gitignore", Label: "Open gitignore catalog", Shortcut: "I", Enabled: m.Discovery.Root != ""},
@@ -871,11 +966,66 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "unpushed", Label: "Show unpushed commits", Shortcut: m.Keymap["unpushed"], Enabled: m.Discovery.Root != ""},
 		{ID: "branch_summary", Label: "Show branch summary", Shortcut: m.Keymap["branch_summary"], Enabled: m.Discovery.Root != ""},
 	}
-	for index, row := range m.Repositories.Rows {
-		if !row.NeedsAttention() {
-			continue
+	for index, branch := range m.Branches.Entries {
+		if index >= paletteIndexLimit {
+			break
 		}
-		actions = append(actions, commands.Action{ID: fmt.Sprintf("repository_attention_%d", index), Label: "Open repository attention: " + platform.SafeText(row.Repository.Name), Shortcut: "v", Enabled: true})
+		actions = append(actions, commands.Action{ID: fmt.Sprintf("palette_branch_%d", index), Label: platform.SafeText("Open branch: " + branch.Name), Category: "branch", Enabled: true})
+	}
+	for index, row := range m.History.Rows {
+		if index >= paletteIndexLimit {
+			break
+		}
+		label := "Open commit: " + row.Commit.Short + " " + row.Commit.Subject
+		actions = append(actions, commands.Action{ID: fmt.Sprintf("palette_commit_%d", index), Label: platform.SafeText(label), Category: "commit", Enabled: true})
+	}
+	for index, visible := range m.Files.Visible {
+		if index >= paletteIndexLimit || visible < 0 || visible >= len(m.Files.Entries) {
+			break
+		}
+		actions = append(actions, commands.Action{ID: fmt.Sprintf("palette_file_%d", index), Label: platform.SafeText("Open file: " + string(m.Files.Entries[visible].Path)), Category: "file", Enabled: true})
+	}
+	for index, pull := range m.GitHub.Pulls {
+		if index >= paletteIndexLimit {
+			break
+		}
+		actions = append(actions, commands.Action{ID: fmt.Sprintf("palette_pr_%d", index), Label: platform.SafeText(fmt.Sprintf("Open pull request #%d: %s", pull.Number, pull.Title)), Category: "provider", Enabled: true})
+	}
+	for index, issue := range m.GitHub.Issues {
+		if index >= paletteIndexLimit {
+			break
+		}
+		actions = append(actions, commands.Action{ID: fmt.Sprintf("palette_issue_%d", index), Label: platform.SafeText(fmt.Sprintf("Open issue #%d: %s", issue.Number, issue.Title)), Category: "provider", Enabled: true})
+	}
+	for index, release := range m.GitHub.Releases {
+		if index >= paletteIndexLimit {
+			break
+		}
+		actions = append(actions, commands.Action{ID: fmt.Sprintf("palette_release_%d", index), Label: platform.SafeText("Open release: " + release.TagName + " " + release.Name), Category: "provider", Enabled: true})
+	}
+	for index, entry := range m.Plugins.Entries {
+		if index >= paletteIndexLimit {
+			break
+		}
+		name := entry.Manifest.Name
+		if name == "" {
+			name = entry.Manifest.ID
+		}
+		actions = append(actions, commands.Action{ID: fmt.Sprintf("palette_plugin_%d", index), Label: platform.SafeText("Open plugin: " + name), Category: "plugin", Enabled: true})
+	}
+	for index, row := range m.Repositories.Rows {
+		label := "Open repository: " + row.Repository.Name
+		if row.Repository.Path != "" {
+			label += " (" + row.Repository.Path + ")"
+		}
+		if row.NeedsAttention() {
+			label = "Open repository attention: " + row.Repository.Name + " (" + row.Repository.Path + ")"
+		}
+		id := fmt.Sprintf("repository_open_%d", index)
+		if row.NeedsAttention() {
+			id = fmt.Sprintf("repository_attention_%d", index)
+		}
+		actions = append(actions, commands.Action{ID: id, Label: platform.SafeText(label), Category: "repository", Shortcut: "v", Enabled: row.Repository.Path != ""})
 	}
 	for _, definition := range m.CustomCommands {
 		label := definition.Label
@@ -902,6 +1052,16 @@ func (m *Model) openPalette() {
 	m.PaletteMode, m.PaletteQuery, m.PaletteSelected = true, "", 0
 	m.PaletteResults = commands.Search(m.paletteActions(), "")
 	m.Status = "command palette"
+}
+
+func (m *Model) reindexPalette() {
+	if !m.PaletteMode {
+		return
+	}
+	m.PaletteResults = commands.Search(m.paletteActions(), m.PaletteQuery)
+	if m.PaletteSelected >= len(m.PaletteResults) {
+		m.PaletteSelected = max(0, len(m.PaletteResults)-1)
+	}
 }
 
 func (m *Model) updatePaletteKey(key string) tea.Cmd {
@@ -961,7 +1121,23 @@ func (m Model) customCommandContext() customcmd.Context {
 	if m.currentView() == workspace.GitHub {
 		providerURL = m.GitHub.Pull.URL
 	}
-	return customcmd.Context{RepositoryRoot: m.Discovery.Root, SelectedPath: selectedPath, SelectedSHA: selectedSHA, Branch: m.Snapshot.Branch.Name, ProviderURL: providerURL}
+	options := map[string][]string{}
+	for _, entry := range m.Files.Entries {
+		options["paths"] = append(options["paths"], string(entry.Path))
+	}
+	for _, commit := range m.HistoryCommits {
+		options["commits"] = append(options["commits"], commit.SHA)
+	}
+	for _, branch := range m.Branches.Entries {
+		options["branches"] = append(options["branches"], branch.Name)
+	}
+	for _, tag := range m.TagSnapshot.Tags {
+		options["tags"] = append(options["tags"], tag.Name)
+	}
+	for _, remote := range m.Remotes.Dashboard.Remotes {
+		options["remotes"] = append(options["remotes"], remote.Name)
+	}
+	return customcmd.Context{RepositoryRoot: m.Discovery.Root, SelectedPath: selectedPath, SelectedSHA: selectedSHA, Branch: m.Snapshot.Branch.Name, ProviderURL: providerURL, PromptValues: m.CustomCommandPromptValues, OptionValues: options}
 }
 
 func (m *Model) runCustomCommand(name string) tea.Cmd {
@@ -974,6 +1150,25 @@ func (m *Model) runCustomCommand(name string) tea.Cmd {
 	}
 	if definition == nil {
 		m.Status = "custom command not found: " + platform.SafeText(name)
+		return nil
+	}
+	if len(definition.Prompts) > 0 && m.CustomCommandPromptValues == nil {
+		resolvedPrompts, resolveErr := customcmd.ResolvePrompts(definition.Prompts, m.customCommandContext())
+		if resolveErr != nil {
+			m.Status = "custom command form: " + platform.SafeText(resolveErr.Error())
+			return nil
+		}
+		form, formErr := customcmd.NewForm(resolvedPrompts)
+		if formErr != nil {
+			m.Status = "custom command form: " + platform.SafeText(formErr.Error())
+			return nil
+		}
+		m.CustomCommandForm, m.CustomCommandPending, m.State = &form, name, StateModal
+		label := definition.Label
+		if label == "" {
+			label = definition.Name
+		}
+		m.Status = "custom command prompts: " + platform.SafeText(label)
 		return nil
 	}
 	if len(definition.Contexts) > 0 {
@@ -1004,9 +1199,18 @@ func (m *Model) runCustomCommand(name string) tea.Cmd {
 		return nil
 	}
 	if invocation.Confirm {
-		m.Status = "custom command requires confirmation; prompt workflow is not yet available"
-		return nil
+		if m.CustomCommandPromptValues == nil || m.CustomCommandPromptValues["__confirm"] != "true" {
+			form, formErr := customcmd.NewForm([]customcmd.Prompt{{ID: "__confirm", Label: "Run this custom command?", Kind: customcmd.PromptConfirm}})
+			if formErr != nil {
+				m.Status = "custom command confirmation: " + platform.SafeText(formErr.Error())
+				return nil
+			}
+			m.CustomCommandForm, m.CustomCommandPending, m.State = &form, name, StateModal
+			m.Status = "confirm custom command: " + platform.SafeText(invocation.Label) + " (y/n)"
+			return nil
+		}
 	}
+	m.CustomCommandPromptValues = nil
 	if m.OperationEngine == nil {
 		m.OperationEngine = operations.New(4)
 	}
@@ -1025,20 +1229,117 @@ func (m *Model) runCustomCommand(name string) tea.Cmd {
 	}
 }
 
+func (m *Model) updateCustomCommandForm(key string) tea.Cmd {
+	if m.CustomCommandForm == nil {
+		return nil
+	}
+	event, err := m.CustomCommandForm.Handle(key)
+	if err != nil {
+		m.Status = "custom command form: " + platform.SafeText(err.Error())
+		return nil
+	}
+	switch event {
+	case customcmd.FormCancelled:
+		m.CustomCommandForm, m.CustomCommandPending, m.CustomCommandPromptValues = nil, "", nil
+		m.State, m.Status = StateReady, "custom command cancelled"
+	case customcmd.FormSubmitted:
+		name := m.CustomCommandPending
+		values := m.CustomCommandForm.Values()
+		m.CustomCommandForm, m.CustomCommandPending, m.CustomCommandPromptValues = nil, "", values
+		m.State, m.Status = StateReady, "custom command ready"
+		return m.runCustomCommand(name)
+	default:
+		position, total := m.CustomCommandForm.Progress()
+		m.Status = fmt.Sprintf("custom command prompt %d/%d", position, total)
+	}
+	return nil
+}
+
 func (m *Model) executePaletteAction(id string) tea.Cmd {
 	if command := m.PaletteCommands[id]; command != nil {
 		return command()
 	}
-	if strings.HasPrefix(id, "repository_attention_") {
-		index, err := strconv.Atoi(strings.TrimPrefix(id, "repository_attention_"))
+	if strings.HasPrefix(id, "repository_open_") || strings.HasPrefix(id, "repository_attention_") {
+		prefix := "repository_open_"
+		if strings.HasPrefix(id, "repository_attention_") {
+			prefix = "repository_attention_"
+		}
+		index, err := strconv.Atoi(strings.TrimPrefix(id, prefix))
 		if err == nil && index >= 0 && index < len(m.Repositories.Rows) {
 			m.Repositories.Selected = index
+			if prefix == "repository_open_" {
+				m.State, m.Status = StateOperationPending, "opening repository"
+				return m.openSelectedRepository()
+			}
 			return m.navigate(workspace.Repositories, "Repositories")
 		}
 		return nil
 	}
 	if strings.HasPrefix(id, "customcmd:") {
 		return m.runCustomCommand(strings.TrimPrefix(id, "customcmd:"))
+	}
+	for prefix, route := range map[string]workspace.View{"palette_branch_": workspace.Branches, "palette_commit_": workspace.Log, "palette_file_": workspace.Status} {
+		if !strings.HasPrefix(id, prefix) {
+			continue
+		}
+		index, err := strconv.Atoi(strings.TrimPrefix(id, prefix))
+		if err != nil || index < 0 {
+			return nil
+		}
+		switch route {
+		case workspace.Branches:
+			if index >= len(m.Branches.Entries) {
+				return nil
+			}
+			m.Branches.Selected = index
+		case workspace.Log:
+			if index >= len(m.History.Rows) {
+				return nil
+			}
+			m.History.Selected = index
+		case workspace.Status:
+			if index >= len(m.Files.Visible) {
+				return nil
+			}
+			m.Files.Selected = index
+		}
+		return m.navigate(route, string(route))
+	}
+	for prefix := range map[string]bool{"palette_pr_": true, "palette_issue_": true, "palette_release_": true, "palette_plugin_": true} {
+		if !strings.HasPrefix(id, prefix) {
+			continue
+		}
+		index, err := strconv.Atoi(strings.TrimPrefix(id, prefix))
+		if err != nil || index < 0 {
+			return nil
+		}
+		switch prefix {
+		case "palette_pr_":
+			if index >= len(m.GitHub.Pulls) {
+				return nil
+			}
+			m.GitHub.Pull = m.GitHub.Pulls[index]
+			m.Status = fmt.Sprintf("selected GitHub pull request #%d", m.GitHub.Pull.Number)
+			return m.navigate(workspace.GitHub, "GitHub")
+		case "palette_issue_":
+			if index >= len(m.GitHub.Issues) {
+				return nil
+			}
+			m.Status = fmt.Sprintf("selected GitHub issue #%d", m.GitHub.Issues[index].Number)
+			return m.navigate(workspace.GitHub, "GitHub")
+		case "palette_release_":
+			if index >= len(m.GitHub.Releases) {
+				return nil
+			}
+			m.Status = "selected GitHub release " + platform.SafeText(m.GitHub.Releases[index].TagName)
+			return m.navigate(workspace.GitHub, "GitHub")
+		case "palette_plugin_":
+			if index >= len(m.Plugins.Entries) {
+				return nil
+			}
+			m.Plugins.Selected = index
+			return m.navigate(workspace.Plugins, "Plugins")
+		}
 	}
 	switch id {
 	case "status":
@@ -1264,15 +1565,22 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 		m.GitignoreMaxBytes = security.DefaultMaxDocumentBytes
 	}
 	m.CommitTreeEnabled, m.CommitTreeMaxCommits = c.ShowCommitTree, c.CommitTree.MaxCommits
+	m.PaletteMaxResults, m.StatusOverscan = c.Workspace.PaletteMaxResults, c.Workspace.StatusOverscan
 	if requested, ok := watch.ParseMode(c.Watch); ok {
 		m.WatchRequested = requested
 	}
 	m.Keymap = mergeKeymap(config.EffectiveKeymap(c))
 	m.GitHubEnabled, m.GitHubTokenEnv = c.GitHub.Enabled, c.GitHub.TokenEnv
 	m.GitHubCache = provider.NewPullRequestCache(c.GitHub.CacheTTL)
+	m.GitHubPullsCache = provider.NewCache[[]provider.PullRequest](c.GitHub.CacheTTL)
+	m.GitHubDetailsCache = provider.NewCache[provider.PullRequestDetail](c.GitHub.CacheTTL)
+	m.GitHubCommentsCache = provider.NewCache[[]provider.ReviewComment](c.GitHub.CacheTTL)
 	m.GitHubChecksCache = provider.NewCache[provider.ChecksSnapshot](c.GitHub.CacheTTL)
 	m.GitHubReviewsCache = provider.NewCache[provider.ReviewSnapshot](c.GitHub.CacheTTL)
+	m.GitHubIssuesCache = provider.NewCache[[]provider.Issue](c.GitHub.CacheTTL)
+	m.GitHubReleasesCache = provider.NewCache[[]provider.Release](c.GitHub.CacheTTL)
 	m.PluginsEnabled, m.PluginDirectories = c.Plugins.Enabled, append([]string(nil), c.Plugins.Directories...)
+	m.PluginOutputLimit = c.Plugins.MaxOutput
 	if path, err := plugins.StatePath(); err == nil {
 		m.PluginStatePath = path
 	}
@@ -1294,6 +1602,23 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 		m.RepositoryRegistryPath = path
 	}
 	m.RepositoryEngine = registry.NewEngine(c.Remote.Workers)
+	autoFetchEnabled, autoFetchInterval, autoFetchJitter := c.Remote.AutoFetch, c.Remote.AutoFetchInterval, c.Remote.AutoFetchJitter
+	autoFetchBackoff, autoFetchBackoffMax := c.Remote.AutoFetchBackoff, c.Remote.AutoFetchBackoffMax
+	if profile, ok := c.Remote.AutoFetchProfiles[c.Profile]; ok {
+		autoFetchEnabled, autoFetchInterval, autoFetchJitter = profile.Enabled, profile.Interval, profile.Jitter
+		autoFetchBackoff, autoFetchBackoffMax = profile.Backoff, profile.BackoffMax
+	}
+	m.AutoFetchEnabled = autoFetchEnabled
+	m.AutoFetchScheduler = remoteintel.New(remoteintel.Config{
+		Enabled:        autoFetchEnabled,
+		Interval:       autoFetchInterval,
+		Jitter:         autoFetchJitter,
+		BackoffBase:    autoFetchBackoff,
+		BackoffMax:     autoFetchBackoffMax,
+		Workers:        c.Remote.Workers,
+		GroupIntervals: cloneRefreshPolicies(c.Repositories.GroupAutoFetch),
+	})
+	m.AutoFetchResults = make(map[string]remoteintel.Result)
 	groupRefresh := cloneRefreshPolicies(c.Repositories.GroupRefresh)
 	m.RepositoryEngine.InactiveAfterFor = func(repository registry.Repository) time.Duration {
 		interval := m.RepositoryEngine.InactiveAfter
@@ -1640,6 +1965,7 @@ func (m *Model) recordActivityWithOperation(kind history.Kind, path, message str
 			if operation.Target == "" {
 				operation.Target = path
 			}
+			operation.Args = history.RedactArgs(operation.Args)
 			operation.Outcome = outcome
 			event.Operation = operation
 		}
@@ -1681,10 +2007,16 @@ func (m Model) normalizeKey(input string) string {
 	return input
 }
 func (m Model) Init() tea.Cmd {
-	if m.Discovery.Root == "" {
+	commands := make([]tea.Cmd, 0, 6)
+	if m.Discovery.Root != "" {
+		commands = append(commands, m.refresh(), m.tick(), m.startWatcher())
+	}
+	if m.AutoFetchEnabled {
+		commands = append(commands, m.autoFetchTick())
+	}
+	if len(commands) == 0 {
 		return nil
 	}
-	commands := []tea.Cmd{m.refresh(), m.tick(), m.startWatcher()}
 	if tree := m.loadCommitTreeAtInit(); tree != nil {
 		commands = append(commands, tree)
 	}
@@ -1802,6 +2134,64 @@ func (m Model) tick() tea.Cmd {
 		interval = 2 * time.Second
 	}
 	return tea.Tick(interval, func(t time.Time) tea.Msg { return TickMsg{At: t} })
+}
+
+func (m Model) autoFetchTick() tea.Cmd {
+	if !m.AutoFetchEnabled || m.AutoFetchScheduler == nil {
+		return nil
+	}
+	interval := m.AutoFetchScheduler.Config().Interval
+	if interval <= 0 {
+		interval = 30 * time.Minute
+	}
+	return tea.Tick(interval, func(t time.Time) tea.Msg { return AutoFetchTickMsg{At: t} })
+}
+
+type AutoFetchTickMsg struct{ At time.Time }
+
+func (m *Model) runAutoFetch() tea.Cmd {
+	if !m.AutoFetchEnabled || m.AutoFetchScheduler == nil || m.AutoFetchRunning {
+		return nil
+	}
+	repositories := append([]registry.Repository(nil), m.RepositoryRegistry...)
+	if len(repositories) == 0 && m.Discovery.Root != "" {
+		repositories = []registry.Repository{{Path: m.Discovery.Root, Name: filepath.Base(m.Discovery.Root)}}
+	}
+	if len(repositories) == 0 {
+		return nil
+	}
+	requests := make([]remoteintel.Repository, 0, len(repositories))
+	for _, repository := range repositories {
+		requests = append(requests, remoteintel.Repository{Path: repository.Path, Groups: append([]string(nil), repository.Groups...), ActiveOperation: repository.Path == m.Discovery.Root && m.Snapshot.Operation != nil})
+	}
+	ctx := m.commandContext()
+	scheduler := m.AutoFetchScheduler
+	m.AutoFetchRunning = true
+	return func() tea.Msg {
+		results := scheduler.RunOnce(ctx, requests, time.Now(), func(ctx context.Context, path string) error {
+			discovery, err := git.Discover(ctx, path)
+			if err != nil {
+				return err
+			}
+			snapshot, err := git.Snapshot(ctx, discovery, 0)
+			if err != nil {
+				return err
+			}
+			if snapshot.Operation != nil {
+				return remoteintel.ErrActiveOperation
+			}
+			entries, err := remotes.List(ctx, git.NewRunner(discovery.Root))
+			if err != nil {
+				return err
+			}
+			if len(entries) == 0 {
+				return errors.New("repository has no configured remote")
+			}
+			_, err = remotes.Fetch(ctx, git.NewRunner(discovery.Root), entries[0].Name)
+			return err
+		})
+		return AutoFetchFinishedMsg{Results: results}
+	}
 }
 func (m Model) refresh() tea.Cmd {
 	coordinator, ctx := m.RefreshCoordinator, m.repositoryCtx
@@ -2633,6 +3023,20 @@ func (m Model) checkoutSelectedBranch() tea.Cmd {
 		_, err := branches.Checkout(m.commandContext(), runner, branch.Name)
 		return BranchOperationFinishedMsg{Operation: "checked out", Name: branch.Name, Repository: generation, Err: err}
 	}
+}
+
+func (m Model) githubCheckoutBranch() (branches.Branch, error) {
+	if err := provider.ValidateCheckoutRef(m.GitHub.Pull.Head); err != nil {
+		return branches.Branch{}, err
+	}
+	for _, remote := range m.Remotes.Dashboard.Remotes {
+		candidate, ok := provider.ParseGitHubRemote(remote.FetchURL)
+		if !ok || candidate.Owner != m.GitHub.Repository.Owner || candidate.Name != m.GitHub.Repository.Name {
+			continue
+		}
+		return branches.Branch{Name: "remotes/" + remote.Name + "/" + m.GitHub.Pull.Head, Remote: true, RemoteName: remote.Name, RemoteBranch: m.GitHub.Pull.Head}, nil
+	}
+	return branches.Branch{}, errors.New("no matching GitHub remote is configured")
 }
 
 func (m Model) branchMutation(operation, name string, work func(context.Context, git.Runner) error) tea.Cmd {
@@ -3483,7 +3887,7 @@ func (m Model) selectedUndoRecord() *history.OperationRecord {
 	if m.ActivityLog == nil {
 		return nil
 	}
-	events := m.ActivityLog.All()
+	events := m.filteredJournalEvents()
 	index := len(events) - 1 - m.JournalOffset
 	if index < 0 || index >= len(events) || events[index].Operation == nil {
 		return nil
@@ -3499,7 +3903,7 @@ func (m Model) selectedRedoRecord() *history.OperationRecord {
 	if m.ActivityLog == nil {
 		return nil
 	}
-	events := m.ActivityLog.All()
+	events := m.filteredJournalEvents()
 	index := len(events) - 1 - m.JournalOffset
 	if index < 0 || index >= len(events) || events[index].Operation == nil {
 		return nil
@@ -3515,13 +3919,41 @@ func (m Model) selectedJournalEvent() *history.Event {
 	if m.ActivityLog == nil {
 		return nil
 	}
-	events := m.ActivityLog.All()
+	events := m.filteredJournalEvents()
 	index := len(events) - 1 - m.JournalOffset
 	if index < 0 || index >= len(events) {
 		return nil
 	}
 	event := events[index]
 	return &event
+}
+
+func (m Model) activeJournalOperations() []operations.Result {
+	if m.OperationEngine == nil {
+		return nil
+	}
+	all := m.OperationEngine.Snapshot()
+	active := make([]operations.Result, 0, len(all))
+	for _, result := range all {
+		if result.Repo == m.Discovery.Root && (result.State == operations.Pending || result.State == operations.Running) {
+			active = append(active, result)
+		}
+	}
+	return active
+}
+
+func (m Model) retryableJournalOperation() *operations.Result {
+	if m.OperationEngine == nil {
+		return nil
+	}
+	all := m.OperationEngine.Snapshot()
+	for i := len(all) - 1; i >= 0; i-- {
+		result := all[i]
+		if result.Repo == m.Discovery.Root && result.Retryable && (result.State == operations.Failed || result.State == operations.Cancelled || result.State == operations.TimedOut) {
+			return &result
+		}
+	}
+	return nil
 }
 
 func (m Model) undoJournalOperation() tea.Cmd {
@@ -3635,6 +4067,7 @@ func (m Model) previewRemotePrune(remote string) tea.Cmd {
 }
 
 func (m Model) loadGitHub() tea.Cmd {
+	generation := m.repositoryGeneration
 	runner := git.NewRunner(m.Discovery.Root)
 	branch := m.Snapshot.Branch.Name
 	tokenEnv := m.GitHubTokenEnv
@@ -3644,7 +4077,7 @@ func (m Model) loadGitHub() tea.Cmd {
 	return func() tea.Msg {
 		entries, err := remotes.List(m.commandContext(), runner)
 		if err != nil {
-			return GitHubReadyMsg{Branch: branch, Err: err}
+			return GitHubReadyMsg{Generation: generation, Branch: branch, Err: err}
 		}
 		var repository provider.Repository
 		for _, remote := range entries {
@@ -3654,7 +4087,7 @@ func (m Model) loadGitHub() tea.Cmd {
 			}
 		}
 		if repository.Owner == "" {
-			return GitHubReadyMsg{Branch: branch, Err: fmt.Errorf("no GitHub remote detected")}
+			return GitHubReadyMsg{Generation: generation, Branch: branch, Err: fmt.Errorf("no GitHub remote detected")}
 		}
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
 		cache := m.GitHubCache
@@ -3663,7 +4096,7 @@ func (m Model) loadGitHub() tea.Cmd {
 		}
 		pull, err := cache.Get(m.commandContext(), client, repository, branch)
 		if err != nil {
-			return GitHubReadyMsg{Repository: repository, Branch: branch, Err: err}
+			return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Err: err}
 		}
 		checksCache := m.GitHubChecksCache
 		if checksCache == nil {
@@ -3673,8 +4106,46 @@ func (m Model) loadGitHub() tea.Cmd {
 			return client.Checks(ctx, repository, branch)
 		})
 		if err != nil {
-			return GitHubReadyMsg{Repository: repository, Branch: branch, Pull: pull, Err: err}
+			return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Err: err}
 		}
+		pullsCache := m.GitHubPullsCache
+		if pullsCache == nil {
+			pullsCache = provider.NewCache[[]provider.PullRequest](2 * time.Minute)
+		}
+		pulls, _, _ := pullsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/open", func(ctx context.Context) ([]provider.PullRequest, error) {
+			return client.ListPullRequests(ctx, repository, 1, 25)
+		})
+		var detail *provider.PullRequestDetail
+		detailsCache := m.GitHubDetailsCache
+		if detailsCache == nil {
+			detailsCache = provider.NewCache[provider.PullRequestDetail](2 * time.Minute)
+		}
+		if loaded, _, detailErr := detailsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.PullRequestDetail, error) {
+			return client.PullRequestDetail(ctx, repository, pull.Number)
+		}); detailErr == nil || loaded.Number == pull.Number {
+			detail = &loaded
+		}
+		commentsCache := m.GitHubCommentsCache
+		if commentsCache == nil {
+			commentsCache = provider.NewCache[[]provider.ReviewComment](2 * time.Minute)
+		}
+		comments, _, _ := commentsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number)+"/comments", func(ctx context.Context) ([]provider.ReviewComment, error) {
+			return client.ListReviewComments(ctx, repository, pull.Number)
+		})
+		issuesCache := m.GitHubIssuesCache
+		if issuesCache == nil {
+			issuesCache = provider.NewCache[[]provider.Issue](2 * time.Minute)
+		}
+		issues, _, _ := issuesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/issues/open", func(ctx context.Context) ([]provider.Issue, error) {
+			return client.ListIssues(ctx, repository, "open", 1, provider.MaxIssues)
+		})
+		releasesCache := m.GitHubReleasesCache
+		if releasesCache == nil {
+			releasesCache = provider.NewCache[[]provider.Release](2 * time.Minute)
+		}
+		releases, _, _ := releasesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/releases", func(ctx context.Context) ([]provider.Release, error) {
+			return client.ListReleases(ctx, repository, 1, provider.MaxReleases)
+		})
 		reviewsCache := m.GitHubReviewsCache
 		if reviewsCache == nil {
 			reviewsCache = provider.NewCache[provider.ReviewSnapshot](2 * time.Minute)
@@ -3682,21 +4153,367 @@ func (m Model) loadGitHub() tea.Cmd {
 		review, err := reviewsCache.Get(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"#"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.ReviewSnapshot, error) {
 			return client.Reviews(ctx, repository, pull.Number)
 		})
-		return GitHubReadyMsg{Repository: repository, Branch: branch, Pull: pull, Checks: checks, Review: review, Err: err}
+		return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Pulls: pulls, Issues: issues, Releases: releases, Detail: detail, Comments: comments, Checks: checks, Review: review, Err: err}
+	}
+}
+
+func (m *Model) startGitHubCreate() tea.Cmd {
+	if m.GitHub.Repository.Owner == "" || m.GitHub.Repository.Name == "" {
+		m.Status = "GitHub repository is not available"
+		return nil
+	}
+	if strings.TrimSpace(m.Snapshot.Branch.Name) == "" {
+		m.Status = "PR creation requires a checked-out branch"
+		return nil
+	}
+	base := m.GitHub.Pull.Base
+	if strings.TrimSpace(base) == "" {
+		base = m.Snapshot.Branch.Upstream
+	}
+	if strings.Contains(base, "/") {
+		base = base[strings.LastIndexByte(base, '/')+1:]
+	}
+	if base == "" {
+		base = "main"
+	}
+	m.GitHubCreateMode, m.GitHubCreateField = true, 0
+	m.GitHubCreateTitle, m.GitHubCreateBody, m.GitHubCreateBase = "", "", base
+	m.Status = "PR title: "
+	return nil
+}
+
+func (m *Model) startGitHubIssue() tea.Cmd {
+	if m.GitHub.Repository.Owner == "" || m.GitHub.Repository.Name == "" {
+		m.Status = "GitHub repository is not available"
+		return nil
+	}
+	m.GitHubIssueMode, m.GitHubIssueField = true, 0
+	m.GitHubIssueTitle, m.GitHubIssueBody, m.GitHubIssueLabels = "", "", ""
+	m.Status = "issue title: "
+	return nil
+}
+
+func (m *Model) updateGitHubIssueKey(key string) tea.Cmd {
+	if key == "esc" {
+		m.GitHubIssueMode = false
+		m.Status = "GitHub issue creation cancelled"
+		return nil
+	}
+	if key == "tab" || key == "enter" {
+		if m.GitHubIssueField < 2 {
+			m.GitHubIssueField++
+			m.Status = m.githubIssuePrompt()
+			return nil
+		}
+		request := m.githubIssueRequest()
+		if err := request.Validate(); err != nil {
+			m.Status = "GitHub issue: " + err.Error()
+			return nil
+		}
+		m.GitHubIssueMode, m.GitHubIssueConfirm = false, true
+		m.Status = "create GitHub issue " + platform.SafeText(request.Title) + "? (y/n)"
+		return nil
+	}
+	var value *string
+	switch m.GitHubIssueField {
+	case 0:
+		value = &m.GitHubIssueTitle
+	case 1:
+		value = &m.GitHubIssueBody
+	default:
+		value = &m.GitHubIssueLabels
+	}
+	switch key {
+	case "backspace":
+		*value = removeLastRune(*value)
+	case "space":
+		*value += " "
+	default:
+		if len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00") {
+			*value += key
+		}
+	}
+	m.Status = m.githubIssuePrompt()
+	return nil
+}
+
+func (m Model) githubIssuePrompt() string {
+	switch m.GitHubIssueField {
+	case 0:
+		return "issue title: " + platform.SafeText(m.GitHubIssueTitle)
+	case 1:
+		return "issue body: " + platform.SafeText(m.GitHubIssueBody)
+	default:
+		return "issue labels (comma-separated): " + platform.SafeText(m.GitHubIssueLabels)
+	}
+}
+
+func (m Model) githubIssueRequest() provider.IssueCreateRequest {
+	labels := make([]string, 0)
+	for _, label := range strings.Split(m.GitHubIssueLabels, ",") {
+		if trimmed := strings.TrimSpace(label); trimmed != "" {
+			labels = append(labels, trimmed)
+		}
+	}
+	return provider.IssueCreateRequest{Title: strings.TrimSpace(m.GitHubIssueTitle), Body: m.GitHubIssueBody, Labels: labels}
+}
+
+func (m Model) createGitHubIssue() tea.Cmd {
+	repository, request, tokenEnv := m.GitHub.Repository, m.githubIssueRequest(), m.GitHubTokenEnv
+	if tokenEnv == "" {
+		tokenEnv = "GITHUB_TOKEN"
+	}
+	ctx := m.commandContext()
+	return func() tea.Msg {
+		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
+		issue, err := client.CreateIssue(ctx, repository, request)
+		return GitHubIssueCreatedMsg{Issue: issue, Err: err}
+	}
+}
+
+func (m *Model) updateGitHubCreateKey(key string) tea.Cmd {
+	if key == "esc" {
+		m.GitHubCreateMode = false
+		m.Status = "GitHub PR creation cancelled"
+		return nil
+	}
+	if key == "tab" || key == "enter" {
+		if m.GitHubCreateField < 2 {
+			m.GitHubCreateField++
+			m.Status = m.githubCreatePrompt()
+			return nil
+		}
+		request := provider.PullRequestCreateRequest{Title: strings.TrimSpace(m.GitHubCreateTitle), Body: m.GitHubCreateBody, Head: m.Snapshot.Branch.Name, Base: strings.TrimSpace(m.GitHubCreateBase)}
+		if strings.TrimSpace(request.Title) == "" || strings.TrimSpace(request.Head) == "" || strings.TrimSpace(request.Base) == "" {
+			m.Status = "PR title, current branch, and base are required"
+			return nil
+		}
+		m.GitHubCreateMode, m.GitHubCreateConfirm = false, true
+		m.Status = "create GitHub PR " + platform.SafeText(request.Title) + " from " + platform.SafeText(request.Head) + " to " + platform.SafeText(request.Base) + "? (y/n)"
+		return nil
+	}
+	var value *string
+	switch m.GitHubCreateField {
+	case 0:
+		value = &m.GitHubCreateTitle
+	case 1:
+		value = &m.GitHubCreateBody
+	default:
+		value = &m.GitHubCreateBase
+	}
+	switch key {
+	case "backspace":
+		*value = removeLastRune(*value)
+	case "space":
+		*value += " "
+	default:
+		if len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00") {
+			*value += key
+		}
+	}
+	m.Status = m.githubCreatePrompt()
+	return nil
+}
+
+func (m Model) githubCreatePrompt() string {
+	switch m.GitHubCreateField {
+	case 0:
+		return "PR title: " + platform.SafeText(m.GitHubCreateTitle)
+	case 1:
+		return "PR body: " + platform.SafeText(m.GitHubCreateBody)
+	default:
+		return "PR base: " + platform.SafeText(m.GitHubCreateBase)
+	}
+}
+
+func (m Model) createGitHubPullRequest() tea.Cmd {
+	request := provider.PullRequestCreateRequest{Title: strings.TrimSpace(m.GitHubCreateTitle), Body: m.GitHubCreateBody, Head: m.Snapshot.Branch.Name, Base: strings.TrimSpace(m.GitHubCreateBase)}
+	repository, tokenEnv := m.GitHub.Repository, m.GitHubTokenEnv
+	if tokenEnv == "" {
+		tokenEnv = "GITHUB_TOKEN"
+	}
+	ctx := m.commandContext()
+	return func() tea.Msg {
+		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
+		pull, err := client.CreatePullRequest(ctx, repository, request)
+		return GitHubPullRequestCreatedMsg{Pull: pull, Err: err}
+	}
+}
+
+func (m *Model) startGitHubMerge() tea.Cmd {
+	if m.GitHub.Pull.Number < 1 {
+		m.Status = "no pull request is loaded"
+		return nil
+	}
+	m.GitHubMergeMode = true
+	m.GitHubMergeMethod = provider.MergeMethodMerge
+	m.Status = "merge method: [m] merge  [s] squash  [r] rebase  [enter] refresh  [esc] cancel"
+	return nil
+}
+
+func (m *Model) updateGitHubMergeKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.GitHubMergeMode = false
+		m.Status = "GitHub merge cancelled"
+	case "m":
+		m.GitHubMergeMethod = provider.MergeMethodMerge
+	case "s":
+		m.GitHubMergeMethod = provider.MergeMethodSquash
+	case "r":
+		m.GitHubMergeMethod = provider.MergeMethodRebase
+	case "enter":
+		m.GitHubMergeMode, m.GitHubMergeRefresh = false, true
+		m.State, m.Status = StateOperationPending, "refreshing GitHub mergeability, checks, and review state"
+		return m.loadGitHub()
+	}
+	if m.GitHubMergeMode {
+		m.Status = "merge method: " + string(m.GitHubMergeMethod) + "  [enter] refresh  [esc] cancel"
+	}
+	return nil
+}
+
+func (m *Model) startGitHubReview(event provider.ReviewEvent) tea.Cmd {
+	if m.GitHub.Pull.Number < 1 {
+		m.Status = "no pull request is loaded"
+		return nil
+	}
+	m.GitHubReviewEvent, m.GitHubReviewBody = event, ""
+	if event == provider.ReviewEventApprove {
+		m.GitHubReviewConfirm = true
+		m.Status = "approve GitHub PR #" + fmt.Sprint(m.GitHub.Pull.Number) + "? (y/n)"
+		return nil
+	}
+	m.GitHubReviewMode = true
+	m.Status = m.githubReviewPrompt()
+	return nil
+}
+
+func (m *Model) updateGitHubReviewKey(key string) tea.Cmd {
+	if key == "esc" {
+		m.GitHubReviewMode, m.GitHubReviewBody = false, ""
+		m.Status = "GitHub review cancelled"
+		return nil
+	}
+	if key == "enter" {
+		if m.GitHubReviewEvent == provider.ReviewEventRequestChanges && strings.TrimSpace(m.GitHubReviewBody) == "" {
+			m.Status = "request-changes review requires a reason"
+			return nil
+		}
+		m.GitHubReviewMode, m.GitHubReviewConfirm = false, true
+		m.Status = "submit GitHub " + strings.ToLower(string(m.GitHubReviewEvent)) + " review? (y/n)"
+		return nil
+	}
+	switch key {
+	case "backspace":
+		m.GitHubReviewBody = removeLastRune(m.GitHubReviewBody)
+	case "space":
+		m.GitHubReviewBody += " "
+	default:
+		if len([]rune(key)) == 1 && !strings.ContainsAny(key, "\r\n\x00") {
+			m.GitHubReviewBody += key
+		}
+	}
+	m.Status = m.githubReviewPrompt()
+	return nil
+}
+
+func (m Model) githubReviewPrompt() string {
+	return strings.ToLower(string(m.GitHubReviewEvent)) + " review: " + platform.SafeText(m.GitHubReviewBody)
+}
+
+func (m Model) submitGitHubReview() tea.Cmd {
+	repository, number, submission, tokenEnv := m.GitHub.Repository, m.GitHub.Pull.Number, provider.ReviewSubmission{Event: m.GitHubReviewEvent, Body: m.GitHubReviewBody, CommitID: m.GitHub.Pull.HeadSHA}, m.GitHubTokenEnv
+	if tokenEnv == "" {
+		tokenEnv = "GITHUB_TOKEN"
+	}
+	ctx := m.commandContext()
+	return func() tea.Msg {
+		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
+		result, err := client.SubmitReview(ctx, repository, number, submission)
+		return GitHubReviewFinishedMsg{Result: result, Err: err}
+	}
+}
+
+func (m *Model) startGitHubCheckAction(action string) tea.Cmd {
+	if len(m.GitHub.Checks.Runs) == 0 || m.GitHub.SelectedRun < 0 || m.GitHub.SelectedRun >= len(m.GitHub.Checks.Runs) {
+		m.Status = "no GitHub check run is selected"
+		return nil
+	}
+	run := m.GitHub.Checks.Runs[m.GitHub.SelectedRun]
+	if run.ID < 1 {
+		m.Status = "selected check run has no provider action ID"
+		return nil
+	}
+	if action == "rerun" {
+		if run.Status != "completed" {
+			m.Status = "selected check run is still running"
+			return nil
+		}
+		if run.Conclusion == "success" || run.Conclusion == "neutral" || run.Conclusion == "skipped" {
+			m.Status = "selected check run did not fail"
+			return nil
+		}
+	}
+	if action == "cancel" && run.Status == "completed" {
+		m.Status = "selected check run is already completed"
+		return nil
+	}
+	m.GitHubCheckAction, m.GitHubCheckActionRunID, m.GitHubCheckActionConfirm = action, run.ID, true
+	m.Status = "confirm GitHub " + action + " for check " + platform.SafeText(run.Name) + "? (y/n)"
+	return nil
+}
+
+func (m Model) runGitHubCheckAction() tea.Cmd {
+	repository, runID, action, tokenEnv := m.GitHub.Repository, m.GitHubCheckActionRunID, m.GitHubCheckAction, m.GitHubTokenEnv
+	if tokenEnv == "" {
+		tokenEnv = "GITHUB_TOKEN"
+	}
+	ctx := m.commandContext()
+	return func() tea.Msg {
+		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
+		var err error
+		if action == "rerun" {
+			err = client.RerunFailedJobs(ctx, repository, runID)
+		} else {
+			err = client.CancelRun(ctx, repository, runID)
+		}
+		return GitHubCheckActionFinishedMsg{Action: action, Err: err}
+	}
+}
+
+func (m Model) mergeGitHubPullRequest() tea.Cmd {
+	repository, number, method, expectedSHA, tokenEnv := m.GitHub.Repository, m.GitHub.Pull.Number, m.GitHubMergeMethod, m.GitHub.Pull.HeadSHA, m.GitHubTokenEnv
+	if tokenEnv == "" {
+		tokenEnv = "GITHUB_TOKEN"
+	}
+	ctx := m.commandContext()
+	return func() tea.Msg {
+		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
+		result, err := client.MergePullRequest(ctx, repository, number, provider.MergeRequest{Method: method, ExpectedSHA: expectedSHA})
+		return GitHubMergeFinishedMsg{Result: result, Err: err}
 	}
 }
 
 func (m Model) loadPlugins() tea.Cmd {
 	directories := append([]string(nil), m.PluginDirectories...)
 	statePath := m.PluginStatePath
+	outputLimit := m.PluginOutputLimit
+	commandContext := m.commandContext()
 	return func() tea.Msg {
-		entries, err := plugins.Discover(m.commandContext(), directories, 128)
+		entries, err := plugins.Discover(commandContext, directories, 128)
 		if err == nil && statePath != "" {
 			state, stateErr := plugins.LoadState(statePath)
 			if stateErr != nil {
 				return PluginsReadyMsg{Err: stateErr}
 			}
 			entries = plugins.ApplyState(entries, state)
+		}
+		if err == nil {
+			host := plugins.Runtime{OutputLimit: outputLimit}
+			for index := range entries {
+				entries[index] = plugins.Probe(commandContext, host, entries[index], plugins.DefaultCapabilities)
+			}
 		}
 		return PluginsReadyMsg{Entries: entries, Err: err}
 	}
@@ -3739,6 +4556,7 @@ func (m Model) loadRepositories() tea.Cmd {
 	}
 	statePath := m.RepositoryRegistryPath
 	groups := cloneGroups(m.RepositoryGroups)
+	registryEntries := append([]registry.Repository(nil), m.RepositoryRegistry...)
 	return func() tea.Msg {
 		repositories, err := registry.Discover(m.commandContext(), roots, registry.Options{MaxDepth: m.RepositoryMaxDepth, MaxRepositories: m.RepositoryMaxCount, IgnoreDirs: m.RepositoryIgnoreDirs})
 		if err != nil {
@@ -3752,6 +4570,17 @@ func (m Model) loadRepositories() tea.Cmd {
 			}
 		}
 		repositories = registry.Merge(repositories, stored, groups)
+		for index := range repositories {
+			for _, entry := range registryEntries {
+				if entry.Path == repositories[index].Path {
+					repositories[index].LastAutoFetch = entry.LastAutoFetch
+					repositories[index].LastAutoFetchStatus = entry.LastAutoFetchStatus
+					repositories[index].LastAutoFetchError = entry.LastAutoFetchError
+					repositories[index].LastAutoFetchMillis = entry.LastAutoFetchMillis
+					break
+				}
+			}
+		}
 		if m.RepositoryGroup != "" {
 			repositories = registry.InGroup(repositories, m.RepositoryGroup)
 		}
@@ -3762,6 +4591,128 @@ func (m Model) loadRepositories() tea.Cmd {
 		}
 		results := engine.Refresh(m.commandContext(), repositories, m.Discovery.Root)
 		return RepositoriesReadyMsg{Rows: registry.Rows(results), Repositories: repositories}
+	}
+}
+
+func (m Model) applyAutoFetchResults(rows []registry.Row) []registry.Row {
+	if len(m.AutoFetchResults) == 0 {
+		return rows
+	}
+	updated := append([]registry.Row(nil), rows...)
+	for index := range updated {
+		result, ok := m.AutoFetchResults[updated[index].Repository.Path]
+		if !ok {
+			continue
+		}
+		updated[index].RemoteFetchStatus = result.Status
+		updated[index].RemoteFetchAt = result.Finished
+		updated[index].RemoteFetchError = result.FailureClass
+		if result.Status == "failed" {
+			warning := "auto-fetch: " + result.FailureClass
+			updated[index].Warnings = append(updated[index].Warnings, warning)
+			if updated[index].Attention == "" {
+				updated[index].Attention = warning
+			}
+			if updated[index].Health.Severity != health.SeverityCritical {
+				updated[index].Health.Severity = health.SeverityWarning
+			}
+			updated[index].Health.Attention = append(updated[index].Health.Attention, warning)
+		}
+	}
+	return updated
+}
+
+func (m Model) applyCommitActivity(rows []registry.Row) []registry.Row {
+	if m.Discovery.Root == "" || len(m.HistoryCommits) == 0 {
+		return rows
+	}
+	commits := make([]int64, 0, len(m.HistoryCommits))
+	for _, commit := range m.HistoryCommits {
+		commits = append(commits, commit.Unix)
+	}
+	activity := activityviz.CommitBuckets(commits, time.Now(), 24*time.Hour, 8)
+	updated := append([]registry.Row(nil), rows...)
+	for index := range updated {
+		if updated[index].Repository.Path == m.Discovery.Root {
+			updated[index].Activity = append([]int(nil), activity...)
+		}
+	}
+	return updated
+}
+
+func (m *Model) startRepositoryBatchFetch() tea.Cmd {
+	if len(m.Repositories.Rows) == 0 {
+		m.Status = "no repositories are available for batch fetch"
+		return nil
+	}
+	m.RepositoryBatchRetry, m.RepositoryBatchConfirm = false, true
+	m.Status = fmt.Sprintf("fetch %d discovered repositories? (y/n)", len(m.Repositories.Rows))
+	return nil
+}
+
+func (m *Model) startRepositoryBatchRetry() tea.Cmd {
+	failed := 0
+	for _, result := range m.RepositoryBatchResults {
+		if result.Status == "failed" {
+			failed++
+		}
+	}
+	if failed == 0 {
+		m.Status = "no failed batch repositories to retry"
+		return nil
+	}
+	m.RepositoryBatchRetry, m.RepositoryBatchConfirm = true, true
+	m.Status = fmt.Sprintf("retry fetch for %d failed repositories? (y/n)", failed)
+	return nil
+}
+
+func (m Model) runRepositoryBatchFetch() tea.Cmd {
+	rows := append([]registry.Row(nil), m.Repositories.Rows...)
+	if m.RepositoryBatchRetry {
+		failed := make(map[string]struct{})
+		for _, result := range m.RepositoryBatchResults {
+			if result.Status == "failed" {
+				failed[result.Request.Repository.Root] = struct{}{}
+			}
+		}
+		filtered := rows[:0]
+		for _, row := range rows {
+			if _, ok := failed[row.Repository.Path]; ok {
+				filtered = append(filtered, row)
+			}
+		}
+		rows = filtered
+	}
+	ctx := m.commandContext()
+	workers := 2
+	if m.RepositoryEngine != nil && m.RepositoryEngine.Workers > 0 {
+		workers = m.RepositoryEngine.Workers
+	}
+	return func() tea.Msg {
+		requests := make([]multirepo.Request, len(rows))
+		for index, row := range rows {
+			requests[index] = multirepo.Request{Repository: multirepo.Repository{ID: domain.RepositoryID(row.Repository.Path), Root: row.Repository.Path}, Remote: "origin", Action: multirepo.ActionFetch}
+		}
+		results := multirepo.Run(ctx, requests, workers, func(ctx context.Context, request multirepo.Request) error {
+			discovery, err := git.Discover(ctx, request.Repository.Root)
+			if err != nil {
+				return err
+			}
+			entries, err := remotes.List(ctx, git.NewRunner(discovery.Root))
+			if err != nil {
+				return err
+			}
+			remote := request.Remote
+			if len(entries) > 0 {
+				remote = entries[0].Name
+			}
+			if remote == "" {
+				return errors.New("repository has no configured remote")
+			}
+			_, err = remotes.Fetch(ctx, git.NewRunner(discovery.Root), remote)
+			return err
+		})
+		return RepositoryBatchFinishedMsg{Results: results}
 	}
 }
 
@@ -3890,7 +4841,7 @@ func (m *Model) remoteCommand(ctx context.Context, operation, remote string, wor
 		OldHead:    m.Snapshot.Branch.OID,
 		Refs:       []string{remote},
 	}
-	command := m.OperationEngine.Command(ctx, id, repoRoot, operation, 5*time.Minute, work)
+	command := m.OperationEngine.CommandWithOptions(ctx, id, repoRoot, operation, 5*time.Minute, work, operations.Options{Retryable: operation == "fetch"})
 	return func() tea.Msg {
 		started := time.Now()
 		result := command()
@@ -4383,6 +5334,34 @@ func removeLastRune(value string) string {
 		return value
 	}
 	return string(runes[:len(runes)-1])
+}
+
+func (m *Model) updateJournalFilterKey(key string) tea.Cmd {
+	switch key {
+	case "esc":
+		m.JournalFilterMode, m.JournalFilterInput = false, ""
+		m.JournalOffset = 0
+		m.Status = "journal filter cancelled"
+	case "backspace":
+		m.JournalFilterInput = removeLastRune(m.JournalFilterInput)
+	case "space":
+		m.JournalFilterInput += " "
+	case "enter":
+		m.JournalFilterMode = false
+		m.JournalOffset = 0
+		m.Status = "journal filter applied"
+	default:
+		if len([]rune(key)) == 1 {
+			r := []rune(key)[0]
+			if r != '\r' && r != '\n' && r != 0 {
+				m.JournalFilterInput += key
+			}
+		}
+	}
+	if m.JournalFilterMode {
+		m.Status = "journal filter: " + m.JournalFilterInput
+	}
+	return nil
 }
 
 func (m *Model) selectedSubmodulePath() string {
@@ -5167,6 +6146,96 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.PaletteMode {
 			return m, m.updatePaletteKey(v.String())
 		}
+		if m.currentView() == workspace.Repositories && m.RepositoryBatchConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.RepositoryBatchConfirm = false
+				m.State, m.Status = StateOperationPending, "fetching discovered repositories"
+				return m, m.runRepositoryBatchFetch()
+			case "n", "N", "esc":
+				m.RepositoryBatchConfirm, m.RepositoryBatchRetry = false, false
+				m.Status = "batch fetch cancelled"
+			}
+			return m, nil
+		}
+		if m.CustomCommandForm != nil {
+			return m, m.updateCustomCommandForm(v.String())
+		}
+		if m.currentView() == workspace.Journal && m.JournalFilterMode {
+			return m, m.updateJournalFilterKey(v.String())
+		}
+		if m.currentView() == workspace.GitHub && m.GitHubCreateMode {
+			return m, m.updateGitHubCreateKey(v.String())
+		}
+		if m.currentView() == workspace.GitHub && m.GitHubIssueMode {
+			return m, m.updateGitHubIssueKey(v.String())
+		}
+		if m.currentView() == workspace.GitHub && m.GitHubCreateConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.GitHubCreateConfirm = false
+				m.State, m.Status = StateOperationPending, "creating GitHub pull request"
+				return m, m.createGitHubPullRequest()
+			case "n", "N", "esc":
+				m.GitHubCreateConfirm = false
+				m.Status = "GitHub PR creation cancelled"
+			}
+			return m, nil
+		}
+		if m.currentView() == workspace.GitHub && m.GitHubIssueConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.GitHubIssueConfirm = false
+				m.State, m.Status = StateOperationPending, "creating GitHub issue"
+				return m, m.createGitHubIssue()
+			case "n", "N", "esc":
+				m.GitHubIssueConfirm = false
+				m.Status = "GitHub issue creation cancelled"
+			}
+			return m, nil
+		}
+		if m.currentView() == workspace.GitHub && m.GitHubMergeMode {
+			return m, m.updateGitHubMergeKey(v.String())
+		}
+		if m.currentView() == workspace.GitHub && m.GitHubMergeConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.GitHubMergeConfirm = false
+				m.State, m.Status = StateOperationPending, "merging GitHub pull request"
+				return m, m.mergeGitHubPullRequest()
+			case "n", "N", "esc":
+				m.GitHubMergeConfirm = false
+				m.Status = "GitHub merge cancelled"
+			}
+			return m, nil
+		}
+		if m.currentView() == workspace.GitHub && m.GitHubReviewMode {
+			return m, m.updateGitHubReviewKey(v.String())
+		}
+		if m.currentView() == workspace.GitHub && m.GitHubReviewConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.GitHubReviewConfirm = false
+				m.State, m.Status = StateOperationPending, "submitting GitHub review"
+				return m, m.submitGitHubReview()
+			case "n", "N", "esc":
+				m.GitHubReviewConfirm = false
+				m.Status = "GitHub review cancelled"
+			}
+			return m, nil
+		}
+		if m.currentView() == workspace.GitHub && m.GitHubCheckActionConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.GitHubCheckActionConfirm = false
+				m.State, m.Status = StateOperationPending, "requesting GitHub check "+m.GitHubCheckAction
+				return m, m.runGitHubCheckAction()
+			case "n", "N", "esc":
+				m.GitHubCheckActionConfirm = false
+				m.Status = "GitHub check action cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Status && m.Restore.Open {
 			return m, m.updateRestoreKey(v.String())
 		}
@@ -5284,6 +6353,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.currentView() == workspace.Journal && m.JournalCancelConfirm {
+			switch v.String() {
+			case "y", "Y":
+				id := m.JournalCancelID
+				m.JournalCancelID, m.JournalCancelConfirm = "", false
+				if m.OperationEngine != nil && m.OperationEngine.Cancel(id) {
+					m.Status = "cancellation requested for " + platform.SafeText(id)
+				} else {
+					m.Status = "operation is no longer running"
+				}
+			case "n", "N", "esc":
+				m.JournalCancelID, m.JournalCancelConfirm = "", false
+				m.Status = "operation cancellation cancelled"
+			}
+			return m, nil
+		}
+		if m.currentView() == workspace.Journal && m.JournalRetryConfirm {
+			switch v.String() {
+			case "y", "Y":
+				id := m.JournalRetryID
+				m.JournalRetryID, m.JournalRetryConfirm = "", false
+				if m.OperationEngine == nil {
+					m.Status = "operation retry is unavailable"
+					return m, nil
+				}
+				m.State, m.Status = StateOperationPending, "retrying journal operation"
+				retry := m.OperationEngine.RetryCommand(m.commandContext(), id)
+				return m, func() tea.Msg { return retry() }
+			case "n", "N", "esc":
+				m.JournalRetryID, m.JournalRetryConfirm = "", false
+				m.Status = "operation retry cancelled"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Commit {
 			if v.Mod&tea.ModCtrl != 0 && v.String() == "s" {
 				return m, m.updateComposerKey("ctrl+s")
@@ -5385,6 +6488,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "n", "N", "esc":
 				m.RemoteBranchConfirm, m.RemoteBranchAction, m.RemoteBranchTarget = false, "", branches.Branch{}
 				m.Status = "remote branch action cancelled"
+			}
+			return m, nil
+		}
+		if m.currentView() == workspace.GitHub && m.RemoteBranchConfirm {
+			switch v.String() {
+			case "y", "Y":
+				branch := m.RemoteBranchTarget
+				m.RemoteBranchConfirm, m.RemoteBranchAction, m.RemoteBranchTarget = false, "", branches.Branch{}
+				m.State, m.Status = StateOperationPending, "checking out provider-declared branch"
+				return m, m.remoteBranchMutation("checked out detached", branch, "", "")
+			case "n", "N", "esc":
+				m.RemoteBranchConfirm, m.RemoteBranchAction, m.RemoteBranchTarget = false, "", branches.Branch{}
+				m.Status = "GitHub branch checkout cancelled"
 			}
 			return m, nil
 		}
@@ -5785,6 +6901,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "l":
 			return m, m.navigate(workspace.Log, "History")
 		case "n":
+			if m.currentView() == workspace.GitHub {
+				return m, m.startGitHubCreate()
+			}
 			if m.currentView() == workspace.Status && m.DiffPath != "" && m.DiffSearchInput != "" {
 				if !m.seekDiffMatch(m.DiffSearchMatch + 1) {
 					m.Status = "diff search: no matches"
@@ -5825,7 +6944,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "v":
 			return m, m.navigate(workspace.Repositories, "Repositories")
 		case "A":
-			if m.currentView() == workspace.Remotes {
+			if m.currentView() == workspace.GitHub {
+				return m, m.startGitHubReview(provider.ReviewEventApprove)
+			} else if m.currentView() == workspace.Remotes {
 				m.resetRemoteMutation()
 				m.RemoteMutationMode = "add-name"
 				m.Status = "new remote name: "
@@ -5846,7 +6967,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.startRebase(true)
 			}
 		case "F":
-			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+			if m.currentView() == workspace.Repositories {
+				return m, m.startRepositoryBatchFetch()
+			} else if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
 				if m.Snapshot.Counts.Staged == 0 {
 					m.Status = "stage changes before creating a fixup commit"
 					return m, nil
@@ -5900,7 +7023,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.verifySelectedTag()
 			}
 		case "!":
-			if m.currentView() == workspace.Status {
+			if m.currentView() == workspace.GitHub {
+				return m, m.startGitHubCheckAction("rerun")
+			} else if m.currentView() == workspace.Status {
 				m.FileConflictOnly = !m.FileConflictOnly
 				if m.FileConflictOnly {
 					m.Files.SetConflictFilter(true)
@@ -5959,6 +7084,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "path filter: "
 			}
 		case "m", "e", "o":
+			if m.currentView() == workspace.GitHub && v.String() == "m" {
+				return m, m.startGitHubMerge()
+			}
 			if m.currentView() == workspace.GitHub && v.String() == "o" {
 				if command, err := platform.OpenURLCommand(m.GitHub.Pull.URL); err == nil {
 					m.Status = "opening pull request"
@@ -6038,14 +7166,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.RemoteForceConfirm, m.Status = true, "confirm force-with-lease push to "+remote+" for "+m.Snapshot.Branch.Name+" (y/n)"
 			}
 		case "K":
-			if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
+			if m.currentView() == workspace.Journal {
+				active := m.activeJournalOperations()
+				if len(active) == 0 {
+					m.Status = "no running journal operation to cancel"
+				} else {
+					m.JournalCancelID, m.JournalCancelConfirm = active[0].ID, true
+					m.Status = "cancel running operation " + platform.SafeText(active[0].Name) + "? (y/n)"
+				}
+			} else if m.currentView() == workspace.GitHub {
+				return m, m.startGitHubCheckAction("cancel")
+			} else if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
 				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
 				m.resetRemoteMutation()
 				m.RemoteMutationRemote, m.RemoteMutationMode, m.State, m.Status = remote, "prune-loading", StateOperationPending, "previewing stale refs for "+platform.SafeText(remote)
 				return m, m.previewRemotePrune(remote)
 			}
 		case "L":
-			if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
+			if m.currentView() == workspace.GitHub {
+				if len(m.GitHub.Releases) == 0 || m.GitHub.Releases[0].URL == "" {
+					m.Status = "no GitHub release URL available"
+					return m, nil
+				}
+				command, err := platform.OpenURLCommand(m.GitHub.Releases[0].URL)
+				if err != nil {
+					m.Status = err.Error()
+					return m, nil
+				}
+				m.Status = "opening GitHub release " + platform.SafeText(m.GitHub.Releases[0].TagName)
+				return m, tea.ExecProcess(command, nil)
+			} else if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
 				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected]
 				m.resetRemoteMutation()
 				m.RemoteMutationRemote, m.RemoteMutationMode, m.Status = remote.Name, "set-url", "new URL for "+platform.SafeText(remote.Name)+" (current: "+platform.SafeText(remote.FetchURL)+"): "
@@ -6105,6 +7255,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.loadHistoryPage(m.HistorySkip)
 			}
 		case "/":
+			if m.currentView() == workspace.Journal {
+				m.JournalFilterMode = true
+				m.Status = "journal filter: " + m.JournalFilterInput
+				return m, nil
+			}
 			if m.currentView() == workspace.Status && m.DiffPath != "" {
 				m.DiffSearchMode, m.DiffSearchInput = true, ""
 				m.Status = "diff search: "
@@ -6133,6 +7288,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				branch := m.Branches.Entries[m.Branches.Selected]
 				m.RemoteBranchAction, m.RemoteBranchTarget, m.RemoteBranchConfirm = "detached", branch, true
 				m.Status = "confirm detached checkout of remote branch " + platform.SafeText(branch.RemoteName+"/"+branch.RemoteBranch) + "? (y/n)"
+			} else if m.currentView() == workspace.GitHub {
+				branch, err := m.githubCheckoutBranch()
+				if err != nil {
+					m.Status = "GitHub checkout unavailable: " + platform.SafeText(err.Error())
+				} else {
+					m.RemoteBranchAction, m.RemoteBranchTarget, m.RemoteBranchConfirm = "detached", branch, true
+					m.Status = "confirm checkout of provider-declared " + platform.SafeText(branch.RemoteName+"/"+branch.RemoteBranch) + " detached? (y/n)"
+				}
 			} else if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
 				m.HistoryActionTarget = m.History.Rows[m.History.Selected].Commit.SHA
 				m.HistoryActionConfirm = true
@@ -6182,7 +7345,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "R":
-			if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
+			if m.currentView() == workspace.Repositories {
+				return m, m.startRepositoryBatchRetry()
+			} else if m.currentView() == workspace.GitHub {
+				return m, m.startGitHubReview(provider.ReviewEventRequestChanges)
+			} else if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
 				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected].Name
 				m.resetRemoteMutation()
 				m.RemoteMutationRemote, m.RemoteMutationMode, m.State, m.Status = remote, "rename-loading", StateOperationPending, "loading tracking branches for "+platform.SafeText(remote)
@@ -6249,7 +7416,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.beginRestore()
 			}
 		case "I":
-			if m.currentView() == workspace.Log {
+			if m.currentView() == workspace.GitHub {
+				return m, m.startGitHubIssue()
+			} else if m.currentView() == workspace.Log {
 				return m, m.openRebaseWorkspace()
 			}
 			if m.currentView() == workspace.Branches {
@@ -6303,7 +7472,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.SetClipboard(m.GitHub.Pull.URL)
 			}
 		case "Y":
-			if m.currentView() == workspace.Log || m.currentView() == workspace.Tags || m.currentView() == workspace.Branches || m.currentView() == workspace.Reflog || m.currentView() == workspace.Remotes {
+			if m.currentView() == workspace.Journal {
+				retryable := m.retryableJournalOperation()
+				if retryable == nil {
+					m.Status = "no failed replayable journal operation"
+				} else {
+					m.JournalRetryID, m.JournalRetryConfirm = retryable.ID, true
+					m.Status = "retry " + platform.SafeText(retryable.Name) + "? (y/n)"
+				}
+			} else if m.currentView() == workspace.Log || m.currentView() == workspace.Tags || m.currentView() == workspace.Branches || m.currentView() == workspace.Reflog || m.currentView() == workspace.Remotes {
 				return m, m.assignCompareSelection()
 			}
 		case "t":
@@ -6353,6 +7530,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if m.currentView() == workspace.GitHub {
+				return m, m.startGitHubReview(provider.ReviewEventComment)
+			}
+			if m.currentView() == workspace.GitHub {
 				for _, run := range m.GitHub.Checks.Runs {
 					if run.URL == "" {
 						continue
@@ -6367,6 +7547,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.beginCommit()
 		case "enter":
+			if m.currentView() == workspace.Journal {
+				if m.selectedJournalEvent() == nil {
+					m.Status = "no journal entry selected"
+				} else {
+					m.JournalDetailMode = !m.JournalDetailMode
+					m.Status = map[bool]string{true: "journal details opened", false: "journal details closed"}[m.JournalDetailMode]
+				}
+				return m, nil
+			}
 			if m.currentView() == workspace.Compare {
 				return m, m.loadComparePatch()
 			}
@@ -6430,6 +7619,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.openDiff()
 		case "j", "down":
+			if m.currentView() == workspace.GitHub {
+				m.GitHub.SelectRun(1)
+				m.Status = "selected GitHub check run " + fmt.Sprint(m.GitHub.SelectedRun+1)
+				return m, nil
+			}
 			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				if m.showBranchSummaryPane() {
 					m.Branches.Move(1)
@@ -6480,6 +7674,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, command
 			}
 		case "k", "up":
+			if m.currentView() == workspace.GitHub {
+				m.GitHub.SelectRun(-1)
+				m.Status = "selected GitHub check run " + fmt.Sprint(m.GitHub.SelectedRun+1)
+				return m, nil
+			}
 			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				if m.showBranchSummaryPane() {
 					m.Branches.Move(-1)
@@ -6673,7 +7872,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.beginHunks()
 			}
 		case "O":
-			if m.currentView() == workspace.Status {
+			if m.currentView() == workspace.GitHub {
+				if len(m.GitHub.Issues) == 0 || m.GitHub.Issues[0].URL == "" {
+					m.Status = "no GitHub issue URL available"
+					return m, nil
+				}
+				command, err := platform.OpenURLCommand(m.GitHub.Issues[0].URL)
+				if err != nil {
+					m.Status = err.Error()
+					return m, nil
+				}
+				m.Status = "opening GitHub issue #" + fmt.Sprint(m.GitHub.Issues[0].Number)
+				return m, tea.ExecProcess(command, nil)
+			} else if m.currentView() == workspace.Status {
 				m.StatusTreeMode = !m.StatusTreeMode
 				m.rebuildStatusFileTree()
 				if m.StatusTreeMode {
@@ -6904,9 +8115,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				files.Width = max(1, files.Width-1)
 			}
 			files.Width = max(1, files.Width-1)
-			rowOffset, rowHeights, rowCount := m.Files.Offset, m.statusFileRowHeights(files.Width), len(m.Files.Visible)
+			visibleHeight := max(1, files.Height-1-m.statusFileHeaderRows(files.Width))
+			rowOffset, rowHeights, rowCount := m.Files.Offset, m.statusFileRowHeights(files.Width, visibleHeight), len(m.Files.Visible)
 			if m.StatusTreeMode {
-				rowOffset, rowHeights, rowCount = m.FileTree.Offset, m.statusTreeRowHeights(files.Width), len(m.FileTree.Rows)
+				rowOffset, rowHeights, rowCount = m.FileTree.Offset, m.statusTreeRowHeights(files.Width, visibleHeight), len(m.FileTree.Rows)
 			}
 			hit := uimouse.HitMap{Files: files, RowTop: files.Y + 1 + m.statusFileHeaderRows(files.Width), RowHeight: 1, Offset: rowOffset, RowHeights: rowHeights, StageX: files.X + 1, StageWidth: 3, RowCount: rowCount}
 			action, row, ok := hit.Hit(v.X, v.Y, 0)
@@ -7137,6 +8349,55 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.History.SetPulse(m.HistoryPulse)
 		}
 		return m, m.tick()
+	case AutoFetchTickMsg:
+		if !m.AutoFetchEnabled {
+			return m, nil
+		}
+		return m, tea.Batch(m.runAutoFetch(), m.autoFetchTick())
+	case AutoFetchFinishedMsg:
+		m.AutoFetchRunning = false
+		if m.AutoFetchResults == nil {
+			m.AutoFetchResults = make(map[string]remoteintel.Result)
+		}
+		for _, result := range v.Results {
+			m.AutoFetchResults[result.Repository] = result
+			matched := false
+			for index := range m.RepositoryRegistry {
+				if m.RepositoryRegistry[index].Path != result.Repository {
+					continue
+				}
+				matched = true
+				m.RepositoryRegistry[index].LastAutoFetch = result.Finished
+				m.RepositoryRegistry[index].LastAutoFetchStatus = result.Status
+				m.RepositoryRegistry[index].LastAutoFetchError = result.FailureClass
+				if !result.Started.IsZero() && !result.Finished.IsZero() {
+					m.RepositoryRegistry[index].LastAutoFetchMillis = result.Finished.Sub(result.Started).Milliseconds()
+				}
+			}
+			if !matched && result.Repository != "" {
+				m.RepositoryRegistry = append(m.RepositoryRegistry, registry.Repository{Path: result.Repository, Name: filepath.Base(result.Repository), LastAutoFetch: result.Finished, LastAutoFetchStatus: result.Status, LastAutoFetchError: result.FailureClass})
+			}
+		}
+		if len(m.Repositories.AllRows) > 0 {
+			m.Repositories.SetRows(m.applyAutoFetchResults(m.Repositories.AllRows))
+		}
+		fetched, failed, skipped := 0, 0, 0
+		for _, result := range v.Results {
+			switch result.Status {
+			case "fetched":
+				fetched++
+			case "failed":
+				failed++
+			case "skipped-active":
+				skipped++
+			}
+		}
+		if fetched > 0 {
+			m.Status = fmt.Sprintf("auto-fetch complete: %d fetched, %d failed, %d skipped", fetched, failed, skipped)
+		} else if failed > 0 {
+			m.Status = fmt.Sprintf("auto-fetch: %d failed, %d skipped", failed, skipped)
+		}
+		return m, m.loadRepositories()
 	case watcherStartedMsg:
 		if v.Generation != m.repositoryGeneration {
 			if v.Manager != nil {
@@ -7674,14 +8935,74 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.Composer.SetConfigSummary(platform.SafeText("identity: " + identity + "; " + signing))
 	case GitHubReadyMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
 		if v.Err != nil {
+			m.GitHubMergeRefresh = false
 			m.GitHub.SetError(v.Repository, v.Branch, v.Err)
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			v.Pull.Checks = provider.Checks{Total: v.Checks.Passing + v.Checks.Failing + v.Checks.Pending, Passing: v.Checks.Passing, Failing: v.Checks.Failing, Pending: v.Checks.Pending}
 			v.Pull.ReviewState = v.Review.State()
 			m.GitHub.SetData(v.Repository, v.Branch, v.Pull, v.Checks)
+			m.GitHub.SetPullRequests(v.Pulls)
+			m.GitHub.SetIssues(v.Issues)
+			m.GitHub.SetReleases(v.Releases)
+			if v.Detail != nil {
+				m.GitHub.SetDetail(*v.Detail)
+			}
+			m.GitHub.SetComments(v.Comments)
+			if m.GitHubMergeRefresh {
+				m.GitHubMergeRefresh, m.GitHubMergeConfirm = false, true
+				m.State = StateReady
+				m.Status = "confirm GitHub " + string(m.GitHubMergeMethod) + " merge of PR #" + fmt.Sprint(v.Pull.Number) + "? (y/n)"
+				return m, nil
+			}
 			m.State, m.Status = StateReady, "GitHub data loaded"
+			m.reindexPalette()
+		}
+	case GitHubPullRequestCreatedMsg:
+		m.GitHubCreateConfirm = false
+		if v.Err != nil {
+			m.State, m.Status = StateError, "GitHub PR creation: "+platform.SafeText(v.Err.Error())
+		} else {
+			m.State, m.Status = StateReady, fmt.Sprintf("GitHub PR #%d created", v.Pull.Number)
+			return m, m.loadGitHub()
+		}
+	case GitHubMergeFinishedMsg:
+		m.GitHubMergeConfirm = false
+		if v.Err != nil {
+			m.State, m.Status = StateError, "GitHub merge: "+platform.SafeText(v.Err.Error())
+		} else if !v.Result.Merged {
+			m.State, m.Status = StateError, "GitHub merge was not completed: "+platform.SafeText(v.Result.Message)
+		} else {
+			m.State, m.Status = StateReady, "GitHub merge completed; local refs unchanged until fetch"
+			return m, m.loadGitHub()
+		}
+	case GitHubReviewFinishedMsg:
+		m.GitHubReviewConfirm = false
+		if v.Err != nil {
+			m.State, m.Status = StateError, "GitHub review: "+platform.SafeText(v.Err.Error())
+		} else {
+			m.State, m.Status = StateReady, "GitHub review submitted; refreshing review state"
+			return m, m.loadGitHub()
+		}
+	case GitHubCheckActionFinishedMsg:
+		m.GitHubCheckActionConfirm = false
+		if v.Err != nil {
+			m.State, m.Status = StateError, "GitHub check action: "+platform.SafeText(v.Err.Error())
+		} else {
+			m.State, m.Status = StateReady, "GitHub check "+v.Action+" requested; refreshing checks"
+			return m, m.loadGitHub()
+		}
+	case GitHubIssueCreatedMsg:
+		m.GitHubIssueConfirm = false
+		if v.Err != nil {
+			m.State, m.Status = StateError, "GitHub issue: "+platform.SafeText(v.Err.Error())
+		} else {
+			m.State, m.Status = StateReady, fmt.Sprintf("GitHub issue #%d created", v.Issue.Number)
+			return m, m.loadGitHub()
 		}
 	case PluginsReadyMsg:
 		if v.Err != nil {
@@ -7689,6 +9010,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.Plugins.SetEntries(v.Entries)
 			m.State, m.Status = StateReady, "plugins loaded"
+			m.reindexPalette()
 		}
 	case PluginStateSavedMsg:
 		if v.Err != nil {
@@ -7753,6 +9075,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.History.SetCommits(m.HistoryCommits)
 			}
 			m.HistorySkip, m.HistoryHasMore, m.State = v.Skip+len(v.Commits), v.HasMore, StateReady
+			m.Repositories.SetRows(m.applyCommitActivity(m.Repositories.AllRows))
 		}
 	case HistoryInspectorReadyMsg:
 		if v.Err != nil {
@@ -7967,13 +9290,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			m.RepositoryRegistry = append([]registry.Repository(nil), v.Repositories...)
+			rows := m.applyCommitActivity(m.applyAutoFetchResults(v.Rows))
 			if len(m.Repositories.Rows) == 0 {
-				m.Repositories = repoview.New(v.Rows)
+				m.Repositories = repoview.New(rows)
 			} else {
-				m.Repositories.SetRows(v.Rows)
+				m.Repositories.SetRows(rows)
 			}
 			m.State = StateReady
+			m.reindexPalette()
 		}
+	case RepositoryBatchFinishedMsg:
+		m.RepositoryBatchConfirm, m.RepositoryBatchRetry = false, false
+		m.RepositoryBatchResults = append([]multirepo.Result(nil), v.Results...)
+		succeeded, failed, cancelled, skipped := 0, 0, 0, 0
+		for _, result := range v.Results {
+			switch result.Status {
+			case "succeeded":
+				succeeded++
+			case "failed":
+				failed++
+			case "cancelled":
+				cancelled++
+			case "skipped":
+				skipped++
+			}
+		}
+		m.State = StateReady
+		m.Status = fmt.Sprintf("batch fetch complete: %d succeeded, %d failed, %d cancelled, %d skipped", succeeded, failed, cancelled, skipped)
+		return m, m.loadRepositories()
 	case RepositoryOpenedMsg:
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
@@ -8007,6 +9351,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivity(history.OperationSuccess, v.Target, m.Status)
 		}
 		return m, tea.Batch(m.refresh(), m.loadWorktrees(), m.loadBranches())
+	case operations.ResultMsg:
+		if v.Result.Repo != "" && v.Result.Repo != m.Discovery.Root {
+			return m, nil
+		}
+		m.State = StateReady
+		if v.Result.State == operations.Succeeded {
+			m.Status = v.Result.Name + " retry complete"
+			m.recordActivity(history.OperationSuccess, "", m.Status)
+		} else {
+			m.Status = v.Result.Name + " retry " + v.Result.State.String()
+			if v.Result.Err != nil {
+				m.Status += ": " + v.Result.Err.Error()
+			}
+			m.recordActivity(history.OperationFailure, "", m.Status)
+		}
+		return m, m.refresh()
 	case RemoteOperationFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
@@ -8148,9 +9508,51 @@ func (m Model) paletteView() tea.View {
 	return v
 }
 
+func (m Model) customCommandFormView() tea.View {
+	lines := []string{"gitwatch custom command", ""}
+	if m.CustomCommandForm == nil {
+		return tea.NewView(strings.Join(lines, "\n"))
+	}
+	prompt, ok := m.CustomCommandForm.Current()
+	if !ok {
+		lines = append(lines, "Form complete")
+	} else {
+		position, total := m.CustomCommandForm.Progress()
+		lines = append(lines, fmt.Sprintf("Prompt %d/%d: %s", position, total, platform.SafeText(prompt.Label)))
+		switch prompt.Kind {
+		case customcmd.PromptText, customcmd.PromptSecret:
+			lines = append(lines, "", "> "+platform.SafeText(m.CustomCommandForm.Input()))
+		case customcmd.PromptConfirm:
+			lines = append(lines, "", "[y] yes  [n] no")
+		case customcmd.PromptSelect, customcmd.PromptMultiSelect:
+			selected := make(map[string]bool)
+			for _, option := range m.CustomCommandForm.SelectedOptions() {
+				selected[option] = true
+			}
+			for index, option := range m.CustomCommandForm.Options() {
+				prefix := "  "
+				if index == m.CustomCommandForm.Cursor() {
+					prefix = "> "
+				}
+				if selected[option] {
+					prefix = "✓ "
+				}
+				lines = append(lines, prefix+platform.SafeText(option))
+			}
+		}
+	}
+	lines = append(lines, "", "[enter] accept  [esc] cancel")
+	v := tea.NewView(strings.Join(safeRenderLines(lines), "\n"))
+	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
+	return v
+}
+
 func (m Model) View() tea.View {
 	if m.PaletteMode {
 		return m.paletteView()
+	}
+	if m.CustomCommandForm != nil {
+		return m.customCommandFormView()
 	}
 	if view := m.currentView(); view == workspace.Branches || view == workspace.Stashes || view == workspace.Log || view == workspace.Reflog || view == workspace.Journal || view == workspace.Commit || view == workspace.Remotes || view == workspace.GitHub || view == workspace.Plugins || view == workspace.Hunks || view == workspace.Worktrees || view == workspace.Repositories || view == workspace.Rebase || view == workspace.Conflict || view == workspace.CherryPick || view == workspace.Gitignore || view == workspace.Tags || view == workspace.Compare || view == workspace.PathHistory || view == workspace.Blame {
 		return m.featureView(view)
@@ -8285,6 +9687,21 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	case workspace.GitHub:
 		title, content = "gitwatch · GitHub", m.GitHub.View()
+		if m.GitHubCreateMode || m.GitHubCreateConfirm {
+			content += "\n\n" + platform.SafeText(m.Status)
+		}
+		if m.GitHubMergeMode || m.GitHubMergeConfirm || m.GitHubMergeRefresh {
+			content += "\n\n" + platform.SafeText(m.Status)
+		}
+		if m.GitHubReviewMode || m.GitHubReviewConfirm {
+			content += "\n\n" + platform.SafeText(m.Status)
+		}
+		if m.GitHubCheckActionConfirm {
+			content += "\n\n" + platform.SafeText(m.Status)
+		}
+		if m.GitHubIssueMode || m.GitHubIssueConfirm {
+			content += "\n\n" + platform.SafeText(m.Status)
+		}
 	case workspace.Plugins:
 		title, content = "gitwatch · plugins", m.Plugins.View()
 	case workspace.Hunks:
@@ -8365,8 +9782,16 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect  [B] branch  [x] checkout  [] load more  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Journal {
-		lines[len(lines)-1] = "[j/k] move  [u] undo  [R] redo  [J] newest  [1] status  [esc] back  [q] quit"
-		if m.UndoConfirm || m.RedoConfirm {
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [enter] details  [K] cancel running  [Y] retry failed fetch  [u] undo  [R] redo  [J] newest  [1] status  [esc] back  [q] quit"
+		if m.JournalFilterMode {
+			lines[len(lines)-1] = "journal filter (repo:/path type:merge outcome:success): " + platform.SafeText(m.JournalFilterInput) + "  [enter] apply  [esc] cancel"
+		} else if m.JournalDetailMode {
+			lines[len(lines)-1] = "journal details open  [enter] close  [j/k] move  [/] filter  [esc] back  [q] quit"
+		} else if m.JournalCancelConfirm {
+			lines[len(lines)-1] = "cancel operation: [y] yes  [n] no  [esc] cancel"
+		} else if m.JournalRetryConfirm {
+			lines[len(lines)-1] = "retry operation: [y] yes  [n] no  [esc] cancel"
+		} else if m.UndoConfirm || m.RedoConfirm {
 			lines[len(lines)-1] = "confirm: [y] yes  [n] no  [esc] cancel"
 		}
 	}
@@ -8397,7 +9822,29 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [Y] compare  [A] add  [R] rename  [L] set-url  [D] remove  [K] prune  [f] fetch  [p] push  [T/X] tag  [esc] back  [q] quit"
 	}
 	if view == workspace.GitHub {
-		lines[len(lines)-1] = "[r] refresh  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] select check  [!] rerun failed  [K] cancel run  [O] issue  [L] release  [r] refresh  [A] approve  [R] request changes  [c] comment  [I] create issue  [n] create PR  [m] merge  [x] checkout head  [o] open  [esc] back  [q] quit"
+		if m.GitHubCreateMode {
+			lines[len(lines)-1] = "PR form: type  [tab/enter] next  [esc] cancel"
+		} else if m.GitHubCreateConfirm {
+			lines[len(lines)-1] = "PR creation confirmation: [y] yes  [n] no  [esc] cancel"
+		} else if m.GitHubMergeMode {
+			lines[len(lines)-1] = "merge form: [m] merge  [s] squash  [r] rebase  [enter] refresh  [esc] cancel"
+		} else if m.GitHubMergeConfirm {
+			lines[len(lines)-1] = "merge confirmation: [y] yes  [n] no  [esc] cancel"
+		} else if m.GitHubReviewMode {
+			lines[len(lines)-1] = "review form: type  [enter] submit  [esc] cancel"
+		} else if m.GitHubReviewConfirm {
+			lines[len(lines)-1] = "review confirmation: [y] yes  [n] no  [esc] cancel"
+		} else if m.GitHubCheckActionConfirm {
+			lines[len(lines)-1] = "check action confirmation: [y] yes  [n] no  [esc] cancel"
+		} else if m.GitHubIssueMode {
+			lines[len(lines)-1] = "issue form: type  [tab/enter] next  [esc] cancel"
+		} else if m.GitHubIssueConfirm {
+			lines[len(lines)-1] = "issue confirmation: [y] yes  [n] no  [esc] cancel"
+		}
+		if m.RemoteBranchConfirm {
+			lines[len(lines)-1] = "GitHub checkout confirmation: [y] yes  [n] no  [esc] cancel"
+		}
 	}
 	if view == workspace.Plugins {
 		lines[len(lines)-1] = "[j/k] move  [r] reload  [esc] back  [q] quit"
@@ -8424,7 +9871,21 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Repositories {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [v] refresh  [enter] open  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [F] fetch all  [R] retry failed  [v] refresh  [enter] open  [esc] back  [q] quit"
+		if m.RepositoryBatchConfirm {
+			content += "\n\n" + platform.SafeText(m.Status)
+		}
+		if len(m.RepositoryBatchResults) > 0 {
+			failed := make([]string, 0)
+			for _, result := range m.RepositoryBatchResults {
+				if result.Status == "failed" {
+					failed = append(failed, result.Request.Repository.Root)
+				}
+			}
+			if len(failed) > 0 {
+				content += "\n\nFailed batch repositories:\n  " + platform.SafeText(strings.Join(failed, "\n  "))
+			}
+		}
 		if m.RepositorySearching {
 			lines[len(lines)-1] = "filter: " + platform.SafeText(m.Repositories.Query) + "  [enter] apply  [esc] cancel"
 		}

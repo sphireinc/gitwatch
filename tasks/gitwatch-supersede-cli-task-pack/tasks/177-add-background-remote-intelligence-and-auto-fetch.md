@@ -49,3 +49,16 @@ Provide optional remote awareness without surprising history changes or compromi
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence (2026-09-21)
+
+- Added `internal/remoteintel` with opt-in bounded auto-fetch scheduling, fixed worker concurrency, deterministic per-repository jitter, cancellation-aware waits, active-operation skipping, and exponential failure backoff.
+- Added configuration fields for disabled-by-default auto-fetch interval, jitter, backoff, and backoff maximum; validation and schema/documentation coverage are included.
+- Added optional `repositories.group_auto_fetch` intervals; when several groups apply, the scheduler uses the most conservative configured interval.
+- Integrated the scheduler with the Bubble Tea lifecycle. Auto-fetch runs outside render/update paths, uses typed discovery/status/remote/fetch boundaries, never pulls/rebases/pushes, and refreshes the repository dashboard after successful fetches.
+- Persisted the latest in-process auto-fetch result into repository dashboard rows, including visible success/failure/skipped state and stable offline/authentication/rate-limit/remote-error categories; failures contribute a warning without masking critical local conflicts.
+- Persisted last auto-fetch timestamp, status, error class, and elapsed milliseconds in the versioned repository registry; registry merges preserve this metadata across discovery refreshes and process restarts.
+- Added selected-profile auto-fetch policy overrides with validation, schema, documentation, and app-level selection coverage.
+- Exposed measured fetch duration as repository-dashboard latency metadata and expanded Git transport classification for credential prompts/HTTP-style auth failures.
+- Focused tests cover a 20-repository concurrency cap, active-operation skipping, failure backoff, cancellation, configuration defaults, and enabled-interval validation.
+- Remaining: provider-specific rate-limit/auth signals beyond Git transport text, and native/manual acceptance evidence.

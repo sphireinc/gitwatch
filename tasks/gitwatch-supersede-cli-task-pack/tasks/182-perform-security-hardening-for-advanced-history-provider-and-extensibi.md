@@ -50,3 +50,41 @@ Threat-model and harden the larger attack surface before release.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Current implementation evidence
+
+- Added Go fuzz targets for the rebase todo parser and unmerged-index parser:
+  `FuzzParseNeverPanicsOrExceedsInputBound` and
+  `FuzzParseIndexNeverPanicsOrExceedsInputBound`.
+- Added a 4 MiB input bound to `conflicts.ParseIndex`, matching the existing
+  bounded-parser approach used by rebase plans and preventing attacker-sized
+  unmerged-index input from creating unbounded parser work.
+- Seeded fuzz targets pass as normal tests; extended fuzz-duration evidence and
+  the remaining parser/security audit are still required.
+- A 2-second rebase fuzz run found 83 new coverage inputs and passed; a
+  3-second conflict-index fuzz run found 72 new coverage inputs and passed.
+  The conflict fuzz run exposed and the parser now rejects empty-path records;
+  the generated corpus is retained under `internal/conflicts/testdata/fuzz`.
+- Added `FuzzDefinitionExpandNeverProducesUnsafeArg` for custom-command
+  placeholder expansion and argv control-byte rejection. Seeded execution
+  passes; extended fuzz-duration evidence remains outstanding.
+- Added parser fuzz targets for blame porcelain records and bounded reflog
+  records. They assert parser safety and non-negative timestamps/content
+  invariants while preserving the existing bounded Git-loading boundaries.
+- A 2-second blame fuzz run passed with 78 new coverage inputs; a 2-second
+  reflog fuzz run passed with 74 new coverage inputs. The blame corpus includes
+  a truncated record with an empty content line, which is valid porcelain for
+  a blank source line and is therefore retained without weakening the parser.
+- Added fuzz targets for tag-ref parsing and submodule config/status parsing,
+  asserting that successful results retain required identity/path invariants.
+- Short fuzz runs passed for tags (49 new coverage inputs), submodule config
+  (25 new inputs), and submodule status (72 new inputs). These are focused
+  parser runs; the complete security gate still requires the broader matrix and
+  final exact-revision/native evidence.
+- `scripts/security-check.sh` now runs one-second fuzz smoke tests for rebase,
+  conflicts, blame, reflog, tags, submodule config/status, and custom-command
+  parsing. `GITWATCH_FUZZTIME` can increase the duration for deeper local runs.
+- `GOCACHE=/tmp/gitwatch-security-cache GOPROXY=off GOSUMDB=off
+  GITWATCH_FUZZTIME=1s ./scripts/security-check.sh` passed. The gate found and
+  drove the fix for malformed blame line-count `0`; the parser now retains its
+  safe positive default instead of returning `NumLines: 0`.

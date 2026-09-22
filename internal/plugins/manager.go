@@ -1,6 +1,8 @@
 package plugins
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,14 +13,75 @@ import (
 )
 
 type Entry struct {
-	Manifest Manifest
-	Path     string
-	Enabled  bool
-	Healthy  bool
-	Error    string
-	Commands []publicplugin.CommandSpec
-	Panels   []publicplugin.PanelSpec
-	Widgets  []publicplugin.StatusWidgetSpec
+	Manifest      Manifest
+	Path          string
+	Enabled       bool
+	Healthy       bool
+	Error         string
+	Commands      []publicplugin.CommandSpec
+	Panels        []publicplugin.PanelSpec
+	Widgets       []publicplugin.StatusWidgetSpec
+	Contributions []publicplugin.Contribution
+}
+
+// Probe performs the opt-in process handshake and records only bounded,
+// schema-defined output for the host UI.
+func Probe(ctx context.Context, host Runtime, entry Entry, supported []Capability) Entry {
+	if !entry.Enabled || !entry.Healthy {
+		return entry
+	}
+	negotiation, err := host.Handshake(ctx, entry.Manifest, supported)
+	if err != nil {
+		entry.Healthy = false
+		entry.Error = err.Error()
+		return entry
+	}
+	if !negotiation.Accepted {
+		entry.Healthy = false
+		entry.Error = negotiation.Reason
+		return entry
+	}
+	contributions, decodeErr := DecodeContributions(negotiation.Output, 32)
+	if decodeErr != nil {
+		entry.Healthy = false
+		entry.Error = decodeErr.Error()
+		return entry
+	}
+	entry.Contributions = contributions
+	return entry
+}
+
+// DecodeContributions extracts bounded, schema-defined contributions from a
+// plugin's newline-delimited output. Unknown message types remain ignorable so
+// older hosts can safely consume mixed-version plugin output.
+func DecodeContributions(data []byte, max int) ([]publicplugin.Contribution, error) {
+	if max <= 0 || max > publicplugin.MaxContributionRows {
+		max = 32
+	}
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	scanner.Buffer(make([]byte, 1024), publicplugin.MaxMessageBytes)
+	contributions := make([]publicplugin.Contribution, 0)
+	for scanner.Scan() {
+		message, err := publicplugin.Decode(append(scanner.Bytes(), '\n'))
+		if err != nil || message.Type != publicplugin.MessageContribution {
+			continue
+		}
+		var contribution publicplugin.Contribution
+		if err := json.Unmarshal(message.Payload, &contribution); err != nil {
+			continue
+		}
+		if err := contribution.Validate(); err != nil {
+			continue
+		}
+		contributions = append(contributions, contribution)
+		if len(contributions) >= max {
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return contributions, nil
 }
 
 func Discover(ctx context.Context, directories []string, max int) ([]Entry, error) {

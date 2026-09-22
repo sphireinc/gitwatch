@@ -82,3 +82,15 @@ func TestBasketViewShowsBoundedApplicationOrderPreview(t *testing.T) {
 		}
 	}
 }
+
+func TestViewPreservesMultipleGraphLanes(t *testing.T) {
+	m := New([]history.Commit{
+		{SHA: "merge", Short: "merge", Subject: "merge", Parents: []string{"main", "side"}},
+		{SHA: "main", Short: "main", Subject: "main", Parents: []string{"root"}},
+		{SHA: "side", Short: "side", Subject: "side", Parents: []string{"root"}},
+	})
+	view := m.View()
+	if !strings.Contains(view, "●") || !strings.Contains(view, "│●") {
+		t.Fatalf("multi-lane graph rendering = %q", view)
+	}
+}

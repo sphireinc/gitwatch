@@ -2,6 +2,51 @@
 
 The status table uses stable row indexes and only materializes visible indexes; it does not allocate a rendered row for every entry on every frame. Git refreshes run outside the Bubble Tea render path and the refresh coordinator permits one status process per repository.
 
+Status-panel row-height measurement is also viewport-bounded. Flat and tree status
+views retain the complete logical entry set and stable offsets, while the pure
+`internal/ui/virtualrange` model clamps stale offsets and supplies bounded
+viewport-plus-overscan candidate ranges. Mouse hit-testing measures only rows
+that can occupy the current panel. Deterministic
+14,953-entry regression coverage and a benchmark live in
+`internal/app/status_virtualization_test.go`:
+
+```text
+go test ./internal/app -run '^$' -bench BenchmarkStatusMouseRowHeights14953 -benchmem
+```
+
+The same benchmark is part of `scripts/performance-check.sh`, so the release
+performance gate exercises both the bounded path and its full-scan comparison.
+
+The cross-repository command palette has a deterministic 50-repository benchmark:
+
+```text
+go test ./internal/app -run '^$' -bench '^BenchmarkCommandPalette50Repositories$' -benchmem -benchtime=1x
+```
+
+It indexes only already-loaded in-memory rows and searches the bounded palette
+action set; it must not start Git, provider, filesystem, or plugin processes.
+The regression test caps the allocation count at 2,500 allocations per search.
+
+The scale benchmark and allocation regression cover 1,000, 10,000, and 50,000
+changed-path models, with the measured viewport near the end of each list:
+
+```text
+go test ./internal/app -run '^$' -bench BenchmarkStatusMouseRowHeightsScale -benchmem
+go test ./internal/app -run 'TestStatusMouseRowHeightsScaleAllocationBudget'
+```
+
+These are bounded-work regression gates rather than portable latency limits;
+the 50,000-entry fixture still requires broader stress, process/goroutine, and
+native terminal evidence before Task 183 can be closed.
+
+Record this benchmark with the Go version, OS/architecture, terminal dimensions,
+and exact revision. The benchmark includes a full-scan baseline for comparison;
+on the recorded Apple M1 Pro run, bounded measurement was approximately 72.8
+microseconds/op, 6.2 KB/op, and 287 allocations/op, versus approximately 16.2
+milliseconds/op, 1.4 MB/op, and 64,394 allocations/op for the baseline. These
+figures are host-specific evidence of bounded measurement work, not a substitute
+for native 80x24 keyboard/mouse acceptance.
+
 The repository includes benchmarks for the two critical large-worktree paths:
 
 ```text

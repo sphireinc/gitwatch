@@ -50,3 +50,36 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- `internal/integration/TestAdvancedHistoryAndComparisonParityScenario` now
+  creates a disposable repository with real Git commits, lightweight and
+  annotated tags, and verifies the bounded tags, reflog, blame, path-history,
+  and arbitrary-revision comparison boundaries against that repository.
+- `PARITY_MATRIX.md` names this executable scenario for the corresponding
+  reflog, tags, revision-comparison, and file-history/blame claims.
+- `internal/integration/TestBisectParityScenarioSurvivesFreshLoaderAndReset`
+  now verifies real good/bad/skip/reset transitions and reconstructs active
+  state through a fresh Git runner.
+- `internal/integration/TestCherryPickConflictResumeParityScenario` now creates
+  a real conflicting branch, verifies the typed engine exposes a paused
+  sequencer state, resolves the file, continues through Git, and checks the
+  authoritative result.
+- `scripts/parity-check.sh` provides a repeatable local gate for the real
+  integration scenarios, multi-repository refresh, fsnotify watcher events,
+  polling fallback, bisect, cherry-pick, and submodule package coverage.
+- `internal/integration/TestRebaseConflictResumeParityScenario` now creates a
+  real conflicting topic rebase, verifies Git's durable rebase operation and
+  authoritative conflict snapshot, resolves the path, continues, and verifies
+  the completed clean state.
+- `internal/integration/TestRevertConflictResumeParityScenario` now exercises
+  a real typed multi-step revert conflict, shared operation-state detection,
+  lifecycle continuation, and the final authoritative clean snapshot.
+- The parity gate also runs the existing custom-command argv/output/cancellation
+  tests and plugin manifest, handshake, capability-negotiation, and compatibility
+  fixtures from `internal/customcmd`, `internal/plugins`, and `pkg/plugin`.
+- The complete parity harness remains open: sequencer conflict/resume lanes,
+  submodules, remotes, custom commands, provider stubs, watcher and
+  polling lanes, Windows path/CRLF behavior, PTY flows, and native evidence
+  still need executable coverage and release-gate results.

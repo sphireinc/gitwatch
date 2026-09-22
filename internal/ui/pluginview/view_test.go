@@ -28,3 +28,14 @@ func TestViewShowsExtensionSurfaceCountsAndPermissionRevocation(t *testing.T) {
 		}
 	}
 }
+
+func TestViewShowsSchemaDefinedContributions(t *testing.T) {
+	entry := plugins.Entry{Manifest: plugins.Manifest{ID: "one", Name: "One", Version: "2"}, Enabled: true, Healthy: true}
+	entry.Contributions = []plugin.Contribution{{SchemaVersion: plugin.APIVersion2, Kind: "table", Title: "Repository health", ReadOnly: true}}
+	view := New([]plugins.Entry{entry}).View()
+	for _, want := range []string{"contributions: 1", "table: Repository health"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("missing %q: %s", want, view)
+		}
+	}
+}

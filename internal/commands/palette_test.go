@@ -12,3 +12,20 @@ func TestSearchRanksCompactMatchesAndKeepsDisabledActions(t *testing.T) {
 		t.Fatalf("disabled action was lost: %#v", results)
 	}
 }
+
+func TestSearchSupportsRepositoryAndCategoryPrefixes(t *testing.T) {
+	actions := []Action{
+		{ID: "repo-a", Label: "Open repository alpha", Category: "repository"},
+		{ID: "status", Label: "Show status", Category: "workspace"},
+		{ID: "repo-b", Label: "Open repository beta", Category: "repository"},
+	}
+	for _, query := range []string{"repo: beta", "repository: beta", "category:repository beta"} {
+		results := Search(actions, query)
+		if len(results) != 1 || results[0].ID != "repo-b" {
+			t.Fatalf("Search(%q) = %#v", query, results)
+		}
+	}
+	if got := Search(actions, "category:workspace"); len(got) != 1 || got[0].ID != "status" {
+		t.Fatalf("category-only search = %#v", got)
+	}
+}

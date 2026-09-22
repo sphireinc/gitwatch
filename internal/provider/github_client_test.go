@@ -44,6 +44,152 @@ func TestGitHubClientUsesTokenAndParsesResponses(t *testing.T) {
 	}
 }
 
+func TestGitHubClientListsBoundedOpenPullRequestPage(t *testing.T) {
+	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Query().Get("state") != "open" || r.URL.Query().Get("page") != "2" || r.URL.Query().Get("per_page") != "100" {
+			t.Fatalf("pagination query = %s", r.URL.RawQuery)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`[{"number":8,"title":"Open"}]`)), Header: make(http.Header), Request: r}, nil
+	})}}
+	pulls, err := client.ListPullRequests(context.Background(), Repository{Owner: "o", Name: "r"}, 2, 1000)
+	if err != nil || len(pulls) != 1 || pulls[0].Number != 8 {
+		t.Fatalf("pull page = %#v, err=%v", pulls, err)
+	}
+}
+
+func TestGitHubClientListsIssuesAndReleasesAndCreatesIssue(t *testing.T) {
+	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodPost {
+			return &http.Response{StatusCode: http.StatusCreated, Body: io.NopCloser(strings.NewReader(`{"number":9,"title":"New issue","state":"open"}`)), Header: make(http.Header), Request: r}, nil
+		}
+		if strings.HasSuffix(r.URL.Path, "/releases") {
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`[{"id":2,"tag_name":"v2.0.0"}]`)), Header: make(http.Header), Request: r}, nil
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`[{"number":3,"title":"Bug","state":"open"}]`)), Header: make(http.Header), Request: r}, nil
+	})}}
+	repository := Repository{Owner: "o", Name: "r"}
+	issues, err := client.ListIssues(context.Background(), repository, "bad", 0, MaxIssues+1)
+	if err != nil || len(issues) != 1 || issues[0].Number != 3 {
+		t.Fatalf("issues = %#v, err=%v", issues, err)
+	}
+	releases, err := client.ListReleases(context.Background(), repository, 0, MaxReleases+1)
+	if err != nil || len(releases) != 1 || releases[0].TagName != "v2.0.0" {
+		t.Fatalf("releases = %#v, err=%v", releases, err)
+	}
+	issue, err := client.CreateIssue(context.Background(), repository, IssueCreateRequest{Title: "New issue", Labels: []string{"bug"}})
+	if err != nil || issue.Number != 9 {
+		t.Fatalf("created issue = %#v, err=%v", issue, err)
+	}
+}
+
+func TestGitHubClientLoadsBoundedPullRequestDetail(t *testing.T) {
+	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		body := `{"number":9,"title":"Detail","state":"open","base":{"ref":"main"},"head":{"ref":"feature"}}`
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/commits"):
+			body = `[{"sha":"abc","commit":{"message":"subject","author":{"name":"A"}}}]`
+		case strings.HasSuffix(r.URL.Path, "/files"):
+			body = `[{"filename":"main.go","status":"modified","patch":"@@"}]`
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header), Request: r}, nil
+	})}}
+	detail, err := client.PullRequestDetail(context.Background(), Repository{Owner: "o", Name: "r"}, 9)
+	if err != nil || detail.Number != 9 || len(detail.Commits) != 1 || len(detail.Files) != 1 {
+		t.Fatalf("detail = %#v, err=%v", detail, err)
+	}
+}
+
+func TestGitHubClientCreatesPullRequestWithoutRetryingMutation(t *testing.T) {
+	attempts := 0
+	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), Retries: 3, HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		attempts++
+		if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer token" {
+			t.Fatalf("request = %s auth=%q", r.Method, r.Header.Get("Authorization"))
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil || !strings.Contains(string(body), `"base":"main"`) || !strings.Contains(string(body), `"head":"feature"`) {
+			t.Fatalf("request body = %s, err=%v", body, err)
+		}
+		return &http.Response{StatusCode: http.StatusCreated, Body: io.NopCloser(strings.NewReader(`{"number":10,"title":"Ship","state":"open"}`)), Header: make(http.Header), Request: r}, nil
+	})}}
+	pull, err := client.CreatePullRequest(context.Background(), Repository{Owner: "o", Name: "r"}, PullRequestCreateRequest{Title: "Ship", Body: "body", Head: "feature", Base: "main"})
+	if err != nil || pull.Number != 10 || attempts != 1 {
+		t.Fatalf("created pull = %#v err=%v attempts=%d", pull, err, attempts)
+	}
+}
+
+func TestGitHubClientRejectsInvalidPullRequestCreation(t *testing.T) {
+	client := GitHubClient{HTTPClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("invalid request reached provider")
+		return nil, nil
+	})}}
+	if _, err := client.CreatePullRequest(context.Background(), Repository{Owner: "o", Name: "r"}, PullRequestCreateRequest{Head: "feature", Base: "main"}); err == nil {
+		t.Fatal("invalid create request was accepted")
+	}
+}
+
+func TestGitHubClientReviewAndMergeMutationsAreTypedAndNonRetrying(t *testing.T) {
+	attempts := 0
+	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), Retries: 3, HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		attempts++
+		if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer token" {
+			t.Fatalf("request = %s auth=%q", r.Method, r.Header.Get("Authorization"))
+		}
+		if strings.HasSuffix(r.URL.Path, "/comments") {
+			return &http.Response{StatusCode: http.StatusCreated, Body: io.NopCloser(strings.NewReader(`{"id":3,"body":"looks good","user":{"login":"reviewer"}}`)), Header: make(http.Header), Request: r}, nil
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"merged":true,"sha":"abc","message":"merged"}`)), Header: make(http.Header), Request: r}, nil
+	})}}
+	comment, err := client.CreateReviewComment(context.Background(), Repository{Owner: "o", Name: "r"}, 4, ReviewCommentRequest{Body: "looks good"})
+	if err != nil || comment.ID != 3 {
+		t.Fatalf("comment = %#v, err=%v", comment, err)
+	}
+	merged, err := client.MergePullRequest(context.Background(), Repository{Owner: "o", Name: "r"}, 4, MergeRequest{Method: MergeMethodSquash, ExpectedSHA: "abc"})
+	if err != nil || !merged.Merged || merged.SHA != "abc" || attempts != 2 {
+		t.Fatalf("merge = %#v, err=%v attempts=%d", merged, err, attempts)
+	}
+}
+
+func TestGitHubClientSubmitsReviewDecision(t *testing.T) {
+	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if !strings.HasSuffix(r.URL.Path, "/reviews") || r.Method != http.MethodPost {
+			t.Fatalf("review request path/method = %s %s", r.Method, r.URL.Path)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"id":7,"state":"APPROVED","body":""}`)), Header: make(http.Header), Request: r}, nil
+	})}}
+	result, err := client.SubmitReview(context.Background(), Repository{Owner: "o", Name: "r"}, 4, ReviewSubmission{Event: ReviewEventApprove, CommitID: "abc"})
+	if err != nil || result.ID != 7 || result.State != "APPROVED" {
+		t.Fatalf("review result = %#v, err=%v", result, err)
+	}
+}
+
+func TestGitHubClientRunsCheckActionsWithoutRetrying(t *testing.T) {
+	attempts := 0
+	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), Retries: 3, HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		attempts++
+		if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer token" {
+			t.Fatalf("action request = %s auth=%q", r.Method, r.Header.Get("Authorization"))
+		}
+		if !strings.HasSuffix(r.URL.Path, "/rerun-failed-jobs") && !strings.HasSuffix(r.URL.Path, "/cancel") {
+			t.Fatalf("unexpected action path: %s", r.URL.Path)
+		}
+		return &http.Response{StatusCode: http.StatusNoContent, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header), Request: r}, nil
+	})}}
+	repository := Repository{Owner: "o", Name: "r"}
+	if err := client.RerunFailedJobs(context.Background(), repository, 12); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.CancelRun(context.Background(), repository, 12); err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 2 {
+		t.Fatalf("action attempts = %d, want 2", attempts)
+	}
+	if err := client.CancelRun(context.Background(), repository, 0); err == nil {
+		t.Fatal("invalid check-run id was accepted")
+	}
+}
+
 func TestGitHubClientReviews(t *testing.T) {
 	client := GitHubClient{BaseURL: "https://api.github.test", TokenSource: fixedToken("token"), HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`[{"state":"APPROVED"}]`)), Header: make(http.Header)}, nil

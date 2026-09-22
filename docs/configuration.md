@@ -3,23 +3,23 @@
 gitwatch reads JSON from `GITWATCH_CONFIG`, then
 `$XDG_CONFIG_HOME/gitwatch/config.json`, or the platform configuration
 fallback. Files without a version and version 1 files are migrated in memory
-to the current version 2 defaults; they are never rewritten automatically.
+to the current version 3 defaults; they are never rewritten automatically.
 Future versions are rejected so an older binary cannot silently discard new
 settings. The configuration schema version is independent of the gitwatch
-release version; the schema reached version 2 during prerelease development.
+release version; the schema reached version 3 during supersede development.
 
-The schema-version-2 top-level fields are:
+The schema-version-3 top-level fields are:
 
 | Field | Purpose |
 | --- | --- |
-| `version` | Configuration schema version; current value is `2`. |
+| `version` | Configuration schema version; current value is `3`. |
 | `theme` | `auto`, `dark`, `light`, or `high-contrast`. |
 | `motion` | `full`, `reduced`, or `off`. |
 | `watch` | `auto`, `fs`, or `poll`. |
 | `interval`, `reconciliation`, `debounce` | Positive/ non-negative Go duration values encoded as JSON numbers. |
 | `show_untracked`, `show_ignored`, `mouse` | Status and input preferences. |
-| `repositories` | Roots, groups, per-group refresh intervals, discovery depth, repository limit, and symlink/ignored-directory policy. |
-| `remote` | Pull strategy, stale threshold, and worker limit. |
+| `repositories` | Roots, groups, per-group refresh and auto-fetch intervals, discovery depth, repository limit, and symlink/ignored-directory policy. |
+| `remote` | Pull strategy, stale threshold, worker limit, and optional disabled-by-default auto-fetch. `auto_fetch_interval`, `auto_fetch_jitter`, `auto_fetch_backoff`, and `auto_fetch_backoff_max` are JSON duration values. `auto_fetch_profiles.<profile>` can override the auto-fetch policy for the selected profile. Auto-fetch performs fetch only; it never pulls, rebases, pushes, or runs while a repository has an active history operation. |
 | `github` | Optional provider enablement, token environment name, and cache TTL. |
 | `plugins` | Optional plugin directories, enablement, and output limit. |
 | `notifications` | Notification preferences; set `quiet` to suppress attention badges while retaining history. |
@@ -29,6 +29,8 @@ The schema-version-2 top-level fields are:
 | `custom_commands` | Optional shell-free commands with a name, executable, argv tokens, context binding, timeout, confirmation, mutation, and refresh policy. Supported values are `{repo}`, `{path}`, `{sha}`, `{branch}`, `{remote}`, `{tag}`, and `{url}`. |
 | `gitignore_max_bytes` | Maximum interactive `.gitignore` size; defaults to `8388608` (8 MiB). Oversized files remain read-only and are not loaded into mutation previews. |
 | `show_commit_tree`, `commit_tree` | Optional status-pane commit graph; disabled by default, with `max_commits` defaulting to `100` and capped at `1000`. |
+| `workspace` | Bounded presentation limits: `palette_max_results` defaults to `200` and `status_overscan` defaults to `4`. |
+| `visuals` | Optional dense dashboard indicators; `activity_buckets` defaults to `8` and is capped at `32`. |
 | `profile`, `keymap_profiles` | Optional named keymap profile and profile definitions. |
 | `keymap` | Direct action-to-key overrides; these take precedence over the selected profile. Duplicate keys, unknown actions, reserved terminal controls, and destructive-action remaps are rejected before startup. |
 

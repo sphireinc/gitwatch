@@ -48,3 +48,37 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added an additive API-2 negotiation path in `pkg/plugin`: version lists,
+  highest-mutual-version selection, and graceful omission of unknown
+  capabilities. The existing strict API-1 handshake remains compatible.
+- Added bounded, data-only contribution schemas for contextual actions,
+  tables, detail fields, notifications, and repository metadata, plus
+  explicit process/network/Git-mutation capability names.
+- Added SDK compatibility tests covering API-2 negotiation, unknown-capability
+  degradation, oversized contributions, control-sequence rejection, and
+  additive API-2 handshake fields.
+- Focused verification passed: `go test ./pkg/plugin ./internal/plugins`,
+  `go vet ./pkg/plugin ./internal/plugins`, and `git diff --check`.
+- Wired the versioned handshake through `internal/plugins.Runtime`: API-2
+  manifests advertise `[2, 1]`, hosts accept a negotiated downgrade, and the
+  handshake transport can run while optional capabilities are being filtered.
+  Ordinary plugin execution still requires every manifest capability to be
+  explicitly granted.
+- Runtime tests cover API-2 acceptance and unknown-capability degradation;
+  focused package, race, vet, and diff checks pass.
+- Added the dependency-free `examples/plugin-contribution` API-2 example and
+  checked-in `pkg/plugin/testdata/v2` handshake/contribution fixtures.
+- Added bounded host-side contribution decoding in `internal/plugins` and
+  schema-only contribution summaries in `internal/ui/pluginview`; invalid or
+  unknown records are ignored without allowing plugin UI code to enter the
+  process.
+- Connected enabled plugin reloads to the cancellable runtime probe, attached
+  bounded contribution output to discovered entries, and rendered it in the
+  plugin workspace. API-2 runtime, manager, UI, full-test, race, vet, and
+  diff checks pass.
+- Remaining: add provider-backed repository metadata actions and notifications,
+  broaden interaction beyond the plugin workspace, and complete
+  native/manual/release evidence.

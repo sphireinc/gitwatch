@@ -8,6 +8,7 @@ import (
 )
 
 var ErrDuplicate = errors.New("operation already running")
+var ErrNotRetryable = errors.New("operation is not marked replayable")
 
 type State uint8
 
@@ -46,8 +47,16 @@ type Result struct {
 	Err                       error
 	Cause                     string
 	Queued, Started, Finished time.Time
+	Retryable                 bool
 }
 type Work func(context.Context) error
+type Options struct{ Retryable bool }
+type retrySpec struct {
+	repo, name string
+	timeout    time.Duration
+	work       Work
+	retryable  bool
+}
 type ResultMsg struct{ Result Result }
 type Engine struct {
 	mu      sync.Mutex
@@ -58,13 +67,14 @@ type Engine struct {
 	results chan Result
 	latest  map[string]Result
 	history []Result
+	retry   map[string]retrySpec
 }
 
 func New(limit int) *Engine {
 	if limit < 1 {
 		limit = 1
 	}
-	return &Engine{limit: make(chan struct{}, limit), repos: make(map[string]*sync.Mutex), active: make(map[string]context.CancelFunc), waiters: make(map[string]chan Result), results: make(chan Result, limit), latest: make(map[string]Result)}
+	return &Engine{limit: make(chan struct{}, limit), repos: make(map[string]*sync.Mutex), active: make(map[string]context.CancelFunc), waiters: make(map[string]chan Result), results: make(chan Result, limit), latest: make(map[string]Result), retry: make(map[string]retrySpec)}
 }
 func (e *Engine) Results() <-chan Result { return e.results }
 
@@ -81,11 +91,16 @@ func (e *Engine) Snapshot() []Result {
 	return result
 }
 func (e *Engine) Submit(parent context.Context, id, repo, name string, timeout time.Duration, work Work) error {
-	_, err := e.submit(parent, id, repo, name, timeout, work)
+	_, err := e.submit(parent, id, repo, name, timeout, work, Options{})
 	return err
 }
 
-func (e *Engine) submit(parent context.Context, id, repo, name string, timeout time.Duration, work Work) (chan Result, error) {
+func (e *Engine) SubmitWithOptions(parent context.Context, id, repo, name string, timeout time.Duration, work Work, options Options) error {
+	_, err := e.submit(parent, id, repo, name, timeout, work, options)
+	return err
+}
+
+func (e *Engine) submit(parent context.Context, id, repo, name string, timeout time.Duration, work Work, options Options) (chan Result, error) {
 	e.mu.Lock()
 	if _, ok := e.active[id]; ok {
 		e.mu.Unlock()
@@ -95,14 +110,15 @@ func (e *Engine) submit(parent context.Context, id, repo, name string, timeout t
 	e.active[id] = cancel
 	waiter := make(chan Result, 1)
 	e.waiters[id] = waiter
-	e.latest[id] = Result{ID: id, Repo: repo, Name: name, State: Pending, Queued: time.Now()}
+	e.retry[id] = retrySpec{repo: repo, name: name, timeout: timeout, work: work, retryable: options.Retryable}
+	e.latest[id] = Result{ID: id, Repo: repo, Name: name, State: Pending, Queued: time.Now(), Retryable: options.Retryable}
 	lock := e.repos[repo]
 	if lock == nil {
 		lock = &sync.Mutex{}
 		e.repos[repo] = lock
 	}
 	e.mu.Unlock()
-	go e.run(ctx, id, repo, name, timeout, lock, work)
+	go e.run(ctx, id, repo, name, timeout, lock, work, options.Retryable)
 	return waiter, nil
 }
 
@@ -120,8 +136,12 @@ func (e *Engine) Cancel(id string) bool {
 // Command adapts one operation result to a Bubble Tea-compatible command.
 // The blocking wait happens in the command goroutine, never in Update or View.
 func (e *Engine) Command(ctx context.Context, id, repo, name string, timeout time.Duration, work Work) func() ResultMsg {
+	return e.CommandWithOptions(ctx, id, repo, name, timeout, work, Options{})
+}
+
+func (e *Engine) CommandWithOptions(ctx context.Context, id, repo, name string, timeout time.Duration, work Work, options Options) func() ResultMsg {
 	return func() ResultMsg {
-		waiter, err := e.submit(ctx, id, repo, name, timeout, work)
+		waiter, err := e.submit(ctx, id, repo, name, timeout, work, options)
 		if err != nil {
 			return ResultMsg{Result: Result{ID: id, Repo: repo, Name: name, State: Failed, Err: err}}
 		}
@@ -129,14 +149,39 @@ func (e *Engine) Command(ctx context.Context, id, repo, name string, timeout tim
 		return ResultMsg{Result: result}
 	}
 }
-func (e *Engine) run(ctx context.Context, id, repo, name string, timeout time.Duration, repoLock *sync.Mutex, work Work) {
+func (e *Engine) Retry(ctx context.Context, id string) (chan Result, error) {
+	e.mu.Lock()
+	if _, active := e.active[id]; active {
+		e.mu.Unlock()
+		return nil, ErrDuplicate
+	}
+	spec, ok := e.retry[id]
+	latest, hasLatest := e.latest[id]
+	e.mu.Unlock()
+	if !ok || !spec.retryable || !hasLatest || (latest.State != Failed && latest.State != Cancelled && latest.State != TimedOut) {
+		return nil, ErrNotRetryable
+	}
+	return e.submit(ctx, id, spec.repo, spec.name, spec.timeout, spec.work, Options{Retryable: true})
+}
+
+func (e *Engine) RetryCommand(ctx context.Context, id string) func() ResultMsg {
+	return func() ResultMsg {
+		waiter, err := e.Retry(ctx, id)
+		if err != nil {
+			return ResultMsg{Result: Result{ID: id, State: Failed, Err: err}}
+		}
+		return ResultMsg{Result: <-waiter}
+	}
+}
+
+func (e *Engine) run(ctx context.Context, id, repo, name string, timeout time.Duration, repoLock *sync.Mutex, work Work, retryable bool) {
 	started := time.Now()
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
 	}
 	timerCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	result := Result{ID: id, Repo: repo, Name: name, State: Running, Queued: started, Started: started}
+	result := Result{ID: id, Repo: repo, Name: name, State: Running, Queued: started, Started: started, Retryable: retryable}
 	e.setLatest(result)
 	select {
 	case e.limit <- struct{}{}:

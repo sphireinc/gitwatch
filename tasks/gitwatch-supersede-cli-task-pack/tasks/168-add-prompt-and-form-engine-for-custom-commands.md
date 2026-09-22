@@ -48,3 +48,21 @@ Support interactive custom workflows such as selecting a branch or entering a ti
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added the pure `internal/customcmd.Form` engine with text, secret,
+  confirmation, select, and multi-select prompts; required/pattern validation;
+  cancellation; typed submitted values; and secret redaction for previews.
+- `customcmd.Definition` now declares prompts and expands `{prompt:id}` argv
+  placeholders only after values are supplied.
+- The Bubble Tea app now opens the form before starting a custom-command
+  process, renders the focused prompt, supports cancel, and requires explicit
+  confirmation for commands marked `Confirm`.
+- Select and multi-select prompts may declare `options_source` as `branches`,
+  `remotes`, `tags`, `commits`, or `paths`; the app resolves these from its
+  already-loaded repository models without launching a command or provider
+  request while the form opens.
+- Focused tests cover form behavior and app-level submit/cancel behavior. The
+  task remains open for full native keyboard/mouse acceptance and richer
+  provider-backed option sources.

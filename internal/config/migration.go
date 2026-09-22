@@ -52,6 +52,12 @@ func PlanMigration(data []byte) (MigrationPlan, error) {
 			Field: "new schema defaults", Before: "not present in source", After: "current defaults",
 			Reason: "new fields are supplied in memory and the source file is not rewritten",
 		})
+		if version == 2 {
+			plan.Changes = append(plan.Changes, MigrationChange{
+				Field: "workspace, visuals", Before: "not present in schema v2", After: "typed v3 defaults",
+				Reason: "bound palette/status presentation and activity visualization without changing watcher or repository policies",
+			})
+		}
 	}
 	return plan, nil
 }

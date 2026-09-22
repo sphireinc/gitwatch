@@ -50,3 +50,16 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Current implementation evidence
+
+- The bounded status viewport path has deterministic 14,953-entry flat/tree
+  coverage, a comparative benchmark, and an allocation regression test with a
+  1,000-allocation threshold for viewport row-height measurement.
+- The same path now has scale benchmarks and allocation regression coverage at
+  1,000, 10,000, and 50,000 changed paths, with the viewport positioned near
+  the end of each list.
+- `scripts/performance-check.sh` runs the status benchmark alongside the
+  existing patch/history/registry workload checks.
+- Full multi-repository, provider, history, 50k-path, goroutine/process, and
+  native responsiveness evidence remains required; this task stays open.

@@ -49,3 +49,31 @@ Move optional GitHub support from read-only visibility to a practical pull-reque
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added the provider-neutral bounded `PullRequestListClient` contract and
+  `ParsePullRequests` page parser.
+- Added GitHub open-PR page loading with clamped page size (maximum 100),
+  preserving the existing optional-provider error and cancellation behavior.
+- Added parser, pagination-query, and page-bound tests; focused provider tests,
+  provider race tests, and `git diff --check` pass.
+- Added bounded provider-neutral PR detail models and GitHub loading for PR
+  metadata, commits, and changed files/patches.
+- Added an explicit validated create contract and non-retrying GitHub POST;
+  it creates only the provider PR and never pushes a local branch.
+- Extended the GitHub workspace model to render bounded open-PR lists and
+  detail commit/file summaries; the asynchronous app load path requests these
+  optional provider details without affecting local status loading.
+- Added provider-ref validation and an explicit `[x]` GitHub checkout
+  confirmation that resolves the matching configured GitHub remote and routes
+  through the existing typed detached remote checkout boundary. Unsafe refs,
+  missing remotes, and cancellation are covered by app/provider tests.
+- Added a three-field GitHub PR create form (title, body, base) with required
+  current-branch validation, explicit confirmation, provider-only creation,
+  and reload on success; it never performs a hidden Git push.
+- Added TTL caches for bounded open-PR pages and PR detail; expired provider
+  data can be rendered as stale without blocking or replacing local Git status
+  refresh.
+- Remaining: broader provider failure presentation and native/manual acceptance
+  evidence.

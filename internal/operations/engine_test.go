@@ -114,3 +114,36 @@ func TestLifecycleSnapshotClassifiesCancellationAndRetainsHistory(t *testing.T) 
 		t.Fatalf("lifecycle history = %#v", got)
 	}
 }
+
+func TestRetryRequiresExplicitReplayableOperation(t *testing.T) {
+	e := New(1)
+	if err := e.Submit(context.Background(), "unsafe", "repo", "merge", time.Second, func(context.Context) error { return errors.New("conflict") }); err != nil {
+		t.Fatal(err)
+	}
+	<-e.Results()
+	if _, err := e.Retry(context.Background(), "unsafe"); !errors.Is(err, ErrNotRetryable) {
+		t.Fatalf("retry error = %v", err)
+	}
+}
+
+func TestRetryReplaysExplicitlyMarkedOperation(t *testing.T) {
+	e := New(1)
+	var attempts atomic.Int32
+	if err := e.SubmitWithOptions(context.Background(), "fetch", "repo", "fetch", time.Second, func(context.Context) error {
+		if attempts.Add(1) == 1 {
+			return errors.New("temporary network failure")
+		}
+		return nil
+	}, Options{Retryable: true}); err != nil {
+		t.Fatal(err)
+	}
+	<-e.Results()
+	waiter, err := e.Retry(context.Background(), "fetch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := <-waiter
+	if result.State != Succeeded || attempts.Load() != 2 || !result.Retryable {
+		t.Fatalf("retry result = %#v, attempts = %d", result, attempts.Load())
+	}
+}

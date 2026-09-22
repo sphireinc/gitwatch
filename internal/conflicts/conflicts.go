@@ -9,6 +9,8 @@ import (
 	"strconv"
 )
 
+const maxIndexBytes = 4 << 20
+
 type Stage struct {
 	Mode string
 	OID  string
@@ -37,6 +39,9 @@ type Conflict struct {
 func (c Conflict) Bytes() []byte { return append([]byte(nil), c.Path...) }
 
 func ParseIndex(data []byte) ([]Conflict, error) {
+	if len(data) > maxIndexBytes {
+		return nil, fmt.Errorf("unmerged index exceeds %d-byte limit", maxIndexBytes)
+	}
 	byPath := make(map[string]*Conflict)
 	for len(data) > 0 {
 		i := bytes.IndexByte(data, 0)
@@ -52,6 +57,9 @@ func ParseIndex(data []byte) ([]Conflict, error) {
 		fields := bytes.Fields(record[:tab])
 		if len(fields) != 3 {
 			return nil, fmt.Errorf("unmerged index record has %d fields", len(fields))
+		}
+		if len(record[tab+1:]) == 0 {
+			return nil, fmt.Errorf("unmerged index record has empty path")
 		}
 		stage, err := strconv.Atoi(string(fields[2]))
 		if err != nil || stage < 1 || stage > 3 {

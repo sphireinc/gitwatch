@@ -48,3 +48,16 @@ Expose Git, network, provider, plugin and custom-command work as a searchable ht
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence (2026-09-21)
+
+- Existing bounded semantic activity journal remains the source for Git, network, provider, plugin, and custom-command operation records; rendering uses sanitized display text and redacted argv.
+- Added `history.FilterEvents`, a bounded projection that filters by repository, operation type, and outcome without mutating the journal, with unit coverage for semantic and refresh-only events.
+- Added journal workspace repository filtering via `/`, including Enter/Escape input handling, filtered scrolling, filtered selection for safe undo/redo, and an explicit filter indicator in the rendered footer/header.
+- Added `repo:`, `type:`, and `outcome:` filter selectors while preserving plain repository search, plus Enter-to-open sanitized selected-entry details.
+- Enforced argument redaction at the activity-recording boundary so operation details cannot expose token/password/header values supplied by callers.
+- Integrated the existing repository-scoped operation engine into the journal: pending/running operations are visible even before a completion event exists, and `K` opens a confirmation before requesting cancellation.
+- Added semantic timeline labels distinguishing background/network/provider/read work from history mutations; the classification is presentation-only and does not weaken operation-specific safety policy.
+- Added an explicit replay policy to the operation engine. Journal `Y` can retry only failed, cancelled, or timed-out operations marked replayable; remote fetches are marked replayable, while history-changing and other mutations remain non-retryable by default. Retry results return through the normal command path and trigger a refresh.
+- Verification: `GOCACHE=/tmp/gitwatch-go-cache go test ./internal/history ./internal/app`, `GOCACHE=/tmp/gitwatch-go-cache go test ./...`, `GOCACHE=/tmp/gitwatch-go-cache go test -race ./...`, `GOCACHE=/tmp/gitwatch-go-cache go vet ./...`, and `git diff --check` passed; `make check` reached formatting but its pinned lint download was blocked by the managed environment's Go build-cache permission error.
+- Remaining: provider-specific retry/backoff policy, high-volume timeline virtualization, multi-repository interleaving acceptance, and native/manual terminal evidence.

@@ -40,6 +40,12 @@ Make the history graph competitive with LZ while retaining bounded loading and s
 
 - [ ] Graph is actionable and remains bounded under large history.
 
+## Progress evidence (2026-09-22)
+
+- Kept DAG topology in `history.GraphRow` separate from terminal rendering and upgraded history rendering to preserve every active lane in the row prefix instead of collapsing multi-lane rows to one glyph.
+- Added octopus-parent topology coverage and a multi-lane rendering test. Existing scoped history basket, compare, cherry-pick, rebase, branch, worktree, and tag routes remain attached to the selected graph row.
+- Remaining: pagination continuity golden fixtures, explicit range-selection acceptance, ASCII/`NO_COLOR` graph fallback evidence, large-history performance samples, and native/manual acceptance.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.

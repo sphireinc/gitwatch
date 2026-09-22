@@ -49,3 +49,25 @@ Support common review and merge actions while keeping provider state distinct fr
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added bounded provider-neutral review comment models, parsing, and request
+  validation, including reply/inline target fields and sanitized-size limits.
+- Added GitHub list/create review-comment operations with typed provider error
+  handling and non-retrying POST semantics.
+- Added explicit merge methods (`merge`, `squash`, `rebase`) and expected-SHA
+  validation through a typed provider merge contract; local Git state is not
+  changed by provider merge responses.
+- Wired bounded review comments through the GitHub cache/load path and
+  terminal-safe workspace rendering.
+- Added merge-method selection, a pre-merge provider refresh, explicit
+  confirmation, and post-merge provider reload messaging that explicitly says
+  local refs remain unchanged until fetch.
+- Added typed approve/request-changes/comment review submissions with bounded
+  body validation, explicit UI confirmation, and post-submit provider reload.
+- Focused provider/app/UI tests, provider race tests, vet, and
+  `git diff --check` pass.
+- Remaining: branch-deletion-after-merge option, richer provider
+  permission/error presentation, reply-target UI, and native/manual
+  acceptance evidence.

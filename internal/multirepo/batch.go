@@ -32,6 +32,114 @@ type ApplyResult struct {
 }
 type Refresh func(context.Context, Repository) error
 
+type Action string
+
+const (
+	ActionFetch Action = "fetch"
+	ActionPull  Action = "pull"
+)
+
+type Request struct {
+	Repository Repository
+	Remote     string
+	Branch     string
+	Strategy   string
+	Action     Action
+}
+
+type Result struct {
+	Request Request
+	Status  string
+	Err     error
+}
+
+func (r Request) Validate() error {
+	if r.Repository.ID == "" || r.Repository.Root == "" {
+		return errors.New("batch request requires repository identity and root")
+	}
+	if r.Remote == "" {
+		return errors.New("batch request requires an explicit remote")
+	}
+	switch r.Action {
+	case ActionFetch:
+		if r.Branch != "" || r.Strategy != "" {
+			return errors.New("fetch request cannot include branch or strategy")
+		}
+	case ActionPull:
+		if r.Branch == "" {
+			return errors.New("pull request requires a branch")
+		}
+		if r.Strategy != "ff-only" && r.Strategy != "merge" && r.Strategy != "rebase" {
+			return errors.New("pull request requires an explicit strategy")
+		}
+	default:
+		return errors.New("unsupported batch action")
+	}
+	return nil
+}
+
+// Run executes explicitly planned repository operations with bounded
+// concurrency. The callback owns the typed Git/provider operation; one error
+// is recorded and does not prevent unrelated requests from running.
+func Run(ctx context.Context, requests []Request, workers int, execute func(context.Context, Request) error) []Result {
+	if workers < 1 {
+		workers = 1
+	}
+	results := make([]Result, len(requests))
+	jobs := make(chan int)
+	var group sync.WaitGroup
+	for n := 0; n < workers; n++ {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			for index := range jobs {
+				request := requests[index]
+				result := Result{Request: request, Status: "queued"}
+				if err := request.Validate(); err != nil {
+					result.Status, result.Err = "skipped", err
+					results[index] = result
+					continue
+				}
+				select {
+				case <-ctx.Done():
+					result.Status, result.Err = "cancelled", ctx.Err()
+				default:
+					result.Status = "running"
+					if execute == nil {
+						result.Err = errors.New("batch executor is required")
+					} else {
+						result.Err = execute(ctx, request)
+					}
+					if result.Err == nil {
+						result.Status = "succeeded"
+					} else if errors.Is(result.Err, context.Canceled) || errors.Is(result.Err, context.DeadlineExceeded) {
+						result.Status = "cancelled"
+					} else {
+						result.Status = "failed"
+					}
+				}
+				results[index] = result
+			}
+		}()
+	}
+	for index := range requests {
+		select {
+		case jobs <- index:
+		case <-ctx.Done():
+			for remaining := index; remaining < len(requests); remaining++ {
+				results[remaining] = Result{Request: requests[remaining], Status: "cancelled", Err: ctx.Err()}
+			}
+			index = len(requests)
+		}
+		if index == len(requests) {
+			break
+		}
+	}
+	close(jobs)
+	group.Wait()
+	return results
+}
+
 // PlanAdd reads only explicitly selected repositories and creates one plan per repository.
 func PlanAdd(ctx context.Context, repositories []Repository, cat *catalog.Catalog, ids []domain.TemplateID) []PlanResult {
 	results := make([]PlanResult, len(repositories))

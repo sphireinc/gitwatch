@@ -27,3 +27,15 @@ func TestBuildGraphClassifiesDecorations(t *testing.T) {
 		t.Fatalf("unexpected decorations: %#v", rows)
 	}
 }
+
+func TestBuildGraphKeepsOctopusParentsDistinct(t *testing.T) {
+	rows := BuildGraph([]Commit{
+		{SHA: "octopus", Parents: []string{"one", "two", "three"}},
+		{SHA: "one", Parents: []string{"root"}},
+		{SHA: "two", Parents: []string{"root"}},
+		{SHA: "three", Parents: []string{"root"}},
+	})
+	if len(rows) != 4 || rows[0].Lanes != 1 || rows[1].Lane != 0 || rows[2].Lane != 1 || rows[3].Lane != 2 {
+		t.Fatalf("octopus lane topology = %#v", rows)
+	}
+}

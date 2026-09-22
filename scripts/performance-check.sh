@@ -11,3 +11,9 @@ go test ./internal/patch ./internal/history ./internal/registry \
 go test ./internal/patch ./internal/history ./internal/registry \
 	-run '^$' -bench 'Benchmark(ParseLargePatch|ParseLog100K|BuildGraph100K|Rows1000Repositories|RefreshInjected(SlowSources|NetworkLatency))$' \
 	-benchmem -benchtime=1x
+go test ./internal/app -run '^$' -bench '^BenchmarkStatusMouseRowHeights14953$' \
+	-benchmem -benchtime=1x
+go test ./internal/app -run '^$' -bench '^BenchmarkStatusMouseRowHeightsScale$' \
+	-benchmem -benchtime=1x
+go test ./internal/app -run '^$' -bench '^BenchmarkCommandPalette50Repositories$' \
+	-benchmem -benchtime=1x

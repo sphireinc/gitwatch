@@ -9,6 +9,7 @@ import (
 )
 
 const APIVersion = 1
+const APIVersion2 = 2
 
 type Capability string
 
@@ -17,7 +18,24 @@ const (
 	CapabilityPanel          Capability = "panel"
 	CapabilityStatusWidget   Capability = "status_widget"
 	CapabilityRepositoryRead Capability = "repository_read"
+	CapabilityContextAction  Capability = "context_action"
+	CapabilityTable          Capability = "table"
+	CapabilityDetail         Capability = "detail"
+	CapabilityNotification   Capability = "notification"
+	CapabilityRepositoryMeta Capability = "repository_metadata"
+	CapabilityProcess        Capability = "process"
+	CapabilityNetwork        Capability = "network"
+	CapabilityGitMutation    Capability = "git_mutation"
 )
+
+// DefaultCapabilities is the host's schema-only capability surface. A plugin
+// still receives only the subset it declares and the negotiated response
+// confirms.
+var DefaultCapabilities = []Capability{
+	CapabilityCommand, CapabilityPanel, CapabilityStatusWidget, CapabilityRepositoryRead,
+	CapabilityContextAction, CapabilityTable, CapabilityDetail, CapabilityNotification,
+	CapabilityRepositoryMeta, CapabilityProcess, CapabilityNetwork, CapabilityGitMutation,
+}
 
 type Manifest struct {
 	ID           string       `json:"id"`
@@ -35,7 +53,7 @@ func (m Manifest) Validate() error {
 	if strings.TrimSpace(m.Name) == "" || strings.TrimSpace(m.Version) == "" {
 		return errors.New("plugin name and version are required")
 	}
-	if m.APIVersion != APIVersion {
+	if m.APIVersion != APIVersion && m.APIVersion != APIVersion2 {
 		return fmt.Errorf("unsupported plugin API version %d", m.APIVersion)
 	}
 	if strings.TrimSpace(m.Executable) == "" {
@@ -63,9 +81,11 @@ func DecodeManifest(data []byte) (Manifest, error) {
 }
 
 type Negotiation struct {
+	APIVersion   int
 	Accepted     bool
 	Capabilities []Capability
 	Reason       string
+	Output       []byte
 }
 
 func Negotiate(manifest Manifest, supported []Capability) Negotiation {
@@ -82,5 +102,5 @@ func Negotiate(manifest Manifest, supported []Capability) Negotiation {
 			capabilities = append(capabilities, capability)
 		}
 	}
-	return Negotiation{Accepted: true, Capabilities: capabilities}
+	return Negotiation{APIVersion: manifest.APIVersion, Accepted: true, Capabilities: capabilities}
 }

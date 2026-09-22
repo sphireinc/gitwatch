@@ -14,6 +14,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/gitignore/document"
 	"github.com/sphireinc/git-watch/internal/gitignore/domain"
 	"github.com/sphireinc/git-watch/internal/gitignore/match"
+	"github.com/sphireinc/git-watch/internal/health"
 	"github.com/sphireinc/git-watch/internal/repo"
 )
 
@@ -36,6 +37,7 @@ type StatusResult struct {
 	Duration          time.Duration
 	Refreshed         time.Time
 	Gitignore         GitignoreHealth
+	Health            health.Summary
 }
 
 // Engine refreshes repositories concurrently with a bounded worker pool.
@@ -138,6 +140,7 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 	result.Error = err
 	if err == nil {
 		result.Gitignore = inspectGitignore(discovery.Root)
+		result.Health = health.Compute(result.Snapshot, result.Stashes, 0, result.Warnings)
 	}
 	result.Duration = time.Since(started)
 	result.Refreshed = time.Now()

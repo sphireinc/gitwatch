@@ -39,6 +39,14 @@ Add useful htop-style visuals—change heat, diff magnitude and activity sparkli
 
 - [ ] Visuals communicate measurable state with negligible refresh overhead.
 
+## Progress evidence (2026-09-22)
+
+- Added pure `internal/ui/activityviz` projections for conflict-weighted change heat, fixed-width ASCII diff bars, and bounded recent-value sparklines. They clamp inputs, cap output width, and retain numeric/text semantics for no-color and accessibility contexts.
+- Integrated the projections into repository dashboard rows using existing staged, unstaged, untracked, conflict, ahead, and behind metrics; no additional Git/provider/filesystem work is performed during rendering.
+- Added bounded daily commit buckets from already-loaded `HistoryCommits` for the active repository dashboard row; history loading remains the existing bounded path and rendering only consumes the resulting counters.
+- Added unit coverage for heat weighting, bar clamping, and bounded sparkline behavior.
+- Remaining: optional/configurable dashboard space, large changed-file performance evidence, and native 80x24/NO_COLOR/reduced-motion acceptance.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.

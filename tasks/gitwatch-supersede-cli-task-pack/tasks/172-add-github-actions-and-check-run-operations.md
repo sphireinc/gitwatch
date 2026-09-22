@@ -48,3 +48,21 @@ Turn CI visibility into actionable but bounded workflow support.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Extended bounded check-run models with provider identity and run-attempt
+  fields, preserving status, conclusion, duration, and URL visibility.
+- Added typed, non-retrying provider operations for rerunning failed jobs and
+  cancelling a workflow run. Empty 204 responses are accepted without
+  weakening bounded response handling.
+- Added parser bounds and focused tests for identity, attempts, oversized
+  pages, invalid IDs, authorization, endpoint paths, and non-retrying action
+  requests.
+- Added GitHub workspace selection and explicit confirmation for rerunning
+  failed completed runs and cancelling in-progress runs; successful requests
+  reload provider state. Existing bounded URL opening remains available for
+  logs.
+- Remaining: expose rate-limit/backoff state in the UI, add multi-repository
+  cached CI attention, and gather native/manual acceptance evidence that
+  provider work does not starve local status refresh.

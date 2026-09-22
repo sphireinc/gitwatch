@@ -5,6 +5,7 @@ import "strings"
 type Action struct {
 	ID       string
 	Label    string
+	Category string
 	Shortcut string
 	Enabled  bool
 	Reason   string
@@ -17,9 +18,12 @@ type Match struct {
 }
 
 func Search(actions []Action, query string) []Match {
-	query = strings.ToLower(strings.TrimSpace(query))
+	category, query := parseQuery(query)
 	var matches []Match
 	for _, action := range actions {
+		if category != "" && strings.ToLower(action.Category) != category {
+			continue
+		}
 		if query == "" {
 			matches = append(matches, Match{Action: action, Score: 0})
 			continue
@@ -39,6 +43,25 @@ func Search(actions []Action, query string) []Match {
 		matches[j+1] = value
 	}
 	return matches
+}
+
+func parseQuery(query string) (category, text string) {
+	parts := strings.Fields(strings.ToLower(strings.TrimSpace(query)))
+	remaining := make([]string, 0, len(parts))
+	for _, part := range parts {
+		switch {
+		case strings.HasPrefix(part, "repo:") || strings.HasPrefix(part, "repository:"):
+			category = "repository"
+			if suffix := strings.TrimPrefix(strings.TrimPrefix(part, "repo:"), "repository:"); suffix != "" {
+				remaining = append(remaining, suffix)
+			}
+		case strings.HasPrefix(part, "category:"):
+			category = strings.TrimPrefix(part, "category:")
+		default:
+			remaining = append(remaining, part)
+		}
+	}
+	return category, strings.Join(remaining, " ")
 }
 
 func subsequenceScore(value, query string) (int, bool) {

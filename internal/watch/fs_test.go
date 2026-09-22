@@ -123,14 +123,7 @@ func TestWatcherSeesExternalGitMetadataAndRecreatedDirectory(t *testing.T) {
 	if err := os.WriteFile(ref, []byte("0123456789abcdef\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case event := <-events:
-		if event.Err != nil || event.Mode != ModeFS || event.Path != ref {
-			t.Fatalf("recreated ref event: %#v", event)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("watcher did not restore nested metadata watches")
-	}
+	awaitFilesystemPathEvent(t, events, ref)
 }
 
 func TestSnapshotReadDoesNotEmitMetadataHint(t *testing.T) {
@@ -190,6 +183,25 @@ func awaitFilesystemEvent(t *testing.T, events <-chan Event) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("watcher did not emit")
+	}
+}
+
+func awaitFilesystemPathEvent(t *testing.T, events <-chan Event, want string) {
+	t.Helper()
+	deadline := time.NewTimer(time.Second)
+	defer deadline.Stop()
+	for {
+		select {
+		case event := <-events:
+			if event.Err != nil || event.Mode != ModeFS {
+				t.Fatalf("unexpected event while waiting for %q: %#v", want, event)
+			}
+			if event.Path == want {
+				return
+			}
+		case <-deadline.C:
+			t.Fatalf("watcher did not emit event for %q", want)
+		}
 	}
 }
 

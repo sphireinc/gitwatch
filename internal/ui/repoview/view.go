@@ -6,6 +6,7 @@ import (
 
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/registry"
+	"github.com/sphireinc/git-watch/internal/ui/activityviz"
 )
 
 // Model stores filtered, sorted repository rows and the current selection.
@@ -107,12 +108,27 @@ func (m Model) View() string {
 			prefix = "> "
 		}
 		state := row.State
-		line := fmt.Sprintf("%s%s · %s [%s] dirty:%d +%d/-%d stashes:%d remotes:%d", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), state, row.Dirty, row.Ahead, row.Behind, row.Stashes, row.Remotes)
+		line := fmt.Sprintf("%s%s · %s [%s] health:%s dirty:%d +%d/-%d stashes:%d remotes:%d", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), state, platform.SafeText(string(row.Health.Severity)), row.Dirty, row.Ahead, row.Behind, row.Stashes, row.Remotes)
+		heat := activityviz.HeatLevel(row.Staged, row.Unstaged, row.Untracked, row.Conflicts)
+		activity := row.Activity
+		if len(activity) == 0 {
+			activity = []int{row.Ahead, row.Behind, row.Dirty, row.Conflicts}
+		}
+		line += fmt.Sprintf(" heat:%s%d diff:%s activity:%s", activityviz.HeatGlyph(heat), heat, activityviz.Bar(row.Staged+row.Unstaged, 10, 5), activityviz.Sparkline(activity, 4))
 		if row.Operation != "" {
 			line += " op:" + platform.SafeText(row.Operation)
 		}
 		if row.Attention != "" {
 			line += " attention:" + platform.SafeText(row.Attention)
+		}
+		if row.RemoteFetchStatus != "" {
+			line += " remote-fetch:" + platform.SafeText(row.RemoteFetchStatus)
+			if row.RemoteFetchError != "" {
+				line += "/" + platform.SafeText(row.RemoteFetchError)
+			}
+			if row.Repository.LastAutoFetchMillis > 0 {
+				line += fmt.Sprintf(" latency:%dms", row.Repository.LastAutoFetchMillis)
+			}
 		}
 		line += " gitignore:" + gitignoreLabel(row.Gitignore)
 		if len(row.Warnings) > 0 {

@@ -205,3 +205,27 @@ func TestLoadRejectsFutureConfigurationVersion(t *testing.T) {
 		t.Fatal("future version was accepted")
 	}
 }
+
+func TestAutoFetchDefaultsDisabledAndValidatesInterval(t *testing.T) {
+	c := Defaults()
+	if c.Remote.AutoFetch || c.Remote.AutoFetchInterval <= 0 || c.Remote.AutoFetchJitter < 0 {
+		t.Fatalf("auto-fetch defaults = %#v", c.Remote)
+	}
+	c.Remote.AutoFetch = true
+	c.Remote.AutoFetchInterval = 0
+	if err := Validate(c); err == nil || !strings.Contains(err.Error(), "auto-fetch interval") {
+		t.Fatalf("invalid enabled auto-fetch config error = %v", err)
+	}
+}
+
+func TestAutoFetchProfileValidatesEnabledInterval(t *testing.T) {
+	c := Defaults()
+	c.Remote.AutoFetchProfiles = map[string]AutoFetchProfile{"work": {Enabled: true, Interval: time.Minute}}
+	if err := Validate(c); err != nil {
+		t.Fatal(err)
+	}
+	c.Remote.AutoFetchProfiles["work"] = AutoFetchProfile{Enabled: true}
+	if err := Validate(c); err == nil || !strings.Contains(err.Error(), "profile \"work\"") {
+		t.Fatalf("invalid profile error = %v", err)
+	}
+}

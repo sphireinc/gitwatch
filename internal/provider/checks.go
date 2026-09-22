@@ -1,16 +1,21 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"time"
 )
 
+const MaxCheckRuns = 100
+
 type CheckRun struct {
+	ID          int64
 	Name        string
 	Status      string
 	Conclusion  string
 	URL         string
+	Attempt     int
 	StartedAt   time.Time
 	CompletedAt time.Time
 	Failure     string
@@ -34,13 +39,20 @@ type ChecksSnapshot struct {
 	Pending int
 }
 
+type CheckRunClient interface {
+	RerunFailedJobs(context.Context, Repository, int64) error
+	CancelRun(context.Context, Repository, int64) error
+}
+
 func ParseChecks(data []byte) (ChecksSnapshot, error) {
 	var response struct {
 		CheckRuns []struct {
+			ID          int64      `json:"id"`
 			Name        string     `json:"name"`
 			Status      string     `json:"status"`
 			Conclusion  string     `json:"conclusion"`
 			URL         string     `json:"html_url"`
+			Attempt     int        `json:"run_attempt"`
 			StartedAt   *time.Time `json:"started_at"`
 			CompletedAt *time.Time `json:"completed_at"`
 			Output      struct {
@@ -55,9 +67,12 @@ func ParseChecks(data []byte) (ChecksSnapshot, error) {
 	if response.CheckRuns == nil {
 		return ChecksSnapshot{}, errors.New("invalid checks response")
 	}
+	if len(response.CheckRuns) > MaxCheckRuns {
+		return ChecksSnapshot{}, errors.New("check run page exceeds bound")
+	}
 	snapshot := ChecksSnapshot{Runs: make([]CheckRun, 0, len(response.CheckRuns))}
 	for _, raw := range response.CheckRuns {
-		run := CheckRun{Name: raw.Name, Status: raw.Status, Conclusion: raw.Conclusion, URL: raw.URL, Failure: raw.Output.Summary}
+		run := CheckRun{ID: raw.ID, Name: raw.Name, Status: raw.Status, Conclusion: raw.Conclusion, URL: raw.URL, Attempt: raw.Attempt, Failure: raw.Output.Summary}
 		if run.Failure == "" {
 			run.Failure = raw.Output.Title
 		}

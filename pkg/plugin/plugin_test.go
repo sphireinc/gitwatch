@@ -97,3 +97,72 @@ func TestSDKBuildersRemainAPI1WireCompatible(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestVersionedNegotiationDegradesUnknownVNextCapabilities(t *testing.T) {
+	response := NegotiateVersions([]int{APIVersion2, APIVersion},
+		[]Capability{ContextAction, Capability("future_surface")},
+		[]Capability{ContextAction})
+	if !response.Accepted || response.APIVersion != APIVersion2 {
+		t.Fatalf("versioned negotiation = %#v", response)
+	}
+	if len(response.Capabilities) != 1 || response.Capabilities[0] != ContextAction {
+		t.Fatalf("degraded capabilities = %#v", response.Capabilities)
+	}
+	if got := NegotiateVersions([]int{99}, nil, nil); got.Accepted {
+		t.Fatalf("unsupported version was accepted: %#v", got)
+	}
+}
+
+func TestContributionIsBoundedDataOnlyAndRejectsControlSequences(t *testing.T) {
+	message, err := NewContribution("health", Contribution{
+		SchemaVersion: APIVersion2,
+		Kind:          "table",
+		Title:         "Repository health",
+		Columns:       []TableColumn{{ID: "state", Title: "State"}},
+		Rows:          []TableRow{{"state": "clean"}},
+		ReadOnly:      true,
+	})
+	if err != nil || message.Type != MessageContribution {
+		t.Fatalf("contribution = %#v, %v", message, err)
+	}
+	if _, err := NewContribution("unsafe", Contribution{SchemaVersion: 1, Kind: "detail", Title: "\x1b[2J"}); err == nil {
+		t.Fatal("terminal control sequence was accepted")
+	}
+	rows := make([]TableRow, MaxContributionRows+1)
+	if _, err := NewContribution("large", Contribution{SchemaVersion: 1, Kind: "table", Title: "large", Rows: rows}); err == nil {
+		t.Fatal("oversized contribution was accepted")
+	}
+}
+
+func TestAPI2ManifestAndVersionedHandshakeAreAdditive(t *testing.T) {
+	manifest := Manifest{ID: "demo", Name: "Demo", Version: "2", APIVersion: APIVersion2, Capabilities: []Capability{TableContribution}}
+	if err := manifest.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	message := NewHandshakeVersions([]int{APIVersion2, APIVersion}, []Capability{TableContribution})
+	var request HandshakeRequest
+	if err := json.Unmarshal(message.Payload, &request); err != nil {
+		t.Fatal(err)
+	}
+	if len(request.Versions) != 2 || request.Versions[0] != APIVersion2 {
+		t.Fatalf("handshake versions = %#v", request.Versions)
+	}
+}
+
+func TestV2ContributionFixtureRemainsDecodable(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "v2", "contribution.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	message, err := Decode(data)
+	if err != nil || message.Type != MessageContribution {
+		t.Fatalf("fixture = %#v, %v", message, err)
+	}
+	var contribution Contribution
+	if err := json.Unmarshal(message.Payload, &contribution); err != nil {
+		t.Fatal(err)
+	}
+	if err := contribution.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}

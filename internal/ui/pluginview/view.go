@@ -73,6 +73,12 @@ func (m Model) View() string {
 		if len(entry.Commands) > 0 || len(entry.Panels) > 0 || len(entry.Widgets) > 0 {
 			lines = append(lines, fmt.Sprintf("    extensions: commands:%d panels:%d widgets:%d", len(entry.Commands), len(entry.Panels), len(entry.Widgets)))
 		}
+		if len(entry.Contributions) > 0 {
+			lines = append(lines, fmt.Sprintf("    contributions: %d", len(entry.Contributions)))
+			for _, contribution := range entry.Contributions {
+				lines = append(lines, "      "+platform.SafeText(contribution.Kind)+": "+platform.SafeText(contribution.Title))
+			}
+		}
 		if entry.Error != "" {
 			lines = append(lines, "    error: "+platform.SafeText(entry.Error))
 		}

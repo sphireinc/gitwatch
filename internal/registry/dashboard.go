@@ -3,28 +3,35 @@ package registry
 import (
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/sphireinc/git-watch/internal/health"
 	"github.com/sphireinc/git-watch/internal/repo"
 )
 
 // Row is a render-ready repository status row.
 type Row struct {
-	Repository Repository
-	Branch     string
-	Dirty      int
-	Staged     int
-	Unstaged   int
-	Untracked  int
-	Conflicts  int
-	Ahead      int
-	Behind     int
-	Stashes    int
-	Remotes    int
-	Operation  string
-	Attention  string
-	Warnings   []string
-	State      string
-	Gitignore  GitignoreHealth
+	Repository        Repository
+	Branch            string
+	Dirty             int
+	Staged            int
+	Unstaged          int
+	Untracked         int
+	Conflicts         int
+	Ahead             int
+	Behind            int
+	Stashes           int
+	Remotes           int
+	Operation         string
+	Attention         string
+	Warnings          []string
+	State             string
+	Gitignore         GitignoreHealth
+	Health            health.Summary
+	RemoteFetchStatus string
+	RemoteFetchAt     time.Time
+	RemoteFetchError  string
+	Activity          []int
 }
 
 // GitignoreHealth is a compact dashboard projection of one repository's
@@ -39,8 +46,26 @@ func Rows(results []StatusResult) []Row {
 	rows := make([]Row, 0, len(results))
 	for _, result := range results {
 		snapshot := result.Snapshot
-		row := Row{Repository: result.Repository, Branch: snapshot.Branch.Name, Staged: snapshot.Counts.Staged, Unstaged: snapshot.Counts.Unstaged, Untracked: snapshot.Counts.Untracked, Conflicts: snapshot.Counts.Conflicted, Ahead: snapshot.Branch.Ahead, Behind: snapshot.Branch.Behind, Stashes: result.Stashes, Remotes: result.Remotes, Warnings: append([]string(nil), result.Warnings...), Gitignore: result.Gitignore}
+		healthSummary := result.Health
+		if healthSummary.Source == "" {
+			healthSummary = health.Compute(snapshot, result.Stashes, 0, result.Warnings)
+		}
+		row := Row{Repository: result.Repository, Branch: snapshot.Branch.Name, Staged: snapshot.Counts.Staged, Unstaged: snapshot.Counts.Unstaged, Untracked: snapshot.Counts.Untracked, Conflicts: snapshot.Counts.Conflicted, Ahead: snapshot.Branch.Ahead, Behind: snapshot.Branch.Behind, Stashes: result.Stashes, Remotes: result.Remotes, Warnings: append([]string(nil), result.Warnings...), Gitignore: result.Gitignore, Health: healthSummary, RemoteFetchStatus: result.Repository.LastAutoFetchStatus, RemoteFetchAt: result.Repository.LastAutoFetch, RemoteFetchError: result.Repository.LastAutoFetchError}
 		row.Dirty = row.Staged + row.Unstaged + row.Untracked
+		if row.RemoteFetchStatus == "failed" {
+			warning := "auto-fetch: " + row.RemoteFetchError
+			if row.RemoteFetchError == "" {
+				warning = "auto-fetch failed"
+			}
+			row.Warnings = append(row.Warnings, warning)
+			if row.Attention == "" {
+				row.Attention = warning
+			}
+			if row.Health.Severity != health.SeverityCritical {
+				row.Health.Severity = health.SeverityWarning
+			}
+			row.Health.Attention = append(row.Health.Attention, warning)
+		}
 		if snapshot.Operation != nil {
 			row.Operation = snapshot.Operation.Kind().String()
 		}

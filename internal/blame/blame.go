@@ -96,7 +96,7 @@ func Parse(data []byte) []Line {
 			}
 			current = &Line{FinalSHA: string(fields[0]), OriginalSHA: string(fields[0]), FinalLine: finalLine, OriginalLine: originalLine, NumLines: 1}
 			if len(fields) >= 4 {
-				if count, ok := parseInt(fields[3]); ok {
+				if count, ok := parseInt(fields[3]); ok && count > 0 {
 					current.NumLines = count
 				}
 			}

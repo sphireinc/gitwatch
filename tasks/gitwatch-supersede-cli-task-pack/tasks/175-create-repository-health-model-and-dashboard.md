@@ -50,3 +50,19 @@ Turn gitwatch’s htop identity into a concrete repository-health surface.
 - [ ] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [ ] Known limitations/deferred work documented.
+
+## Progress evidence
+
+- Added `internal/health` with semantic local severity (`healthy`, `info`,
+  `warning`, `critical`) and explicit metrics for dirty/conflict state,
+  ahead/behind/unpushed counts, stashes, worktrees, active operations,
+  attention details, freshness timestamp, and source.
+- Health derives from the authoritative repository snapshot and remains useful
+  offline; auxiliary warnings raise attention without replacing local status.
+- Integrated the summary into registry rows and the repositories dashboard,
+  including visible severity labels.
+- Added focused tests for local freshness, conflict severity, offline healthy
+  state, and registry/dashboard integration.
+- Remaining: worktree/submodule/config-signing enrichments, cached provider
+  freshness labels, actual remote-latency timestamps, single-repository detail
+  presentation, and native/manual acceptance evidence.

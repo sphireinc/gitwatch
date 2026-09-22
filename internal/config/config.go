@@ -13,10 +13,10 @@ import (
 	"github.com/sphireinc/git-watch/internal/customcmd"
 )
 
-// CurrentVersion is the configuration schema consumed by the version-2 loader.
-// Older unversioned and v1 files migrate in memory; newer versions are
+// CurrentVersion is the configuration schema consumed by the version-3 loader.
+// Older unversioned, v1, and v2 files migrate in memory; newer versions are
 // rejected until this contract is intentionally advanced.
-const CurrentVersion = 2
+const CurrentVersion = 3
 
 type Config struct {
 	Version           int                          `json:"version"`
@@ -41,6 +41,8 @@ type Config struct {
 	GitignoreMaxBytes int64                        `json:"gitignore_max_bytes"`
 	ShowCommitTree    bool                         `json:"show_commit_tree"`
 	CommitTree        CommitTreeConfig             `json:"commit_tree"`
+	Workspace         WorkspaceConfig              `json:"workspace"`
+	Visuals           VisualizationConfig          `json:"visuals"`
 	Keymap            map[string]string            `json:"keymap"`
 	Profile           string                       `json:"profile,omitempty"`
 	KeymapProfiles    map[string]map[string]string `json:"keymap_profiles,omitempty"`
@@ -50,15 +52,30 @@ type RepositoryConfig struct {
 	Roots           []string                 `json:"roots"`
 	Groups          map[string][]string      `json:"groups"`
 	GroupRefresh    map[string]time.Duration `json:"group_refresh"`
+	GroupAutoFetch  map[string]time.Duration `json:"group_auto_fetch"`
 	IgnoreDirs      []string                 `json:"ignore_dirs"`
 	MaxDepth        int                      `json:"max_depth"`
 	MaxRepositories int                      `json:"max_repositories"`
 }
 
 type RemoteConfig struct {
-	PullStrategy string        `json:"pull_strategy"`
-	StaleAfter   time.Duration `json:"stale_after"`
-	Workers      int           `json:"workers"`
+	PullStrategy        string                      `json:"pull_strategy"`
+	StaleAfter          time.Duration               `json:"stale_after"`
+	Workers             int                         `json:"workers"`
+	AutoFetch           bool                        `json:"auto_fetch"`
+	AutoFetchInterval   time.Duration               `json:"auto_fetch_interval"`
+	AutoFetchJitter     time.Duration               `json:"auto_fetch_jitter"`
+	AutoFetchBackoff    time.Duration               `json:"auto_fetch_backoff"`
+	AutoFetchBackoffMax time.Duration               `json:"auto_fetch_backoff_max"`
+	AutoFetchProfiles   map[string]AutoFetchProfile `json:"auto_fetch_profiles,omitempty"`
+}
+
+type AutoFetchProfile struct {
+	Enabled    bool          `json:"enabled"`
+	Interval   time.Duration `json:"interval"`
+	Jitter     time.Duration `json:"jitter"`
+	Backoff    time.Duration `json:"backoff"`
+	BackoffMax time.Duration `json:"backoff_max"`
 }
 
 type GitHubConfig struct {
@@ -108,11 +125,23 @@ type CommitTreeConfig struct {
 	MaxCommits int `json:"max_commits"`
 }
 
+// WorkspaceConfig bounds in-memory navigation indexes and terminal overscan.
+type WorkspaceConfig struct {
+	PaletteMaxResults int `json:"palette_max_results"`
+	StatusOverscan    int `json:"status_overscan"`
+}
+
+// VisualizationConfig controls optional dense dashboard indicators.
+type VisualizationConfig struct {
+	Enabled         bool `json:"enabled"`
+	ActivityBuckets int  `json:"activity_buckets"`
+}
+
 const DefaultCommitTreeCommits = 100
 const MaxCommitTreeCommits = 1000
 
 func Defaults() Config {
-	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Layout: LayoutConfig{FilesPercent: 60, DetailsPercent: 40}, Diff: DiffConfig{MaxBytes: 4 << 20, MaxLines: 20_000}, GitignoreMaxBytes: 8 << 20, CommitTree: CommitTreeConfig{MaxCommits: DefaultCommitTreeCommits}, Keymap: DefaultKeymap()}
+	return Config{Version: CurrentVersion, Theme: "auto", Motion: "full", Watch: "auto", Interval: 2 * time.Second, Reconciliation: 30 * time.Second, ShowUntracked: true, Mouse: true, Debounce: 75 * time.Millisecond, Repositories: RepositoryConfig{MaxDepth: 4, MaxRepositories: 256}, Remote: RemoteConfig{PullStrategy: "ff-only", StaleAfter: 30 * time.Minute, Workers: 2, AutoFetchInterval: 30 * time.Minute, AutoFetchJitter: 30 * time.Second, AutoFetchBackoff: time.Minute, AutoFetchBackoffMax: 30 * time.Minute}, GitHub: GitHubConfig{TokenEnv: "GITHUB_TOKEN", CacheTTL: 2 * time.Minute}, Plugins: PluginConfig{MaxOutput: 1 << 20}, Layout: LayoutConfig{FilesPercent: 60, DetailsPercent: 40}, Diff: DiffConfig{MaxBytes: 4 << 20, MaxLines: 20_000}, GitignoreMaxBytes: 8 << 20, CommitTree: CommitTreeConfig{MaxCommits: DefaultCommitTreeCommits}, Workspace: WorkspaceConfig{PaletteMaxResults: 200, StatusOverscan: 4}, Visuals: VisualizationConfig{Enabled: true, ActivityBuckets: 8}, Keymap: DefaultKeymap()}
 }
 
 func DefaultKeymap() map[string]string {
@@ -230,6 +259,15 @@ func Validate(c Config) error {
 	if c.Repositories.MaxDepth < 0 || c.Repositories.MaxRepositories < 0 || c.Remote.Workers < 0 || c.Plugins.MaxOutput < 0 || c.Diff.MaxBytes <= 0 || c.Diff.MaxLines <= 0 || c.GitignoreMaxBytes <= 0 || c.CommitTree.MaxCommits <= 0 || c.CommitTree.MaxCommits > MaxCommitTreeCommits {
 		return fmt.Errorf("config limits cannot be negative")
 	}
+	if c.Workspace.PaletteMaxResults < 1 || c.Workspace.PaletteMaxResults > 2000 {
+		return fmt.Errorf("workspace.palette_max_results must be between 1 and 2000")
+	}
+	if c.Workspace.StatusOverscan < 0 || c.Workspace.StatusOverscan > 32 {
+		return fmt.Errorf("workspace.status_overscan must be between 0 and 32")
+	}
+	if c.Visuals.ActivityBuckets < 1 || c.Visuals.ActivityBuckets > 32 {
+		return fmt.Errorf("visuals.activity_buckets must be between 1 and 32")
+	}
 	if c.Layout.FilesPercent <= 0 || c.Layout.DetailsPercent <= 0 || c.Layout.FilesPercent+c.Layout.DetailsPercent != 100 {
 		return fmt.Errorf("layout files_percent and details_percent must be positive and sum to 100")
 	}
@@ -238,11 +276,27 @@ func Validate(c Config) error {
 			return fmt.Errorf("invalid group refresh policy %q", group)
 		}
 	}
+	for group, duration := range c.Repositories.GroupAutoFetch {
+		if strings.TrimSpace(group) == "" || duration < 0 {
+			return fmt.Errorf("invalid group auto-fetch policy %q", group)
+		}
+	}
+	for profile, policy := range c.Remote.AutoFetchProfiles {
+		if strings.TrimSpace(profile) == "" || policy.Interval < 0 || policy.Jitter < 0 || policy.Backoff < 0 || policy.BackoffMax < 0 {
+			return fmt.Errorf("invalid auto-fetch profile %q", profile)
+		}
+		if policy.Enabled && policy.Interval <= 0 {
+			return fmt.Errorf("auto-fetch interval must be positive for profile %q", profile)
+		}
+	}
 	if c.Remote.PullStrategy != "merge" && c.Remote.PullStrategy != "rebase" && c.Remote.PullStrategy != "ff-only" {
 		return fmt.Errorf("invalid pull strategy %q", c.Remote.PullStrategy)
 	}
-	if c.Remote.StaleAfter < 0 || c.GitHub.CacheTTL < 0 {
+	if c.Remote.StaleAfter < 0 || c.Remote.AutoFetchInterval < 0 || c.Remote.AutoFetchJitter < 0 || c.Remote.AutoFetchBackoff < 0 || c.Remote.AutoFetchBackoffMax < 0 || c.GitHub.CacheTTL < 0 {
 		return fmt.Errorf("config durations cannot be negative")
+	}
+	if c.Remote.AutoFetch && c.Remote.AutoFetchInterval <= 0 {
+		return fmt.Errorf("auto-fetch interval must be positive when enabled")
 	}
 	if collisions := BindingCollisions(c.Keymap); len(collisions) > 0 {
 		return fmt.Errorf("key binding collision: %s", collisions[0])
