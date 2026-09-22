@@ -85,3 +85,12 @@ Support automated bisect testing without violating argv-only execution.
 - Task 150 remains open for in-flight process timeout evidence, incremental
   output streaming, native terminal acceptance, and the dependent custom
   command foundation.
+
+- Revision `64fe6d4` adds an argv-only `git.RunBoundedStreaming` boundary and
+  wires `bisect.RunRequest.OnOutput` to it. Stdout and stderr are delivered as
+  copied fragments while the process runs, each stream remains bounded, and
+  cancellation/output-limit errors retain the existing typed Git error model.
+  `TestRunnerBoundedStreamingDeliversBothStreamsAndBoundsRetention` passes
+  under the race detector; the full `go test ./...` and `go vet ./...` gates
+  also pass at this revision. Native terminal acceptance and in-flight
+  timeout evidence remain open.
