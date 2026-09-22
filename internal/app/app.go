@@ -885,6 +885,8 @@ type Model struct {
 	RepositoryIgnoreDirs      []string
 	RepositoryBatchConfirm    bool
 	RepositoryBatchRetry      bool
+	RepositoryBatchAction     multirepo.Action
+	RepositoryBatchStrategy   string
 	RepositoryBatchResults    []multirepo.Result
 	RepositoryRegistry        []registry.Repository
 	RepositoryRegistryPath    string
@@ -4646,7 +4648,21 @@ func (m *Model) startRepositoryBatchFetch() tea.Cmd {
 		return nil
 	}
 	m.RepositoryBatchRetry, m.RepositoryBatchConfirm = false, true
+	m.RepositoryBatchAction, m.RepositoryBatchStrategy = multirepo.ActionFetch, ""
 	m.Status = fmt.Sprintf("fetch %d discovered repositories? (y/n)", len(m.Repositories.Rows))
+	return nil
+}
+
+func (m *Model) startRepositoryBatchPull() tea.Cmd {
+	if len(m.Repositories.Rows) == 0 {
+		m.Status = "no repositories are available for batch pull"
+		return nil
+	}
+	// Batch pull is deliberately limited to fast-forward-only until a caller
+	// explicitly supplies per-repository merge/rebase policy.
+	m.RepositoryBatchRetry, m.RepositoryBatchConfirm = false, true
+	m.RepositoryBatchAction, m.RepositoryBatchStrategy = multirepo.ActionPull, "ff-only"
+	m.Status = fmt.Sprintf("pull %d discovered repositories with ff-only? (y/n)", len(m.Repositories.Rows))
 	return nil
 }
 
@@ -4661,8 +4677,21 @@ func (m *Model) startRepositoryBatchRetry() tea.Cmd {
 		m.Status = "no failed batch repositories to retry"
 		return nil
 	}
+	if len(m.RepositoryBatchResults) > 0 {
+		for _, result := range m.RepositoryBatchResults {
+			if result.Status == "failed" {
+				m.RepositoryBatchAction = result.Request.Action
+				m.RepositoryBatchStrategy = result.Request.Strategy
+				break
+			}
+		}
+	}
 	m.RepositoryBatchRetry, m.RepositoryBatchConfirm = true, true
-	m.Status = fmt.Sprintf("retry fetch for %d failed repositories? (y/n)", failed)
+	action := "fetch"
+	if m.RepositoryBatchAction == multirepo.ActionPull {
+		action = "pull " + m.RepositoryBatchStrategy
+	}
+	m.Status = fmt.Sprintf("retry %s for %d failed repositories? (y/n)", action, failed)
 	return nil
 }
 
@@ -4691,7 +4720,10 @@ func (m Model) runRepositoryBatchFetch() tea.Cmd {
 	return func() tea.Msg {
 		requests := make([]multirepo.Request, len(rows))
 		for index, row := range rows {
-			requests[index] = multirepo.Request{Repository: multirepo.Repository{ID: domain.RepositoryID(row.Repository.Path), Root: row.Repository.Path}, Remote: "origin", Action: multirepo.ActionFetch}
+			requests[index] = multirepo.Request{Repository: multirepo.Repository{ID: domain.RepositoryID(row.Repository.Path), Root: row.Repository.Path}, Remote: "origin", Branch: row.Branch, Strategy: m.RepositoryBatchStrategy, Action: m.RepositoryBatchAction}
+			if requests[index].Action == "" {
+				requests[index].Action = multirepo.ActionFetch
+			}
 		}
 		results := multirepo.Run(ctx, requests, workers, func(ctx context.Context, request multirepo.Request) error {
 			discovery, err := git.Discover(ctx, request.Repository.Root)
@@ -4709,7 +4741,14 @@ func (m Model) runRepositoryBatchFetch() tea.Cmd {
 			if remote == "" {
 				return errors.New("repository has no configured remote")
 			}
-			_, err = remotes.Fetch(ctx, git.NewRunner(discovery.Root), remote)
+			if request.Action == multirepo.ActionPull {
+				if request.Branch == "" {
+					return errors.New("repository has no checked-out branch")
+				}
+				_, err = remotes.Pull(ctx, git.NewRunner(discovery.Root), remote, request.Branch, request.Strategy)
+			} else {
+				_, err = remotes.Fetch(ctx, git.NewRunner(discovery.Root), remote)
+			}
 			return err
 		})
 		return RepositoryBatchFinishedMsg{Results: results}
@@ -6150,7 +6189,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch v.String() {
 			case "y", "Y":
 				m.RepositoryBatchConfirm = false
-				m.State, m.Status = StateOperationPending, "fetching discovered repositories"
+				m.State = StateOperationPending
+				if m.RepositoryBatchAction == multirepo.ActionPull {
+					m.Status = "pulling discovered repositories with " + m.RepositoryBatchStrategy
+				} else {
+					m.Status = "fetching discovered repositories"
+				}
 				return m, m.runRepositoryBatchFetch()
 			case "n", "N", "esc":
 				m.RepositoryBatchConfirm, m.RepositoryBatchRetry = false, false
@@ -7154,7 +7198,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Status = "tag name: "
 			}
 		case "P":
-			if m.currentView() == workspace.Log {
+			if m.currentView() == workspace.Repositories {
+				return m, m.startRepositoryBatchPull()
+			} else if m.currentView() == workspace.Log {
 				m.prepareCherryPick()
 			} else if m.currentView() == workspace.Status {
 				return m, m.selectLowerPane("unpushed")
@@ -9871,7 +9917,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		}
 	}
 	if view == workspace.Repositories {
-		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [F] fetch all  [R] retry failed  [v] refresh  [enter] open  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [/] filter  [s] sort  [F] fetch all  [P] pull ff-only  [R] retry failed  [v] refresh  [enter] open  [esc] back  [q] quit"
 		if m.RepositoryBatchConfirm {
 			content += "\n\n" + platform.SafeText(m.Status)
 		}

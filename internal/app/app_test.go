@@ -2771,6 +2771,22 @@ func TestRepositoryBatchFetchRequiresExplicitConfirmation(t *testing.T) {
 	}
 }
 
+func TestRepositoryBatchPullRequiresExplicitFastForwardConfirmation(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{})
+	m.Workspace.Navigate(workspace.Repositories, "Repositories")
+	m.Repositories = repoview.New([]registry.Row{{Repository: registry.Repository{Path: "/one", Name: "one"}, Branch: "main"}})
+	updated, cmd := m.Update(key("P"))
+	m = updated.(Model)
+	if cmd != nil || !m.RepositoryBatchConfirm || m.RepositoryBatchAction != multirepo.ActionPull || m.RepositoryBatchStrategy != "ff-only" || !strings.Contains(m.Status, "ff-only") {
+		t.Fatalf("batch pull confirmation = cmd=%v confirm=%v action=%q strategy=%q status=%q", cmd != nil, m.RepositoryBatchConfirm, m.RepositoryBatchAction, m.RepositoryBatchStrategy, m.Status)
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if cmd != nil || m.RepositoryBatchConfirm || !strings.Contains(m.Status, "cancelled") {
+		t.Fatalf("batch pull cancellation = cmd=%v confirm=%v status=%q", cmd != nil, m.RepositoryBatchConfirm, m.Status)
+	}
+}
+
 func TestRepositoryBatchRetryOnlyTargetsFailedResults(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{})
 	m.Workspace.Navigate(workspace.Repositories, "Repositories")

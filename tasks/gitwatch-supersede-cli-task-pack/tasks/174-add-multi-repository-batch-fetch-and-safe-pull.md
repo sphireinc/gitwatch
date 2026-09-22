@@ -79,3 +79,9 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   requests succeed in input order, and guards against unbounded batch worker
   growth. Real disposable-repository and watcher-responsiveness acceptance
   remains open.
+
+- Added an explicit repositories-dashboard `P` batch-pull action. It requires
+  confirmation, uses `ff-only` as the visible strategy, carries each row's
+  checked-out branch through the typed batch request, and never silently
+  selects merge or rebase. Focused app coverage verifies the confirmation and
+  cancellation path; live progress and real-repository acceptance remain open.
