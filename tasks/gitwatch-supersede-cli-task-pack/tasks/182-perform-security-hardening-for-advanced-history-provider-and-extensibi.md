@@ -81,10 +81,13 @@ Threat-model and harden the larger attack surface before release.
   (25 new inputs), and submodule status (72 new inputs). These are focused
   parser runs; the complete security gate still requires the broader matrix and
   final exact-revision/native evidence.
-- `scripts/security-check.sh` now runs one-second fuzz smoke tests for rebase,
+- `scripts/security-check.sh` now runs two-second fuzz smoke tests for rebase,
   conflicts, blame, reflog, tags, submodule config/status, and custom-command
   parsing. `GITWATCH_FUZZTIME` can increase the duration for deeper local runs.
 - `GOCACHE=/tmp/gitwatch-security-cache GOPROXY=off GOSUMDB=off
-  GITWATCH_FUZZTIME=1s ./scripts/security-check.sh` passed. The gate found and
+  GITWATCH_FUZZTIME=2s ./scripts/security-check.sh` passed. The gate found and
   drove the fix for malformed blame line-count `0`; the parser now retains its
   safe positive default instead of returning `NumLines: 0`.
+
+- The shell-execution invariant now has a portable `grep` fallback when
+  `rg` is unavailable, so CI cannot silently skip the argv-boundary scan.

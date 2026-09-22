@@ -3,7 +3,17 @@ set -eu
 
 # Git and plugin processes must receive argument vectors. Keep shell execution
 # and interpolated process arguments out of application packages.
-if rg -n --glob '*.go' '(sh|bash|powershell)([[:space:]]|",)[^\n]*(-[cC]|/c)|exec\.Command(Context)?\([^\n]*\+' internal cmd pkg; then
+scan_process_boundaries() {
+	if command -v rg >/dev/null 2>&1; then
+		rg -n --glob '*.go' '(sh|bash|powershell)([[:space:]]|",)[^\n]*(-[cC]|/c)|exec\.Command(Context)?\([^\n]*\+' internal cmd pkg
+		return $?
+	fi
+	# GitHub's hosted runners do not guarantee ripgrep. Keep the invariant
+	# enforced with the ubiquitous POSIX tool instead of silently skipping it.
+	grep -R -n -E --include='*.go' '(sh|bash|powershell)([[:space:]]|",)[^\n]*(-[cC]|/c)|exec\.Command(Context)?\([^\n]*\+' internal cmd pkg
+}
+
+if scan_process_boundaries; then
 	echo "security check failed: shell-string or concatenated process execution found" >&2
 	exit 1
 fi
