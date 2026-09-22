@@ -121,10 +121,6 @@ func (r Runtime) RunWithCapabilities(ctx context.Context, manifest Manifest, inp
 			return Result{}, fmt.Errorf("%w: %s", ErrCapabilityDenied, capability)
 		}
 	}
-	limit := r.OutputLimit
-	if limit <= 0 {
-		limit = MaxOutputBytes
-	}
 	return r.runProcess(ctx, manifest, input)
 }
 

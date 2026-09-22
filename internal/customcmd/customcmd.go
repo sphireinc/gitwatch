@@ -213,7 +213,7 @@ func (d Definition) Validate() error {
 				return fmt.Errorf("custom command %q has an unterminated placeholder", d.Name)
 			}
 			name := token[start+1 : start+end]
-			if !allowed[name] && !(strings.HasPrefix(name, "prompt:") && promptIDs[strings.TrimPrefix(name, "prompt:")]) {
+			if _, ok := allowed[name]; !ok && (!strings.HasPrefix(name, "prompt:") || !promptIDs[strings.TrimPrefix(name, "prompt:")]) {
 				return fmt.Errorf("custom command %q has unknown placeholder {%s}", d.Name, name)
 			}
 			token = token[start+end+1:]

@@ -241,7 +241,7 @@ func (c GitHubClient) CreatePullRequest(ctx context.Context, repository Reposito
 		}
 		return PullRequest{}, ErrProviderUnavailable
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return PullRequest{}, &HTTPError{Status: response.StatusCode, RetryAfter: response.Header.Get("Retry-After")}
 	}
@@ -421,7 +421,7 @@ func (c GitHubClient) postJSON(ctx context.Context, path string, payload []byte,
 		}
 		return ErrProviderUnavailable
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return &HTTPError{Status: response.StatusCode, RetryAfter: response.Header.Get("Retry-After")}
 	}
