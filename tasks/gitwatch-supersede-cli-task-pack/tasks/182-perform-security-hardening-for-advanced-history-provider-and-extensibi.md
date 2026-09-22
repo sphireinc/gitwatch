@@ -97,3 +97,9 @@ Threat-model and harden the larger attack surface before release.
   parser fuzz smoke lanes, plugin/registry checks, and the shell-execution
   invariant. The full native/manual security review and longer-duration fuzz
   evidence remain open.
+
+- The optional `gh auth token` lookup now uses a bounded 10-second context
+  instead of an uncancellable background process, preventing a hung external
+  CLI from blocking provider initialization indefinitely. Provider tests and
+  the argv/security boundary checks pass; native/manual review and longer
+  fuzz-duration evidence remain open.

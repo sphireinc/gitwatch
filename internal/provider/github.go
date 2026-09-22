@@ -7,9 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 var ErrNoToken = errors.New("no GitHub token configured")
+
+const cliTokenTimeout = 10 * time.Second
 
 type Repository struct {
 	Host  string
@@ -30,7 +33,9 @@ func (c CLIToken) Token() (string, error) {
 	if binary == "" {
 		binary = "gh"
 	}
-	command := exec.CommandContext(context.Background(), binary, "auth", "token")
+	ctx, cancel := context.WithTimeout(context.Background(), cliTokenTimeout)
+	defer cancel()
+	command := exec.CommandContext(ctx, binary, "auth", "token")
 	output, err := command.Output()
 	if err != nil {
 		return "", ErrNoToken
