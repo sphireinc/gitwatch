@@ -130,6 +130,13 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   cross-platform matrix. Windows path/CRLF, PTY, and native operator evidence
   remain open.
 
+- Added `internal/watch/TestWatcherCoalescesFilesystemEventStorm`, which writes
+  256 files through the real fsnotify watcher, drains the event stream, rejects
+  errors/non-filesystem events, and bounds the settled burst to 32 notifications.
+  It passed 20 normal repetitions, 5 race repetitions, and vet on macOS.
+- The remaining parity gaps are Windows-specific path/process acceptance, hosted
+  PTY coverage, and native operator evidence.
+
 - Added `TestPathAndCRLFStatusScenarioPreservesGitBytesAndNames` to the parity
   gate. It uses real Git with `core.autocrlf=false`, preserves CRLF file bytes,
   and verifies status identity for a unicode/space path and a leading-hyphen

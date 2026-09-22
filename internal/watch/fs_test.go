@@ -2,6 +2,7 @@ package watch
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -225,6 +226,64 @@ func drainFilesystemEvents(events <-chan Event, quiet time.Duration) {
 			timer.Reset(quiet)
 		case <-timer.C:
 			return
+		}
+	}
+}
+
+func TestWatcherCoalescesFilesystemEventStorm(t *testing.T) {
+	root := t.TempDir()
+	w, err := New(root, 10*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = w.Close() })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	events := w.Events(ctx)
+
+	const files = 256
+	directory := filepath.Join(root, "storm")
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index < files; index++ {
+		path := filepath.Join(directory, fmt.Sprintf("file-%03d", index))
+		if err := os.WriteFile(path, []byte("event storm"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	count := 0
+	deadline := time.NewTimer(500 * time.Millisecond)
+	defer deadline.Stop()
+	quiet := time.NewTimer(100 * time.Millisecond)
+	if !quiet.Stop() {
+		<-quiet.C
+	}
+	for {
+		select {
+		case event := <-events:
+			if event.Err != nil || event.Mode != ModeFS {
+				t.Fatalf("event storm produced invalid event: %#v", event)
+			}
+			count++
+			if !quiet.Stop() {
+				select {
+				case <-quiet.C:
+				default:
+				}
+			}
+			quiet.Reset(100 * time.Millisecond)
+		case <-quiet.C:
+			if count == 0 {
+				t.Fatal("event storm produced no filesystem event")
+			}
+			if count > 32 {
+				t.Fatalf("event storm was not bounded: %d events for %d writes", count, files)
+			}
+			return
+		case <-deadline.C:
+			t.Fatalf("event storm did not settle: %d events", count)
 		}
 	}
 }
