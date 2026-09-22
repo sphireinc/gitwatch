@@ -110,3 +110,8 @@ Threat-model and harden the larger attack surface before release.
   reflog, tag, submodule, custom-command, plugin/registry, and argv-boundary
   security lanes. Native/manual review and longer-duration fuzz evidence
   remain open.
+
+- At revision `8129780`, the same security gate passed with
+  `GITWATCH_FUZZTIME=5s`; all parser fuzz lanes completed successfully,
+  including rebase, conflict-index, blame, reflog, tags, submodule config and
+  status, and custom-command expansion. Native/manual review remains open.
