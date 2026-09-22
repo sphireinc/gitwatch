@@ -23,6 +23,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/patch"
 	"github.com/sphireinc/git-watch/internal/registry"
 	"github.com/sphireinc/git-watch/internal/remotes"
+	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/stash"
 	"github.com/sphireinc/git-watch/internal/worktrees"
 )
@@ -154,6 +155,63 @@ func TestBatchFetchFiftyDisposableRepositoriesIsBoundedAndFailureIsolated(t *tes
 	}
 	if succeeded == 0 || failed == 0 || cancelled == 0 {
 		t.Fatalf("mixed batch outcomes = succeeded:%d failed:%d cancelled:%d first error: %v", succeeded, failed, cancelled, firstErr)
+	}
+}
+
+func TestPathAndCRLFStatusScenarioPreservesGitBytesAndNames(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	for _, args := range [][]string{
+		{"init", "-b", "main", "--", root},
+		{"config", "user.name", "gitwatch-paths"},
+		{"config", "user.email", "gitwatch-paths@example.com"},
+		{"config", "core.autocrlf", "false"},
+	} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	crlfPath := "name with spaces-ü.txt"
+	leadingHyphenPath := "-leading-name.txt"
+	crlfBytes := []byte("first line\r\nsecond line\r\n")
+	if err := os.WriteFile(filepath.Join(root, crlfPath), crlfBytes, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte(crlfPath)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte("preserve paths\n")}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(filepath.Join(root, crlfPath)); err != nil || string(got) != string(crlfBytes) {
+		t.Fatalf("committed CRLF bytes changed: %q err=%v", got, err)
+	}
+	if err := os.WriteFile(filepath.Join(root, leadingHyphenPath), []byte("untracked\r\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, crlfPath), []byte("changed\r\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := git.Snapshot(ctx, discovery, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := make(map[string]repo.Entry, len(snapshot.Entries))
+	for _, entry := range snapshot.Entries {
+		seen[string(entry.Path)] = entry
+	}
+	for _, path := range []string{crlfPath, leadingHyphenPath} {
+		if _, ok := seen[path]; !ok {
+			t.Fatalf("snapshot lost path %q: %#v", path, snapshot.Entries)
+		}
+	}
+	if !seen[crlfPath].Unstaged || !seen[leadingHyphenPath].Untracked {
+		t.Fatalf("path states = %#v", seen)
 	}
 }
 

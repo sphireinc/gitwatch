@@ -129,3 +129,10 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   bounded cancellation/failure isolation. CI run `35777279686` passed the
   cross-platform matrix. Windows path/CRLF, PTY, and native operator evidence
   remain open.
+
+- Added `TestPathAndCRLFStatusScenarioPreservesGitBytesAndNames` to the parity
+  gate. It uses real Git with `core.autocrlf=false`, preserves CRLF file bytes,
+  and verifies status identity for a unicode/space path and a leading-hyphen
+  path after modification and untracked creation. The scenario passes in
+  normal and race modes; native terminal/PTy evidence and broader Windows
+  process/path acceptance remain open.
