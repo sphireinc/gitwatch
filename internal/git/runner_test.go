@@ -127,6 +127,10 @@ func TestRunnerStreamingHelper(t *testing.T) {
 	if os.Getenv("GITWATCH_RUNNER_STREAM_HELPER") != "1" {
 		return
 	}
-	fmt.Fprintln(os.Stdout, "stream-out")
-	fmt.Fprintln(os.Stderr, "stream-err")
+	if _, err := fmt.Fprintln(os.Stdout, "stream-out"); err != nil {
+		os.Exit(2)
+	}
+	if _, err := fmt.Fprintln(os.Stderr, "stream-err"); err != nil {
+		os.Exit(2)
+	}
 }
