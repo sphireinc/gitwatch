@@ -85,3 +85,11 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   checked-out branch through the typed batch request, and never silently
   selects merge or rebase. Focused app coverage verifies the confirmation and
   cancellation path; live progress and real-repository acceptance remain open.
+
+- Added bounded live progress messages for queued, running, succeeded, and
+  failed repositories. The dashboard now reports action, completed/total
+  counts, and the repository path while the existing bounded worker pool runs;
+  the terminal result still drives authoritative result storage and refresh.
+  `TestRepositoryBatchProgressCommandPreservesEventStream` covers delivery
+  from progress through the terminal result; real-disposable-repository,
+  cancellation, and native acceptance remain open.

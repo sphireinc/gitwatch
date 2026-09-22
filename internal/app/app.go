@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/bubbletea/v2"
@@ -445,6 +446,13 @@ type RepositoriesReadyMsg struct {
 type RepositoryBatchFinishedMsg struct {
 	Results []multirepo.Result
 	Err     error
+}
+type RepositoryBatchProgressMsg struct {
+	Path      string
+	Status    string
+	Completed int
+	Total     int
+	Events    <-chan tea.Msg
 }
 type RepositoryOpenedMsg struct {
 	Path           string
@@ -4649,6 +4657,7 @@ func (m *Model) startRepositoryBatchFetch() tea.Cmd {
 	}
 	m.RepositoryBatchRetry, m.RepositoryBatchConfirm = false, true
 	m.RepositoryBatchAction, m.RepositoryBatchStrategy = multirepo.ActionFetch, ""
+	m.RepositoryBatchResults = nil
 	m.Status = fmt.Sprintf("fetch %d discovered repositories? (y/n)", len(m.Repositories.Rows))
 	return nil
 }
@@ -4662,6 +4671,7 @@ func (m *Model) startRepositoryBatchPull() tea.Cmd {
 	// explicitly supplies per-repository merge/rebase policy.
 	m.RepositoryBatchRetry, m.RepositoryBatchConfirm = false, true
 	m.RepositoryBatchAction, m.RepositoryBatchStrategy = multirepo.ActionPull, "ff-only"
+	m.RepositoryBatchResults = nil
 	m.Status = fmt.Sprintf("pull %d discovered repositories with ff-only? (y/n)", len(m.Repositories.Rows))
 	return nil
 }
@@ -4718,40 +4728,75 @@ func (m Model) runRepositoryBatchFetch() tea.Cmd {
 		workers = m.RepositoryEngine.Workers
 	}
 	return func() tea.Msg {
-		requests := make([]multirepo.Request, len(rows))
-		for index, row := range rows {
-			requests[index] = multirepo.Request{Repository: multirepo.Repository{ID: domain.RepositoryID(row.Repository.Path), Root: row.Repository.Path}, Remote: "origin", Branch: row.Branch, Strategy: m.RepositoryBatchStrategy, Action: m.RepositoryBatchAction}
-			if requests[index].Action == "" {
-				requests[index].Action = multirepo.ActionFetch
-			}
-		}
-		results := multirepo.Run(ctx, requests, workers, func(ctx context.Context, request multirepo.Request) error {
-			discovery, err := git.Discover(ctx, request.Repository.Root)
-			if err != nil {
-				return err
-			}
-			entries, err := remotes.List(ctx, git.NewRunner(discovery.Root))
-			if err != nil {
-				return err
-			}
-			remote := request.Remote
-			if len(entries) > 0 {
-				remote = entries[0].Name
-			}
-			if remote == "" {
-				return errors.New("repository has no configured remote")
-			}
-			if request.Action == multirepo.ActionPull {
-				if request.Branch == "" {
-					return errors.New("repository has no checked-out branch")
+		events := make(chan tea.Msg, len(rows)*3+1)
+		go func() {
+			defer close(events)
+			requests := make([]multirepo.Request, len(rows))
+			for index, row := range rows {
+				requests[index] = multirepo.Request{Repository: multirepo.Repository{ID: domain.RepositoryID(row.Repository.Path), Root: row.Repository.Path}, Remote: "origin", Branch: row.Branch, Strategy: m.RepositoryBatchStrategy, Action: m.RepositoryBatchAction}
+				if requests[index].Action == "" {
+					requests[index].Action = multirepo.ActionFetch
 				}
-				_, err = remotes.Pull(ctx, git.NewRunner(discovery.Root), remote, request.Branch, request.Strategy)
-			} else {
-				_, err = remotes.Fetch(ctx, git.NewRunner(discovery.Root), remote)
+				events <- RepositoryBatchProgressMsg{Path: row.Repository.Path, Status: "queued", Total: len(rows), Events: events}
 			}
-			return err
-		})
-		return RepositoryBatchFinishedMsg{Results: results}
+			var progressMu sync.Mutex
+			completed := 0
+			results := multirepo.Run(ctx, requests, workers, func(ctx context.Context, request multirepo.Request) error {
+				progressMu.Lock()
+				started := completed
+				progressMu.Unlock()
+				events <- RepositoryBatchProgressMsg{Path: request.Repository.Root, Status: "running", Completed: started, Total: len(requests), Events: events}
+				discovery, err := git.Discover(ctx, request.Repository.Root)
+				if err == nil {
+					entries, listErr := remotes.List(ctx, git.NewRunner(discovery.Root))
+					err = listErr
+					remote := request.Remote
+					if len(entries) > 0 {
+						remote = entries[0].Name
+					}
+					if err == nil && remote == "" {
+						err = errors.New("repository has no configured remote")
+					}
+					if err == nil {
+						if request.Action == multirepo.ActionPull {
+							if request.Branch == "" {
+								err = errors.New("repository has no checked-out branch")
+							} else {
+								_, err = remotes.Pull(ctx, git.NewRunner(discovery.Root), remote, request.Branch, request.Strategy)
+							}
+						} else {
+							_, err = remotes.Fetch(ctx, git.NewRunner(discovery.Root), remote)
+						}
+					}
+				}
+				progressMu.Lock()
+				completed++
+				finished := completed
+				progressMu.Unlock()
+				status := "succeeded"
+				if err != nil {
+					status = "failed"
+				}
+				events <- RepositoryBatchProgressMsg{Path: request.Repository.Root, Status: status, Completed: finished, Total: len(requests), Events: events}
+				return err
+			})
+			events <- RepositoryBatchFinishedMsg{Results: results}
+		}()
+		return batchProgressCommand(events)()
+	}
+}
+
+func batchProgressCommand(events <-chan tea.Msg) tea.Cmd {
+	return func() tea.Msg {
+		msg, ok := <-events
+		if !ok {
+			return nil
+		}
+		if progress, ok := msg.(RepositoryBatchProgressMsg); ok {
+			progress.Events = events
+			return progress
+		}
+		return msg
 	}
 }
 
@@ -9345,6 +9390,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State = StateReady
 			m.reindexPalette()
 		}
+	case RepositoryBatchProgressMsg:
+		action := "fetch"
+		if m.RepositoryBatchAction == multirepo.ActionPull {
+			action = "pull " + m.RepositoryBatchStrategy
+		}
+		m.State = StateOperationPending
+		m.Status = fmt.Sprintf("batch %s: %d/%d complete · %s %s", action, v.Completed, v.Total, v.Status, platform.SafeText(v.Path))
+		return m, batchProgressCommand(v.Events)
 	case RepositoryBatchFinishedMsg:
 		m.RepositoryBatchConfirm, m.RepositoryBatchRetry = false, false
 		m.RepositoryBatchResults = append([]multirepo.Result(nil), v.Results...)
@@ -9362,7 +9415,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.State = StateReady
-		m.Status = fmt.Sprintf("batch fetch complete: %d succeeded, %d failed, %d cancelled, %d skipped", succeeded, failed, cancelled, skipped)
+		action := "fetch"
+		if m.RepositoryBatchAction == multirepo.ActionPull {
+			action = "pull " + m.RepositoryBatchStrategy
+		}
+		m.Status = fmt.Sprintf("batch %s complete: %d succeeded, %d failed, %d cancelled, %d skipped", action, succeeded, failed, cancelled, skipped)
 		return m, m.loadRepositories()
 	case RepositoryOpenedMsg:
 		if v.Err != nil {

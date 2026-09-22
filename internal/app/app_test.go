@@ -2810,6 +2810,19 @@ func TestRepositoryBatchRetryOnlyTargetsFailedResults(t *testing.T) {
 	}
 }
 
+func TestRepositoryBatchProgressCommandPreservesEventStream(t *testing.T) {
+	events := make(chan tea.Msg, 2)
+	events <- RepositoryBatchProgressMsg{Path: "/one", Status: "queued", Total: 1}
+	events <- RepositoryBatchFinishedMsg{}
+	first, ok := batchProgressCommand(events)().(RepositoryBatchProgressMsg)
+	if !ok || first.Path != "/one" || first.Events == nil {
+		t.Fatalf("first batch progress = %#v", first)
+	}
+	if _, ok := batchProgressCommand(first.Events)().(RepositoryBatchFinishedMsg); !ok {
+		t.Fatalf("progress stream did not deliver terminal result")
+	}
+}
+
 func TestPluginWorkspaceTogglesSelectedEntry(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{}, config.Config{Plugins: config.PluginConfig{Enabled: true}})
 	m.PluginStatePath = filepath.Join(t.TempDir(), "plugins.json")
