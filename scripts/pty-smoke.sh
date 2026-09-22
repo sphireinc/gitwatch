@@ -59,6 +59,24 @@ if [ "$ready" -ne 1 ]; then
 fi
 
 tmux -S "$socket" resize-window -t "$session" -x 80 -y 24
+if [ "${GITWATCH_PTY_ASSERT_LARGE_STATUS:-0}" = "1" ]; then
+	large_ready=0
+	i=0
+	while [ "$i" -lt 60 ]; do
+		tmux -S "$socket" capture-pane -p -t "$session" >"$capture"
+		if grep -Eq 'UNTRACKED[[:space:]]+14953' "$capture"; then
+			large_ready=1
+			break
+		fi
+		i=$((i + 1))
+		sleep 0.1
+	done
+	if [ "$large_ready" -ne 1 ]; then
+		echo "PTY smoke failed: large status summary was not visible at 80x24" >&2
+		cat "$capture" >&2
+		exit 1
+	fi
+fi
 tmux -S "$socket" send-keys -t "$session" '?'
 sleep 0.3
 tmux -S "$socket" capture-pane -p -t "$session" >"$capture"
