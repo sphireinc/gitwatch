@@ -102,3 +102,10 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   `TestRepositoryBatchCancelUsesActiveContext` verifies the UI control invokes
   the active cancellation function; successful remote cancellation and native
   acceptance remain open.
+
+- At revision `1e1edc9`, focused app and multirepo tests passed under race
+  detection, and `scripts/parity-check.sh` passed the multi-repository lane.
+  The implementation now includes explicit fetch/pull controls, ff-only pull,
+  bounded queued/running progress, failed-subset retry, and cancellation.
+  Real 50-repository remote cancellation and native/manual acceptance remain
+  open.
