@@ -16,7 +16,7 @@ behavior remain intact.
 | Fixup commits and autosquash | Not shipped | 130 | Real-repository fixup/autosquash integration test and refresh assertion |
 | Cherry-pick single, multiple, range, and merge-mainline | Conflict lifecycle adapter exists; complete workspace is not shipped | 133–135 | `TestCherryPickConflictResumeParityScenario` real conflict/resolve/continue fixture plus `go test ./internal/cherrypick`; ordered, empty, merge-mainline, skip, abort, and native workspace evidence remain required |
 | Revert as a durable sequencer workflow | Typed resumable adapter exists; complete workspace is not shipped | 136 | `TestRevertConflictResumeParityScenario` real conflict/continue fixture plus multi-commit/conflict/abort and post-step status-refresh evidence |
-| Merge strategies | Pull strategy selection exists; merge workspace is not shipped | 137–143 | Real-repository merge, fast-forward, no-ff, conflict, continue, abort, and external-resolution tests |
+| Merge strategies | Pull strategy selection exists; merge workspace is not shipped | 137–143 | `TestMergeConflictResumeParityScenario` covers a real typed conflict/resolve/continue flow; fast-forward, no-ff, abort, and external-resolution fixtures remain required |
 | Conflict resolution | Conflicts are represented in status; unified resolver is not shipped | 138–143 | Unmerged-index fixtures, guarded file-write tests, external-change refusal, and shared merge/rebase/cherry-pick/revert scenarios |
 | Reflog recovery | Reflog timestamps support remote/status views; recovery browser is not shipped | 144–147 | Bounded reflog parser tests, `TestAdvancedHistoryAndComparisonParityScenario` real recovery-point fixture, divergence checks, and safe undo/redo integration tests |
 | Bisect | Bounded engine and state loader exist; workspace is not shipped | 148–150 | `TestBisectParityScenarioSurvivesFreshLoaderAndReset` real good/bad/skip/reset and fresh-loader fixture; bounded cancellation and optional argv command tests remain required |
@@ -38,7 +38,7 @@ merely imitate LZ.
 
 | Differentiator | Current baseline | Closing tasks | Executable acceptance evidence |
 |---|---|---:|---|
-| Live watcher-first authoritative status | Shipped through `internal/watch` and porcelain-v2 snapshots | 124, 183–186 | `scripts/parity-check.sh` runs external-edit integration tests plus fsnotify/polling manager lanes; event-storm benchmarks and native cross-platform evidence remain required |
+| Live watcher-first authoritative status | Shipped through `internal/watch` and porcelain-v2 snapshots | 124, 183–186 | `scripts/parity-check.sh` runs external-edit integration tests plus fsnotify/polling manager lanes; recreated metadata coverage passes 100 repeated local runs, while event-storm benchmarks and native cross-platform evidence remain required |
 | Repository-scoped durable operation state | Shared operation engine exists; sequencer domain is not shipped | 122–125, 143, 145–147 | Two-repository interleaving and restart/recovery integration fixtures |
 | Observable operation history and recovery | Bounded activity/operation lifecycle exists; semantic journal is not shipped | 145–147, 176 | Timeline records, reflog correlation, undo safety, and late-result rejection tests |
 | Repository health and attention | Independent repository errors and status summaries exist; health model is not shipped | 175 | Mixed-repository health fixtures, freshness/error badges, and bounded dashboard checks |
