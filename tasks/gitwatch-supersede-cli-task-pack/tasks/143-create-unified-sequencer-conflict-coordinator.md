@@ -102,3 +102,10 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   map. Coverage verifies every durable operation kind; normal and focused race
   tests pass. Native terminal acceptance and the deeper shared lifecycle
   abstraction remain open.
+
+- Revision `28021b7` moves lifecycle action availability into the UI-neutral
+  `sequencer.ActionsFor` matrix. The conflict view now consumes that shared
+  decision rather than maintaining its own operation switch. Matrix coverage
+  verifies unknown, rebase edit-stop/conflict, cherry-pick, revert, and merge
+  states; focused normal, race, vet, and formatting checks pass. Native
+  acceptance and the broader end-to-end coordinator audit remain open.
