@@ -28,6 +28,20 @@ func TestConfigPrecedenceAndValidation(t *testing.T) {
 	}
 }
 
+func TestInspectRedactsCredentialFieldsAndInlineCommandSecrets(t *testing.T) {
+	c := Defaults()
+	c.GitHub.TokenEnv = "GITHUB_TOKEN"
+	c.CustomCommands = []customcmd.Definition{{Name: "publish", Executable: "tool", Args: []string{"--token=super-secret", "--mode=release"}}}
+	data, err := Inspect(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	if strings.Contains(text, "super-secret") || !strings.Contains(text, "<redacted>") || !strings.Contains(text, "GITHUB_TOKEN") {
+		t.Fatalf("inspection redaction = %s", text)
+	}
+}
+
 func TestNotificationQuietSettingLoadsAndBuildsModelConfig(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")

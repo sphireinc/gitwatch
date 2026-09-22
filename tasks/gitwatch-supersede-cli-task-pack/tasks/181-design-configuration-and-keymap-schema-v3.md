@@ -54,6 +54,12 @@ Version configuration deliberately for advanced workbench features instead of ac
   token environment-variable name (`GITHUB_TOKEN`) and no token/password
   value. Golden schema review and native/release acceptance remain open.
 
+- `config.Inspect` now recursively redacts token/password/secret/credential
+  fields and inline credential markers in argv arrays while retaining the
+  configured token environment-variable name. Regression coverage verifies a
+  literal custom-command token cannot appear in inspection output. Golden
+  schema review and native/release acceptance remain open.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.

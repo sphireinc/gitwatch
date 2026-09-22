@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -375,7 +376,65 @@ func BindingCollisions(bindings map[string]string) []string {
 	sort.Strings(collisions)
 	return collisions
 }
-func Inspect(c Config) ([]byte, error) { return json.MarshalIndent(c, "", "  ") }
+
+// Inspect returns effective configuration with secret-like fields and inline
+// credential values redacted. The token environment-variable name remains
+// visible because it is configuration metadata, not a credential.
+func Inspect(c Config) ([]byte, error) {
+	data, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	var value any
+	if err := json.Unmarshal(data, &value); err != nil {
+		return nil, err
+	}
+	redactInspection(value)
+	var output bytes.Buffer
+	encoder := json.NewEncoder(&output)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(value); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(output.Bytes(), []byte{'\n'}), nil
+}
+
+func redactInspection(value any) {
+	switch item := value.(type) {
+	case map[string]any:
+		for name, child := range item {
+			lower := strings.ToLower(name)
+			if strings.HasSuffix(lower, "_env") || lower == "token_env" {
+				redactInspection(child)
+				continue
+			}
+			if strings.Contains(lower, "token") || strings.Contains(lower, "password") || strings.Contains(lower, "secret") || strings.Contains(lower, "credential") {
+				item[name] = "<redacted>"
+				continue
+			}
+			redactInspection(child)
+		}
+	case []any:
+		for index, child := range item {
+			if text, ok := child.(string); ok && looksLikeInlineCredential(text) {
+				item[index] = "<redacted>"
+				continue
+			}
+			redactInspection(child)
+		}
+	}
+}
+
+func looksLikeInlineCredential(value string) bool {
+	lower := strings.ToLower(value)
+	for _, marker := range []string{"token=", "password=", "secret=", "authorization: bearer ", "basic "} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
 func applyEnv(c Config) Config {
 	if v := os.Getenv("GITWATCH_PROFILE"); v != "" {
 		c.Profile = v
