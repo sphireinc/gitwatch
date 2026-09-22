@@ -1379,11 +1379,9 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 			return m.openBisectWorkspace()
 		}
 		view := workspace.Conflict
-		label := "Conflict recovery"
+		label := operation.Kind().String() + " recovery"
 		if operation.Kind() == sequencer.KindCherryPick {
 			view, label = workspace.CherryPick, "Cherry-pick progress"
-		} else {
-			label = operation.Kind().String() + " recovery"
 		}
 		return m.navigate(view, label)
 	case "github_commit_selected":
