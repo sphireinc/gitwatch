@@ -25,3 +25,15 @@ func TestComputeOfflineCleanRepositoryRemainsHealthy(t *testing.T) {
 		t.Fatalf("summary = %#v", summary)
 	}
 }
+
+func TestComputeCountsDirtySubmodulesAsWarningAttention(t *testing.T) {
+	snapshot := repo.Snapshot{Entries: []repo.Entry{
+		{Path: repo.Path("clean"), Submodule: "S..."},
+		{Path: repo.Path("dirty"), Submodule: "SM.."},
+		{Path: repo.Path("untracked"), Submodule: "S..U"},
+	}}
+	summary := Compute(snapshot, 0, 0, nil)
+	if summary.SubmoduleIssues != 2 || summary.Severity != SeverityWarning || len(summary.Attention) != 1 || summary.Attention[0] != "submodules" {
+		t.Fatalf("submodule health = %#v", summary)
+	}
+}

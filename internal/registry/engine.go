@@ -154,7 +154,7 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 	result.Error = err
 	if err == nil {
 		result.Gitignore = inspectGitignore(discovery.Root)
-		result.Health = health.Compute(result.Snapshot, result.Stashes, 0, result.Warnings)
+		result.Health = health.ComputeWithSubmoduleIssues(result.Snapshot, result.Stashes, 0, health.CountSubmoduleIssues(result.Snapshot), result.Warnings)
 	}
 	result.Duration = time.Since(started)
 	result.Refreshed = time.Now()

@@ -35,7 +35,13 @@ type Summary struct {
 }
 
 func Compute(snapshot repo.Snapshot, stashes, worktrees int, warnings []string) Summary {
-	summary := Summary{Dirty: snapshot.Counts.Staged + snapshot.Counts.Unstaged + snapshot.Counts.Untracked, Conflicts: snapshot.Counts.Conflicted, Ahead: snapshot.Branch.Ahead, Behind: snapshot.Branch.Behind, Unpushed: snapshot.Branch.Ahead, Stashes: stashes, Worktrees: worktrees, FreshAt: snapshot.ObservedAt, Source: "git status"}
+	return ComputeWithSubmoduleIssues(snapshot, stashes, worktrees, CountSubmoduleIssues(snapshot), warnings)
+}
+
+// ComputeWithSubmoduleIssues derives health while allowing callers that load
+// submodule metadata separately to provide its authoritative issue count.
+func ComputeWithSubmoduleIssues(snapshot repo.Snapshot, stashes, worktrees, submoduleIssues int, warnings []string) Summary {
+	summary := Summary{Dirty: snapshot.Counts.Staged + snapshot.Counts.Unstaged + snapshot.Counts.Untracked, Conflicts: snapshot.Counts.Conflicted, Ahead: snapshot.Branch.Ahead, Behind: snapshot.Branch.Behind, Unpushed: snapshot.Branch.Ahead, Stashes: stashes, Worktrees: worktrees, SubmoduleIssues: submoduleIssues, FreshAt: snapshot.ObservedAt, Source: "git status"}
 	if snapshot.Operation != nil {
 		summary.ActiveOperation = snapshot.Operation.Kind().String()
 	}
@@ -52,6 +58,10 @@ func Compute(snapshot repo.Snapshot, stashes, worktrees int, warnings []string) 
 	if summary.Dirty > 0 || summary.Ahead > 0 || summary.Behind > 0 {
 		summary.Severity = maxSeverity(summary.Severity, SeverityInfo)
 	}
+	if summary.SubmoduleIssues > 0 {
+		summary.Severity = maxSeverity(summary.Severity, SeverityWarning)
+		summary.Attention = append(summary.Attention, "submodules")
+	}
 	if len(warnings) > 0 {
 		summary.Severity = maxSeverity(summary.Severity, SeverityWarning)
 		for _, warning := range warnings {
@@ -61,6 +71,22 @@ func Compute(snapshot repo.Snapshot, stashes, worktrees int, warnings []string) 
 		}
 	}
 	return summary
+}
+
+// CountSubmoduleIssues counts dirty submodule status fields from Git's
+// porcelain-v2 snapshot. A four-character all-dot value is clean; any other
+// populated submodule field represents changed, modified, or untracked
+// submodule content.
+func CountSubmoduleIssues(snapshot repo.Snapshot) int {
+	count := 0
+	for _, entry := range snapshot.Entries {
+		value := strings.TrimPrefix(entry.Submodule, "S")
+		if value == "" || strings.Trim(value, ".") == "" {
+			continue
+		}
+		count++
+	}
+	return count
 }
 
 func maxSeverity(left, right Severity) Severity {

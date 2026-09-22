@@ -48,7 +48,7 @@ func Rows(results []StatusResult) []Row {
 		snapshot := result.Snapshot
 		healthSummary := result.Health
 		if healthSummary.Source == "" {
-			healthSummary = health.Compute(snapshot, result.Stashes, 0, result.Warnings)
+			healthSummary = health.ComputeWithSubmoduleIssues(snapshot, result.Stashes, 0, health.CountSubmoduleIssues(snapshot), result.Warnings)
 		}
 		row := Row{Repository: result.Repository, Branch: snapshot.Branch.Name, Staged: snapshot.Counts.Staged, Unstaged: snapshot.Counts.Unstaged, Untracked: snapshot.Counts.Untracked, Conflicts: snapshot.Counts.Conflicted, Ahead: snapshot.Branch.Ahead, Behind: snapshot.Branch.Behind, Stashes: result.Stashes, Remotes: result.Remotes, Warnings: append([]string(nil), result.Warnings...), Gitignore: result.Gitignore, Health: healthSummary, RemoteFetchStatus: result.Repository.LastAutoFetchStatus, RemoteFetchAt: result.Repository.LastAutoFetch, RemoteFetchError: result.Repository.LastAutoFetchError}
 		row.Dirty = row.Staged + row.Unstaged + row.Untracked
