@@ -11,7 +11,7 @@ go version
 cat .golangci-lint-version
 make check
 ./scripts/secret-scan.sh --history
-VERSION=1.0.0 ./scripts/release-check.sh
+VERSION=1.0.9 ./scripts/release-check.sh
 ```
 
 `go version` must report `go1.25.10`; `.golangci-lint-version` must report `v2.12.0`.

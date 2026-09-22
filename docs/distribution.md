@@ -18,18 +18,19 @@ before adding a new channel.
 ## Signed release tags
 
 Maintainers can create an annotated, locally verified release tag from the
-current checkout with:
+accepted checkout with:
 
 ```sh
-./scripts/signed-release.sh
+VERSION=1.0.9 COMMIT=<accepted-commit> PUSH=0 ./scripts/signed-release.sh
 ```
 
-The helper defaults to `v1.0.6` and `HEAD`. Select another version or an exact
-commit with `VERSION=2.0.0 COMMIT=<commit>`, select a signing key with
-`SIGNING_KEY=<key-id>`, and use `PUSH=0` to create and verify the tag without
-pushing it. The checkout must be clean and the tag must not already exist.
-After local verification, a pushed tag starts the protected release workflow;
-publication still requires its CI checks and release-environment approval.
+The helper accepts another version or exact commit with `VERSION=<version>
+COMMIT=<commit>`, selects a signing key with `SIGNING_KEY=<key-id>`, and uses
+`PUSH=0` to create and verify the tag without pushing it. The checkout must be
+clean and the tag must not already exist; the existing `v1.0.9` tag must not be
+overwritten. After local verification, a pushed tag starts the protected
+release workflow; publication still requires its CI checks and
+release-environment approval.
 
 ## Verification and upgrade safety
 
