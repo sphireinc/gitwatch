@@ -82,3 +82,11 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
 - Remaining: add provider-backed repository metadata actions and notifications,
   broaden interaction beyond the plugin workspace, and complete
   native/manual/release evidence.
+
+- Schema-defined `notification` contributions are now surfaced through the
+  bounded session notification model when an enabled, healthy plugin reloads.
+  Titles and descriptions pass the same terminal sanitization boundary as
+  other plugin-rendered text; disabled or unhealthy plugins are ignored.
+  App coverage records the host notification path. Provider-backed metadata
+  actions, broader interaction, and native/manual/release evidence remain
+  open.

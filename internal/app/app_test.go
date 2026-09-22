@@ -51,6 +51,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/watch"
 	"github.com/sphireinc/git-watch/internal/workspace"
 	"github.com/sphireinc/git-watch/internal/worktrees"
+	publicplugin "github.com/sphireinc/git-watch/pkg/plugin"
 )
 
 func TestCustomCommandPromptFormBlocksExecutionUntilSubmit(t *testing.T) {
@@ -2346,6 +2347,31 @@ func TestPaletteIndexesLoadedProviderAndPluginTargets(t *testing.T) {
 	}
 	if m.GitHub.Pull.Number != 7 || m.Plugins.Selected != 0 {
 		t.Fatalf("provider/plugin selections = pull %d plugin %d", m.GitHub.Pull.Number, m.Plugins.Selected)
+	}
+}
+
+func TestPluginNotificationContributionUsesSessionNotificationModel(t *testing.T) {
+	m := New()
+	entry := plugins.Entry{
+		Manifest: plugins.Manifest{ID: "health", Name: "Health"},
+		Enabled:  true,
+		Healthy:  true,
+		Contributions: []publicplugin.Contribution{{
+			SchemaVersion: publicplugin.APIVersion2,
+			Kind:          "notification",
+			Title:         "Provider ready",
+			Description:   "GitHub data is available",
+			ReadOnly:      true,
+		}},
+	}
+	updated, cmd := m.Update(PluginsReadyMsg{Entries: []plugins.Entry{entry}})
+	m = updated.(Model)
+	if cmd != nil || m.Notifications == nil {
+		t.Fatalf("plugin notification update = cmd=%v notifications=%v", cmd != nil, m.Notifications != nil)
+	}
+	items := m.Notifications.Items()
+	if len(items) != 1 || items[0].Kind != notifications.PluginContribution || items[0].Title != "Provider ready" || items[0].Message != "GitHub data is available" {
+		t.Fatalf("plugin notifications = %#v", items)
 	}
 }
 

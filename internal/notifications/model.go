@@ -24,12 +24,13 @@ type Kind string
 
 const (
 	// JobComplete identifies a completed background operation.
-	JobComplete   Kind = "job_complete"
-	Conflict      Kind = "conflict"
-	HookFailure   Kind = "hook_failure"
-	PushFailure   Kind = "push_failure"
-	RemoteStale   Kind = "remote_stale"
-	PluginFailure Kind = "plugin_failure"
+	JobComplete        Kind = "job_complete"
+	Conflict           Kind = "conflict"
+	HookFailure        Kind = "hook_failure"
+	PushFailure        Kind = "push_failure"
+	RemoteStale        Kind = "remote_stale"
+	PluginFailure      Kind = "plugin_failure"
+	PluginContribution Kind = "plugin_contribution"
 )
 
 // Notification is one user-visible event with dismissal state.

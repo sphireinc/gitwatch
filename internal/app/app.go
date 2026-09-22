@@ -9178,6 +9178,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			m.Plugins.SetEntries(v.Entries)
+			m.publishPluginNotifications(v.Entries)
 			m.State, m.Status = StateReady, "plugins loaded"
 			m.reindexPalette()
 		}
@@ -9598,6 +9599,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.refresh(), m.loadRemotes(), m.loadBranches(), m.loadGitHub())
 	}
 	return m, nil
+}
+
+func (m *Model) publishPluginNotifications(entries []plugins.Entry) {
+	for _, entry := range entries {
+		if !entry.Enabled || !entry.Healthy {
+			continue
+		}
+		for _, contribution := range entry.Contributions {
+			if contribution.Kind != "notification" {
+				continue
+			}
+			title := platform.SafeText(contribution.Title)
+			message := platform.SafeText(contribution.Description)
+			if title == "" {
+				continue
+			}
+			m.notify(notifications.PluginContribution, notifications.Info, title, message, false)
+		}
+	}
 }
 
 func gitignoreWatchHint(path, root string) bool {
