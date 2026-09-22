@@ -55,6 +55,22 @@ func (m *Model) ClearBasket() { m.Basket = m.Basket.Clear() }
 // reliably render the Unicode lane markers. It does not alter graph state.
 func (m *Model) SetASCII(ascii bool) { m.ASCII = ascii }
 
+// SelectRange adds the inclusive visible-row range to the scoped basket. Rows
+// are displayed newest-first, while Selection normalizes the basket to Git's
+// oldest-first application order.
+func (m *Model) SelectRange(start, end int) error {
+	commits := make([]history.Commit, len(m.Rows))
+	for index, row := range m.Rows {
+		commits[index] = row.Commit
+	}
+	basket, err := m.Basket.SelectRange(commits, start, end)
+	if err != nil {
+		return err
+	}
+	m.Basket = basket
+	return nil
+}
+
 // New creates a history view from commits ordered by the history service.
 func New(commits []history.Commit) Model {
 	var model Model

@@ -3247,6 +3247,34 @@ func TestHistoryRevertUsesBasketApplicationOrder(t *testing.T) {
 	}
 }
 
+func TestHistoryRangeGestureSelectsVisibleRowsInGitOrder(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Log, "History")
+	m.History = historyview.New([]history.Commit{
+		{SHA: "newest", Short: "newest", Subject: "new"},
+		{SHA: "middle", Short: "middle", Subject: "middle"},
+		{SHA: "oldest", Short: "oldest", Subject: "old"},
+	})
+	if err := m.History.SetScope("/repo", "main", 1); err != nil {
+		t.Fatal(err)
+	}
+	updated, _ := m.Update(key("v"))
+	m = updated.(Model)
+	if !m.HistoryRangeAnchorSet || m.HistoryRangeAnchor != 0 {
+		t.Fatalf("range start = set=%v anchor=%d status=%q", m.HistoryRangeAnchorSet, m.HistoryRangeAnchor, m.Status)
+	}
+	m.History.Move(2)
+	updated, _ = m.Update(key("v"))
+	m = updated.(Model)
+	if m.HistoryRangeAnchorSet || m.History.Basket.Count() != 3 {
+		t.Fatalf("range completion = set=%v basket=%#v status=%q", m.HistoryRangeAnchorSet, m.History.Basket, m.Status)
+	}
+	got := m.History.Basket.SHAs()
+	if got[0] != "oldest" || got[1] != "middle" || got[2] != "newest" {
+		t.Fatalf("range order = %#v", got)
+	}
+}
+
 func TestHistoryRevertRequiresMainlineForMergeCommit(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Log, "History")

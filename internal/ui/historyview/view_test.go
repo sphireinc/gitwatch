@@ -122,3 +122,21 @@ func TestASCIIHistoryGraphFallbackPreservesLaneSemantics(t *testing.T) {
 		t.Fatal("ASCII pulse marker missing")
 	}
 }
+
+func TestSelectRangeUsesVisibleOrderAndGitApplicationOrder(t *testing.T) {
+	m := New([]history.Commit{
+		{SHA: "new", Short: "new"},
+		{SHA: "middle", Short: "middle"},
+		{SHA: "old", Short: "old"},
+	})
+	if err := m.SetScope("repo", "main", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SelectRange(0, 2); err != nil {
+		t.Fatal(err)
+	}
+	got := m.Basket.SHAs()
+	if len(got) != 3 || got[0] != "old" || got[1] != "middle" || got[2] != "new" {
+		t.Fatalf("range application order = %#v", got)
+	}
+}

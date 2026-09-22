@@ -734,6 +734,8 @@ type Model struct {
 	WatchPulse                uint8
 	HistoryFilter             string
 	HistorySearching          bool
+	HistoryRangeAnchor        int
+	HistoryRangeAnchorSet     bool
 	HistoryInspector          history.Inspector
 	HistoryInspectorParent    string
 	HistoryInspectorPathMode  bool
@@ -7174,6 +7176,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.navigate(workspace.Worktrees, "Worktrees")
 		case "v":
+			if m.currentView() == workspace.Log && m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
+				if !m.HistoryRangeAnchorSet {
+					m.HistoryRangeAnchor, m.HistoryRangeAnchorSet = m.History.Selected, true
+					m.Status = fmt.Sprintf("history range start: row %d; press v at the end", m.History.Selected+1)
+					return m, nil
+				}
+				start, end := m.HistoryRangeAnchor, m.History.Selected
+				m.HistoryRangeAnchorSet = false
+				if err := m.History.SelectRange(start, end); err != nil {
+					m.Status = "history range: " + err.Error()
+				} else {
+					m.Status = fmt.Sprintf("selected history range rows %d-%d (%d commits)", min(start, end)+1, max(start, end)+1, m.History.Basket.Count())
+				}
+				return m, nil
+			}
 			return m, m.navigate(workspace.Repositories, "Repositories")
 		case "A":
 			if m.currentView() == workspace.GitHub {
@@ -9304,6 +9321,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			if v.Skip == 0 {
 				m.HistoryCommits = append([]history.Commit(nil), v.Commits...)
+				m.HistoryRangeAnchorSet = false
 			} else {
 				m.HistoryCommits = append(m.HistoryCommits, v.Commits...)
 			}
@@ -10041,7 +10059,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
 	}
 	if view == workspace.Log {
-		lines[len(lines)-1] = "[j/k] move  [space] basket  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [P] cherry-pick  [1] status  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] move  [space] basket  [v] range  [C] clear basket  [enter] inspect  [/] search  [] more  [t] tags  [g] ref  [M] parent  [f] path  [y] copy SHA  [x] checkout  [B] branch  [R] revert  [P] cherry-pick  [1] status  [esc] back  [q] quit"
 	}
 	if view == workspace.Tags {
 		lines[len(lines)-1] = "[j/k] move  [c] light tag  [A] annotated  [S] signed  [D] delete  [/] filter  [s] sort  [enter] inspect  [d] compare  [V] verify  [x] checkout  [w] worktree  [t] reload  [esc] back  [q] quit"

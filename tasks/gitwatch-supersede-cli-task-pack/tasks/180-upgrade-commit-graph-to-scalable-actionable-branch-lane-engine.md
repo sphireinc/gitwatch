@@ -46,7 +46,8 @@ Make the history graph competitive with LZ while retaining bounded loading and s
 - Added octopus-parent topology coverage and a multi-lane rendering test. Existing scoped history basket, compare, cherry-pick, rebase, branch, worktree, and tag routes remain attached to the selected graph row.
 - Added `history.BuildGraphPage`/`GraphCursor` and wired paginated history appends through `historyview.AppendCommits`, preserving active merge lanes across page boundaries; added history and view continuity tests.
 - Added an application-wired ASCII graph fallback for colorless/`NO_COLOR` themes (`|`, `o`, `@`) with lane and pulse regression coverage.
-- Remaining: explicit range-selection acceptance, large-history performance samples, and native/manual acceptance.
+- Added an explicit two-press `v` range gesture in the History workspace; visible newest-first rows are normalized to oldest-first basket application order, with model and app interaction coverage.
+- Remaining: large-history performance samples and native/manual acceptance.
 
 ## Completion record
 
