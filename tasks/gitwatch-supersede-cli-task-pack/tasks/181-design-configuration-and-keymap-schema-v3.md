@@ -60,6 +60,13 @@ Version configuration deliberately for advanced workbench features instead of ac
   literal custom-command token cannot appear in inspection output. Golden
   schema review and native/release acceptance remain open.
 
+- Added `TestDocumentedSchemaV3CoversAdvancedConfigurationSurface`, which
+  parses the checked-in schema and guards the version identity, workspace and
+  visual bounds surface, auto-fetch policies, plugin/tool/custom-command
+  sections, keymap sections, and the absence of secret-value properties. The
+  test passes in normal, race, and vet-focused runs; native/release acceptance
+  remains open.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.
