@@ -47,7 +47,8 @@ Make the history graph competitive with LZ while retaining bounded loading and s
 - Added `history.BuildGraphPage`/`GraphCursor` and wired paginated history appends through `historyview.AppendCommits`, preserving active merge lanes across page boundaries; added history and view continuity tests.
 - Added an application-wired ASCII graph fallback for colorless/`NO_COLOR` themes (`|`, `o`, `@`) with lane and pulse regression coverage.
 - Added an explicit two-press `v` range gesture in the History workspace; visible newest-first rows are normalized to oldest-first basket application order, with model and app interaction coverage.
-- Remaining: large-history performance samples and native/manual acceptance.
+- Current performance gate (`GOCACHE=/tmp/gitwatch-performance-current-cache ./scripts/performance-check.sh`, macOS arm64 Apple M1 Pro) passed `BenchmarkBuildGraph100K` at 7.83 ms, 24.8 MB, and 100,007 allocations for one 100k-commit graph build; the gate also passed the 100k parser, 50k status scaling, and 50-repository palette samples.
+- Remaining: native/manual acceptance.
 
 ## Completion record
 
