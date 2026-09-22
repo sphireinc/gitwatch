@@ -95,3 +95,10 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   rebase, revert, bisect, watcher, and multi-repository lanes. Native/manual
   terminal acceptance and the final requirement-by-requirement coordinator
   audit remain open.
+
+- Revision `05dda0f` adds the UI-neutral `sequencer.RouteFor` coordinator and
+  routes palette reopening, Status recovery navigation, snapshot-triggered
+  revert recovery, and recoverability checks through the same operation-kind
+  map. Coverage verifies every durable operation kind; normal and focused race
+  tests pass. Native terminal acceptance and the deeper shared lifecycle
+  abstraction remain open.
