@@ -180,3 +180,9 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   an isolated disposable repository: startup rendered, an 80x24 resize opened
   help successfully, the pane capture was written, and `q` exited cleanly.
   Hosted Windows/Linux PTY and broader native operator evidence remain open.
+
+- At revision `1423b31`, the local parity harness passed with the new history
+  graph PTY lane enabled: disposable integration, watcher, bisect,
+  cherry-pick, submodule, provider, multi-repository, plugin, app, and
+  history-graph terminal lanes all passed. Hosted execution remains pending
+  because the workflow-bearing commits have not yet been accepted by GitHub.
