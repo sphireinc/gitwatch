@@ -109,6 +109,13 @@ jobs:
           'changed' | Set-Content (Join-Path $demo 'tracked.txt')
           $status = git -C $demo status --porcelain=v2 --branch
           if (-not $status) { throw 'status output was empty' }
+      - name: Windows path and CRLF parity
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          go test ./internal/integration -run '^TestPathAndCRLFStatusScenarioPreservesGitBytesAndNames$' -count=1
+          go test ./internal/watch -run '^TestWatcherSeesExternalGitMetadataAndRecreatedDirectory$' -count=3
 
   secrets:
     name: Full-history secret scan
