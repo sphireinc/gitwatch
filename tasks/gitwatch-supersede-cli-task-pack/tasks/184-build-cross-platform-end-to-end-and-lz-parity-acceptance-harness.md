@@ -142,6 +142,14 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   event-storm, bisect, cherry-pick, submodule, remote, provider,
   multi-repository, custom-command, plugin, and app lanes.
 
+- Revision `28d34b5` fixes metadata watcher reattachment after an external Git
+  metadata directory replacement by removing stale native registrations before
+  rebuilding the watch tree. The load-tolerant event deadline and the
+  re-created-directory scenario pass 20 normal and 5 race repetitions.
+  `make check` then passed formatting, pinned lint, full tests, race tests, vet,
+  security, performance, and diff checks on macOS arm64. Hosted Windows/Linux
+  and native operator evidence remain open.
+
 - Added `TestPathAndCRLFStatusScenarioPreservesGitBytesAndNames` to the parity
   gate. It uses real Git with `core.autocrlf=false`, preserves CRLF file bytes,
   and verifies status identity for a unicode/space path and a leading-hyphen
