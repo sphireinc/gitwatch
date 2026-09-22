@@ -79,3 +79,9 @@ Offer Undo only where gitwatch can prove a safe recovery point; refuse when repo
   passed at that revision after the stale-HEAD and repository-scope tests were
   added. Native/manual terminal evidence remains the explicit outstanding
   completion gate.
+
+- Revision `32b1756` adds a real merge-conflict integration test around
+  `undo.Execute`. It reconstructs the repository snapshot with an active
+  sequencer and verifies the policy returns `ErrActiveOperation` before any
+  reset can be attempted; normal and race-focused tests pass. Native/manual
+  terminal evidence remains open.
