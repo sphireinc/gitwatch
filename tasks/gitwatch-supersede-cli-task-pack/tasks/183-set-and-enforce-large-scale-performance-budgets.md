@@ -63,3 +63,18 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   existing patch/history/registry workload checks.
 - Full multi-repository, provider, history, 50k-path, goroutine/process, and
   native responsiveness evidence remains required; this task stays open.
+
+## Progress evidence (2026-09-22)
+
+- Added `TestEngineRefreshKeepsHundredRepositoriesWithinWorkerBound`, which
+  exercises 100 repository refreshes with cooperative delay, verifies all
+  results remain repository-scoped and input-ordered, and asserts peak
+  concurrency does not exceed the configured eight workers.
+- Fixed `registry.Engine.Refresh` to preserve its documented input order while
+  retaining bounded worker concurrency and cancellation behavior. The focused
+  registry suite passed at commit `6fee975`; the full `make check` gate passed
+  on macOS arm64 with pinned lint, tests, race tests, vet, security, and
+  performance checks.
+- The task remains open for 50k-path end-to-end responsiveness, process/
+  goroutine leak evidence, provider/history scale coverage, and native terminal
+  acceptance.

@@ -71,6 +71,13 @@ workers, bounded plugin output, and visible-list rendering proportional to the v
 rather than total history/repository size. Record benchmark output with
 `go test -bench . -benchmem` before changing those budgets.
 
+The registry engine also has a deterministic 100-repository refresh regression,
+`TestEngineRefreshKeepsHundredRepositoriesWithinWorkerBound`. It injects a small
+cooperative source delay, asserts all 100 repository results are returned in input
+order, and proves peak refresh concurrency never exceeds the configured eight
+workers. This complements the 20-repository mixed-health isolation scenario and
+does not depend on a live network or filesystem.
+
 CI and the release check enforce allocation budgets for these representative
 workloads: fewer than 1,000 allocations for the 10,000-line patch parser,
 100,000 for parsing 10,000 porcelain-v2 status entries,
