@@ -12,6 +12,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/cherrypick"
 	"github.com/sphireinc/git-watch/internal/compare"
 	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/merge"
 	"github.com/sphireinc/git-watch/internal/pathhistory"
 	"github.com/sphireinc/git-watch/internal/reflog"
 	"github.com/sphireinc/git-watch/internal/sequencer"
@@ -229,6 +230,79 @@ func TestCherryPickConflictResumeParityScenario(t *testing.T) {
 	contents, err := os.ReadFile(path)
 	if err != nil || string(contents) != "resolved\n" {
 		t.Fatalf("resolved cherry-pick contents = %q, err=%v", contents, err)
+	}
+}
+
+func TestMergeConflictResumeParityScenario(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	for _, args := range [][]string{
+		{"init", "-b", "main", "--", root},
+		{"config", "user.name", "gitwatch-merge-parity"},
+		{"config", "user.email", "gitwatch-merge-parity@example.com"},
+		{"config", "commit.gpgsign", "false"},
+	} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	path := filepath.Join(root, "merge.txt")
+	commit := func(content, message string) string {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Stage(ctx, []byte("merge.txt")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte(message + "\n")}); err != nil {
+			t.Fatal(err)
+		}
+		result, err := runner.Run(ctx, "rev-parse", "HEAD")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(result.Stdout))
+	}
+
+	commit("base\n", "base")
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	commit("feature\n", "feature change")
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+	commit("main\n", "main change")
+
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := merge.Engine{Runner: runner, Discovery: discovery, Repository: root, Generation: 1}
+	paused := engine.Execute(ctx, merge.Request{Repository: root, Generation: 1, Source: "feature", Strategy: merge.Regular})
+	if paused.Err == nil || !paused.Paused || paused.State == nil || paused.Snapshot == nil || len(paused.Snapshot.Conflicts) == 0 {
+		t.Fatalf("merge conflict = %#v", paused)
+	}
+
+	if err := os.WriteFile(path, []byte("resolved\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("merge.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.OperationLifecycle(ctx, sequencer.KindMerge, "continue"); err != nil {
+		t.Fatal(err)
+	}
+	final, err := git.Snapshot(ctx, discovery, 2)
+	if err != nil || final.Operation != nil || len(final.Conflicts) != 0 {
+		t.Fatalf("completed merge snapshot = %#v, err=%v", final, err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil || string(contents) != "resolved\n" {
+		t.Fatalf("resolved merge contents = %q, err=%v", contents, err)
 	}
 }
 

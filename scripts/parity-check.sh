@@ -9,7 +9,7 @@ export GOSUMDB="${GOSUMDB:-off}"
 # Keep this gate deterministic and local: all scenarios create disposable
 # repositories and use Git's real argv boundary. Provider/network and native
 # terminal evidence remain separate release gates.
-go test ./internal/integration -run 'Test(RepositoryWorkbenchScenario|MultiRepositoryRefreshTransitionScenario|AdvancedHistoryAndComparisonParityScenario|BisectParityScenarioSurvivesFreshLoaderAndReset|CherryPickConflictResumeParityScenario|RebaseConflictResumeParityScenario|RevertConflictResumeParityScenario)$' -count=1
+go test ./internal/integration -run 'Test(RepositoryWorkbenchScenario|MultiRepositoryRefreshTransitionScenario|AdvancedHistoryAndComparisonParityScenario|BisectParityScenarioSurvivesFreshLoaderAndReset|CherryPickConflictResumeParityScenario|MergeConflictResumeParityScenario|RebaseConflictResumeParityScenario|RevertConflictResumeParityScenario)$' -count=1
 go test ./internal/watch -run 'Test(Watcher|Manager)' -count=1
 go test ./internal/bisect ./internal/cherrypick ./internal/submodules -count=1
 go test ./internal/customcmd ./internal/plugins ./pkg/plugin -count=1

@@ -83,3 +83,16 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   submodules, remotes, custom commands, provider stubs, watcher and
   polling lanes, Windows path/CRLF behavior, PTY flows, and native evidence
   still need executable coverage and release-gate results.
+
+## Progress evidence (2026-09-22)
+
+- Added `TestMergeConflictResumeParityScenario`, which creates a real
+  conflicting branch merge, verifies the typed merge engine returns a paused
+  repository-scoped operation with authoritative conflicts, resolves and stages
+  the path, continues through the typed lifecycle boundary, and verifies the
+  clean post-merge snapshot.
+- Added the merge scenario to `scripts/parity-check.sh`; the parity harness now
+  covers executable conflict/resume lanes for cherry-pick, merge, rebase, and
+  revert plus fresh-loader bisect recovery.
+- Task 184 remains open for the remaining submodule/remote/provider, watcher
+  fallback, Windows path/CRLF, PTY, native, and full parity-matrix evidence.
