@@ -118,19 +118,10 @@ func TestWatcherSeesExternalGitMetadataAndRecreatedDirectory(t *testing.T) {
 	// notifications on Windows. Give the watcher a short handoff window before
 	// asserting a child-file event; otherwise the test can write the file before
 	// the recreated directory is watched again.
-	if runtime.GOOS == "windows" {
-		time.Sleep(100 * time.Millisecond)
-	}
-	if err := os.WriteFile(filepath.Join(metadata, "index"), []byte("index"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	awaitFilesystemPathEvent(t, events, filepath.Join(metadata, "index"))
+	writeAndAwaitFilesystemPathEvent(t, events, filepath.Join(metadata, "index"), []byte("index"))
 	drainFilesystemEvents(events, 25*time.Millisecond)
 	ref := filepath.Join(metadata, "refs", "heads", "topic")
-	if err := os.WriteFile(ref, []byte("0123456789abcdef\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	awaitFilesystemPathEvent(t, events, ref)
+	writeAndAwaitFilesystemPathEvent(t, events, ref, []byte("0123456789abcdef\n"))
 }
 
 func TestSnapshotReadDoesNotEmitMetadataHint(t *testing.T) {
@@ -208,6 +199,35 @@ func awaitFilesystemPathEvent(t *testing.T, events <-chan Event, want string) {
 			}
 		case <-deadline.C:
 			t.Fatalf("watcher did not emit event for %q", want)
+		}
+	}
+}
+
+func writeAndAwaitFilesystemPathEvent(t *testing.T, events <-chan Event, path string, content []byte) {
+	t.Helper()
+	deadline := time.NewTimer(2 * time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	write := func() {
+		if err := os.WriteFile(path, content, 0o600); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+	write()
+	for {
+		select {
+		case event := <-events:
+			if event.Err != nil || event.Mode != ModeFS {
+				t.Fatalf("unexpected event while waiting for %q: %#v", path, event)
+			}
+			if event.Path == path {
+				return
+			}
+		case <-ticker.C:
+			write()
+		case <-deadline.C:
+			t.Fatalf("watcher did not emit event for %q", path)
 		}
 	}
 }
