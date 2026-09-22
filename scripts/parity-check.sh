@@ -12,5 +12,6 @@ export GOSUMDB="${GOSUMDB:-off}"
 go test ./internal/integration -run 'Test(RepositoryWorkbenchScenario|MultiRepositoryRefreshTransitionScenario|AdvancedHistoryAndComparisonParityScenario|BisectParityScenarioSurvivesFreshLoaderAndReset|CherryPickConflictResumeParityScenario|MergeConflictResumeParityScenario|RebaseConflictResumeParityScenario|RevertConflictResumeParityScenario)$' -count=1
 go test ./internal/watch -run 'Test(Watcher|Manager)' -count=1
 go test ./internal/bisect ./internal/cherrypick ./internal/submodules -count=1
+go test ./internal/remotes ./internal/provider ./internal/multirepo -count=1
 go test ./internal/customcmd ./internal/plugins ./pkg/plugin -count=1
 go test ./internal/app -run 'TestCustomCommand(PromptFormBlocksExecutionUntilSubmit|ConfirmationCanBeCancelled)$' -count=1

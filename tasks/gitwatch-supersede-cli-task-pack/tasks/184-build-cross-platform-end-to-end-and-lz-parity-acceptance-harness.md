@@ -96,3 +96,9 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   revert plus fresh-loader bisect recovery.
 - Task 184 remains open for the remaining submodule/remote/provider, watcher
   fallback, Windows path/CRLF, PTY, native, and full parity-matrix evidence.
+
+- Extended `scripts/parity-check.sh` to execute the existing real remote
+  lifecycle, provider-stub, and multi-repository package suites alongside the
+  disposable-repository and watcher lanes. This makes those package-level
+  claims part of the repeatable parity gate rather than relying on the broader
+  default test command.
