@@ -721,6 +721,31 @@ func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 	}
 }
 
+func TestActiveSequencerRecoveryPaletteRoutesAllOperationKinds(t *testing.T) {
+	for _, test := range []struct {
+		kind sequencer.Kind
+		view workspace.View
+	}{
+		{kind: sequencer.KindRebase, view: workspace.Conflict},
+		{kind: sequencer.KindCherryPick, view: workspace.CherryPick},
+		{kind: sequencer.KindRevert, view: workspace.Conflict},
+		{kind: sequencer.KindMerge, view: workspace.Conflict},
+	} {
+		t.Run(test.kind.String(), func(t *testing.T) {
+			m := New()
+			m.Discovery.Root = t.TempDir()
+			state, err := sequencer.NewState("repo", 1, test.kind, sequencer.PhasePaused)
+			if err != nil {
+				t.Fatal(err)
+			}
+			m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "main"}, Operation: &state})
+			if command := m.executePaletteAction("operation_recovery"); command != nil || m.currentView() != test.view {
+				t.Fatalf("recovery route = command=%v view=%q want=%q", command != nil, m.currentView(), test.view)
+			}
+		})
+	}
+}
+
 func TestExternalSequencerCompletionClosesConflictWorkspace(t *testing.T) {
 	m := New()
 	m.Discovery.Root = t.TempDir()

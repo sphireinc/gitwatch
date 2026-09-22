@@ -978,6 +978,9 @@ func (m Model) paletteActions() []commands.Action {
 		{ID: "unpushed", Label: "Show unpushed commits", Shortcut: m.Keymap["unpushed"], Enabled: m.Discovery.Root != ""},
 		{ID: "branch_summary", Label: "Show branch summary", Shortcut: m.Keymap["branch_summary"], Enabled: m.Discovery.Root != ""},
 	}
+	if operation := m.Snapshot.Operation; operation != nil && recoverableOperation(operation.Kind()) {
+		actions = append(actions, commands.Action{ID: "operation_recovery", Label: "Reopen active " + operation.Kind().String() + " recovery", Category: "recovery", Enabled: true})
+	}
 	if m.GitHub.Repository.Owner != "" && m.GitHub.Repository.Name != "" {
 		if m.History.Selected >= 0 && m.History.Selected < len(m.History.Rows) {
 			actions = append(actions, commands.Action{ID: "github_commit_selected", Label: "Open selected commit on GitHub", Category: "provider", Enabled: true})
@@ -1367,6 +1370,21 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 		}
 	}
 	switch id {
+	case "operation_recovery":
+		operation := m.Snapshot.Operation
+		if operation == nil || !recoverableOperation(operation.Kind()) {
+			return nil
+		}
+		if operation.Kind() == sequencer.KindBisect {
+			return m.openBisectWorkspace()
+		}
+		view, label := workspace.Conflict, "Conflict recovery"
+		if operation.Kind() == sequencer.KindCherryPick {
+			view, label = workspace.CherryPick, "Cherry-pick progress"
+		} else {
+			label = operation.Kind().String() + " recovery"
+		}
+		return m.navigate(view, label)
 	case "github_commit_selected":
 		if m.History.Selected < 0 || m.History.Selected >= len(m.History.Rows) {
 			return nil

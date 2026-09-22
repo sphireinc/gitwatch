@@ -82,3 +82,10 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   state transitions, repository-switch generation handling, and a single
   attention-notification path. Task remains active for the final coordinator
   acceptance audit and native/manual evidence.
+
+- Added a single `operation_recovery` palette route for every recoverable
+  repository-scoped operation (rebase, cherry-pick, revert, merge, and bisect),
+  with kind-specific workspace presentation selected from the authoritative
+  sequencer snapshot. App coverage exercises rebase, cherry-pick, revert, and
+  merge routing. The task remains open for final coordinator audit and native
+  acceptance evidence.
