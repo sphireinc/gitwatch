@@ -105,3 +105,20 @@ func TestAppendCommitsPreservesPaginationLaneContinuity(t *testing.T) {
 		t.Fatalf("appended graph rows = %#v", m.Rows)
 	}
 }
+
+func TestASCIIHistoryGraphFallbackPreservesLaneSemantics(t *testing.T) {
+	m := New([]history.Commit{
+		{SHA: "merge", Short: "merge", Subject: "merge", Parents: []string{"main", "side"}},
+		{SHA: "main", Short: "main", Subject: "main", Parents: []string{"root"}},
+		{SHA: "side", Short: "side", Subject: "side", Parents: []string{"root"}},
+	})
+	m.SetASCII(true)
+	view := m.View()
+	if strings.ContainsAny(view, "│●◉") || !strings.Contains(view, "o") || !strings.Contains(view, "|o") {
+		t.Fatalf("ASCII graph fallback = %q", view)
+	}
+	m.SetPulse(1)
+	if !strings.Contains(m.View(), "@") {
+		t.Fatal("ASCII pulse marker missing")
+	}
+}

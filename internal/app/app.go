@@ -1677,6 +1677,7 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 		m.Motion = MotionFull
 	}
 	m.Theme = theme.New(theme.Name(c.Theme), false)
+	m.History.SetASCII(m.Theme.Colorless)
 	m.PanelSplit = layout.Split{FilesPercent: c.Layout.FilesPercent, DetailsPercent: c.Layout.DetailsPercent}
 	m.RepositoryRoots = append([]string(nil), c.Repositories.Roots...)
 	m.RepositoryGroups = cloneGroups(c.Repositories.Groups)

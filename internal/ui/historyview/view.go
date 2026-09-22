@@ -17,6 +17,7 @@ type Model struct {
 	Filter   string
 	Pulse    uint8
 	Basket   history.Selection
+	ASCII    bool
 	commits  []history.Commit
 	cursor   history.GraphCursor
 }
@@ -49,6 +50,10 @@ func (m *Model) ToggleBasket() error {
 
 // ClearBasket clears selected commits without changing scope.
 func (m *Model) ClearBasket() { m.Basket = m.Basket.Clear() }
+
+// SetASCII selects the portable graph glyphs used by terminals that cannot
+// reliably render the Unicode lane markers. It does not alter graph state.
+func (m *Model) SetASCII(ascii bool) { m.ASCII = ascii }
 
 // New creates a history view from commits ordered by the history service.
 func New(commits []history.Commit) Model {
@@ -144,7 +149,7 @@ func (m Model) View() string {
 		if containsSHA(m.Basket.SHAs(), row.Commit.SHA) {
 			prefix = "* "
 		}
-		lane := graphLanePrefix(row, i == m.Selected && m.Pulse%2 == 1)
+		lane := graphLanePrefix(row, i == m.Selected && m.Pulse%2 == 1, m.ASCII)
 		refs := append([]string{}, row.Branches...)
 		refs = append(refs, row.Tags...)
 		for j := range refs {
@@ -165,7 +170,7 @@ func (m Model) View() string {
 	return strings.Join(lines, "\n")
 }
 
-func graphLanePrefix(row history.GraphRow, pulse bool) string {
+func graphLanePrefix(row history.GraphRow, pulse, ascii bool) string {
 	lanes := row.Lanes
 	if lanes < 1 {
 		lanes = 1
@@ -174,12 +179,16 @@ func graphLanePrefix(row history.GraphRow, pulse bool) string {
 		row.Lane = 0
 	}
 	columns := make([]rune, lanes)
-	for index := range columns {
-		columns[index] = '│'
+	branch, commit, pulseCommit := '│', '●', '◉'
+	if ascii {
+		branch, commit, pulseCommit = '|', 'o', '@'
 	}
-	columns[row.Lane] = '●'
+	for index := range columns {
+		columns[index] = branch
+	}
+	columns[row.Lane] = commit
 	if pulse {
-		columns[row.Lane] = '◉'
+		columns[row.Lane] = pulseCommit
 	}
 	return string(columns)
 }
