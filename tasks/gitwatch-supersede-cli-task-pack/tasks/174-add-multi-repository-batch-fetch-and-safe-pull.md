@@ -71,3 +71,11 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
 - Remaining: add live queued/running progress, explicit batch-pull controls,
   and run the disposable-repository/process-count and watcher-responsiveness
   acceptance matrix.
+
+## Progress evidence (2026-09-22)
+
+- Added `TestRunFiftyRequestsKeepsWorkerBound`, which exercises 50 repository
+  requests with a four-worker cap, measures peak concurrent work, verifies all
+  requests succeed in input order, and guards against unbounded batch worker
+  growth. Real disposable-repository and watcher-responsiveness acceptance
+  remains open.
