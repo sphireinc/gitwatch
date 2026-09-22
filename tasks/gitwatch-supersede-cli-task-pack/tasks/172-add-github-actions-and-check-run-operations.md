@@ -63,6 +63,11 @@ Turn CI visibility into actionable but bounded workflow support.
   failed completed runs and cancelling in-progress runs; successful requests
   reload provider state. Existing bounded URL opening remains available for
   logs.
-- Remaining: expose rate-limit/backoff state in the UI, add multi-repository
-  cached CI attention, and gather native/manual acceptance evidence that
-  provider work does not starve local status refresh.
+- Added explicit provider-state presentation to the GitHub workspace. Provider
+  errors now render classified states such as `rate-limited`, `unauthorized`,
+  `not configured`, and `unavailable`; bounded `Retry-After` metadata is shown
+  when supplied, while local Git status remains independent.
+- Focused provider/GitHub-view tests, race tests, app tests, vet, and diff
+  checks pass at the pushed revision. Remaining work is multi-repository
+  cached CI attention and native/manual evidence that provider work does not
+  starve local status refresh.
