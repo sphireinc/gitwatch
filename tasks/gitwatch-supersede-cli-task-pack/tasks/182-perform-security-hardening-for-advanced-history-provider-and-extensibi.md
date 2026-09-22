@@ -91,3 +91,9 @@ Threat-model and harden the larger attack surface before release.
 
 - The shell-execution invariant now has a portable `grep` fallback when
   `rg` is unavailable, so CI cannot silently skip the argv-boundary scan.
+
+- At revision `7cfef04`, `GOCACHE=/tmp/gitwatch-security-cache GOPROXY=off
+  GOSUMDB=off GITWATCH_FUZZTIME=1s ./scripts/security-check.sh` passed all
+  parser fuzz smoke lanes, plugin/registry checks, and the shell-execution
+  invariant. The full native/manual security review and longer-duration fuzz
+  evidence remain open.
