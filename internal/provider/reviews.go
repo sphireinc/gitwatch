@@ -88,6 +88,12 @@ type MergeClient interface {
 	MergePullRequest(context.Context, Repository, int, MergeRequest) (MergeResult, error)
 }
 
+// BranchClient deletes a remote branch after an explicitly confirmed provider
+// merge. It never changes the local checkout.
+type BranchClient interface {
+	DeleteBranch(context.Context, Repository, string) error
+}
+
 func ParseReviewComments(data []byte) ([]ReviewComment, error) {
 	var values []struct {
 		ID   int64  `json:"id"`

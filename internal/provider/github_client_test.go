@@ -150,6 +150,26 @@ func TestGitHubClientReviewAndMergeMutationsAreTypedAndNonRetrying(t *testing.T)
 	}
 }
 
+func TestGitHubClientDeletesValidatedBranchWithoutRetrying(t *testing.T) {
+	attempts := 0
+	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), Retries: 3, HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		attempts++
+		if r.Method != http.MethodDelete || r.URL.Path != "/repos/o/r/git/refs/heads/feature/topic" || r.Header.Get("Authorization") != "Bearer token" {
+			t.Fatalf("delete request = %s %s auth=%q", r.Method, r.URL.Path, r.Header.Get("Authorization"))
+		}
+		return &http.Response{StatusCode: http.StatusNoContent, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header), Request: r}, nil
+	})}}
+	if err := client.DeleteBranch(context.Background(), Repository{Owner: "o", Name: "r"}, "feature/topic"); err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 1 {
+		t.Fatalf("delete attempts = %d, want 1", attempts)
+	}
+	if err := client.DeleteBranch(context.Background(), Repository{Owner: "o", Name: "r"}, "../escape"); err == nil {
+		t.Fatal("invalid branch reached provider")
+	}
+}
+
 func TestGitHubClientSubmitsReviewDecision(t *testing.T) {
 	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		if !strings.HasSuffix(r.URL.Path, "/reviews") || r.Method != http.MethodPost {

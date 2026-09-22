@@ -2712,6 +2712,22 @@ func TestGitHubMergeRefreshesBeforeExplicitConfirmation(t *testing.T) {
 	}
 }
 
+func TestGitHubMergeOffersSeparateRemoteBranchDeletion(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.GitHub, "GitHub")
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 4, Head: "feature/topic", State: "open"}, provider.ChecksSnapshot{})
+	updated, cmd := m.Update(GitHubMergeFinishedMsg{Result: provider.MergeResult{Merged: true}})
+	m = updated.(Model)
+	if cmd != nil || !m.GitHubBranchDeleteConfirm || m.GitHubBranchDeleteTarget != "feature/topic" {
+		t.Fatalf("branch deletion offer = cmd=%v confirm=%v target=%q", cmd != nil, m.GitHubBranchDeleteConfirm, m.GitHubBranchDeleteTarget)
+	}
+	updated, cmd = m.Update(key("n"))
+	m = updated.(Model)
+	if cmd == nil || m.GitHubBranchDeleteConfirm || m.GitHubBranchDeleteTarget != "" || !strings.Contains(m.Status, "cancelled") {
+		t.Fatalf("branch deletion cancellation = cmd=%v confirm=%v target=%q status=%q", cmd != nil, m.GitHubBranchDeleteConfirm, m.GitHubBranchDeleteTarget, m.Status)
+	}
+}
+
 func TestGitHubReviewActionsRequireIntentAndReason(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
 	m.Workspace.Navigate(workspace.GitHub, "GitHub")

@@ -512,6 +512,10 @@ type GitHubMergeFinishedMsg struct {
 	Result provider.MergeResult
 	Err    error
 }
+type GitHubBranchDeleteFinishedMsg struct {
+	Branch string
+	Err    error
+}
 type GitHubReviewFinishedMsg struct {
 	Result provider.ReviewSubmissionResult
 	Err    error
@@ -865,6 +869,8 @@ type Model struct {
 	GitHubMergeMethod         provider.MergeMethod
 	GitHubMergeRefresh        bool
 	GitHubMergeConfirm        bool
+	GitHubBranchDeleteConfirm bool
+	GitHubBranchDeleteTarget  string
 	GitHubReviewMode          bool
 	GitHubReviewEvent         provider.ReviewEvent
 	GitHubReviewBody          string
@@ -4633,6 +4639,19 @@ func (m Model) mergeGitHubPullRequest() tea.Cmd {
 	}
 }
 
+func (m Model) deleteGitHubBranch() tea.Cmd {
+	repository, branch, tokenEnv := m.GitHub.Repository, m.GitHubBranchDeleteTarget, m.GitHubTokenEnv
+	if tokenEnv == "" {
+		tokenEnv = "GITHUB_TOKEN"
+	}
+	ctx := m.commandContext()
+	return func() tea.Msg {
+		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
+		err := client.DeleteBranch(ctx, repository, branch)
+		return GitHubBranchDeleteFinishedMsg{Branch: branch, Err: err}
+	}
+}
+
 func (m Model) loadPlugins() tea.Cmd {
 	directories := append([]string(nil), m.PluginDirectories...)
 	statePath := m.PluginStatePath
@@ -6426,6 +6445,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "n", "N", "esc":
 				m.GitHubMergeConfirm = false
 				m.Status = "GitHub merge cancelled"
+			}
+			return m, nil
+		}
+		if m.currentView() == workspace.GitHub && m.GitHubBranchDeleteConfirm {
+			switch v.String() {
+			case "y", "Y":
+				m.GitHubBranchDeleteConfirm = false
+				m.State, m.Status = StateOperationPending, "deleting remote GitHub branch"
+				return m, m.deleteGitHubBranch()
+			case "n", "N", "esc":
+				m.GitHubBranchDeleteConfirm = false
+				m.State, m.Status = StateReady, "remote branch deletion cancelled; local refs unchanged"
+				m.GitHubBranchDeleteTarget = ""
+				return m, m.loadGitHub()
 			}
 			return m, nil
 		}
@@ -9233,9 +9266,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if !v.Result.Merged {
 			m.State, m.Status = StateError, "GitHub merge was not completed: "+platform.SafeText(v.Result.Message)
 		} else {
-			m.State, m.Status = StateReady, "GitHub merge completed; local refs unchanged until fetch"
+			m.State = StateReady
+			m.GitHubBranchDeleteTarget = m.GitHub.Pull.Head
+			if err := provider.ValidateCheckoutRef(m.GitHubBranchDeleteTarget); err == nil {
+				m.GitHubBranchDeleteConfirm = true
+				m.Status = "GitHub merge completed. delete remote branch " + platform.SafeText(m.GitHubBranchDeleteTarget) + "? (y/n)"
+				return m, nil
+			}
+			m.Status = "GitHub merge completed; local refs unchanged until fetch"
 			return m, m.loadGitHub()
 		}
+	case GitHubBranchDeleteFinishedMsg:
+		m.GitHubBranchDeleteConfirm = false
+		if v.Err != nil {
+			m.State, m.Status = StateError, "GitHub branch deletion: "+platform.SafeText(v.Err.Error())
+		} else {
+			m.State, m.Status = StateReady, "deleted remote branch "+platform.SafeText(v.Branch)+"; local refs unchanged"
+			m.GitHubBranchDeleteTarget = ""
+		}
+		return m, m.loadGitHub()
 	case GitHubReviewFinishedMsg:
 		m.GitHubReviewConfirm = false
 		if v.Err != nil {
@@ -10126,6 +10175,8 @@ func (m Model) featureView(view workspace.View) tea.View {
 			lines[len(lines)-1] = "merge form: [m] merge  [s] squash  [r] rebase  [enter] refresh  [esc] cancel"
 		} else if m.GitHubMergeConfirm {
 			lines[len(lines)-1] = "merge confirmation: [y] yes  [n] no  [esc] cancel"
+		} else if m.GitHubBranchDeleteConfirm {
+			lines[len(lines)-1] = "delete remote branch confirmation: [y] yes  [n] no  [esc] cancel"
 		} else if m.GitHubReviewMode {
 			lines[len(lines)-1] = "review form: type  [enter] submit  [esc] cancel"
 		} else if m.GitHubReviewConfirm {

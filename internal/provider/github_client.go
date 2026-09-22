@@ -403,6 +403,16 @@ func (c GitHubClient) MergePullRequest(ctx context.Context, repository Repositor
 	return MergeResult{Merged: response.Merged, SHA: response.SHA, Message: response.Message}, nil
 }
 
+// DeleteBranch deletes a branch ref through GitHub. The branch name is
+// validated before it is interpolated into the API path.
+func (c GitHubClient) DeleteBranch(ctx context.Context, repository Repository, branch string) error {
+	if err := ValidateCheckoutRef(branch); err != nil {
+		return err
+	}
+	path := "/repos/" + url.PathEscape(repository.Owner) + "/" + url.PathEscape(repository.Name) + "/git/refs/heads/" + url.PathEscape(branch)
+	return c.delete(ctx, path)
+}
+
 func (c GitHubClient) postJSON(ctx context.Context, path string, payload []byte, target any) error {
 	base := strings.TrimRight(c.BaseURL, "/")
 	if base == "" {
@@ -455,6 +465,51 @@ func (c GitHubClient) postJSON(ctx context.Context, path string, payload []byte,
 			return nil
 		}
 		return fmt.Errorf("%w: invalid response", ErrProviderUnavailable)
+	}
+	return nil
+}
+
+func (c GitHubClient) delete(ctx context.Context, path string) error {
+	base := strings.TrimRight(c.BaseURL, "/")
+	if base == "" {
+		base = "https://api.github.com"
+	}
+	token := ""
+	if c.TokenSource != nil {
+		value, err := c.TokenSource.Token()
+		if err != nil {
+			return ErrNoToken
+		}
+		token = value
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, base+path, nil)
+	if err != nil {
+		return ErrProviderUnavailable
+	}
+	request.Header.Set("Accept", "application/vnd.github+json")
+	request.Header.Set("User-Agent", "gitwatch")
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	client := c.HTTPClient
+	if client == nil {
+		client = &http.Client{}
+	}
+	if c.Timeout > 0 {
+		copy := *client
+		copy.Timeout = c.Timeout
+		client = &copy
+	}
+	response, err := c.doWithRetry(ctx, client, request)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return ErrProviderUnavailable
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return newHTTPError(response)
 	}
 	return nil
 }
