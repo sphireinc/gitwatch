@@ -117,3 +117,9 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   failed, and cancelled outcomes without exceeding the worker bound. The test
   is included in `scripts/parity-check.sh` and passed at the current revision.
   Native cancellation and watcher-responsiveness evidence remain open.
+
+- Revision `50a36b2` passed the focused normal and race tests, `go vet`,
+  `git diff --check`, and CI run `35777279686` on Ubuntu 24.04, macOS 15, and
+  Windows 2025. The CI run also passed the repository security and performance
+  gates. Native terminal cancellation and watcher-responsiveness evidence are
+  still required before closing the task.

@@ -94,8 +94,8 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
 - Added the merge scenario to `scripts/parity-check.sh`; the parity harness now
   covers executable conflict/resume lanes for cherry-pick, merge, rebase, and
   revert plus fresh-loader bisect recovery.
-- Task 184 remains open for the remaining submodule/remote/provider, watcher
-  fallback, Windows path/CRLF, PTY, native, and full parity-matrix evidence.
+- Task 184 remains open for the remaining provider-stub depth, watcher event
+  storm, Windows path/CRLF, PTY, native, and full parity-matrix evidence.
 
 - Extended `scripts/parity-check.sh` to execute the existing real remote
   lifecycle, provider-stub, and multi-repository package suites alongside the
@@ -122,3 +122,10 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   bisect, cherry-pick, submodule, remote, provider, multi-repository,
   custom-command, plugin, and app lanes. The parity task remains open for
   Windows path/CRLF, PTY, and native operator evidence.
+
+- Revision `50a36b2` adds the real 50-repository batch-fetch lane to
+  `scripts/parity-check.sh`; it creates local bare remotes, exercises mixed
+  clean/dirty/local-only repositories, injects missing-remotes, and verifies
+  bounded cancellation/failure isolation. CI run `35777279686` passed the
+  cross-platform matrix. Windows path/CRLF, PTY, and native operator evidence
+  remain open.
