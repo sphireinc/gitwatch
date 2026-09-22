@@ -25,6 +25,7 @@ type Model struct {
 	SelectedRun     int
 	Ready           bool
 	Error           string
+	ErrorHint       string
 	State           provider.State
 	RetryAfter      string
 }
@@ -94,6 +95,18 @@ func (m *Model) SetError(repository provider.Repository, branch string, err erro
 	} else {
 		m.Error = platform.SafeText(err.Error())
 	}
+	switch m.State {
+	case provider.StateNotConfigured:
+		m.ErrorHint = "Configure a GitHub token or sign in with gh auth login."
+	case provider.StateUnauthorized:
+		m.ErrorHint = "The token is missing permission for this repository or action; local Git remains authoritative."
+	case provider.StateRateLimited:
+		m.ErrorHint = "Wait for the provider quota window before retrying."
+	case provider.StateUnavailable:
+		m.ErrorHint = "Check network connectivity and retry; local Git remains authoritative."
+	default:
+		m.ErrorHint = "Retry provider loading; local Git remains authoritative."
+	}
 }
 
 func (m Model) View() string {
@@ -107,7 +120,11 @@ func (m Model) View() string {
 		if m.RetryAfter != "" {
 			status += " (retry after " + m.RetryAfter + ")"
 		}
-		return strings.Join(append(lines, status, "  "+m.Error), "\n")
+		lines = append(lines, status, "  "+m.Error)
+		if m.ErrorHint != "" {
+			lines = append(lines, "  Hint: "+platform.SafeText(m.ErrorHint))
+		}
+		return strings.Join(lines, "\n")
 	}
 	if !m.Ready {
 		return strings.Join(append(lines, "  Loading provider data…"), "\n")

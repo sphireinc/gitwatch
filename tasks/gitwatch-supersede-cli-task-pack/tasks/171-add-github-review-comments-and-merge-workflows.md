@@ -70,11 +70,15 @@ Support common review and merge actions while keeping provider state distinct fr
   branch refs are validated before the typed GitHub DELETE request, local refs
   remain unchanged, and provider state is reloaded after the action or a
   cancellation.
+- Added state-specific GitHub provider failure hints for missing credentials,
+  unauthorized permissions, rate limits, and availability failures while
+  preserving sanitized error text and the local-Git-authoritative boundary.
 - Focused provider/app/UI tests, provider race tests, vet, and
   `git diff --check` pass.
 - Evidence for this slice: commit `2009643`; `go test ./internal/provider
   ./internal/app`, `go test -race ./internal/provider ./internal/app`,
   `go vet ./internal/provider ./internal/app`, and `git diff --check` pass.
-- Remaining: richer provider
-  permission/error presentation, reply-target UI, and native/manual
-  acceptance evidence.
+- Evidence for provider error presentation: `go test ./internal/ui/githubview`,
+  `go test -race ./internal/ui/githubview`, `go vet ./internal/ui/githubview`,
+  and `git diff --check` pass.
+- Remaining: reply-target UI and native/manual acceptance evidence.
