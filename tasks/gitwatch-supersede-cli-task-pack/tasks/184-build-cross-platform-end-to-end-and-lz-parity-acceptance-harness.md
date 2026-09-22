@@ -156,3 +156,7 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   `GITWATCH_PTY_REPOSITORY`. Local macOS evidence passed with an isolated
   disposable fixture; hosted native Windows and broader operator evidence
   remain open.
+- At revision `6237c4a`, the real binary passed the macOS arm64 PTY smoke with
+  an isolated disposable repository: startup rendered, an 80x24 resize opened
+  help successfully, the pane capture was written, and `q` exited cleanly.
+  Hosted Windows/Linux PTY and broader native operator evidence remain open.
