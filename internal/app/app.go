@@ -1336,12 +1336,14 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 			if index >= len(m.GitHub.Issues) {
 				return nil
 			}
+			m.GitHub.SelectedIssue = index
 			m.Status = fmt.Sprintf("selected GitHub issue #%d", m.GitHub.Issues[index].Number)
 			return m.navigate(workspace.GitHub, "GitHub")
 		case "palette_release_":
 			if index >= len(m.GitHub.Releases) {
 				return nil
 			}
+			m.GitHub.SelectedRelease = index
 			m.Status = "selected GitHub release " + platform.SafeText(m.GitHub.Releases[index].TagName)
 			return m.navigate(workspace.GitHub, "GitHub")
 		case "palette_plugin_":
@@ -7282,16 +7284,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "L":
 			if m.currentView() == workspace.GitHub {
-				if len(m.GitHub.Releases) == 0 || m.GitHub.Releases[0].URL == "" {
+				index := m.GitHub.SelectedRelease
+				if index < 0 || index >= len(m.GitHub.Releases) || m.GitHub.Releases[index].URL == "" {
 					m.Status = "no GitHub release URL available"
 					return m, nil
 				}
-				command, err := platform.OpenURLCommand(m.GitHub.Releases[0].URL)
+				release := m.GitHub.Releases[index]
+				command, err := platform.OpenURLCommand(release.URL)
 				if err != nil {
 					m.Status = err.Error()
 					return m, nil
 				}
-				m.Status = "opening GitHub release " + platform.SafeText(m.GitHub.Releases[0].TagName)
+				m.Status = "opening GitHub release " + platform.SafeText(release.TagName)
 				return m, tea.ExecProcess(command, nil)
 			} else if m.currentView() == workspace.Remotes && m.Remotes.Selected >= 0 && m.Remotes.Selected < len(m.Remotes.Dashboard.Remotes) {
 				remote := m.Remotes.Dashboard.Remotes[m.Remotes.Selected]
@@ -7971,16 +7975,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "O":
 			if m.currentView() == workspace.GitHub {
-				if len(m.GitHub.Issues) == 0 || m.GitHub.Issues[0].URL == "" {
+				index := m.GitHub.SelectedIssue
+				if index < 0 || index >= len(m.GitHub.Issues) || m.GitHub.Issues[index].URL == "" {
 					m.Status = "no GitHub issue URL available"
 					return m, nil
 				}
-				command, err := platform.OpenURLCommand(m.GitHub.Issues[0].URL)
+				issue := m.GitHub.Issues[index]
+				command, err := platform.OpenURLCommand(issue.URL)
 				if err != nil {
 					m.Status = err.Error()
 					return m, nil
 				}
-				m.Status = "opening GitHub issue #" + fmt.Sprint(m.GitHub.Issues[0].Number)
+				m.Status = "opening GitHub issue #" + fmt.Sprint(issue.Number)
 				return m, tea.ExecProcess(command, nil)
 			} else if m.currentView() == workspace.Status {
 				m.StatusTreeMode = !m.StatusTreeMode

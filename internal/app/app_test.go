@@ -2755,6 +2755,29 @@ func TestGitHubIssueAndReleaseNavigationUsesProviderURLs(t *testing.T) {
 	}
 }
 
+func TestGitHubIssueAndReleasePaletteSelectionDrivesURLActions(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{}, provider.ChecksSnapshot{})
+	m.GitHub.SetIssues([]provider.Issue{{Number: 3, Title: "First", URL: "https://github.test/issues/3"}, {Number: 8, Title: "Second", URL: "https://github.test/issues/8"}})
+	m.GitHub.SetReleases([]provider.Release{{TagName: "v1", URL: "https://github.test/releases/1"}, {TagName: "v2", URL: "https://github.test/releases/2"}})
+	if command := m.executePaletteAction("palette_issue_1"); m.GitHub.SelectedIssue != 1 || m.currentView() != workspace.GitHub {
+		t.Fatalf("issue palette selection = command=%v selected=%d view=%q", command != nil, m.GitHub.SelectedIssue, m.currentView())
+	}
+	updated, command := m.Update(key("O"))
+	m = updated.(Model)
+	if command == nil || !strings.Contains(m.Status, "#8") {
+		t.Fatalf("selected issue URL action = command=%v status=%q", command != nil, m.Status)
+	}
+	if command := m.executePaletteAction("palette_release_1"); m.GitHub.SelectedRelease != 1 || m.currentView() != workspace.GitHub {
+		t.Fatalf("release palette selection = command=%v selected=%d view=%q", command != nil, m.GitHub.SelectedRelease, m.currentView())
+	}
+	updated, command = m.Update(key("L"))
+	m = updated.(Model)
+	if command == nil || !strings.Contains(m.Status, "v2") {
+		t.Fatalf("selected release URL action = command=%v status=%q", command != nil, m.Status)
+	}
+}
+
 func TestRepositoryBatchFetchRequiresExplicitConfirmation(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{})
 	m.Workspace.Navigate(workspace.Repositories, "Repositories")

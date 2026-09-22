@@ -11,20 +11,22 @@ import (
 )
 
 type Model struct {
-	Repository  provider.Repository
-	Branch      string
-	Pull        provider.PullRequest
-	Pulls       []provider.PullRequest
-	Issues      []provider.Issue
-	Releases    []provider.Release
-	Detail      *provider.PullRequestDetail
-	Comments    []provider.ReviewComment
-	Checks      provider.ChecksSnapshot
-	SelectedRun int
-	Ready       bool
-	Error       string
-	State       provider.State
-	RetryAfter  string
+	Repository      provider.Repository
+	Branch          string
+	Pull            provider.PullRequest
+	Pulls           []provider.PullRequest
+	Issues          []provider.Issue
+	Releases        []provider.Release
+	SelectedIssue   int
+	SelectedRelease int
+	Detail          *provider.PullRequestDetail
+	Comments        []provider.ReviewComment
+	Checks          provider.ChecksSnapshot
+	SelectedRun     int
+	Ready           bool
+	Error           string
+	State           provider.State
+	RetryAfter      string
 }
 
 func New() Model { return Model{} }
@@ -40,10 +42,16 @@ func (m *Model) SetPullRequests(pulls []provider.PullRequest) {
 
 func (m *Model) SetIssues(issues []provider.Issue) {
 	m.Issues = append([]provider.Issue(nil), issues...)
+	if m.SelectedIssue >= len(m.Issues) {
+		m.SelectedIssue = max(0, len(m.Issues)-1)
+	}
 }
 
 func (m *Model) SetReleases(releases []provider.Release) {
 	m.Releases = append([]provider.Release(nil), releases...)
+	if m.SelectedRelease >= len(m.Releases) {
+		m.SelectedRelease = max(0, len(m.Releases)-1)
+	}
 }
 
 func (m *Model) SetDetail(detail provider.PullRequestDetail) {
@@ -112,20 +120,28 @@ func (m Model) View() string {
 	}
 	if len(m.Issues) > 0 {
 		lines = append(lines, fmt.Sprintf("Open issues: %d", len(m.Issues)))
-		for _, issue := range m.Issues {
-			lines = append(lines, fmt.Sprintf("  Issue #%d: %s [%s]", issue.Number, platform.SafeText(issue.Title), platform.SafeText(issue.State)))
+		for index, issue := range m.Issues {
+			prefix := "  "
+			if index == m.SelectedIssue {
+				prefix = "> "
+			}
+			lines = append(lines, fmt.Sprintf("%sIssue #%d: %s [%s]", prefix, issue.Number, platform.SafeText(issue.Title), platform.SafeText(issue.State)))
 		}
 	}
 	if len(m.Releases) > 0 {
 		lines = append(lines, fmt.Sprintf("Releases: %d", len(m.Releases)))
-		for _, release := range m.Releases {
+		for index, release := range m.Releases {
+			prefix := "  "
+			if index == m.SelectedRelease {
+				prefix = "> "
+			}
 			kind := "release"
 			if release.Draft {
 				kind = "draft"
 			} else if release.Prerelease {
 				kind = "pre-release"
 			}
-			lines = append(lines, fmt.Sprintf("  %s: %s [%s]", kind, platform.SafeText(release.TagName), platform.SafeText(release.Name)))
+			lines = append(lines, fmt.Sprintf("%s%s: %s [%s]", prefix, kind, platform.SafeText(release.TagName), platform.SafeText(release.Name)))
 		}
 	}
 	lines = append(lines, fmt.Sprintf("PR #%d: %s [%s]", m.Pull.Number, platform.SafeText(m.Pull.Title), platform.SafeText(m.Pull.State)))

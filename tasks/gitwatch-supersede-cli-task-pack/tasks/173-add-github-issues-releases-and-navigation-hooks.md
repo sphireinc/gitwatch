@@ -66,6 +66,10 @@ Round out high-value repository-provider integration without turning gitwatch in
 - Remaining: add open/list navigation hooks for issue and release URLs,
 - Added explicit browser navigation for the first bounded open issue (`O`)
   and release (`L`) summaries, with safe missing-URL handling and tests.
-- Remaining: provider URL actions for commits, branches, tags, workflow runs,
-  and individually selected issue/release entries, plus native/manual
-  acceptance evidence for disabled/no-auth/partial-scope states.
+- Palette issue/release entries now retain their selected index in the
+  repository-scoped GitHub model, and `O`/`L` open the selected item rather
+  than always opening the first result. Missing selected URLs remain a safe
+  no-op with a user-visible status. App coverage verifies both selected-item
+  routes. Remaining provider URL actions for commits, branches, tags, and
+  workflow runs, plus native/manual acceptance for disabled/no-auth/
+  partial-scope states.
