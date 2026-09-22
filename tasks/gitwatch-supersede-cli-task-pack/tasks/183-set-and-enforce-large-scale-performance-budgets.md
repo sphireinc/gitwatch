@@ -89,3 +89,9 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
 - Added an 80x24/`NO_COLOR`/motion-mode regression for the 14,953-entry status
   presentation path. The test passes normally, under race detection, and with
   vet; native responsiveness and process/goroutine leak evidence remain open.
+
+- Added `TestEngineCancelledRefreshesSettleWithoutGoroutineGrowth`, which runs
+  twenty cancelled 64-repository refreshes, accepts only bounded partial
+  cancellation results, verifies every result remains repository-scoped, and
+  asserts goroutines return within two of baseline. The test passed 20 normal
+  repetitions, 5 race repetitions, and vet at the current revision.

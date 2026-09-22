@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -232,5 +233,45 @@ func TestEngineRefreshKeepsHundredRepositoriesWithinWorkerBound(t *testing.T) {
 	}
 	if len(seen) != repositoryCount {
 		t.Fatalf("distinct refreshed repositories = %d, want %d", len(seen), repositoryCount)
+	}
+}
+
+func TestEngineCancelledRefreshesSettleWithoutGoroutineGrowth(t *testing.T) {
+	engine := NewEngine(4)
+	engine.Stashes, engine.Remotes, engine.Worktrees = nil, nil, nil
+	engine.Discover = func(ctx context.Context, path string) (git.Discovery, error) {
+		select {
+		case <-ctx.Done():
+			return git.Discovery{}, ctx.Err()
+		case <-time.After(time.Second):
+			return git.Discovery{Root: path}, nil
+		}
+	}
+	repositories := make([]Repository, 64)
+	for index := range repositories {
+		repositories[index] = Repository{Path: fmt.Sprintf("/cancelled-%03d", index)}
+	}
+	runtime.GC()
+	baseline := runtime.NumGoroutine()
+	for iteration := 0; iteration < 20; iteration++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		results := engine.Refresh(ctx, repositories, "")
+		if len(results) > len(repositories) {
+			t.Fatalf("cancelled refresh returned %d results for %d repositories", len(results), len(repositories))
+		}
+		for _, result := range results {
+			if result.Repository.Path == "" {
+				t.Fatal("cancelled refresh returned an unscoped result")
+			}
+		}
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for runtime.NumGoroutine() > baseline+2 && time.Now().Before(deadline) {
+		runtime.Gosched()
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := runtime.NumGoroutine(); got > baseline+2 {
+		t.Fatalf("cancelled refresh goroutines grew from %d to %d", baseline, got)
 	}
 }
