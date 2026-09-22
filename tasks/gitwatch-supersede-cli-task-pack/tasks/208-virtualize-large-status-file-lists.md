@@ -178,6 +178,13 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   sample remained bounded. Native 80x24/NO_COLOR/reduced-motion acceptance
   remains open.
 
+- At revision `53f5131`, the isolated-cache performance gate passed again on
+  macOS arm64 / Apple M1 Pro. The bounded 14,953-entry path measured 301
+  microseconds, 46 KB, and 299 allocations versus 33.1 milliseconds, 1.43 MB,
+  and 64,402 allocations for the full-scan baseline; the 50,000-entry samples
+  remained between 160 and 214 microseconds with 299 allocations. Native
+  80x24/NO_COLOR/reduced-motion acceptance remains open.
+
 - Added `TestStatusVirtualizationAt80x24HonorsNoColorAndMotionModes`. With
   14,953 logical entries it asserts exact 80x24 output height, no terminal
   color escapes under `NO_COLOR`, and preservation of the selected offscreen

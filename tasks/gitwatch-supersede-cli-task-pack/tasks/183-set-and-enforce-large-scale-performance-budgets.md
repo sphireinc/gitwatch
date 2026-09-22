@@ -95,3 +95,10 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   cancellation results, verifies every result remains repository-scoped, and
   asserts goroutines return within two of baseline. The test passed 20 normal
   repetitions, 5 race repetitions, and vet at the current revision.
+
+- At revision `53f5131`, `./scripts/performance-check.sh` passed with isolated
+  caches on macOS arm64 / Apple M1 Pro. The bounded status benchmark measured
+  approximately 301 microseconds and 46 KB versus 33.1 milliseconds and 1.43
+  MB for the full-scan baseline; the 50,000-entry scale sample remained at
+  approximately 214 microseconds, 46 KB, and 299 allocations. Leak/process,
+  provider/history scale, and native responsiveness evidence remain open.

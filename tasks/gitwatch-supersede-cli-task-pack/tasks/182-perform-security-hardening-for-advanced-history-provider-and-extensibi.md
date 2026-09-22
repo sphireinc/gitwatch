@@ -103,3 +103,10 @@ Threat-model and harden the larger attack surface before release.
   CLI from blocking provider initialization indefinitely. Provider tests and
   the argv/security boundary checks pass; native/manual review and longer
   fuzz-duration evidence remain open.
+
+- At revision `53f5131`, `GOMODCACHE=/tmp/gitwatch-gate-modcache
+  GOCACHE=/tmp/gitwatch-gate-cache GITWATCH_FUZZTIME=1s
+  ./scripts/security-check.sh` passed the rebase, conflict-index, blame,
+  reflog, tag, submodule, custom-command, plugin/registry, and argv-boundary
+  security lanes. Native/manual review and longer-duration fuzz evidence
+  remain open.
