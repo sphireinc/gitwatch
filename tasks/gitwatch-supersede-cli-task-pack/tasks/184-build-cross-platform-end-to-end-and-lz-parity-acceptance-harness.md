@@ -156,6 +156,12 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   clean-shutdown checks. The macOS arm64 lane passed; hosted Windows/Linux
   PTY and broader native operator evidence remain open.
 
+- Revision `64e3788` wires the ordinary and large-status PTY lanes into the
+  hosted Unix CI matrix after the existing runtime smoke. Ubuntu and macOS
+  jobs now require tmux startup, authoritative 14,953-file status rendering
+  at 80x24, help rendering, and clean shutdown; Windows continues through its
+  dedicated path parity lane.
+
 - Added `TestPathAndCRLFStatusScenarioPreservesGitBytesAndNames` to the parity
   gate. It uses real Git with `core.autocrlf=false`, preserves CRLF file bytes,
   and verifies status identity for a unicode/space path and a leading-hyphen
