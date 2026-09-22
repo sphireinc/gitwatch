@@ -109,3 +109,5 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   verifies unknown, rebase edit-stop/conflict, cherry-pick, revert, and merge
   states; focused normal, race, vet, and formatting checks pass. Native
   acceptance and the broader end-to-end coordinator audit remain open.
+- At revision `201f441`, the full `go test ./...` gate passed after this
+  coordinator slice, including the real integration conflict/resume scenarios.
