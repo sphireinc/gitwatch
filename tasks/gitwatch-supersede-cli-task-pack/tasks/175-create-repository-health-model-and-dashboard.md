@@ -73,3 +73,9 @@ Turn gitwatch’s htop identity into a concrete repository-health surface.
   submodule content. Registry/dashboard tests and race/vet checks pass. The
   remaining worktree/config-signing/provider freshness/detail and native
   acceptance evidence remain open.
+
+- Revision `ac6fd97` adds bounded linked-worktree counting through Git's
+  porcelain worktree listing, carries the count through registry health and
+  dashboard rows, and renders `worktrees:N` in the repository workspace.
+  Repeated normal/race/vet/UI checks pass; config-signing, provider freshness,
+  single-repository detail, and native acceptance remain open.
