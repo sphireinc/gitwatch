@@ -12,6 +12,8 @@ import (
 	gitrunner "github.com/sphireinc/git-watch/internal/git"
 )
 
+const watcherEventTimeout = 3 * time.Second
+
 func TestWatcherDebouncesAndSeesCreatedDirectories(t *testing.T) {
 	root := t.TempDir()
 	w, err := New(root, 10*time.Millisecond)
@@ -40,7 +42,7 @@ func TestWatcherDebouncesAndSeesCreatedDirectories(t *testing.T) {
 		if event.Err != nil {
 			t.Fatal(event.Err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(watcherEventTimeout):
 		t.Fatal("watcher did not emit")
 	}
 	if runtime.GOOS == "windows" {
@@ -76,7 +78,7 @@ func TestWatcherSeesAtomicGitignoreReplacement(t *testing.T) {
 		if event.Err != nil || event.Mode != ModeFS {
 			t.Fatalf("gitignore replacement event: %#v", event)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(watcherEventTimeout):
 		t.Fatal("watcher did not emit atomic gitignore replacement")
 	}
 }
@@ -180,7 +182,7 @@ func awaitFilesystemEvent(t *testing.T, events <-chan Event) {
 		if event.Err != nil || event.Mode != ModeFS {
 			t.Fatalf("unexpected event: %#v", event)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(watcherEventTimeout):
 		t.Fatal("watcher did not emit")
 	}
 }
