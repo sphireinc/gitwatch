@@ -1859,6 +1859,17 @@ func TestBisectWorkspaceCollectsAutomatedRunArgvBeforeConfirmation(t *testing.T)
 	}
 }
 
+func TestAppendBisectDisplayOutputSanitizesAndBoundsStreamedText(t *testing.T) {
+	value := appendBisectDisplayOutput("", git.OutputChunk{Stream: git.StderrStream, Data: []byte("\x1b[31mwarning\x1b[0m\n")})
+	if strings.ContainsAny(value, "\x1b\r\x00") || !strings.Contains(value, "[stderr]") || !strings.Contains(value, "warning") {
+		t.Fatalf("streamed output = %q", value)
+	}
+	value = appendBisectDisplayOutput(value, git.OutputChunk{Stream: git.StdoutStream, Data: []byte(strings.Repeat("x", maxBisectDisplayOutput+32))})
+	if len([]rune(value)) > maxBisectDisplayOutput {
+		t.Fatalf("streamed output exceeded display bound: %d", len([]rune(value)))
+	}
+}
+
 func TestKeyboardSelectionOpensDiffWithoutPriorExplicitOpen(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Snapshot.Entries = []repo.Entry{

@@ -87,6 +87,7 @@ import (
 type State uint8
 
 const maxRepositoryParentDepth = 8
+const maxBisectDisplayOutput = 64 << 10
 
 const (
 	StateLoading State = iota
@@ -294,6 +295,12 @@ type BisectFinishedMsg struct {
 	Repository uint64
 	Action     string
 	Outcome    bisect.Outcome
+}
+type BisectOutputMsg struct {
+	Repository uint64
+	Chunk      git.OutputChunk
+	Open       bool
+	Output     <-chan git.OutputChunk
 }
 type ReflogCompareReadyMsg struct {
 	Text       string
@@ -1900,7 +1907,7 @@ func (m *Model) updateBisectKey(key string) tea.Cmd {
 			}
 		case "y", "Y":
 			if m.BisectRunConfirm {
-				m.BisectRunConfirm, m.State, m.Status = false, StateOperationPending, "running automated bisect"
+				m.BisectRunConfirm, m.State, m.Status, m.BisectRunOutput = false, StateOperationPending, "running automated bisect", ""
 				return m.bisectRun()
 			}
 			if m.BisectRunMode != "" {
@@ -3473,22 +3480,53 @@ func (m Model) bisectRun() tea.Cmd {
 	}
 	runner := git.NewRunner(m.Discovery.Root)
 	ctx, generation := m.commandContext(), m.repositoryGeneration
+	output := make(chan git.OutputChunk, 32)
 	request := bisect.RunRequest{
 		Repository: m.Discovery.Root, Generation: generation,
 		Executable: m.BisectRunExecutable, Args: append([]string(nil), m.BisectRunArgs...),
+		OnOutput: func(chunk git.OutputChunk) {
+			select {
+			case output <- chunk:
+			default:
+				// Display output is intentionally lossy and bounded; the final
+				// typed result remains authoritative for the operation.
+			}
+		},
 	}
 	var outcome bisect.Outcome
 	command := m.OperationEngine.Command(ctx, fmt.Sprintf("bisect-run-%d", generation), m.Discovery.Root, "bisect run", 30*time.Minute, func(ctx context.Context) error {
 		outcome = bisect.RunCommand(ctx, runner, request)
 		return outcome.Err
 	})
-	return func() tea.Msg {
+	commandResult := func() tea.Msg {
 		result := command()
+		close(output)
 		if outcome.Err == nil {
 			outcome.Err = result.Result.Err
 		}
 		return BisectFinishedMsg{Repository: generation, Action: "run", Outcome: outcome}
 	}
+	return tea.Batch(commandResult, waitBisectOutput(generation, output))
+}
+
+func waitBisectOutput(repository uint64, output <-chan git.OutputChunk) tea.Cmd {
+	return func() tea.Msg {
+		chunk, open := <-output
+		return BisectOutputMsg{Repository: repository, Chunk: chunk, Open: open, Output: output}
+	}
+}
+
+func appendBisectDisplayOutput(current string, chunk git.OutputChunk) string {
+	prefix := ""
+	if chunk.Stream == git.StderrStream {
+		prefix = "[stderr] "
+	}
+	value := current + prefix + platform.SafeText(string(chunk.Data))
+	runes := []rune(value)
+	if len(runes) > maxBisectDisplayOutput {
+		runes = runes[len(runes)-maxBisectDisplayOutput:]
+	}
+	return string(runes)
 }
 
 func (m Model) bisectReset() tea.Cmd {
@@ -9008,6 +9046,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateError, "bisect: "+v.Err.Error()
 		} else {
 			m.Bisect, m.State, m.Status = v.State, StateReady, ""
+		}
+	case BisectOutputMsg:
+		if !m.acceptsRepository(v.Repository) {
+			return m, nil
+		}
+		if v.Open {
+			m.BisectRunOutput = appendBisectDisplayOutput(m.BisectRunOutput, v.Chunk)
+			return m, waitBisectOutput(v.Repository, v.Output)
 		}
 	case BisectFinishedMsg:
 		if !m.acceptsRepository(v.Repository) {
