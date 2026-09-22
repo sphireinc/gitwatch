@@ -121,6 +121,7 @@ jobs:
           mkdir -p "$evidence"
           ./scripts/pty-smoke.sh "$binary" "$demo" "$evidence"
           ./scripts/pty-large-status-smoke.sh "$binary" "$evidence"
+          ./scripts/pty-history-smoke.sh "$binary" "$evidence"
       - name: Windows path and CRLF parity
         if: runner.os == 'Windows'
         shell: pwsh

@@ -26,3 +26,8 @@ if [ "${GITWATCH_PTY_LARGE_STATUS:-0}" = "1" ]; then
 	: "${GITWATCH_PTY_BINARY:?GITWATCH_PTY_BINARY is required when GITWATCH_PTY_LARGE_STATUS=1}"
 	./scripts/pty-large-status-smoke.sh "$GITWATCH_PTY_BINARY" "${GITWATCH_PTY_EVIDENCE:-}"
 fi
+
+if [ "${GITWATCH_PTY_HISTORY:-0}" = "1" ]; then
+	: "${GITWATCH_PTY_BINARY:?GITWATCH_PTY_BINARY is required when GITWATCH_PTY_HISTORY=1}"
+	./scripts/pty-history-smoke.sh "$GITWATCH_PTY_BINARY" "${GITWATCH_PTY_EVIDENCE:-}"
+fi

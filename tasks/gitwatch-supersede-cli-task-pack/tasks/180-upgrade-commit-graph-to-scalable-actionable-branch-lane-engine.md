@@ -50,6 +50,13 @@ Make the history graph competitive with LZ while retaining bounded loading and s
 - Current performance gate (`GOCACHE=/tmp/gitwatch-performance-current-cache ./scripts/performance-check.sh`, macOS arm64 Apple M1 Pro) passed `BenchmarkBuildGraph100K` at 7.83 ms, 24.8 MB, and 100,007 allocations for one 100k-commit graph build; the gate also passed the 100k parser, 50k status scaling, and 50-repository palette samples.
 - Remaining: native/manual acceptance.
 
+- Added `scripts/pty-history-smoke.sh`, a disposable real-merge-topology PTY
+  lane. It drives the actual binary to History at 80x24 with `NO_COLOR=1` and
+  reduced/off motion, asserts the merge graph and commit labels render, and
+  verifies clean quit. The lane passed locally on macOS arm64; it is also part
+  of the Unix CI PTY acceptance step. Hosted execution remains blocked until
+  the workflow-bearing branch can be pushed.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.
