@@ -89,3 +89,7 @@ Support common review and merge actions while keeping provider state distinct fr
   ./internal/ui/githubview`, `go vet ./internal/app ./internal/provider
   ./internal/ui/githubview`, and `git diff --check` pass.
 - Remaining: native/manual acceptance evidence.
+- At revision `7d1e078`, the repository-wide `make check` passed with pinned
+  golangci-lint reporting 0 issues, full tests, full race, vet, diff checks,
+  security fuzz, and performance benchmarks. Native/manual terminal evidence
+  remains the only task-specific gap recorded here.

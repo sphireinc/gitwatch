@@ -204,3 +204,8 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   rendering, and clean quit. The lane used the real tmux PTY with poll watch
   mode and reduced/off motion. Automated NO_COLOR and motion-mode coverage is
   also green; hosted Windows/Linux and native mouse interaction remain open.
+
+- At revision `7d1e078`, the repository-wide `make check` passed, including
+  pinned lint (0 issues), full normal and race tests, vet, security fuzz, and
+  the bounded 14,953/50,000-entry performance samples. Hosted cross-platform
+  and native mouse interaction remain open.

@@ -83,3 +83,8 @@ Round out high-value repository-provider integration without turning gitwatch in
   unreachable duplicate GitHub `c` branch; `c` remains the review-comment
   action. Focused app coverage verifies the selected check URL route.
   Native/manual provider-state acceptance remains open.
+
+- At revision `7d1e078`, the repository-wide `make check` passed with pinned
+  lint reporting 0 issues, full tests, race, vet, security fuzz, and
+  performance gates. Provider-disabled, no-auth, partial-scope, and native
+  terminal acceptance remain explicit follow-up evidence.
