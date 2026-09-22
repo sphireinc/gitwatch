@@ -19,6 +19,43 @@ type RecoveryRoute struct {
 	Label string
 }
 
+// RecoveryActions describes the lifecycle actions that are valid for a
+// Git-derived operation projection. It is UI-neutral so every workspace uses
+// the same safety decision before rendering or dispatching an action.
+type RecoveryActions struct {
+	Continue bool
+	Abort    bool
+	Skip     bool
+}
+
+// ActionsFor derives valid lifecycle actions from the operation kind and
+// authoritative conflict/index projection. A negative staged count means the
+// caller has not supplied an index count and the coordinator remains
+// conservative only where the count is known.
+func ActionsFor(kind Kind, unresolved, staged int) RecoveryActions {
+	if kind == KindUnknown {
+		return RecoveryActions{}
+	}
+	actions := RecoveryActions{Abort: true}
+	switch kind {
+	case KindRebase, KindCherryPick, KindRevert:
+		actions.Skip = true
+	case KindMerge:
+	default:
+		return RecoveryActions{}
+	}
+	if unresolved > 0 {
+		return actions
+	}
+	// Rebase edit-stops do not require staged changes. For other sequencers,
+	// a known clean index means there is nothing for Git to continue or commit.
+	if kind != KindRebase && staged >= 0 && staged == 0 {
+		return actions
+	}
+	actions.Continue = true
+	return actions
+}
+
 // RouteFor returns the common recovery route for every supported durable Git
 // operation. Unknown operations are intentionally not routed.
 func RouteFor(kind Kind) (RecoveryRoute, bool) {

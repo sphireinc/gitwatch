@@ -138,28 +138,8 @@ type Recovery struct {
 // RecoveryActions derives valid lifecycle actions from the Git-derived
 // operation kind and current authoritative conflict/index projection.
 func (m Model) RecoveryActions() Recovery {
-	if m.Operation == sequencer.KindUnknown {
-		return Recovery{}
-	}
-	recovery := Recovery{Abort: true}
-	switch m.Operation {
-	case sequencer.KindRebase, sequencer.KindCherryPick, sequencer.KindRevert:
-		recovery.Skip = true
-	case sequencer.KindMerge:
-	default:
-		return Recovery{}
-	}
-	if m.unresolvedCount() != 0 {
-		return recovery
-	}
-	// Rebase edit-stops do not require staged changes. For the other
-	// sequencers, a known clean index means there is nothing for Git to
-	// continue or commit; do not render a misleading Continue action.
-	if m.Operation != sequencer.KindRebase && m.Staged >= 0 && m.Staged == 0 {
-		return recovery
-	}
-	recovery.Continue = true
-	return recovery
+	actions := sequencer.ActionsFor(m.Operation, m.unresolvedCount(), m.Staged)
+	return Recovery{Continue: actions.Continue, Abort: actions.Abort, Skip: actions.Skip}
 }
 
 func (m Model) unresolvedCount() int {

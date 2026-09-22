@@ -26,6 +26,32 @@ func TestRouteForCoversAllDurableRecoveryKinds(t *testing.T) {
 	}
 }
 
+func TestActionsForUsesOneLifecycleMatrix(t *testing.T) {
+	tests := []struct {
+		name       string
+		kind       Kind
+		unresolved int
+		staged     int
+		want       RecoveryActions
+	}{
+		{name: "unknown", kind: KindUnknown},
+		{name: "rebase edit stop", kind: KindRebase, staged: 0, want: RecoveryActions{Continue: true, Abort: true, Skip: true}},
+		{name: "rebase conflict", kind: KindRebase, unresolved: 1, staged: 1, want: RecoveryActions{Abort: true, Skip: true}},
+		{name: "cherry pick clean index", kind: KindCherryPick, want: RecoveryActions{Abort: true, Skip: true}},
+		{name: "cherry pick staged", kind: KindCherryPick, staged: 1, want: RecoveryActions{Continue: true, Abort: true, Skip: true}},
+		{name: "revert conflict", kind: KindRevert, unresolved: 1, staged: 1, want: RecoveryActions{Abort: true, Skip: true}},
+		{name: "merge staged", kind: KindMerge, staged: 1, want: RecoveryActions{Continue: true, Abort: true}},
+		{name: "merge clean index", kind: KindMerge, want: RecoveryActions{Abort: true}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := ActionsFor(test.kind, test.unresolved, test.staged); got != test.want {
+				t.Fatalf("ActionsFor(%s, unresolved=%d, staged=%d) = %#v, want %#v", test.kind, test.unresolved, test.staged, got, test.want)
+			}
+		})
+	}
+}
+
 func TestNewStateRequiresRepositoryAndSupportsAllOperationKinds(t *testing.T) {
 	for _, kind := range []Kind{KindUnknown, KindRebase, KindCherryPick, KindRevert, KindMerge, KindBisect} {
 		state, err := NewState("repo-a", 7, kind, PhaseUnknown)
