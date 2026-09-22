@@ -158,3 +158,10 @@ behavior without introducing a JavaScript runtime or web UI dependency.
 - Full virtualization, before/after baseline comparison, 80x24 native
   acceptance, and cross-platform evidence remain outstanding; this task stays
   open.
+
+- Added `TestStatusVirtualizationPreservesOffscreenSelectionAndFiltering`.
+  The 14,953-entry regression now proves that keyboard movement remains tied
+  to the logical selected path outside the rendered viewport and that applying
+  a filter rehomes selection against the complete authoritative set. Focused
+  coverage passes repeatedly; native 80x24, NO_COLOR, reduced-motion, and
+  cross-platform terminal evidence remain outstanding.

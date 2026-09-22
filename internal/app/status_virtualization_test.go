@@ -79,6 +79,26 @@ func TestStatusRenderingPreservesLogicalViewportOffset(t *testing.T) {
 	}
 }
 
+func TestStatusVirtualizationPreservesOffscreenSelectionAndFiltering(t *testing.T) {
+	entries := make([]repo.Entry, 14953)
+	for index := range entries {
+		entries[index] = repo.Entry{Path: repo.Path(fmt.Sprintf("generated/%05d.txt", index)), Untracked: true}
+	}
+
+	m := New()
+	m.Files.SetEntries(entries)
+	m.Files.Selected = 12000
+	m.Files.Offset = 12000
+	m.moveStatusFiles(1)
+	if got := m.Files.SelectedPath(); got != "generated/12001.txt" {
+		t.Fatalf("offscreen selection moved to %q", got)
+	}
+	m.Files.SetFilter("generated/14952")
+	if len(m.Files.Visible) != 1 || m.Files.Selected != 0 || m.Files.SelectedPath() != "generated/14952.txt" {
+		t.Fatalf("filtered offscreen selection = visible=%d selected=%d path=%q", len(m.Files.Visible), m.Files.Selected, m.Files.SelectedPath())
+	}
+}
+
 func TestStatusMouseRowHeightsAllocationBudget(t *testing.T) {
 	entries := make([]repo.Entry, 14953)
 	for index := range entries {
