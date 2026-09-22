@@ -461,3 +461,67 @@ func TestRevertConflictResumeParityScenario(t *testing.T) {
 		t.Fatalf("reverted contents = %q, err=%v", contents, err)
 	}
 }
+
+func TestRevertConflictAbortAfterFreshRunnerParityScenario(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	for _, args := range [][]string{
+		{"init", "-b", "main", "--", root},
+		{"config", "user.name", "gitwatch-revert-abort-parity"},
+		{"config", "user.email", "gitwatch-revert-abort-parity@example.com"},
+		{"config", "commit.gpgsign", "false"},
+	} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	path := filepath.Join(root, "revert-abort.txt")
+	commit := func(content, message string) string {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Stage(ctx, []byte("revert-abort.txt")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte(message + "\n")}); err != nil {
+			t.Fatal(err)
+		}
+		result, err := runner.Run(ctx, "rev-parse", "HEAD")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(result.Stdout))
+	}
+
+	commit("base\n", "base")
+	first := commit("first\n", "first change")
+	commit("second\n", "second change")
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, revertErr := runner.Revert(ctx, git.RevertRequest{Commits: []string{first}}); revertErr == nil {
+		t.Fatal("revert unexpectedly completed without conflict")
+	}
+
+	// Reconstruct the process boundary as a restarted gitwatch instance would.
+	restarted := git.NewRunner(root)
+	operation, err := git.DetectOperationState(ctx, discovery, 7)
+	if err != nil || !operation.Found || operation.State.Kind() != sequencer.KindRevert {
+		t.Fatalf("fresh-runner revert operation = %#v, err=%v", operation, err)
+	}
+	if _, err := restarted.OperationLifecycle(ctx, sequencer.KindRevert, "abort"); err != nil {
+		t.Fatal(err)
+	}
+	final, err := git.Snapshot(ctx, discovery, 8)
+	if err != nil || final.Operation != nil || len(final.Conflicts) != 0 {
+		t.Fatalf("aborted revert snapshot = %#v, err=%v", final, err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil || string(contents) != "second\n" {
+		t.Fatalf("aborted revert contents = %q, err=%v", contents, err)
+	}
+}
