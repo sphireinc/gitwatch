@@ -2759,6 +2759,23 @@ func TestGitHubReviewActionsRequireIntentAndReason(t *testing.T) {
 	}
 }
 
+func TestGitHubCommentReplyTargetIsExplicitAndBoundToLoadedComment(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.GitHub, "GitHub")
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 4, Title: "Improve", State: "open", HeadSHA: "abc"}, provider.ChecksSnapshot{})
+	m.GitHub.SetComments([]provider.ReviewComment{{ID: 12, Author: "reviewer", Body: "please update"}, {ID: 13, Author: "reviewer", Body: "also test"}})
+	updated, cmd := m.Update(key("]"))
+	m = updated.(Model)
+	if cmd != nil || m.GitHubReplyCommentID != 13 {
+		t.Fatalf("reply target selection = cmd=%v id=%d", cmd != nil, m.GitHubReplyCommentID)
+	}
+	updated, cmd = m.Update(key("c"))
+	m = updated.(Model)
+	if cmd != nil || !m.GitHubReviewMode || m.GitHubReviewEvent != provider.ReviewEventComment || !strings.Contains(m.Status, "comment") {
+		t.Fatalf("reply form = cmd=%v mode=%v event=%q status=%q", cmd != nil, m.GitHubReviewMode, m.GitHubReviewEvent, m.Status)
+	}
+}
+
 func TestGitHubCheckActionsSelectAndConfirm(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
 	m.Workspace.Navigate(workspace.GitHub, "GitHub")

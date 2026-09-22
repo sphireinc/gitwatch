@@ -21,6 +21,7 @@ type Model struct {
 	SelectedRelease int
 	Detail          *provider.PullRequestDetail
 	Comments        []provider.ReviewComment
+	SelectedComment int
 	Checks          provider.ChecksSnapshot
 	SelectedRun     int
 	Ready           bool
@@ -66,6 +67,20 @@ func (m *Model) SetDetail(detail provider.PullRequestDetail) {
 
 func (m *Model) SetComments(comments []provider.ReviewComment) {
 	m.Comments = append([]provider.ReviewComment(nil), comments...)
+	if m.SelectedComment >= len(m.Comments) {
+		m.SelectedComment = max(0, len(m.Comments)-1)
+	}
+}
+
+func (m *Model) SelectComment(delta int) {
+	if len(m.Comments) == 0 {
+		m.SelectedComment = 0
+		return
+	}
+	m.SelectedComment = (m.SelectedComment + delta) % len(m.Comments)
+	if m.SelectedComment < 0 {
+		m.SelectedComment += len(m.Comments)
+	}
 }
 
 func (m *Model) SelectRun(delta int) {
@@ -196,12 +211,16 @@ func (m Model) View() string {
 	}
 	if len(m.Comments) > 0 {
 		lines = append(lines, fmt.Sprintf("Review comments: %d", len(m.Comments)))
-		for _, comment := range m.Comments {
+		for index, comment := range m.Comments {
+			prefix := "  "
+			if index == m.SelectedComment {
+				prefix = "> "
+			}
 			location := comment.Path
 			if comment.Line > 0 {
 				location = fmt.Sprintf("%s:%d", location, comment.Line)
 			}
-			lines = append(lines, "  @"+platform.SafeText(comment.Author)+" "+platform.SafeText(location)+": "+platform.SafeText(comment.Body))
+			lines = append(lines, prefix+"@"+platform.SafeText(comment.Author)+" "+platform.SafeText(location)+": "+platform.SafeText(comment.Body))
 		}
 	}
 	return strings.Join(lines, "\n")

@@ -520,6 +520,10 @@ type GitHubReviewFinishedMsg struct {
 	Result provider.ReviewSubmissionResult
 	Err    error
 }
+type GitHubReviewCommentFinishedMsg struct {
+	Comment provider.ReviewComment
+	Err     error
+}
 type GitHubCheckActionFinishedMsg struct {
 	Action string
 	Err    error
@@ -874,6 +878,7 @@ type Model struct {
 	GitHubReviewMode          bool
 	GitHubReviewEvent         provider.ReviewEvent
 	GitHubReviewBody          string
+	GitHubReplyCommentID      int64
 	GitHubReviewConfirm       bool
 	GitHubCheckAction         string
 	GitHubCheckActionRunID    int64
@@ -4523,6 +4528,9 @@ func (m *Model) startGitHubReview(event provider.ReviewEvent) tea.Cmd {
 		return nil
 	}
 	m.GitHubReviewEvent, m.GitHubReviewBody = event, ""
+	if event != provider.ReviewEventComment {
+		m.GitHubReplyCommentID = 0
+	}
 	if event == provider.ReviewEventApprove {
 		m.GitHubReviewConfirm = true
 		m.Status = "approve GitHub PR #" + fmt.Sprint(m.GitHub.Pull.Number) + "? (y/n)"
@@ -4574,6 +4582,10 @@ func (m Model) submitGitHubReview() tea.Cmd {
 	ctx := m.commandContext()
 	return func() tea.Msg {
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
+		if m.GitHubReplyCommentID > 0 && m.GitHubReviewEvent == provider.ReviewEventComment {
+			comment, err := client.CreateReviewComment(ctx, repository, number, provider.ReviewCommentRequest{Body: m.GitHubReviewBody, CommitID: m.GitHub.Pull.HeadSHA, InReplyTo: m.GitHubReplyCommentID})
+			return GitHubReviewCommentFinishedMsg{Comment: comment, Err: err}
+		}
 		result, err := client.SubmitReview(ctx, repository, number, submission)
 		return GitHubReviewFinishedMsg{Result: result, Err: err}
 	}
@@ -7536,7 +7548,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "]":
-			if m.currentView() == workspace.Status && m.StatusTreeMode {
+			if m.currentView() == workspace.GitHub && len(m.GitHub.Comments) > 0 {
+				m.GitHub.SelectComment(1)
+				m.GitHubReplyCommentID = m.GitHub.Comments[m.GitHub.SelectedComment].ID
+				m.Status = "selected GitHub comment reply target #" + fmt.Sprint(m.GitHubReplyCommentID)
+			} else if m.currentView() == workspace.Status && m.StatusTreeMode {
 				m.FileTree.ExpandAll()
 				m.Status = "all directories expanded"
 			} else if m.currentView() == workspace.Log && m.HistoryHasMore {
@@ -7822,6 +7838,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if m.currentView() == workspace.GitHub {
+				if m.GitHubReplyCommentID == 0 && len(m.GitHub.Comments) > 0 {
+					m.GitHubReplyCommentID = m.GitHub.Comments[m.GitHub.SelectedComment].ID
+				}
 				return m, m.startGitHubReview(provider.ReviewEventComment)
 			}
 			return m, m.beginCommit()
@@ -8175,7 +8194,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "[":
-			if m.currentView() == workspace.Status && m.StatusTreeMode {
+			if m.currentView() == workspace.GitHub && len(m.GitHub.Comments) > 0 {
+				m.GitHub.SelectComment(-1)
+				m.GitHubReplyCommentID = m.GitHub.Comments[m.GitHub.SelectedComment].ID
+				m.Status = "selected GitHub comment reply target #" + fmt.Sprint(m.GitHubReplyCommentID)
+			} else if m.currentView() == workspace.Status && m.StatusTreeMode {
 				m.FileTree.CollapseAll()
 				m.Status = "all directories collapsed"
 			}
@@ -9293,6 +9316,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateReady, "GitHub review submitted; refreshing review state"
 			return m, m.loadGitHub()
 		}
+	case GitHubReviewCommentFinishedMsg:
+		m.GitHubReviewConfirm = false
+		if v.Err != nil {
+			m.State, m.Status = StateError, "GitHub review comment: "+platform.SafeText(v.Err.Error())
+		} else {
+			m.State, m.Status = StateReady, "GitHub reply submitted; refreshing review comments"
+			m.GitHubReplyCommentID = 0
+			return m, m.loadGitHub()
+		}
 	case GitHubCheckActionFinishedMsg:
 		m.GitHubCheckActionConfirm = false
 		if v.Err != nil {
@@ -10166,7 +10198,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 		lines[len(lines)-1] = "[j/k] move  [Y] compare  [A] add  [R] rename  [L] set-url  [D] remove  [K] prune  [f] fetch  [p] push  [T/X] tag  [esc] back  [q] quit"
 	}
 	if view == workspace.GitHub {
-		lines[len(lines)-1] = "[j/k] select check  [!] rerun failed  [K] cancel run  [O] issue  [L] release  [r] refresh  [A] approve  [R] request changes  [c] comment  [I] create issue  [n] create PR  [m] merge  [x] checkout head  [o] open  [esc] back  [q] quit"
+		lines[len(lines)-1] = "[j/k] select check  [[/]] reply target  [!] rerun failed  [K] cancel run  [O] issue  [L] release  [r] refresh  [A] approve  [R] request changes  [c] comment/reply  [I] create issue  [n] create PR  [m] merge  [x] checkout head  [o] open  [esc] back  [q] quit"
 		if m.GitHubCreateMode {
 			lines[len(lines)-1] = "PR form: type  [tab/enter] next  [esc] cancel"
 		} else if m.GitHubCreateConfirm {

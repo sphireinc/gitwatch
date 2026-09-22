@@ -73,6 +73,9 @@ Support common review and merge actions while keeping provider state distinct fr
 - Added state-specific GitHub provider failure hints for missing credentials,
   unauthorized permissions, rate limits, and availability failures while
   preserving sanitized error text and the local-Git-authoritative boundary.
+- Added explicit review-comment target selection (`[`/`]`) and reply composition
+  through the typed `in_reply_to` provider request, with post-submit comment
+  reload and target clearing.
 - Focused provider/app/UI tests, provider race tests, vet, and
   `git diff --check` pass.
 - Evidence for this slice: commit `2009643`; `go test ./internal/provider
@@ -81,4 +84,8 @@ Support common review and merge actions while keeping provider state distinct fr
 - Evidence for provider error presentation: `go test ./internal/ui/githubview`,
   `go test -race ./internal/ui/githubview`, `go vet ./internal/ui/githubview`,
   and `git diff --check` pass.
-- Remaining: reply-target UI and native/manual acceptance evidence.
+- Evidence for reply targeting: `go test ./internal/app ./internal/provider
+  ./internal/ui/githubview`, `go test -race ./internal/app
+  ./internal/ui/githubview`, `go vet ./internal/app ./internal/provider
+  ./internal/ui/githubview`, and `git diff --check` pass.
+- Remaining: native/manual acceptance evidence.
