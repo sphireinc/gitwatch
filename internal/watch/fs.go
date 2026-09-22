@@ -176,6 +176,13 @@ func (w *Watcher) Events(ctx context.Context) <-chan Event {
 			case <-ctx.Done():
 				return
 			case <-timer.C:
+				if err := w.restoreMetadataWatches(); err != nil {
+					select {
+					case out <- Event{At: time.Now(), Mode: ModeFS, Err: err}:
+					case <-ctx.Done():
+						return
+					}
+				}
 				flush()
 			case event, ok := <-w.fs.Events:
 				if !ok {
@@ -231,6 +238,30 @@ func (w *Watcher) removeWatchedTree(root string) {
 			delete(w.watched, watched)
 		}
 	}
+}
+
+// restoreMetadataWatches repairs native watcher registrations after a Git
+// metadata directory is atomically replaced. Some platforms report the
+// remove/create notifications in an order that can leave the in-memory
+// registration set ahead of the native watcher; re-scanning immediately
+// before flushing the hint closes that handoff window.
+func (w *Watcher) restoreMetadataWatches() error {
+	for directory := range w.metadata {
+		info, err := os.Stat(directory)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+		if !info.IsDir() {
+			continue
+		}
+		if err := w.addTree(directory); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (w *Watcher) Close() error { return w.fs.Close() }

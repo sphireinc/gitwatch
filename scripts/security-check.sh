@@ -16,7 +16,10 @@ go test ./internal/platform ./internal/plugins ./internal/registry
 # Run bounded parser fuzz smoke tests in the security gate. Longer fuzzing is
 # still available interactively; the gate must remain deterministic enough for
 # local release checks while exercising every security-sensitive parser target.
-fuzz_time=${GITWATCH_FUZZTIME:-1s}
+# One second is too close to the baseline-coverage cost on shared CI runners;
+# keep the smoke test bounded while leaving enough time for every parser to
+# start fuzzing deterministically.
+fuzz_time=${GITWATCH_FUZZTIME:-2s}
 go test ./internal/rebase -run '^$' -fuzz FuzzParseNeverPanicsOrExceedsInputBound -fuzztime="$fuzz_time"
 go test ./internal/conflicts -run '^$' -fuzz FuzzParseIndexNeverPanicsOrExceedsInputBound -fuzztime="$fuzz_time"
 go test ./internal/blame -run '^$' -fuzz FuzzParseNeverPanics -fuzztime="$fuzz_time"

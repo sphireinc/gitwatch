@@ -114,6 +114,13 @@ func TestWatcherSeesExternalGitMetadataAndRecreatedDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	awaitFilesystemEvent(t, events)
+	// Directory recreation and child-watch reattachment are separate native
+	// notifications on Windows. Give the watcher a short handoff window before
+	// asserting a child-file event; otherwise the test can write the file before
+	// the recreated directory is watched again.
+	if runtime.GOOS == "windows" {
+		time.Sleep(100 * time.Millisecond)
+	}
 	if err := os.WriteFile(filepath.Join(metadata, "index"), []byte("index"), 0o600); err != nil {
 		t.Fatal(err)
 	}
