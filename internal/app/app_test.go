@@ -2712,6 +2712,25 @@ func TestGitHubCheckActionsSelectAndConfirm(t *testing.T) {
 	}
 }
 
+func TestGitHubSelectedCheckURLOpensFromWorkflowWorkspace(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.Workspace.Navigate(workspace.GitHub, "GitHub")
+	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 4, Title: "Improve", State: "open"}, provider.ChecksSnapshot{Runs: []provider.CheckRun{
+		{Name: "build", Status: "completed", Conclusion: "success", URL: "https://github.com/octo/repo/actions/runs/10"},
+		{Name: "lint", Status: "in_progress", URL: "https://github.com/octo/repo/actions/runs/11"},
+	}})
+	updated, cmd := m.Update(key("j"))
+	m = updated.(Model)
+	if cmd != nil || m.GitHub.SelectedRun != 1 {
+		t.Fatalf("check selection = cmd=%v selected=%d", cmd != nil, m.GitHub.SelectedRun)
+	}
+	updated, cmd = m.Update(key("W"))
+	m = updated.(Model)
+	if cmd == nil || !strings.Contains(m.Status, "lint") {
+		t.Fatalf("selected check URL = cmd=%v status=%q", cmd != nil, m.Status)
+	}
+}
+
 func TestGitHubIssueFormRequiresConfirmation(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
 	m.Workspace.Navigate(workspace.GitHub, "GitHub")

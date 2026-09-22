@@ -78,5 +78,8 @@ Round out high-value repository-provider integration without turning gitwatch in
   construct HTTPS provider URLs from the loaded repository identity with
   escaped refs and route through the platform URL opener; no provider request
   or Git mutation is performed. App coverage verifies all three actions.
-  Workflow-run URL actions and native/manual provider-state acceptance remain
-  open.
+- Added an explicit `W` action for the selected bounded check/workflow run URL,
+  including safe empty-selection and missing-URL handling. Removed the
+  unreachable duplicate GitHub `c` branch; `c` remains the review-comment
+  action. Focused app coverage verifies the selected check URL route.
+  Native/manual provider-state acceptance remains open.

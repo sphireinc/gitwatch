@@ -7064,6 +7064,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.navigate(workspace.Plugins, "Plugins")
 			}
 		case "W":
+			if m.currentView() == workspace.GitHub {
+				if len(m.GitHub.Checks.Runs) == 0 || m.GitHub.SelectedRun < 0 || m.GitHub.SelectedRun >= len(m.GitHub.Checks.Runs) || m.GitHub.Checks.Runs[m.GitHub.SelectedRun].URL == "" {
+					m.Status = "no GitHub check URL available"
+					return m, nil
+				}
+				run := m.GitHub.Checks.Runs[m.GitHub.SelectedRun]
+				command, err := platform.OpenURLCommand(run.URL)
+				if err != nil {
+					m.Status = err.Error()
+					return m, nil
+				}
+				m.Status = "opening GitHub check " + platform.SafeText(run.Name)
+				return m, tea.ExecProcess(command, nil)
+			}
 			if m.currentView() == workspace.Log {
 				return m, m.openHistoricalRebase(rebase.Reword)
 			}
@@ -7679,19 +7693,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.currentView() == workspace.GitHub {
 				return m, m.startGitHubReview(provider.ReviewEventComment)
-			}
-			if m.currentView() == workspace.GitHub {
-				for _, run := range m.GitHub.Checks.Runs {
-					if run.URL == "" {
-						continue
-					}
-					if command, err := platform.OpenURLCommand(run.URL); err == nil {
-						m.Status = "opening check " + run.Name
-						return m, tea.ExecProcess(command, nil)
-					}
-				}
-				m.Status = "no check URL available"
-				return m, nil
 			}
 			return m, m.beginCommit()
 		case "enter":
