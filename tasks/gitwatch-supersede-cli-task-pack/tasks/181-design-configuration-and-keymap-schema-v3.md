@@ -67,6 +67,12 @@ Version configuration deliberately for advanced workbench features instead of ac
   test passes in normal, race, and vet-focused runs; native/release acceptance
   remains open.
 
+- The schema test now freezes the checked-in v3 document with a SHA-256 golden
+  identity (`fcca5988dc5393782cbbf23be342c007db822df1d7c2c27a44a5ee85609545f2`)
+  in addition to its semantic surface checks. At revision `c8fbcf3`,
+  focused config tests pass normally and under race/vet; native/release
+  acceptance remains open.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.
