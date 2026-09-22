@@ -79,3 +79,9 @@ Turn gitwatch’s htop identity into a concrete repository-health surface.
   dashboard rows, and renders `worktrees:N` in the repository workspace.
   Repeated normal/race/vet/UI checks pass; config-signing, provider freshness,
   single-repository detail, and native acceptance remain open.
+
+- Revision `612fdba` carries non-secret `commit.gpgsign`/`gpg.format` metadata
+  into health and renders configured signing in the repository dashboard.
+  Missing or unknown formats become explicit warning attention without reading
+  keys or credentials; repeated normal/race/vet checks pass. Provider freshness,
+  single-repository detail, and native acceptance remain open.
