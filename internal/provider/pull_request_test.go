@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -19,6 +20,21 @@ func TestParsePullRequestAndCache(t *testing.T) {
 	}
 	if _, err = cache.Get(context.Background(), client, repository, "feature"); err != nil || client.calls != 1 {
 		t.Fatalf("cache miss: calls=%d err=%v", client.calls, err)
+	}
+}
+
+func TestPullRequestCacheBoundsBranchAndRepositoryChurn(t *testing.T) {
+	value := PullRequest{Number: 1, Title: "cached"}
+	client := &fakePRClient{value: value}
+	cache := NewPullRequestCache(time.Hour)
+	for index := 0; index < maxProviderCacheEntries+44; index++ {
+		repository := Repository{Host: "github.com", Owner: "owner", Name: fmt.Sprintf("repo-%03d", index)}
+		if _, err := cache.Get(context.Background(), client, repository, "main"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := len(cache.items); got != maxProviderCacheEntries {
+		t.Fatalf("pull request cache size = %d, want %d", got, maxProviderCacheEntries)
 	}
 }
 

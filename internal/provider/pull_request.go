@@ -275,6 +275,19 @@ func (c *PullRequestCache) Get(ctx context.Context, client PullRequestClient, re
 	}
 	c.mu.Lock()
 	c.items[key] = cachedPullRequest{Value: value, At: now}
+	for len(c.items) > maxProviderCacheEntries {
+		oldestKey := ""
+		var oldest time.Time
+		for candidate, item := range c.items {
+			if oldestKey == "" || item.At.Before(oldest) {
+				oldestKey, oldest = candidate, item.At
+			}
+		}
+		if oldestKey == "" {
+			break
+		}
+		delete(c.items, oldestKey)
+	}
 	c.mu.Unlock()
 	return value, nil
 }

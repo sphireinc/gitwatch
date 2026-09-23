@@ -17,6 +17,8 @@ type cacheItem[T any] struct {
 	At    time.Time
 }
 
+const maxProviderCacheEntries = 256
+
 func NewCache[T any](ttl time.Duration) *Cache[T] {
 	if ttl <= 0 {
 		ttl = 2 * time.Minute
@@ -54,6 +56,23 @@ func (c *Cache[T]) get(ctx context.Context, key string, fetch func(context.Conte
 	}
 	c.mu.Lock()
 	c.items[key] = cacheItem[T]{Value: value, At: now}
+	c.pruneLocked()
 	c.mu.Unlock()
 	return value, false, nil
+}
+
+func (c *Cache[T]) pruneLocked() {
+	for len(c.items) > maxProviderCacheEntries {
+		oldestKey := ""
+		var oldest time.Time
+		for key, item := range c.items {
+			if oldestKey == "" || item.At.Before(oldest) {
+				oldestKey, oldest = key, item.At
+			}
+		}
+		if oldestKey == "" {
+			return
+		}
+		delete(c.items, oldestKey)
+	}
 }
