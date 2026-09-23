@@ -31,14 +31,34 @@ func TestConfigPrecedenceAndValidation(t *testing.T) {
 func TestInspectRedactsCredentialFieldsAndInlineCommandSecrets(t *testing.T) {
 	c := Defaults()
 	c.GitHub.TokenEnv = "GITHUB_TOKEN"
-	c.CustomCommands = []customcmd.Definition{{Name: "publish", Executable: "tool", Args: []string{"--token=super-secret", "--mode=release"}}}
+	c.CustomCommands = []customcmd.Definition{{Name: "publish", Executable: "tool", Args: []string{"--token=super-secret", "--password", "split-secret", "--authorization", "Bearer split-bearer", "--mode=release"}}}
 	data, err := Inspect(c)
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(data)
-	if strings.Contains(text, "super-secret") || !strings.Contains(text, "<redacted>") || !strings.Contains(text, "GITHUB_TOKEN") {
+	for _, secret := range []string{"super-secret", "split-secret", "split-bearer"} {
+		if strings.Contains(text, secret) {
+			t.Fatalf("inspection leaked %q: %s", secret, text)
+		}
+	}
+	if !strings.Contains(text, "<redacted>") || !strings.Contains(text, "GITHUB_TOKEN") {
 		t.Fatalf("inspection redaction = %s", text)
+	}
+}
+
+func TestInspectRedactsNestedCredentialValuesAndBearerForms(t *testing.T) {
+	c := Defaults()
+	c.CustomCommands = []customcmd.Definition{{Name: "publish", Executable: "tool", Args: []string{"authorization: Bearer nested-secret", "basic basic-secret", "token:colon-secret"}}}
+	data, err := Inspect(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, secret := range []string{"nested-secret", "basic-secret", "colon-secret"} {
+		if strings.Contains(text, secret) {
+			t.Fatalf("inspection leaked %q: %s", secret, text)
+		}
 	}
 }
 

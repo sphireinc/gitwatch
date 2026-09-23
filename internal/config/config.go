@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sphireinc/git-watch/internal/customcmd"
+	"github.com/sphireinc/git-watch/internal/platform"
 )
 
 // CurrentVersion is the configuration schema consumed by the version-3 loader.
@@ -416,9 +417,24 @@ func redactInspection(value any) {
 			redactInspection(child)
 		}
 	case []any:
+		redactNext := false
 		for index, child := range item {
+			if redactNext {
+				if _, ok := child.(string); ok {
+					item[index] = "<redacted>"
+				}
+				redactNext = false
+				continue
+			}
 			if text, ok := child.(string); ok && looksLikeInlineCredential(text) {
 				item[index] = "<redacted>"
+				continue
+			}
+			if text, ok := child.(string); ok {
+				item[index] = platform.RedactSecrets(text)
+				if isCredentialFlag(text) {
+					redactNext = true
+				}
 				continue
 			}
 			redactInspection(child)
@@ -428,12 +444,21 @@ func redactInspection(value any) {
 
 func looksLikeInlineCredential(value string) bool {
 	lower := strings.ToLower(value)
-	for _, marker := range []string{"token=", "password=", "secret=", "authorization: bearer ", "basic "} {
+	for _, marker := range []string{"token=", "token:", "password=", "password:", "secret=", "secret:", "authorization: bearer ", "authorization:bearer ", "basic "} {
 		if strings.Contains(lower, marker) {
 			return true
 		}
 	}
 	return false
+}
+
+func isCredentialFlag(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "--token", "--password", "--passwd", "--secret", "--credential", "--authorization", "-p":
+		return true
+	default:
+		return false
+	}
 }
 func applyEnv(c Config) Config {
 	if v := os.Getenv("GITWATCH_PROFILE"); v != "" {
