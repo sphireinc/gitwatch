@@ -66,3 +66,9 @@ Support interactive custom workflows such as selecting a branch or entering a ti
 - Focused tests cover form behavior and app-level submit/cancel behavior. The
   task remains open for full native keyboard/mouse acceptance and richer
   provider-backed option sources.
+- At revision `332894e`, the focused custom-command, configuration, and app
+  suites passed with `go test ./internal/customcmd ./internal/config
+  ./internal/app`, covering typed prompt submission/cancellation, secret
+  redaction, dynamic options from loaded state, validation, and app launch
+  behavior. Native keyboard/mouse acceptance and provider-backed option
+  sources remain open.
