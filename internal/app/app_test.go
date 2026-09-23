@@ -739,6 +739,52 @@ func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 	}
 }
 
+func TestExternalCherryPickResolutionEnablesContinueFromFreshSnapshot(t *testing.T) {
+	m := New()
+	m.Discovery.Root = t.TempDir()
+	m.Workspace.Navigate(workspace.CherryPick, "Cherry-pick progress")
+	state, err := sequencer.NewState("repo", 1, sequencer.KindCherryPick, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state = state.WithObservation("before", "current", 0, 1, []string{"file"}, time.Now())
+	state, err = state.WithDetails(sequencer.Details{CherryPick: &sequencer.CherryPickDetails{Commits: []string{"current"}, CurrentIndex: 0}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.applySnapshot(repo.Snapshot{
+		Root:       m.Discovery.Root,
+		Branch:     repo.Branch{Name: "feature"},
+		Operation:  &state,
+		Conflicts:  []conflicts.Conflict{{Path: []byte("file"), Resolution: "unmerged"}},
+		Counts:     repo.Counts{Conflicted: 1, Staged: 1},
+		Generation: 1,
+	})
+	if actions := m.Conflict.RecoveryActions(); actions.Continue {
+		t.Fatalf("unresolved cherry-pick exposed continue: %+v", actions)
+	}
+
+	// This is the authoritative refresh after an external editor resolved and
+	// staged the conflict while the progress workspace stayed open.
+	m.applySnapshot(repo.Snapshot{
+		Root:       m.Discovery.Root,
+		Branch:     repo.Branch{Name: "feature"},
+		Operation:  &state,
+		Counts:     repo.Counts{Staged: 1},
+		Generation: 2,
+	})
+	if actions := m.Conflict.RecoveryActions(); !actions.Continue {
+		t.Fatalf("external resolution did not enable continue: %+v", actions)
+	}
+	if view := m.Conflict.View(80, 24); !strings.Contains(view, "[c] continue") {
+		t.Fatalf("resolved progress footer omitted continue:\n%s", view)
+	}
+	updated, command := m.Update(key("c"))
+	if command == nil || updated.(Model).State != StateOperationPending {
+		t.Fatalf("continue input after external resolution = state=%v cmdnil=%v", updated.(Model).State, command == nil)
+	}
+}
+
 func TestActiveSequencerRecoveryPaletteRoutesAllOperationKinds(t *testing.T) {
 	for _, test := range []struct {
 		kind sequencer.Kind
