@@ -111,3 +111,9 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   acceptance and the broader end-to-end coordinator audit remain open.
 - At revision `201f441`, the full `go test ./...` gate passed after this
   coordinator slice, including the real integration conflict/resume scenarios.
+- At revision `bd2603f`, the coordinator package set passed with
+  `go test ./internal/sequencer ./internal/ui/conflictview ./internal/git
+  ./internal/app ./internal/integration`. This verifies the shared action and
+  route matrices, conflict-view gating, Git lifecycle boundary, app recovery
+  routing, and real conflict/resume integrations. Native/manual acceptance and
+  the final requirement-by-requirement audit remain open.
