@@ -61,22 +61,23 @@ type retrySpec struct {
 }
 type ResultMsg struct{ Result Result }
 type Engine struct {
-	mu      sync.Mutex
-	limit   chan struct{}
-	repos   map[string]*sync.Mutex
-	active  map[string]context.CancelFunc
-	waiters map[string]chan Result
-	results chan Result
-	latest  map[string]Result
-	history []Result
-	retry   map[string]retrySpec
+	mu       sync.Mutex
+	limit    chan struct{}
+	repos    map[string]*sync.Mutex
+	repoRefs map[string]int
+	active   map[string]context.CancelFunc
+	waiters  map[string]chan Result
+	results  chan Result
+	latest   map[string]Result
+	history  []Result
+	retry    map[string]retrySpec
 }
 
 func New(limit int) *Engine {
 	if limit < 1 {
 		limit = 1
 	}
-	return &Engine{limit: make(chan struct{}, limit), repos: make(map[string]*sync.Mutex), active: make(map[string]context.CancelFunc), waiters: make(map[string]chan Result), results: make(chan Result, limit), latest: make(map[string]Result), retry: make(map[string]retrySpec)}
+	return &Engine{limit: make(chan struct{}, limit), repos: make(map[string]*sync.Mutex), repoRefs: make(map[string]int), active: make(map[string]context.CancelFunc), waiters: make(map[string]chan Result), results: make(chan Result, limit), latest: make(map[string]Result), retry: make(map[string]retrySpec)}
 }
 func (e *Engine) Results() <-chan Result { return e.results }
 
@@ -119,6 +120,7 @@ func (e *Engine) submit(parent context.Context, id, repo, name string, timeout t
 		lock = &sync.Mutex{}
 		e.repos[repo] = lock
 	}
+	e.repoRefs[repo]++
 	e.mu.Unlock()
 	go e.run(ctx, id, repo, name, timeout, lock, work, options.Retryable)
 	return waiter, nil
@@ -223,6 +225,12 @@ func (e *Engine) finish(r Result) {
 	delete(e.active, r.ID)
 	waiter := e.waiters[r.ID]
 	delete(e.waiters, r.ID)
+	if refs := e.repoRefs[r.Repo] - 1; refs <= 0 {
+		delete(e.repoRefs, r.Repo)
+		delete(e.repos, r.Repo)
+	} else {
+		e.repoRefs[r.Repo] = refs
+	}
 	e.latest[r.ID] = r
 	e.history = append(e.history, r)
 	if len(e.history) > retainedHistoryLimit {

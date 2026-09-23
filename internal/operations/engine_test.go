@@ -171,3 +171,20 @@ func TestEngineBoundsCompletedOperationRetention(t *testing.T) {
 		t.Fatalf("evicted retry error = %v", err)
 	}
 }
+
+func TestEngineReleasesRepositoryLocksAfterOperationsFinish(t *testing.T) {
+	e := New(4)
+	for index := 0; index < 64; index++ {
+		id := "lock-operation-" + time.Now().Format("150405.000000000") + "-" + string(rune('a'+index))
+		repo := "repository-" + string(rune('a'+index))
+		if err := e.Submit(context.Background(), id, repo, "refresh", time.Second, func(context.Context) error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+		if result := <-e.Results(); result.State != Succeeded {
+			t.Fatalf("operation %q = %#v", id, result)
+		}
+	}
+	if len(e.repos) != 0 || len(e.repoRefs) != 0 {
+		t.Fatalf("repository lock retention = repos=%d refs=%d", len(e.repos), len(e.repoRefs))
+	}
+}
