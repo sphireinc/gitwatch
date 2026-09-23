@@ -112,3 +112,10 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
   performance). This is automated PTY evidence for one skip path, not full
   human/operator, abort/continue, edit-stop, or native Windows acceptance;
   the task remains active.
+- Hosted Actions run
+  [35912038087](https://github.com/sphireinc/gitwatch/actions/runs/35912038087)
+  on `46443d0` passed quality/policy, full-history secret scan, Ubuntu and
+  macOS tests/race/build/runtime plus the new native PTY rebase recovery
+  fixture, and the Windows test/build/runtime/path-parity matrix. The Unix PTY
+  result does not constitute native Windows terminal interaction or a complete
+  operator-run rebase lifecycle matrix.
