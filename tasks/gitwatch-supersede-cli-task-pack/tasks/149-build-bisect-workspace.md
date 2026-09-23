@@ -40,13 +40,13 @@ Make manual bisect visually obvious while live worktree status remains available
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -66,8 +66,8 @@ Make manual bisect visually obvious while live worktree status remains available
   action parity.
 - The workspace remains usable while Git status/watch refreshes continue to
   update the active repository model.
-- Candidate diff presentation beyond the reused inspector and native/manual
-  80x24/NO_COLOR evidence remain outstanding.
+- Native/manual 80x24/NO_COLOR evidence and a complete operator-driven bisect
+  loop remain outstanding.
 - The workspace-control slice is committed at `01fef5e`; the full `make check`
   gate passed at that revision. Explicit workspace start support is committed
   at `c7b7527`; the full `make check` gate passed there as well. Task 149
@@ -76,3 +76,15 @@ Make manual bisect visually obvious while live worktree status remains available
 - Candidate inspection and mouse-parity support are committed at `bc4eca2`;
   the full `make check` gate passed at that revision. Native terminal
   evidence remains outstanding.
+- Revision `e2cfe34` adds `TestBisectCandidateInspectorShowsCommitPatch`, which
+  creates a real two-commit repository, opens the active candidate from the
+  Bisect workspace, and verifies both commit metadata and its patch appear in
+  the workspace presentation. Focused app testing and
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` passed on Darwin arm64; lint reported 0 issues and the full/race tests,
+  vet, security, performance, formatting, and diff checks passed. GitHub
+  Actions run
+  [35869925536](https://github.com/sphireinc/gitwatch/actions/runs/35869925536)
+  passed quality/policy, full-history secret scan, and Ubuntu, macOS, and
+  Windows jobs. This closes the candidate-patch rendering gap; native/manual
+  80x24/NO_COLOR and full operator-loop evidence remain open.
