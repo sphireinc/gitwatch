@@ -117,3 +117,17 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   route matrices, conflict-view gating, Git lifecycle boundary, app recovery
   routing, and real conflict/resume integrations. Native/manual acceptance and
   the final requirement-by-requirement audit remain open.
+- At revision `f254971`, rebase continue/abort, cherry-pick continue/skip/abort,
+  and merge abort now delegate to the shared `Runner.OperationLifecycle`
+  boundary; production adapters no longer construct separate lifecycle Git
+  invocations. The authoritative rebase projection identifies an edit-stop
+  only when Git's completed todo records the stopped SHA as `edit`. The shared
+  action matrix now requires staged results for ordinary rebase/cherry-pick/
+  revert/merge continuation, permits a clean-index Continue only for a
+  Git-derived rebase edit-stop, and always blocks Continue while conflicts are
+  unresolved. Regression tests cover real edit-stop restart/skip, conflicted
+  rebase identification, and the shared action matrix.
+  `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 with lint
+  (0 issues), full tests, race, vet, formatting, security fuzz, performance,
+  and diff checks. The task remains open for broader cross-platform/native
+  acceptance and its full end-to-end coordinator audit.
