@@ -90,3 +90,7 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
   App coverage records the host notification path. Provider-backed metadata
   actions, broader interaction, and native/manual/release evidence remain
   open.
+- At revision `e3bdedb`, the full `make check` gate passed on macOS arm64,
+  including plugin contribution/runtime tests, race detection, vet, security
+  fuzz checks, formatting, lint, and performance benchmarks. Provider-backed
+  metadata actions and native/manual/release evidence remain open.

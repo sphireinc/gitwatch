@@ -109,3 +109,7 @@ Support automated bisect testing without violating argv-only execution.
   and verifies cancellation returns within a bounded time; the full bisect
   package also passes. Native terminal acceptance and dependent custom-command
   completion remain open.
+- At revision `e3bdedb`, the full `make check` gate passed on macOS arm64 after
+  the in-flight cancellation test: formatting, pinned lint (0 issues), normal
+  and race tests, vet, security fuzz checks, diff checks, and performance
+  benchmarks all completed successfully.
