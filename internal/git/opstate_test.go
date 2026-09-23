@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/sphireinc/git-watch/internal/rebase"
@@ -260,6 +261,106 @@ func TestOperationLifecycleSkipsRebase(t *testing.T) {
 }
 
 func TestInteractiveRebaseEditStopSurvivesRestartAndCanSkip(t *testing.T) {
+	restartedRunner, restartedDiscovery, _, _ := startInteractiveEditStop(t)
+	if _, err := restartedRunner.OperationLifecycle(context.Background(), sequencer.KindRebase, "skip"); err != nil {
+		t.Fatalf("skip edit-stopped commit: %v", err)
+	}
+	snapshot, err := Snapshot(context.Background(), restartedDiscovery, 56)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Operation != nil || snapshot.Branch.Name != "feature" {
+		t.Fatalf("post-skip snapshot = %+v", snapshot)
+	}
+	content, err := os.ReadFile(filepath.Join(restartedDiscovery.Root, "file.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "second\n" {
+		t.Fatalf("post-skip content = %q", content)
+	}
+}
+
+func TestInteractiveRebaseEditStopCanContinue(t *testing.T) {
+	restartedRunner, restartedDiscovery, _, _ := startInteractiveEditStop(t)
+	if _, err := restartedRunner.OperationLifecycle(context.Background(), sequencer.KindRebase, "continue"); err != nil {
+		t.Fatalf("continue edit-stopped rebase: %v", err)
+	}
+	snapshot, err := Snapshot(context.Background(), restartedDiscovery, 57)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Operation != nil || snapshot.Branch.Name != "feature" {
+		t.Fatalf("post-continue snapshot = %+v", snapshot)
+	}
+	content, err := os.ReadFile(filepath.Join(restartedDiscovery.Root, "file.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "second\n" {
+		t.Fatalf("post-continue content = %q", content)
+	}
+}
+
+func TestInteractiveRebaseEditStopCanAmendAndContinue(t *testing.T) {
+	restartedRunner, restartedDiscovery, originalFirst, _ := startInteractiveEditStop(t)
+	if _, err := restartedRunner.Run(context.Background(), "commit", "--amend", "-m", "amended first"); err != nil {
+		t.Fatalf("amend edit-stopped commit: %v", err)
+	}
+	amendedFirst := rev(t, restartedRunner, "HEAD")
+	if amendedFirst == originalFirst {
+		t.Fatal("amended commit retained its original object ID")
+	}
+	messageResult, err := restartedRunner.Run(context.Background(), "log", "-1", "--format=%s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	message := strings.TrimSpace(string(messageResult.Stdout))
+	if message != "amended first" {
+		t.Fatalf("amended commit subject = %q", message)
+	}
+	if _, err := restartedRunner.OperationLifecycle(context.Background(), sequencer.KindRebase, "continue"); err != nil {
+		t.Fatalf("continue amended rebase: %v", err)
+	}
+	snapshot, err := Snapshot(context.Background(), restartedDiscovery, 58)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Operation != nil || snapshot.Branch.Name != "feature" || rev(t, restartedRunner, "HEAD~1") != amendedFirst {
+		t.Fatalf("post-amend snapshot = %+v; HEAD~1=%s want %s", snapshot, rev(t, restartedRunner, "HEAD~1"), amendedFirst)
+	}
+	content, err := os.ReadFile(filepath.Join(restartedDiscovery.Root, "file.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "second\n" {
+		t.Fatalf("post-amend content = %q", content)
+	}
+}
+
+func TestInteractiveRebaseEditStopCanAbortAfterRestart(t *testing.T) {
+	restartedRunner, restartedDiscovery, _, originalHead := startInteractiveEditStop(t)
+	if _, err := restartedRunner.OperationLifecycle(context.Background(), sequencer.KindRebase, "abort"); err != nil {
+		t.Fatalf("abort edit-stopped rebase: %v", err)
+	}
+	snapshot, err := Snapshot(context.Background(), restartedDiscovery, 59)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Operation != nil || snapshot.Branch.Name != "feature" || rev(t, restartedRunner, "HEAD") != originalHead {
+		t.Fatalf("post-abort snapshot = %+v; HEAD=%s want %s", snapshot, rev(t, restartedRunner, "HEAD"), originalHead)
+	}
+	content, err := os.ReadFile(filepath.Join(restartedDiscovery.Root, "file.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "second\n" {
+		t.Fatalf("post-abort content = %q", content)
+	}
+}
+
+func startInteractiveEditStop(t *testing.T) (Runner, Discovery, string, string) {
+	t.Helper()
 	runner, discovery := operationFixture(t)
 	base := rev(t, runner, "HEAD")
 	if _, err := runner.Run(context.Background(), "checkout", "-b", "feature"); err != nil {
@@ -317,24 +418,7 @@ func TestInteractiveRebaseEditStopSurvivesRestartAndCanSkip(t *testing.T) {
 	if details := recovered.State.Details().Rebase; details == nil || !details.EditStopped {
 		t.Fatalf("restarted edit-stop details = %+v", details)
 	}
-
-	if _, err := restartedRunner.OperationLifecycle(context.Background(), sequencer.KindRebase, "skip"); err != nil {
-		t.Fatalf("skip edit-stopped commit: %v", err)
-	}
-	snapshot, err := Snapshot(context.Background(), restartedDiscovery, 56)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if snapshot.Operation != nil || snapshot.Branch.Name != "feature" {
-		t.Fatalf("post-skip snapshot = %+v", snapshot)
-	}
-	content, err := os.ReadFile(filepath.Join(discovery.Root, "file.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(content) != "second\n" {
-		t.Fatalf("post-skip content = %q", content)
-	}
+	return restartedRunner, restartedDiscovery, first, second
 }
 
 // TestSequenceEditorHelper runs only as the GIT_SEQUENCE_EDITOR subprocess
