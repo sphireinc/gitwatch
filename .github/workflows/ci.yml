@@ -109,6 +109,13 @@ jobs:
           'changed' | Set-Content (Join-Path $demo 'tracked.txt')
           $status = git -C $demo status --porcelain=v2 --branch
           if (-not $status) { throw 'status output was empty' }
+      - name: Install tmux for PTY acceptance on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          if ! command -v tmux >/dev/null 2>&1; then
+            brew install tmux
+          fi
       - name: PTY and large-status acceptance on Unix
         if: runner.os != 'Windows'
         shell: bash
