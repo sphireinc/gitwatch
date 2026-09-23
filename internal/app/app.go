@@ -420,6 +420,7 @@ type BranchOperationFinishedMsg struct {
 
 type MergeFinishedMsg struct {
 	Repository uint64
+	Strategy   mergeops.Strategy
 	Outcome    mergeops.Outcome
 	Operation  *history.OperationRecord
 }
@@ -3231,7 +3232,7 @@ func (m Model) mergeSelectedBranch(strategy mergeops.Strategy) tea.Cmd {
 			completed.NewHead = outcome.Snapshot.Branch.OID
 		}
 		attachLatestRecoveryPoint(ctx, runner, &completed)
-		return MergeFinishedMsg{Repository: generation, Outcome: outcome, Operation: &completed}
+		return MergeFinishedMsg{Repository: generation, Strategy: strategy, Outcome: outcome, Operation: &completed}
 	}
 }
 
@@ -9548,7 +9549,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivityWithOperation(history.OperationFailure, "merge", v.Outcome.Err.Error(), v.Operation)
 			return m, m.refresh()
 		}
-		m.State, m.Status = StateReady, "merge completed"
+		m.State = StateReady
+		if v.Strategy == mergeops.Squash {
+			m.Status = "squash staged; review changes and commit when ready (no merge commit created)"
+		} else {
+			m.Status = "merge completed"
+		}
 		m.recordActivityWithOperation(history.OperationSuccess, "merge", m.Status, v.Operation)
 		return m, tea.Batch(m.refresh(), m.loadBranches(), m.loadHistory())
 	case HistoryReadyMsg:

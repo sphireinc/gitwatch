@@ -1106,6 +1106,76 @@ func TestBranchMergeRunsThroughOperationEngineAndRefreshes(t *testing.T) {
 	}
 }
 
+func TestBranchSquashMergeExplainsStagedChangesAndNoMergeCommit(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := git.NewRunner(dir)
+	for _, args := range [][]string{{"init", "-b", "main", "--", dir}, {"config", "user.name", "test"}, {"config", "user.email", "test@example.com"}, {"config", "commit.gpgsign", "false"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "add", "--", "base.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "commit", "-m", "base"); err != nil {
+		t.Fatal(err)
+	}
+	baseHeadResult, err := runner.Run(ctx, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseHead := strings.TrimSpace(string(baseHeadResult.Stdout))
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "add", "--", "feature.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "commit", "-m", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepositoryWithConfig(discovery, config.Defaults())
+	t.Cleanup(func() { _ = m.Close() })
+	m.repositoryGeneration = 3
+	m.Snapshot = repo.Snapshot{Root: dir, Branch: repo.Branch{Name: "main", OID: baseHead}}
+	m.BranchMergeTarget = "feature"
+
+	command := m.mergeSelectedBranch(mergeops.Squash)
+	if command == nil {
+		t.Fatal("squash merge command was not created")
+	}
+	finished := command().(MergeFinishedMsg)
+	if finished.Strategy != mergeops.Squash || finished.Outcome.Err != nil || finished.Outcome.Snapshot == nil || finished.Outcome.Snapshot.Counts.Staged == 0 {
+		t.Fatalf("squash outcome = %+v", finished)
+	}
+	updated, _ := m.Update(finished)
+	m = updated.(Model)
+	if m.State != StateReady || !strings.Contains(m.Status, "no merge commit created") || !strings.Contains(m.Status, "staged") {
+		t.Fatalf("squash completion did not explain resulting state: %s", m.Status)
+	}
+	if m.Snapshot.Counts.Staged == 0 || m.Snapshot.Operation != nil {
+		t.Fatalf("squash authoritative snapshot = %+v", m.Snapshot)
+	}
+	newHead, err := runner.Run(ctx, "rev-parse", "HEAD")
+	if err != nil || strings.TrimSpace(string(newHead.Stdout)) != baseHead {
+		t.Fatalf("squash unexpectedly created a merge commit: HEAD=%q err=%v", newHead.Stdout, err)
+	}
+}
+
 func TestCherryPickSelectionRunsThroughEngineAndJournalsCompletion(t *testing.T) {
 	root := t.TempDir()
 	runner := git.NewRunner(root)

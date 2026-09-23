@@ -58,6 +58,107 @@ func TestExecuteFastForwardAndRejectsDirtyWorktree(t *testing.T) {
 	}
 }
 
+func TestNoFastForwardMergeCreatesTwoParentCommit(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := setupMergeRepository(t, dir)
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	writeMergeFile(t, runner, dir, "feature\n", "feature")
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+
+	outcome := (Engine{Runner: runner, Repository: dir}).Execute(ctx, Request{
+		Repository: dir,
+		Source:     "feature",
+		Strategy:   NoFastForward,
+		Message:    "integrate feature",
+	})
+	if outcome.Err != nil || outcome.Paused || outcome.Snapshot == nil || outcome.Snapshot.Operation != nil {
+		t.Fatalf("no-ff outcome = %#v", outcome)
+	}
+	parents, err := runner.Run(ctx, "rev-list", "--parents", "-n", "1", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(strings.Fields(string(parents.Stdout))); got != 3 {
+		t.Fatalf("merge commit has %d fields, want commit and two parents: %q", got, parents.Stdout)
+	}
+	message, err := runner.Run(ctx, "log", "-1", "--format=%s")
+	if err != nil || strings.TrimSpace(string(message.Stdout)) != "integrate feature" {
+		t.Fatalf("merge message = %q, err=%v", message.Stdout, err)
+	}
+}
+
+func TestSquashMergeLeavesStagedChangesWithoutMergeCommit(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := setupMergeRepository(t, dir)
+	baseHead := revMerge(t, runner, "HEAD")
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	writeMergeFile(t, runner, dir, "feature\n", "feature")
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+
+	outcome := (Engine{Runner: runner, Repository: dir}).Execute(ctx, Request{
+		Repository: dir,
+		Source:     "feature",
+		Strategy:   Squash,
+	})
+	if outcome.Err != nil || outcome.Paused || outcome.Snapshot == nil || outcome.Snapshot.Operation != nil {
+		t.Fatalf("squash outcome = %#v", outcome)
+	}
+	if got := revMerge(t, runner, "HEAD"); got != baseHead {
+		t.Fatalf("squash created a commit: HEAD=%s, want unchanged %s", got, baseHead)
+	}
+	if outcome.Snapshot.Counts.Staged == 0 {
+		t.Fatalf("squash did not return staged state: %+v", outcome.Snapshot.Counts)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "shared")); err != nil {
+		t.Fatal(err)
+	}
+	status, err := runner.Run(ctx, "diff", "--cached", "--name-only")
+	if err != nil || strings.TrimSpace(string(status.Stdout)) != "shared" {
+		t.Fatalf("squash staged paths = %q, err=%v", status.Stdout, err)
+	}
+}
+
+func TestFastForwardOnlyRefusesDivergedBranchesWithoutMutation(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := setupMergeRepository(t, dir)
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	writeMergeFile(t, runner, dir, "feature\n", "feature")
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+	writeMergeFile(t, runner, dir, "main\n", "main")
+	mainHead := revMerge(t, runner, "HEAD")
+
+	outcome := (Engine{Runner: runner, Repository: dir}).Execute(ctx, Request{
+		Repository: dir,
+		Source:     "feature",
+		Strategy:   FastForwardOnly,
+	})
+	if outcome.Err == nil || outcome.Paused || outcome.Snapshot == nil || outcome.Snapshot.Operation != nil {
+		t.Fatalf("ff-only refusal = %#v", outcome)
+	}
+	if got := revMerge(t, runner, "HEAD"); got != mainHead {
+		t.Fatalf("ff-only refusal changed HEAD: got %s, want %s", got, mainHead)
+	}
+	content, err := os.ReadFile(filepath.Join(dir, "shared"))
+	if err != nil || string(content) != "main\n" {
+		t.Fatalf("worktree after ff-only refusal = %q, err=%v", content, err)
+	}
+}
+
 func TestInvalidMergeSourceAndStrategyAreRejected(t *testing.T) {
 	engine := Engine{Repository: "repo"}
 	if got := engine.Execute(context.Background(), Request{Repository: "repo", Source: "-bad"}); !strings.Contains(got.Err.Error(), "invalid") {
@@ -145,7 +246,7 @@ func TestConflictingMergeReturnsPausedStateAndAbortRestoresWorktree(t *testing.T
 func setupMergeRepository(t *testing.T, dir string) git.Runner {
 	t.Helper()
 	runner := git.NewRunner(dir)
-	for _, args := range [][]string{{"init", "-b", "main", "--", dir}, {"config", "user.name", "test"}, {"config", "user.email", "test@example.com"}} {
+	for _, args := range [][]string{{"init", "-b", "main", "--", dir}, {"config", "user.name", "test"}, {"config", "user.email", "test@example.com"}, {"config", "commit.gpgsign", "false"}} {
 		if _, err := runner.Run(context.Background(), args...); err != nil {
 			t.Fatal(err)
 		}
@@ -160,6 +261,15 @@ func setupMergeRepository(t *testing.T, dir string) git.Runner {
 		t.Fatal(err)
 	}
 	return runner
+}
+
+func revMerge(t *testing.T, runner git.Runner, ref string) string {
+	t.Helper()
+	result, err := runner.Run(context.Background(), "rev-parse", "--verify", ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(result.Stdout))
 }
 
 func writeMergeFile(t *testing.T, runner git.Runner, dir, contents, message string) {
