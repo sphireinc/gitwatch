@@ -45,14 +45,14 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 
 ## Completion record
 
-- [x] Initial progress workspace slice implemented in the repository-scoped conflict/recovery view: Git sequencer metadata now supplies the ordered selected commits, completed/current/pending position, original/current HEAD, and remaining count; Continue/Skip/Abort remain explicit lifecycle actions.
-- [x] Implementation commits recorded: `4a9dfd7` (progress projection/rendering), `ee7764b` (palette/status recovery navigation), `fa554d2` (per-commit outcome projection), and `83f4726` (outcome model fields).
-- [x] Exact tested revision recorded: `83f4726`, with all preceding cherry-pick progress commits included in the tested checkout.
-- [x] Focused tests recorded: `TestDetectOperationStateReportsCherryPickProgress` exercises a real multi-commit conflicted cherry-pick; `TestCherryPickViewShowsRepositoryScopedProgress` verifies wide progress rendering and recovery affordances; `TestActiveCherryPickCanReopenProgressFromPalette` verifies Ctrl-P recovery routing without conflict files; the detector now also preserves completed/skipped SHA sets from sequencer metadata.
-- [x] `go test ./...` recorded through `make check`.
-- [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` (lint reported 0 issues).
+- [x] Repository-scoped progress workspace and dedicated `workspace.CherryPick` navigation provide ordered selected commits, completed/current/pending/skipped/conflicted state, original/current HEAD, remaining count, and explicit lifecycle actions.
+- [x] Implementation commits recorded across progress projection, palette/status recovery navigation, per-commit outcomes, typed start/journal flow, and dedicated workspace routing (including `4a9dfd7`, `83f4726`, `56e1173`, and `b03e46d`).
+- [x] Exact tested revision recorded: `122c8de`, including the full preceding cherry-pick progress implementation.
+- [x] Focused tests recorded: real multi-commit conflict progress/resume, wide and 80x24 rendering, palette recovery, navigation away/back, typed start/journal flow, and external resolution refresh/Continue input.
+- [x] `go test ./...` recorded through `make check` at `122c8de`.
+- [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` at `122c8de` (lint reported 0 issues).
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [x] Known limitations/deferred work documented: full standalone workspace navigation, richer conflicted-history presentation beyond Git's current sequencer projection, and native/manual acceptance remain outstanding.
+- [x] Known limitations/deferred work documented: richer conflicted-history presentation beyond Git's current sequencer projection and native/manual acceptance remain outstanding.
 
 ## Local progress evidence (task remains active)
 
@@ -62,7 +62,7 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 - Completed and skipped commit IDs are normalized against the sequencer's ordered todo backup, including abbreviated/full SHA forms, so the progress view can render exact per-commit outcomes without relying on toast history.
 - Recovery controls are now operation-specific: Skip is shown only for rebase, cherry-pick, and revert, while unsupported operations such as Merge expose only Continue and Abort.
 - A current cherry-picked commit is labeled `conflicted` when Git reports conflicted paths; the progress view can be left for Status and reopened through Ctrl-P without losing the operation projection.
-- Task 135 is not moved to `tasks/completed` until the remaining workspace/navigation and platform acceptance criteria are proven.
+- Task 135 remains active until operator-owned native/manual acceptance is recorded.
 
 ## Additional implementation evidence
 
@@ -72,8 +72,9 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
   routing, and completion activity journaling.
 - `TestCherryPickSelectionRunsThroughEngineAndJournalsCompletion` exercises a
   real feature commit selected from history, cherry-picks it onto `main`, and
-  verifies the resulting file and semantic journal record. Standalone
-  workspace/navigation and native/manual acceptance remain outstanding.
+  verifies the resulting file and semantic journal record. At that point
+  standalone workspace/navigation and native/manual acceptance remained open;
+  the dedicated route/navigation coverage below resolves the former.
 - The cherry-pick start/journal slice was validated at revision `56e1173`
   through the full `make check` gate.
 - Added a dedicated `workspace.CherryPick` route backed by the same
@@ -86,4 +87,14 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
   suites passed with `go test ./internal/app ./internal/git
   ./internal/integration`, including cherry-pick progress, restart recovery,
   conflict continuation, and navigation tests. Native/manual terminal evidence
-  and the remaining standalone-workspace acceptance criteria remain open.
+  remained open at that revision.
+- At revision `122c8de`,
+  `TestExternalCherryPickResolutionEnablesContinueFromFreshSnapshot` verifies
+  that unresolved conflicts withhold Continue, then an authoritative snapshot
+  reflecting external resolution enables the 80x24 Continue footer and `c`
+  input without leaving the progress workspace. The full local
+  `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64, including
+  lint (0 issues), full and race tests, vet, formatting, security fuzz,
+  performance, and diff checks. Hosted Actions run `35864391354` passed
+  quality/policy, full-history secret scan, and Ubuntu/macOS/Windows matrices;
+  macOS PTY acceptance passed. Native operator acceptance remains open.
