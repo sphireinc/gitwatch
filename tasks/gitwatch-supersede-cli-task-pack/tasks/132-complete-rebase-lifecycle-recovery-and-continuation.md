@@ -52,12 +52,12 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 
 - [x] Recovery entry point and progress presentation are implemented; an active rebase discovered by the live snapshot can be opened from Status with `C`, including when no conflict file is present. Continue and abort remain typed lifecycle intents in the existing conflict/recovery workspace.
 - [x] Implementation commits recorded: `224362f` (active recovery route), `2374459` (continuation coverage and stale-marker fix), and the follow-up skip-support slice.
-- [ ] Exact tested revision recorded.
+- [x] Exact tested revision recorded.
 - [x] Focused tests recorded: `TestActiveRebaseWithoutConflictsHasRecoveryRoute`, `TestOperationLifecycleAbortsRebaseAndRefreshesOperationState`, `TestOperationLifecycleContinuesResolvedRebase`, `TestOperationLifecycleSkipsRebase`, and `TestDetectOperationStateSurvivesRunnerReconstructionDuringRebase`; the real disposable-repository tests create a rebase conflict, exercise typed abort/continue/skip, verify fresh-runner rediscovery, and verify authoritative post-operation snapshots and worktree content.
 - [x] `go test ./...` recorded through `make check`.
 - [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` (lint reported 0 issues).
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [x] Known limitations/deferred work documented: edit-stop scenarios beyond the status projection and native Linux/macOS/Windows operator evidence still require dedicated acceptance coverage.
+- [x] Known limitations/deferred work documented: edit-stop continue/amend/abort variants and native Linux/macOS/Windows operator evidence still require dedicated acceptance coverage.
 
 ## Local progress evidence (task remains active)
 
@@ -74,3 +74,11 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
   rediscovery, and authoritative post-operation snapshots. Native/manual
   terminal evidence remains open, so the task is not yet eligible for archival.
 - The task is intentionally not moved to `tasks/completed` until restart recovery, edit-stop/skip behavior where applicable, and required native/manual evidence are proven.
+- At revision `0d2ee23`, `TestInteractiveRebaseEditStopSurvivesRestartAndCanSkip`
+  drove a real interactive rebase to an `edit` stop, reconstructed its
+  repository-scoped progress through a fresh runner, then skipped the stopped
+  commit and verified Git's completed operation state and resulting worktree.
+  `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 for this
+  source revision: pinned lint (0 issues), formatting, full tests, race tests,
+  vet, security fuzz, performance budgets, and diff checks. Native terminal
+  evidence and edit-stop continue/amend/abort variants remain open.
