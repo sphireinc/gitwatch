@@ -1963,6 +1963,44 @@ func TestBisectWorkspaceInspectsCandidateAndMapsMouseActions(t *testing.T) {
 	}
 }
 
+func TestBisectCandidateInspectorShowsCommitPatch(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "known good")
+	runner := git.NewRunner(root)
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("candidate change\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", "candidate change")
+	head, err := runner.Run(ctx, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sha := strings.TrimSpace(string(head.Stdout))
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepository(discovery)
+	m.Workspace.Navigate(workspace.Bisect, "Bisect")
+	m.Bisect = bisect.State{Repository: discovery.Root, Active: true, Candidate: sha}
+	updated, cmd := m.Update(key("i"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("candidate inspection did not schedule a Git read")
+	}
+	updated, _ = m.Update(cmd())
+	m = updated.(Model)
+	if m.HistoryInspector.Commit.SHA != sha || !strings.Contains(m.HistoryInspector.Diff, "+candidate change") {
+		t.Fatalf("candidate inspector = %#v", m.HistoryInspector)
+	}
+	view := m.bisectWorkspaceView() + "\n" + inspectorText(m.HistoryInspector)
+	if !strings.Contains(view, "Patch:") || !strings.Contains(view, "+candidate change") {
+		t.Fatalf("bisect candidate patch missing from workspace view: %q", view)
+	}
+}
+
 func TestBisectWorkspaceCollectsAutomatedRunArgvBeforeConfirmation(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Workspace.Navigate(workspace.Bisect, "Bisect")
