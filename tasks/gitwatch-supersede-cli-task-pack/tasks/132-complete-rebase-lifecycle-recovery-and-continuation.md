@@ -99,3 +99,16 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
   full-history secret scan, and Ubuntu/macOS/Windows test matrices, including
   the PTY smoke on macOS. Native operator acceptance remains open, so the task
   remains active.
+- Revision `56ccbd3` shows the Git-derived phase/edit-stop label, current
+  commit, and completed/remaining counts directly in the recovery pane. A
+  focused 80x24 view test passed. A new native tmux fixture on Darwin arm64
+  launched gitwatch after an externally started conflict rebase, opened
+  recovery with `C`, verified the progress pane under `NO_COLOR=1` and motion
+  off, skipped the stopped commit with `s`, and verified Git restored the
+  expected branch/HEAD and removed rebase metadata. The fixture is now part
+  of Unix CI. Full `GOCACHE=/tmp/gitwatch-go-cache
+  GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` passed at the source
+  revision (lint 0 issues, full/race tests, vet, format, diff, security, and
+  performance). This is automated PTY evidence for one skip path, not full
+  human/operator, abort/continue, edit-stop, or native Windows acceptance;
+  the task remains active.
