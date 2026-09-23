@@ -42,18 +42,18 @@ Offer Undo only where gitwatch can prove a safe recovery point; refuse when repo
 
 ## Acceptance criteria
 
-- [ ] Undo preserves working content by default.
-- [ ] Stale/unsafe recovery is refused rather than guessed.
+- [x] Undo preserves working content by default.
+- [x] Stale/unsafe recovery is refused rather than guessed.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -71,10 +71,10 @@ Offer Undo only where gitwatch can prove a safe recovery point; refuse when repo
   refusal. `TestExecuteRefusesUnrelatedCommitAfterRecordedOperation` and
   `TestPlanRefusesForeignRepository` cover stale HEAD and repository-scope
   isolation.
-- This slice is not complete: unrelated-change/refusal, sequencer-abort, and
-  multi-repository integration coverage plus native/manual terminal evidence
-  remain outstanding. The task stays active until those acceptance gates are
-  evidenced.
+- The implementation deliberately refuses journal Undo while a sequencer is
+  active; users get the operation-specific abort action from the shared
+  sequencer workspace instead of an unsafe reset. Active-operation refusal is
+  covered by a real merge-conflict repository test.
 - The focused implementation commit is `99495e9`; the full `make check` gate
   passed at that revision after the stale-HEAD and repository-scope tests were
   added. Native/manual terminal evidence remains the explicit outstanding
@@ -85,3 +85,15 @@ Offer Undo only where gitwatch can prove a safe recovery point; refuse when repo
   sequencer and verifies the policy returns `ErrActiveOperation` before any
   reset can be attempted; normal and race-focused tests pass. Native/manual
   terminal evidence remains open.
+- Revision `7a78054` strengthens the refusal tests to assert `ErrDiverged` for
+  changed HEAD/content and `ErrActiveOperation` for a live merge, and confirms
+  the refused operation leaves that merge and its HEAD intact. It adds
+  `TestExecuteUndoIsIsolatedFromOtherRepository`, which performs a real soft
+  undo in repository A and verifies repository B's HEAD and worktree are
+  unchanged. `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache
+  make check` passed on Darwin arm64, including lint (0 issues), full and race
+  test suites, vet, format, security, performance, and diff checks. GitHub
+  Actions run
+  [35867831486](https://github.com/sphireinc/gitwatch/actions/runs/35867831486)
+  passed quality/policy, secret scanning, and Ubuntu, macOS, and Windows jobs.
+  Native/manual terminal evidence remains required before task completion.
