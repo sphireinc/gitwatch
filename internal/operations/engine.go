@@ -10,6 +10,8 @@ import (
 var ErrDuplicate = errors.New("operation already running")
 var ErrNotRetryable = errors.New("operation is not marked replayable")
 
+const retainedHistoryLimit = 32
+
 type State uint8
 
 const (
@@ -223,9 +225,10 @@ func (e *Engine) finish(r Result) {
 	delete(e.waiters, r.ID)
 	e.latest[r.ID] = r
 	e.history = append(e.history, r)
-	if len(e.history) > 32 {
-		e.history = e.history[len(e.history)-32:]
+	if len(e.history) > retainedHistoryLimit {
+		e.history = e.history[len(e.history)-retainedHistoryLimit:]
 	}
+	e.pruneRetainedLocked()
 	e.mu.Unlock()
 	if waiter != nil {
 		waiter <- r
@@ -235,6 +238,29 @@ func (e *Engine) finish(r Result) {
 	select {
 	case e.results <- r:
 	default:
+	}
+}
+
+// pruneRetainedLocked keeps retry metadata and completed snapshots bounded by
+// the same retention policy as the visible operation history. Active entries
+// are retained even before they reach history so Snapshot remains live.
+func (e *Engine) pruneRetainedLocked() {
+	retained := make(map[string]struct{}, len(e.history)+len(e.active))
+	for _, result := range e.history {
+		retained[result.ID] = struct{}{}
+	}
+	for id := range e.active {
+		retained[id] = struct{}{}
+	}
+	for id := range e.latest {
+		if _, ok := retained[id]; !ok {
+			delete(e.latest, id)
+		}
+	}
+	for id := range e.retry {
+		if _, ok := retained[id]; !ok {
+			delete(e.retry, id)
+		}
 	}
 }
 

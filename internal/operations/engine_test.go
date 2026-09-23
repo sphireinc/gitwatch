@@ -147,3 +147,27 @@ func TestRetryReplaysExplicitlyMarkedOperation(t *testing.T) {
 		t.Fatalf("retry result = %#v, attempts = %d", result, attempts.Load())
 	}
 }
+
+func TestEngineBoundsCompletedOperationRetention(t *testing.T) {
+	e := New(2)
+	oldID := ""
+	for index := 0; index < retainedHistoryLimit+8; index++ {
+		id := "operation-" + time.Now().Format("150405.000000000") + "-" + string(rune('a'+index))
+		if index == 0 {
+			oldID = id
+		}
+		if err := e.SubmitWithOptions(context.Background(), id, "repo", "fetch", time.Second, func(context.Context) error { return nil }, Options{Retryable: true}); err != nil {
+			t.Fatal(err)
+		}
+		result := <-e.Results()
+		if result.State != Succeeded {
+			t.Fatalf("operation %q = %#v", id, result)
+		}
+	}
+	if got := len(e.Snapshot()); got != retainedHistoryLimit {
+		t.Fatalf("retained operation history = %d, want %d", got, retainedHistoryLimit)
+	}
+	if _, err := e.Retry(context.Background(), oldID); !errors.Is(err, ErrNotRetryable) {
+		t.Fatalf("evicted retry error = %v", err)
+	}
+}
