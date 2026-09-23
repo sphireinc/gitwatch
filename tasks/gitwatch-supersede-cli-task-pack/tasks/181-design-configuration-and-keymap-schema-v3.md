@@ -73,6 +73,12 @@ Version configuration deliberately for advanced workbench features instead of ac
   focused config tests pass normally and under race/vet; native/release
   acceptance remains open.
 
+- Revision `852eb3e` closes the automated inspection-redaction gap for split
+  credential argv values such as `--token secret`, bearer/basic authorization
+  forms, and colon-delimited credential markers. Focused config tests and the
+  full `make check` gate pass, including lint, race, vet, security fuzz checks,
+  and performance benchmarks. Native/release acceptance remains open.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.

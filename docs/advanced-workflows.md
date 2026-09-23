@@ -98,7 +98,7 @@ failure; a successful mutation still requests an authoritative refresh.
 Repository switching supplies a new context, so late results from the prior
 repository cannot be applied to the active workspace.
 
-Configuration schema version 2 can be validated with:
+Configuration schema version 3 can be validated with:
 
 ```sh
 gitwatch --config-check
