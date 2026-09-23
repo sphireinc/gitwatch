@@ -136,3 +136,9 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   remains. Focused repeated tests and the full `make check` gate pass; process
   counting, provider/history scale, and native responsiveness evidence remain
   open.
+
+- Revision `5add456` bounds generic and pull-request provider caches to 256
+  entries by evicting the oldest values. Regression tests exercise 300 distinct
+  repository/branch keys and verify bounded storage. Focused repeated provider
+  tests and the full `make check` gate pass; process counting, provider/history
+  scale, and native responsiveness evidence remain open.
