@@ -92,3 +92,7 @@ Turn gitwatch’s htop identity into a concrete repository-health surface.
   mouse coordinates were updated for the additional row; focused normal,
   race, vet, and layout checks pass. Provider freshness and native acceptance
   remain open.
+
+- At revision `6b7a4d0`, the repository-wide `make check` passed after the
+  Status layout change: pinned lint reported 0 issues, full normal and race
+  tests, vet, security fuzz, diff checks, and performance benchmarks passed.
