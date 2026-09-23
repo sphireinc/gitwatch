@@ -41,18 +41,18 @@ Expose reflog as a recovery surface and foundation for semantic undo.
 
 ## Acceptance criteria
 
-- [ ] User can inspect and branch from recovery points safely.
-- [ ] Parsing is not locale-dependent.
+- [x] User can inspect and branch from recovery points safely.
+- [x] Parsing is not locale-dependent.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -72,3 +72,16 @@ Expose reflog as a recovery surface and foundation for semantic undo.
   out that it enters detached `HEAD`. Focused app coverage verifies compare
   scheduling. All code-level recovery-point requirements are now implemented;
   native/manual validation remains outstanding.
+- Verification at revision `cda3a1b`: `GOCACHE=/tmp/gitwatch-go-cache
+  GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` passed on Darwin arm64,
+  including formatting, pinned golangci-lint (0 issues), `go test ./...`,
+  `go test -race ./...`, vet, security checks, performance checks, and diff
+  checks. Focused `go test ./internal/reflog ./internal/app -count=1` also
+  passed. The reflog parser tests cover stable NUL-delimited records,
+  timestamps, pagination bounds, malformed input, and unsafe refs; app tests
+  cover bounded palette routing and inspect, detached-checkout confirmation,
+  branch creation, and compare-to-HEAD flows. Implementation landed in
+  `c34c9e7`, `55ca375`, `661095c`, `59e541a`, and `c8deeb4`. CI run
+  [35866061892](https://github.com/sphireinc/gitwatch/actions/runs/35866061892)
+  passed the full Windows/macOS/Ubuntu matrix at `0c362d1`; the code under test
+  is unchanged at `cda3a1b`. Native/manual terminal evidence is still required.
