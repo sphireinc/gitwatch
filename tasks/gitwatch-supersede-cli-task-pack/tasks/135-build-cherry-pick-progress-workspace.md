@@ -82,3 +82,8 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 - The Status `C` recovery shortcut now selects the dedicated cherry-pick route
   whenever the authoritative operation kind is cherry-pick; other sequencer
   kinds continue using the unified conflict route.
+- At revision `b03e46d`, the focused application, Git-boundary, and integration
+  suites passed with `go test ./internal/app ./internal/git
+  ./internal/integration`, including cherry-pick progress, restart recovery,
+  conflict continuation, and navigation tests. Native/manual terminal evidence
+  and the remaining standalone-workspace acceptance criteria remain open.

@@ -99,3 +99,8 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   lifecycle boundary, and verifies the authoritative clean snapshot and
   original worktree content. Focused normal and race runs pass; native
   acceptance remains open.
+- At revision `b03e46d`, the focused application, Git-boundary, and integration
+  suites passed with `go test ./internal/app ./internal/git
+  ./internal/integration`, including shared revert conflict detection,
+  continuation, and fresh-runner abort coverage. Native acceptance and the
+  unified coordinator remain open.
