@@ -36,18 +36,18 @@ Add redo only for operations whose typed intent and current repository state mak
 
 ## Acceptance criteria
 
-- [ ] Redo exists only where safety can be established.
-- [ ] Unavailable redo has an actionable recovery path.
+- [x] Redo exists only where safety can be established.
+- [x] Unavailable redo has an actionable recovery path.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -62,9 +62,22 @@ Add redo only for operations whose typed intent and current repository state mak
   create-branch (`B`) recovery guidance; app coverage verifies this route.
 - `TestExecuteRedoReplaysSuccessfulSoftUndo` exercises a real repository
   round-trip; unit coverage verifies the typed command and stale-state refusal.
-- Guided reflog recovery for non-replayable operations, broader external-change
-  refusal coverage, and native/manual terminal evidence remain outstanding.
+- Replay is intentionally limited to a successful gitwatch soft-undo record;
+  other operations route to the repository-scoped reflog workspace for compare
+  and branch recovery rather than receiving generic redo behavior. Native/manual
+  terminal evidence remains outstanding.
 - The guarded redo slice is committed at `0ec98a9`, with guided reflog routing
   added at `c8deeb4`; the full `make check` gate passed at both validation
-  points. The task remains active until broader recovery cases and the
-  remaining terminal evidence are implemented and verified.
+  points. Additional external-commit refusal coverage is recorded below;
+  native/manual terminal evidence remains open.
+- At revision `d6ad55f`, added `TestExecuteRefusesRedoAfterExternalCommit`: after
+  a real soft undo, it creates an external commit and proves redo returns
+  `ErrDiverged` without changing the external `HEAD` or repository status.
+  Focused `go test ./internal/redo -count=1` and
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` passed on Darwin arm64; lint reported 0 issues and the gate completed
+  full/race tests, vet, security, performance, formatting, and diff checks.
+  GitHub Actions run
+  [35868810670](https://github.com/sphireinc/gitwatch/actions/runs/35868810670)
+  passed quality/policy, secret scanning, and Ubuntu, macOS, and Windows jobs.
+  Native/manual terminal evidence remains the completion gate.
