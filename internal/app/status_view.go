@@ -979,10 +979,12 @@ func (m Model) bisectWorkspaceView() string {
 		"known good: " + platform.SafeText(state.Good),
 		"known bad:  " + platform.SafeText(state.Bad),
 		"candidate:  " + platform.SafeText(state.Candidate),
-		"actions:    [g] good  [b] bad  [s] skip  [x] reset  [i] inspect",
-		"",
-		"bisect log:",
+		"subject:    " + platform.SafeText(state.Subject),
 	}
+	if state.HasEstimate {
+		lines = append(lines, fmt.Sprintf("remaining:  ~%d revisions (%d steps)", state.Remaining, state.Steps))
+	}
+	lines = append(lines, "actions:    [g] good  [b] bad  [s] skip  [x] reset  [i] inspect", "", "bisect log:")
 	if len(state.Log) == 0 {
 		lines = append(lines, "  (no bisect log entries)")
 	} else {

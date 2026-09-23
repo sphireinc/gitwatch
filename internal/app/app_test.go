@@ -2001,6 +2001,89 @@ func TestBisectCandidateInspectorShowsCommitPatch(t *testing.T) {
 	}
 }
 
+func TestBisectWorkspaceCompletesManualLoopInRealRepository(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "known good")
+	runner := git.NewRunner(root)
+	head := func() string {
+		t.Helper()
+		result, err := runner.Run(ctx, "rev-parse", "HEAD")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(result.Stdout))
+	}
+	good := head()
+	for _, value := range []string{"still good", "first bad", "still bad", "known bad"} {
+		if err := os.WriteFile(filepath.Join(root, "README"), []byte(value+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+		gitMustRunAppTest(t, ctx, runner, "commit", "-m", value)
+	}
+	bad := head()
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = runner.Run(context.Background(), "bisect", "reset") })
+	m := NewRepository(discovery)
+	defer func() { _ = m.Close() }()
+	m.Workspace.Navigate(workspace.Bisect, "Bisect")
+	m.BisectStartBad, m.BisectStartGood, m.BisectStartConfirm = bad, good, true
+	updated, cmd := m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("bisect start was not scheduled")
+	}
+	updated, refresh := m.Update(cmd())
+	m = updated.(Model)
+	if refresh == nil || !m.Bisect.Active || m.Bisect.Candidate == "" || m.Snapshot.Branch.OID != m.Bisect.Candidate {
+		t.Fatalf("start state = bisect=%#v snapshot=%#v refreshnil=%v", m.Bisect, m.Snapshot.Branch, refresh == nil)
+	}
+	if m.Bisect.Subject == "" || !m.Bisect.HasEstimate || !strings.Contains(m.bisectWorkspaceView(), "remaining:") || !strings.Contains(m.bisectWorkspaceView(), "subject:") {
+		t.Fatalf("candidate presentation = %#v, view=%q", m.Bisect, m.bisectWorkspaceView())
+	}
+	firstCandidate := m.Bisect.Candidate
+	updated, cmd = m.Update(key("g"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("bisect good was not scheduled")
+	}
+	updated, refresh = m.Update(cmd())
+	m = updated.(Model)
+	if refresh == nil || m.Bisect.Good != firstCandidate || m.Bisect.Candidate == firstCandidate || m.Snapshot.Branch.OID != m.Bisect.Candidate {
+		t.Fatalf("good state = bisect=%#v snapshot=%#v refreshnil=%v", m.Bisect, m.Snapshot.Branch, refresh == nil)
+	}
+	secondCandidate := m.Bisect.Candidate
+	updated, cmd = m.Update(key("b"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("bisect bad was not scheduled")
+	}
+	updated, refresh = m.Update(cmd())
+	m = updated.(Model)
+	if refresh == nil || m.Bisect.Bad != secondCandidate || m.Snapshot.Branch.OID != m.Bisect.Candidate {
+		t.Fatalf("bad state = bisect=%#v snapshot=%#v refreshnil=%v", m.Bisect, m.Snapshot.Branch, refresh == nil)
+	}
+	updated, cmd = m.Update(key("x"))
+	m = updated.(Model)
+	if cmd != nil || !m.BisectResetConfirm {
+		t.Fatalf("reset confirmation = cmdnil=%v confirm=%v", cmd == nil, m.BisectResetConfirm)
+	}
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("confirmed bisect reset was not scheduled")
+	}
+	updated, refresh = m.Update(cmd())
+	m = updated.(Model)
+	if refresh == nil || m.Bisect.Active || head() != bad {
+		t.Fatalf("reset state = bisect=%#v HEAD=%s refreshnil=%v", m.Bisect, head(), refresh == nil)
+	}
+}
+
 func TestBisectWorkspaceCollectsAutomatedRunArgvBeforeConfirmation(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Workspace.Navigate(workspace.Bisect, "Bisect")

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/sphireinc/git-watch/internal/git"
@@ -34,13 +35,17 @@ const (
 
 // State is the bounded projection reconstructed from Git's bisect metadata.
 type State struct {
-	Repository string
-	Generation uint64
-	Active     bool
-	Good       string
-	Bad        string
-	Candidate  string
-	Log        []string
+	Repository  string
+	Generation  uint64
+	Active      bool
+	Good        string
+	Bad         string
+	Candidate   string
+	Subject     string
+	Remaining   int
+	Steps       int
+	HasEstimate bool
+	Log         []string
 }
 
 func (s State) Clone() State {
@@ -110,6 +115,19 @@ func Load(ctx context.Context, runner git.Runner, repository string, generation 
 	state.Log = boundedLines(result.Stdout)
 	state.Bad = boundary(state.Log, "# bad:")
 	state.Good = boundary(state.Log, "# good:")
+	subject, err := runner.RunBounded(ctx, maxLogBytes, "show", "-s", "--format=%s", "HEAD")
+	if err != nil {
+		return State{}, fmt.Errorf("bisect candidate subject: %w", err)
+	}
+	state.Subject = strings.TrimSuffix(string(subject.Stdout), "\n")
+	if state.Bad != "" && state.Good != "" {
+		args := []string{"rev-list", "--bisect-vars", state.Bad, "--not"}
+		args = append(args, boundaries(state.Log, "# good:")...)
+		progress, err := runner.RunBounded(ctx, 4096, args...)
+		if err == nil {
+			state.Remaining, state.Steps, state.HasEstimate = bisectEstimate(progress.Stdout)
+		}
+	}
 	return state, nil
 }
 
@@ -262,7 +280,8 @@ func boundedLines(data []byte) []string {
 }
 
 func boundary(lines []string, prefix string) string {
-	for _, line := range lines {
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
 		if !strings.HasPrefix(line, prefix) {
 			continue
 		}
@@ -273,4 +292,37 @@ func boundary(lines []string, prefix string) string {
 		}
 	}
 	return ""
+}
+
+func boundaries(lines []string, prefix string) []string {
+	var values []string
+	seen := make(map[string]bool)
+	for _, line := range lines {
+		value := boundary([]string{line}, prefix)
+		if value != "" && !seen[value] {
+			values = append(values, value)
+			seen[value] = true
+		}
+	}
+	return values
+}
+
+// rev-list --bisect-vars emits machine-oriented numeric assignments. Treat
+// missing or malformed values as unavailable rather than inventing progress.
+func bisectEstimate(output []byte) (remaining, steps int, ok bool) {
+	fields := make(map[string]int)
+	for _, line := range strings.Split(string(output), "\n") {
+		key, value, found := strings.Cut(line, "=")
+		if !found || (key != "bisect_nr" && key != "bisect_steps") {
+			continue
+		}
+		number, err := strconv.Atoi(value)
+		if err != nil || number < 0 {
+			return 0, 0, false
+		}
+		fields[key] = number
+	}
+	remaining, hasRemaining := fields["bisect_nr"]
+	steps, hasSteps := fields["bisect_steps"]
+	return remaining, steps, hasRemaining && hasSteps
 }

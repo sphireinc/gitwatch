@@ -37,6 +37,7 @@ provenance and local playback instructions.
 - Lower-left context panes for the commit tree, unpushed commits, and a read-only branch summary.
 - The initial changed-file selection and subsequent mouse or keyboard selections preview that file's diff without mutating the repository; working-tree changes use the unstaged diff even when the file also has staged changes.
 - Guarded stage, unstage, restore, hunk, commit, stash, branch, worktree, remote, and history workflows.
+- Repository-scoped bisect workspace for starting and resuming a manual bisect, marking candidates good/bad/skipped, inspecting their patches, and confirming reset. The workspace shows the latest boundaries, candidate subject, log, and Git's approximate remaining count when available.
 - Bounded path history and blame inspection, plus guarded historical patch editing through a controlled rebase.
 - Typed-argv editor, opener, and difftool handoffs, with shell-free custom commands and context-aware bindings.
 - Optional read-only GitHub pull-request/check visibility, multi-repository dashboards, and capability-bounded out-of-process plugins.
