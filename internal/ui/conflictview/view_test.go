@@ -100,6 +100,27 @@ func TestCherryPickViewShowsRepositoryScopedProgress(t *testing.T) {
 	}
 }
 
+func TestRebaseRecoveryShowsGitDerivedProgressAtNarrowWidth(t *testing.T) {
+	m := New()
+	state, err := sequencer.NewState("repo", 4, sequencer.KindRebase, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state = state.WithObservation("head", "commit-to-edit", 2, 1, nil, time.Now())
+	state, err = state.WithDetails(sequencer.Details{Rebase: &sequencer.RebaseDetails{EditStopped: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.SetSnapshot(sequencer.KindRebase, "main", nil)
+	m.SetOperationState(&state)
+	view := m.View(80, 24)
+	for _, want := range []string{"Rebase recovery", "State: paused (edit-stop)", "Progress: 1 completed · 2 remaining", "Current commit: commit-to-edit", "No active conflicts.", "[c] continue", "[s] skip", "[x] abort"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("narrow recovery missing %q:\n%s", want, view)
+		}
+	}
+}
+
 func TestRecoveryFooterOnlyShowsSupportedActions(t *testing.T) {
 	m := New()
 	m.SetSnapshot(sequencer.KindMerge, "main", nil)

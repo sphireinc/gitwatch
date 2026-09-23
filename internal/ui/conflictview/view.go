@@ -204,6 +204,8 @@ func (m Model) View(width, height int) string {
 	}
 	title := "Conflict resolver"
 	switch m.Operation {
+	case sequencer.KindRebase:
+		title = "Rebase recovery"
 	case sequencer.KindCherryPick:
 		title = "Cherry-pick progress"
 	case sequencer.KindRevert:
@@ -215,6 +217,17 @@ func (m Model) View(width, height int) string {
 		title,
 		fmt.Sprintf("Operation: %s  Target: %s", m.Operation.String(), platform.SafeText(m.Target)),
 		fmt.Sprintf("Conflicts: %d total, %d resolved", len(m.Conflicts), m.ResolvedCount()),
+	}
+	if m.Operation == sequencer.KindRebase && m.Progress != nil {
+		phase := m.Progress.Phase().String()
+		if details := m.Progress.Details().Rebase; details != nil && details.EditStopped {
+			phase += " (edit-stop)"
+		}
+		lines = append(lines, "State: "+phase,
+			fmt.Sprintf("Progress: %d completed · %d remaining", m.Progress.Completed(), m.Progress.Remaining()))
+		if current := m.Progress.CurrentCommit(); current != "" {
+			lines = append(lines, "Current commit: "+platform.SafeText(current))
+		}
 	}
 	if (m.Operation == sequencer.KindCherryPick || m.Operation == sequencer.KindRevert) && m.Progress != nil {
 		lines = append(lines, fmt.Sprintf("Original HEAD: %s  Current HEAD: %s", platform.SafeText(m.Progress.HeadBefore()), platform.SafeText(m.Progress.HeadCurrent())))

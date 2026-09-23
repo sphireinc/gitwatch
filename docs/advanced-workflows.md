@@ -36,6 +36,13 @@ amend composer is used. Patch or replay conflicts remain in standard recovery,
 and `Ctrl-X` aborts through normal rebase abort semantics. This is a published
 history rewrite and may require coordination with downstream users.
 
+When Git reports an active rebase—including one started in another terminal—
+Status offers `C` to open Rebase recovery. The recovery pane shows Git-derived
+phase, current commit, completed/remaining counts, and conflict count; an
+edit stop is labeled explicitly. Use `c` to continue when the index or edit
+stop permits it, `s` to skip the current commit, or `x` to abort. Lifecycle
+actions refresh the authoritative repository state after Git finishes.
+
 ## External tools and custom commands
 
 From Status, `Ctrl-E` opens the selected path in the configured editor, `Ctrl-O`
