@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sphireinc/git-watch/internal/provider"
 )
 
 var ErrActiveOperation = errors.New("repository has an active history operation")
@@ -197,6 +199,15 @@ func (s *Scheduler) run(ctx context.Context, now time.Time, repository Repositor
 func ClassifyError(err error) string {
 	if err == nil {
 		return ""
+	}
+	var httpErr *provider.HTTPError
+	if errors.As(err, &httpErr) {
+		if httpErr.IsRateLimited() {
+			return "rate-limited"
+		}
+		if httpErr.Status == 401 || httpErr.Status == 403 {
+			return "authentication"
+		}
 	}
 	lower := strings.ToLower(err.Error())
 	switch {

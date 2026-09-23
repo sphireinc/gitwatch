@@ -63,3 +63,9 @@ Provide optional remote awareness without surprising history changes or compromi
 - Provider HTTP failures now preserve bounded `Retry-After`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` metadata, distinguish quota 403 responses from permission-denied 403 responses, and classify each state without exposing response bodies. Focused provider tests pass under normal, race, and vet checks.
 - Focused tests cover a 20-repository concurrency cap, active-operation skipping, failure backoff, cancellation, configuration defaults, and enabled-interval validation.
 - Remaining: provider-specific rate-limit/auth signals beyond Git transport text, and native/manual acceptance evidence.
+
+## Progress evidence (2026-09-22)
+
+- Auto-fetch classification now consumes typed `provider.HTTPError` values before falling back to transport text. GitHub quota responses (including 403 with zero remaining quota) are reported as `rate-limited`, while permission-denied 403 responses remain `authentication`.
+- Added focused regression coverage for the typed quota/permission distinction. `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-modcache go test ./internal/remoteintel ./internal/provider` and the full `go test ./...` gate pass.
+- Remaining: native/manual acceptance evidence and hosted cross-platform verification.

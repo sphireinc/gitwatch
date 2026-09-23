@@ -3,9 +3,12 @@ package remoteintel
 import (
 	"context"
 	"errors"
+	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/sphireinc/git-watch/internal/provider"
 )
 
 func TestRunOnceBoundsWorkersAndSkipsActiveRepositories(t *testing.T) {
@@ -88,6 +91,17 @@ func TestClassifyErrorUsesStableRemoteCategories(t *testing.T) {
 		if got := ClassifyError(errors.New(test.message)); got != test.want {
 			t.Fatalf("ClassifyError(%q) = %q, want %q", test.message, got, test.want)
 		}
+	}
+}
+
+func TestClassifyErrorUsesTypedProviderQuotaAndPermissionStates(t *testing.T) {
+	quota := &provider.HTTPError{Status: http.StatusForbidden, RateLimitRemaining: "0"}
+	if got := ClassifyError(quota); got != "rate-limited" {
+		t.Fatalf("typed quota classification = %q, want rate-limited", got)
+	}
+	permission := &provider.HTTPError{Status: http.StatusForbidden, RateLimitRemaining: "12"}
+	if got := ClassifyError(permission); got != "authentication" {
+		t.Fatalf("typed permission classification = %q, want authentication", got)
 	}
 }
 
