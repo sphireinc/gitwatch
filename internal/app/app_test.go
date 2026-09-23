@@ -269,6 +269,129 @@ func TestActiveRebaseWithoutConflictsHasRecoveryRoute(t *testing.T) {
 	}
 }
 
+func TestRebaseRecoveryRecordsResultHeadAndRewrittenCount(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "base")
+	runner := git.NewRunner(root)
+	gitMustRunAppTest(t, ctx, runner, "switch", "-c", "feature")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("feature\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", "conflicting feature")
+	if err := os.WriteFile(filepath.Join(root, "later.txt"), []byte("later\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "later.txt")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", "later feature")
+	originalResult, err := runner.Run(ctx, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := strings.TrimSpace(string(originalResult.Stdout))
+	gitMustRunAppTest(t, ctx, runner, "switch", "main")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("main\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", "conflicting main")
+	gitMustRunAppTest(t, ctx, runner, "switch", "feature")
+	if _, err := runner.Run(ctx, "rebase", "main"); err == nil {
+		t.Fatal("expected conflict while rebasing")
+	}
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := git.Snapshot(ctx, discovery, 1)
+	if err != nil || snapshot.Operation == nil || snapshot.Operation.Kind() != sequencer.KindRebase {
+		t.Fatalf("paused snapshot = %#v, err=%v", snapshot.Operation, err)
+	}
+	m := NewRepository(discovery)
+	defer func() { _ = m.Close() }()
+	m.repositoryGeneration = 1
+	m.applySnapshot(snapshot)
+	m.Workspace.Navigate(workspace.Conflict, "Rebase recovery")
+	command := m.updateConflictKey("s")
+	if command == nil {
+		t.Fatal("skip was not scheduled")
+	}
+	message, ok := command().(OperationFinishedMsg)
+	if !ok || message.Err != nil || message.Snapshot == nil || message.Snapshot.Operation != nil || message.Operation == nil {
+		t.Fatalf("skip result = %#v", message)
+	}
+	if message.Operation.OldHead != original || message.Operation.NewHead != message.Snapshot.Branch.OID || !message.Operation.HasRewrittenCount || message.Operation.RewrittenCount != 1 {
+		t.Fatalf("rebase completion record = %#v", message.Operation)
+	}
+	updated, refresh := m.Update(message)
+	m = updated.(Model)
+	if refresh == nil || m.currentView() != workspace.Status || !strings.Contains(m.Status, "1 rewritten commits") {
+		t.Fatalf("rebase completion view = %q, workspace=%s, refreshnil=%v", m.Status, m.currentView(), refresh == nil)
+	}
+	events := m.ActivityLog.All()
+	if len(events) == 0 || events[len(events)-1].Operation == nil || events[len(events)-1].Operation.RewrittenCount != 1 {
+		t.Fatalf("rebase journal = %#v", events)
+	}
+	if !strings.Contains(journalEventDetails(&events[len(events)-1]), "rewritten commits: 1") {
+		t.Fatalf("rebase journal details = %q", journalEventDetails(&events[len(events)-1]))
+	}
+}
+
+func TestRebaseRecoveryKeepsWorkspaceWhenNextCommitConflicts(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "base")
+	runner := git.NewRunner(root)
+	gitMustRunAppTest(t, ctx, runner, "switch", "-c", "feature")
+	for _, value := range []string{"feature one", "feature two"} {
+		if err := os.WriteFile(filepath.Join(root, "README"), []byte(value+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+		gitMustRunAppTest(t, ctx, runner, "commit", "-m", value)
+	}
+	gitMustRunAppTest(t, ctx, runner, "switch", "main")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("main\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", "main")
+	gitMustRunAppTest(t, ctx, runner, "switch", "feature")
+	if _, err := runner.Run(ctx, "rebase", "main"); err == nil {
+		t.Fatal("expected first conflict")
+	}
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := git.Snapshot(ctx, discovery, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepository(discovery)
+	defer func() { _ = m.Close() }()
+	m.repositoryGeneration = 1
+	m.applySnapshot(snapshot)
+	m.Workspace.Navigate(workspace.Conflict, "Rebase recovery")
+	command := m.updateConflictKey("s")
+	if command == nil {
+		t.Fatal("skip was not scheduled")
+	}
+	message, ok := command().(OperationFinishedMsg)
+	if !ok || message.Snapshot == nil || message.Snapshot.Operation == nil || message.Operation == nil {
+		t.Fatalf("next conflict result = %#v", message)
+	}
+	if message.Operation.HasRewrittenCount {
+		t.Fatalf("intermediate action claimed a final rewrite count: %#v", message.Operation)
+	}
+	updated, refresh := m.Update(message)
+	m = updated.(Model)
+	if refresh == nil || m.currentView() != workspace.Conflict || strings.Contains(m.Status, "rebase complete:") || m.Snapshot.Operation == nil {
+		t.Fatalf("intermediate recovery = %q, workspace=%s, operation=%#v", m.Status, m.currentView(), m.Snapshot.Operation)
+	}
+}
+
 func TestStatusViewShowsLocalHealthAndSigningSource(t *testing.T) {
 	m := New()
 	m.Width = 120

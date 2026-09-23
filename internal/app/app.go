@@ -152,6 +152,7 @@ type OperationFinishedMsg struct {
 	Name       string
 	Repository uint64
 	Operation  *history.OperationRecord
+	Snapshot   *repo.Snapshot
 	Err        error
 }
 type RebaseFinishedMsg struct {
@@ -6446,6 +6447,14 @@ func (m *Model) openConflictEditor() tea.Cmd {
 
 func (m Model) conflictLifecycle(action string) tea.Cmd {
 	runner, ctx, generation, kind := git.NewRunner(m.Discovery.Root), m.commandContext(), m.repositoryGeneration, m.Conflict.Operation
+	discovery := m.Discovery
+	originalHead, onto := "", ""
+	if kind == sequencer.KindRebase && m.Conflict.Progress != nil {
+		originalHead = m.Conflict.Progress.HeadBefore()
+		if details := m.Conflict.Progress.Details().Rebase; details != nil {
+			onto = details.Onto
+		}
+	}
 	operation := &history.OperationRecord{
 		Repository: m.Discovery.Root,
 		Kind:       kind.String(),
@@ -6459,9 +6468,44 @@ func (m Model) conflictLifecycle(action string) tea.Cmd {
 		_, err := runner.OperationLifecycle(ctx, kind, action)
 		completed := *operation
 		completed.Duration = time.Since(started)
+		var refreshed *repo.Snapshot
+		if snapshot, refreshErr := git.Snapshot(ctx, discovery, generation); refreshErr == nil {
+			refreshed = &snapshot
+			completed.NewHead = snapshot.Branch.OID
+			if err == nil && kind == sequencer.KindRebase && action != "abort" && snapshot.Operation == nil && validFullOID(originalHead) {
+				completed.OldHead = originalHead
+				completed.RewrittenCount, completed.HasRewrittenCount = countRewrittenCommits(ctx, runner, originalHead, onto, completed.NewHead)
+			}
+		}
 		attachLatestRecoveryPoint(ctx, runner, &completed)
-		return OperationFinishedMsg{Name: action + " " + kind.String(), Repository: generation, Operation: &completed, Err: err}
+		return OperationFinishedMsg{Name: action + " " + kind.String(), Repository: generation, Operation: &completed, Snapshot: refreshed, Err: err}
 	}
+}
+
+func validFullOID(value string) bool {
+	if len(value) != 40 && len(value) != 64 {
+		return false
+	}
+	for _, ch := range value {
+		if !isHexRune(ch) {
+			return false
+		}
+	}
+	return true
+}
+
+func countRewrittenCommits(ctx context.Context, runner git.Runner, original, onto, result string) (int, bool) {
+	if !validFullOID(original) || !validFullOID(onto) || !validFullOID(result) {
+		return 0, false
+	}
+	// Count only commit objects newly reachable from the result. This excludes
+	// unchanged commits already reachable from the original tip or onto base.
+	output, err := runner.RunBounded(ctx, 128, "rev-list", "--count", result, "^"+original, "^"+onto)
+	if err != nil {
+		return 0, false
+	}
+	count, err := strconv.Atoi(strings.TrimSpace(string(output.Stdout)))
+	return count, err == nil && count >= 0
 }
 
 func (m *Model) loadConflictContent() tea.Cmd {
@@ -8906,6 +8950,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
 		}
+		if v.Snapshot != nil {
+			m.applySnapshot(*v.Snapshot)
+		}
 		if v.Err != nil {
 			m.State = StateError
 			m.Status = v.Err.Error()
@@ -8914,8 +8961,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.State = StateReady
 			m.Status = v.Name + " complete"
+			if v.Operation != nil && v.Operation.Kind == "rebase" && v.Snapshot != nil && v.Snapshot.Operation == nil && v.Name != "abort rebase" && v.Operation.OldHead != "" && v.Operation.NewHead != "" {
+				m.Status = "rebase complete: " + shortSHA(v.Operation.OldHead) + " -> " + shortSHA(v.Operation.NewHead)
+				if v.Operation.HasRewrittenCount {
+					m.Status += fmt.Sprintf(" (%d rewritten commits)", v.Operation.RewrittenCount)
+				}
+			}
 			m.notify(notifications.JobComplete, notifications.Success, m.Status, "", false)
 			m.recordActivityWithOperation(history.OperationSuccess, "", m.Status, v.Operation)
+		}
+		if v.Err == nil && v.Operation != nil && v.Operation.Kind == "rebase" && v.Snapshot != nil && v.Snapshot.Operation == nil {
+			return m, tea.Batch(m.refresh(), m.loadHistory())
 		}
 		return m, m.refresh()
 	case ExternalToolFinishedMsg:

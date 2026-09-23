@@ -876,6 +876,9 @@ func journalEventDetails(event *history.Event) string {
 	if operation.OldHead != "" || operation.NewHead != "" {
 		lines = append(lines, "HEAD: "+platform.SafeText(operation.OldHead)+" -> "+platform.SafeText(operation.NewHead))
 	}
+	if operation.HasRewrittenCount {
+		lines = append(lines, fmt.Sprintf("rewritten commits: %d", operation.RewrittenCount))
+	}
 	if len(operation.Refs) > 0 {
 		lines = append(lines, "refs: "+platform.SafeText(strings.Join(operation.Refs, ", ")))
 	}

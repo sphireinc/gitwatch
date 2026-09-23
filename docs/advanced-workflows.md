@@ -42,6 +42,11 @@ phase, current commit, completed/remaining counts, and conflict count; an
 edit stop is labeled explicitly. Use `c` to continue when the index or edit
 stop permits it, `s` to skip the current commit, or `x` to abort. Lifecycle
 actions refresh the authoritative repository state after Git finishes.
+When a rebase finishes, the completion message and operation journal show the
+original and resulting HEAD. If Git's original and onto commits are available,
+the journal also counts newly created commits reachable from the result but
+not from either earlier boundary; a missing count is left unavailable rather
+than guessed.
 
 ## External tools and custom commands
 
