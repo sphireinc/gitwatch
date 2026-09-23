@@ -102,3 +102,10 @@ Support automated bisect testing without violating argv-only execution.
   Focused normal and race tests cover the display sanitizer/bound and the
   existing argv collection path. Native terminal acceptance and in-flight
   timeout evidence remain open.
+
+- Revision `abebf5c` adds `TestRunCommandCancelsInFlightProcessWithinTimeout`,
+  which starts a real disposable bisect and invokes an argv-only test executable
+  that remains running until the context deadline. The test passes repeatedly
+  and verifies cancellation returns within a bounded time; the full bisect
+  package also passes. Native terminal acceptance and dependent custom-command
+  completion remain open.
