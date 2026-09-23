@@ -58,6 +58,8 @@ type Engine struct {
 	cache            map[string]StatusResult
 }
 
+const maxCachedRepositories = 256
+
 // NewEngine creates a registry engine with at least one worker.
 func NewEngine(workers int) *Engine {
 	if workers < 1 {
@@ -175,6 +177,21 @@ func (e *Engine) refreshOne(ctx context.Context, repository Repository, activePa
 	result.Refreshed = time.Now()
 	e.mu.Lock()
 	e.cache[repository.Path] = result
+	if len(e.cache) > maxCachedRepositories {
+		oldestPath := ""
+		var oldest time.Time
+		for path, cached := range e.cache {
+			if path == repository.Path {
+				continue
+			}
+			if oldestPath == "" || cached.Refreshed.Before(oldest) {
+				oldestPath, oldest = path, cached.Refreshed
+			}
+		}
+		if oldestPath != "" {
+			delete(e.cache, oldestPath)
+		}
+	}
 	e.mu.Unlock()
 	return result
 }

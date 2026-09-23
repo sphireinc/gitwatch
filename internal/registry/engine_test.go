@@ -55,6 +55,22 @@ func TestEngineUsesBoundedWorkersAndCachesInactiveRepositories(t *testing.T) {
 	}
 }
 
+func TestEngineBoundsStatusCacheAcrossRepositoryChurn(t *testing.T) {
+	engine := NewEngine(4)
+	engine.Stashes, engine.Remotes, engine.Worktrees = nil, nil, nil
+	engine.Discover = func(context.Context, string) (git.Discovery, error) { return git.Discovery{}, nil }
+	engine.Snapshot = func(context.Context, git.Discovery, uint64) (repo.Snapshot, error) { return repo.Snapshot{}, nil }
+	for index := 0; index < maxCachedRepositories+44; index++ {
+		path := fmt.Sprintf("repository-%03d", index)
+		if got := engine.Refresh(context.Background(), []Repository{{Path: path}}, "active"); len(got) != 1 {
+			t.Fatalf("refresh %q returned %d results", path, len(got))
+		}
+	}
+	if got := len(engine.cache); got != maxCachedRepositories {
+		t.Fatalf("status cache size = %d, want %d", got, maxCachedRepositories)
+	}
+}
+
 func TestInspectGitignoreHealthReportsManagedAndMissingStates(t *testing.T) {
 	root := t.TempDir()
 	if health := inspectGitignore(root); health.Exists || health.Managed != 0 {
