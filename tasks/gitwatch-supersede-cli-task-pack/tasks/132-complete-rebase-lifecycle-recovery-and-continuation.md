@@ -119,3 +119,15 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
   fixture, and the Windows test/build/runtime/path-parity matrix. The Unix PTY
   result does not constitute native Windows terminal interaction or a complete
   operator-run rebase lifecycle matrix.
+- Revision `e3c0afd` records an authoritative post-lifecycle snapshot before
+  journaling rebase recovery actions. When Git reports completion, the status
+  message and semantic operation journal show the original and result HEADs;
+  the journal records the number of newly reachable commit objects when Git's
+  original/onto/result OIDs permit an exact count. Completion also schedules
+  history reload alongside status/operation refresh. Real-repository tests
+  cover skipping a conflicting commit and replaying one later commit (count
+  one), plus skipping into another conflict without claiming completion or a
+  final count. Focused tests and full `GOCACHE=/tmp/gitwatch-go-cache
+  GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` passed on Darwin arm64,
+  including lint (0 issues), full/race tests, vet, formatting, diff, security,
+  and performance checks. Native/operator acceptance remains open.
