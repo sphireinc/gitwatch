@@ -94,6 +94,65 @@ func TestExecuteRedoReplaysSuccessfulSoftUndo(t *testing.T) {
 	}
 }
 
+func TestExecuteRefusesRedoAfterExternalCommit(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := git.NewRunner(dir)
+	for _, args := range [][]string{{"init", "-b", "main", "--", dir}, {"config", "user.name", "test"}, {"config", "user.email", "test@example.com"}, {"config", "commit.gpgsign", "false"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write := func(name, value string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(value+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	commit := func(name, value, message string) string {
+		t.Helper()
+		write(name, value)
+		if _, err := runner.Stage(ctx, []byte(name)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte(message + "\n")}); err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(mustRun(t, runner, ctx, "rev-parse", "HEAD").Stdout))
+	}
+	base := commit("file", "base", "base")
+	undone := commit("file", "undone", "undone")
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "reset", "--soft", base); err != nil {
+		t.Fatal(err)
+	}
+	afterUndo, err := git.Snapshot(ctx, discovery, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := Request{
+		Repository: discovery.Root, Kind: "undo commit", Ref: "main", OldHead: undone,
+		NewHead: base, PostSnapshotHash: undo.SnapshotFingerprint(afterUndo),
+		Discovery: discovery, Generation: 1,
+	}
+	externalHead := commit("external", "new work", "external change")
+	before := mustRun(t, runner, ctx, "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all")
+	outcome := Execute(ctx, runner, request)
+	if !errors.Is(outcome.Err, ErrDiverged) {
+		t.Fatalf("redo after external commit error = %v, want ErrDiverged", outcome.Err)
+	}
+	if got := strings.TrimSpace(string(mustRun(t, runner, ctx, "rev-parse", "HEAD").Stdout)); got != externalHead {
+		t.Fatalf("HEAD after refused redo = %s, want external commit %s", got, externalHead)
+	}
+	after := mustRun(t, runner, ctx, "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all")
+	if string(after.Stdout) != string(before.Stdout) {
+		t.Fatalf("repository status changed after refused redo:\nbefore=%q\nafter=%q", before.Stdout, after.Stdout)
+	}
+}
+
 func mustRun(t *testing.T, runner git.Runner, ctx context.Context, args ...string) git.Result {
 	t.Helper()
 	result, err := runner.Run(ctx, args...)
