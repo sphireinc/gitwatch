@@ -203,3 +203,7 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   the terminal resized to 80x24, help opened, and `q` exited cleanly. This is
   baseline native PTY evidence only; feature-specific custom-command,
   conflict-workspace, Linux, and Windows operator evidence remain open.
+- At revision `02735da`, isolated-cache cross-builds passed for both
+  `GOOS=windows GOARCH=amd64 go build ./...` and
+  `GOOS=linux GOARCH=amd64 go build ./...`. These are compile-only checks and
+  do not replace hosted Windows/Linux tests or native PTY acceptance.
