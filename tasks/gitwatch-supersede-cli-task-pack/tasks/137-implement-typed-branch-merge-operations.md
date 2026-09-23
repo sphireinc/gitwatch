@@ -88,3 +88,13 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
   covering explicit strategies, dirty/occupied-worktree guards, fast-forward
   and conflict snapshots, abort recovery, and post-merge refresh. Native/manual
   terminal evidence remains open.
+- At revision `0c362d1`, added real-repository coverage proving `--no-ff`
+  creates a two-parent merge commit, `--squash` leaves staged changes without
+  moving `HEAD`, and `--ff-only` refuses divergent history without mutation.
+  The Branches workspace now reports the squash outcome accurately: review the
+  staged changes and commit them; no merge commit was created. The focused
+  merge/app tests and full `GOCACHE=/tmp/gitwatch-go-cache make check` passed
+  on Darwin arm64. GitHub Actions run
+  [35866061892](https://github.com/sphireinc/gitwatch/actions/runs/35866061892)
+  passed quality/policy, full-history secret scan, and Ubuntu, macOS, and
+  Windows test jobs. Native/manual terminal evidence remains open.
