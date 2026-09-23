@@ -89,3 +89,13 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
   macOS PTY step because `tmux` is absent in the workflow environment; this is
   not a Task 132 test failure. Cross-platform native/manual acceptance remains
   open.
+- At revision `a4d6d83`, real interactive-rebase edit-stop tests cover restart
+  followed by skip, continue without changes, amend followed by continue, and
+  restart followed by abort. They verify Git-derived stopped state, operation
+  cleanup, branch/HEAD outcome, and final worktree content. The full local
+  `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 (lint 0
+  issues, full tests, race, vet, formatting, security fuzz, performance, and
+  diff checks). Hosted Actions run `35863324235` passed quality/policy,
+  full-history secret scan, and Ubuntu/macOS/Windows test matrices, including
+  the PTY smoke on macOS. Native operator acceptance remains open, so the task
+  remains active.
