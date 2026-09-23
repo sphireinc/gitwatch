@@ -61,3 +61,10 @@ Expose Git, network, provider, plugin and custom-command work as a searchable ht
 - Added an explicit replay policy to the operation engine. Journal `Y` can retry only failed, cancelled, or timed-out operations marked replayable; remote fetches are marked replayable, while history-changing and other mutations remain non-retryable by default. Retry results return through the normal command path and trigger a refresh.
 - Verification: `GOCACHE=/tmp/gitwatch-go-cache go test ./internal/history ./internal/app`, `GOCACHE=/tmp/gitwatch-go-cache go test ./...`, `GOCACHE=/tmp/gitwatch-go-cache go test -race ./...`, `GOCACHE=/tmp/gitwatch-go-cache go vet ./...`, and `git diff --check` passed; `make check` reached formatting but its pinned lint download was blocked by the managed environment's Go build-cache permission error.
 - Remaining: provider-specific retry/backoff policy, high-volume timeline virtualization, multi-repository interleaving acceptance, and native/manual terminal evidence.
+
+## Progress evidence (2026-09-22)
+
+- Added provider-specific retry hardening in commit `543c357`: GitHub read requests honor bounded `Retry-After` delta-seconds and HTTP-date values, while provider-directed delays are capped at two minutes.
+- Kept provider mutations single-attempt, including remote branch deletion, so an ambiguous response cannot silently repeat a user-confirmed mutation. Added regression coverage for failed deletion attempts and all supported retry-delay forms.
+- Verification at `543c357872a833fbc5dfb5b7ffb4a85304b06a61`: focused provider tests, full normal/race tests, vet, pinned golangci-lint (0 issues), security fuzz checks, performance budgets, and whitespace checks all passed.
+- Remaining: high-volume timeline virtualization, multi-repository interleaving acceptance, and native/manual terminal evidence; hosted CI evidence remains pending push authorization.
