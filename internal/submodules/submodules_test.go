@@ -108,10 +108,12 @@ func TestLoadRealRepositoryUsesGitConfigAndGitlinkStatus(t *testing.T) {
 	if len(dirty.Modules) != 1 || dirty.Modules[0].State != StateDirty {
 		t.Fatalf("dirty module = %+v", dirty)
 	}
-	if err := os.WriteFile(filepath.Join(parent, "nested path", "README"), []byte("child\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	gitMustRun(t, ctx, git.NewRunner(filepath.Join(parent, "nested path")), "checkout", "--force", "--detach", "HEAD")
+	// Ask Git to restore its checked-out representation instead of writing the
+	// blob bytes directly: on Windows, autocrlf may make the worktree bytes
+	// differ from the committed blob even when the logical contents match.
+	childWorkingTree := git.NewRunner(filepath.Join(parent, "nested path"))
+	gitMustRun(t, ctx, childWorkingTree, "checkout", "--force", "HEAD", "--", "README")
+	gitMustRun(t, ctx, childWorkingTree, "checkout", "--force", "--detach", "HEAD")
 	detached, err := Load(ctx, parentRunner, LoadRequest{Repository: parent, Limits: Limits{MaxOutputBytes: 64 << 10}})
 	if err != nil {
 		t.Fatal(err)
