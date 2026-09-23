@@ -491,18 +491,19 @@ type PushPreviewReadyMsg struct {
 	Err     error
 }
 type GitHubReadyMsg struct {
-	Generation uint64
-	Repository provider.Repository
-	Branch     string
-	Pull       provider.PullRequest
-	Pulls      []provider.PullRequest
-	Issues     []provider.Issue
-	Releases   []provider.Release
-	Detail     *provider.PullRequestDetail
-	Comments   []provider.ReviewComment
-	Checks     provider.ChecksSnapshot
-	Review     provider.ReviewSnapshot
-	Err        error
+	Generation    uint64
+	Repository    provider.Repository
+	Branch        string
+	Pull          provider.PullRequest
+	Pulls         []provider.PullRequest
+	Issues        []provider.Issue
+	Releases      []provider.Release
+	Detail        *provider.PullRequestDetail
+	Comments      []provider.ReviewComment
+	Checks        provider.ChecksSnapshot
+	Review        provider.ReviewSnapshot
+	ProviderStale bool
+	Err           error
 }
 type GitHubPullRequestCreatedMsg struct {
 	Pull provider.PullRequest
@@ -4261,40 +4262,46 @@ func (m Model) loadGitHub() tea.Cmd {
 		if pullsCache == nil {
 			pullsCache = provider.NewCache[[]provider.PullRequest](2 * time.Minute)
 		}
-		pulls, _, _ := pullsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/open", func(ctx context.Context) ([]provider.PullRequest, error) {
+		providerStale := false
+		pulls, pullsStale, _ := pullsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/open", func(ctx context.Context) ([]provider.PullRequest, error) {
 			return client.ListPullRequests(ctx, repository, 1, 25)
 		})
+		providerStale = providerStale || pullsStale
 		var detail *provider.PullRequestDetail
 		detailsCache := m.GitHubDetailsCache
 		if detailsCache == nil {
 			detailsCache = provider.NewCache[provider.PullRequestDetail](2 * time.Minute)
 		}
-		if loaded, _, detailErr := detailsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.PullRequestDetail, error) {
+		if loaded, stale, detailErr := detailsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.PullRequestDetail, error) {
 			return client.PullRequestDetail(ctx, repository, pull.Number)
 		}); detailErr == nil || loaded.Number == pull.Number {
 			detail = &loaded
+			providerStale = providerStale || stale
 		}
 		commentsCache := m.GitHubCommentsCache
 		if commentsCache == nil {
 			commentsCache = provider.NewCache[[]provider.ReviewComment](2 * time.Minute)
 		}
-		comments, _, _ := commentsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number)+"/comments", func(ctx context.Context) ([]provider.ReviewComment, error) {
+		comments, commentsStale, _ := commentsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number)+"/comments", func(ctx context.Context) ([]provider.ReviewComment, error) {
 			return client.ListReviewComments(ctx, repository, pull.Number)
 		})
+		providerStale = providerStale || commentsStale
 		issuesCache := m.GitHubIssuesCache
 		if issuesCache == nil {
 			issuesCache = provider.NewCache[[]provider.Issue](2 * time.Minute)
 		}
-		issues, _, _ := issuesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/issues/open", func(ctx context.Context) ([]provider.Issue, error) {
+		issues, issuesStale, _ := issuesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/issues/open", func(ctx context.Context) ([]provider.Issue, error) {
 			return client.ListIssues(ctx, repository, "open", 1, provider.MaxIssues)
 		})
+		providerStale = providerStale || issuesStale
 		releasesCache := m.GitHubReleasesCache
 		if releasesCache == nil {
 			releasesCache = provider.NewCache[[]provider.Release](2 * time.Minute)
 		}
-		releases, _, _ := releasesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/releases", func(ctx context.Context) ([]provider.Release, error) {
+		releases, releasesStale, _ := releasesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/releases", func(ctx context.Context) ([]provider.Release, error) {
 			return client.ListReleases(ctx, repository, 1, provider.MaxReleases)
 		})
+		providerStale = providerStale || releasesStale
 		reviewsCache := m.GitHubReviewsCache
 		if reviewsCache == nil {
 			reviewsCache = provider.NewCache[provider.ReviewSnapshot](2 * time.Minute)
@@ -4302,7 +4309,7 @@ func (m Model) loadGitHub() tea.Cmd {
 		review, err := reviewsCache.Get(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"#"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.ReviewSnapshot, error) {
 			return client.Reviews(ctx, repository, pull.Number)
 		})
-		return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Pulls: pulls, Issues: issues, Releases: releases, Detail: detail, Comments: comments, Checks: checks, Review: review, Err: err}
+		return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Pulls: pulls, Issues: issues, Releases: releases, Detail: detail, Comments: comments, Checks: checks, Review: review, ProviderStale: providerStale, Err: err}
 	}
 }
 
@@ -9261,6 +9268,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.GitHub.SetPullRequests(v.Pulls)
 			m.GitHub.SetIssues(v.Issues)
 			m.GitHub.SetReleases(v.Releases)
+			m.GitHub.SetProviderFreshness(v.ProviderStale)
 			if v.Detail != nil {
 				m.GitHub.SetDetail(*v.Detail)
 			}

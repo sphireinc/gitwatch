@@ -38,6 +38,19 @@ func TestViewRendersBoundedPullRequestListAndDetail(t *testing.T) {
 	}
 }
 
+func TestViewLabelsStaleProviderCache(t *testing.T) {
+	m := New()
+	m.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 4, State: "open"}, provider.ChecksSnapshot{})
+	m.SetProviderFreshness(true)
+	if view := m.View(); !strings.Contains(view, "provider cache: stale") {
+		t.Fatalf("stale provider cache was not labeled: %s", view)
+	}
+	m.SetProviderFreshness(false)
+	if view := m.View(); !strings.Contains(view, "provider cache: fresh") {
+		t.Fatalf("fresh provider cache was not labeled: %s", view)
+	}
+}
+
 func TestViewRendersSanitizedReviewComments(t *testing.T) {
 	m := New()
 	m.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 4, Title: "Improve", State: "open"}, provider.ChecksSnapshot{})

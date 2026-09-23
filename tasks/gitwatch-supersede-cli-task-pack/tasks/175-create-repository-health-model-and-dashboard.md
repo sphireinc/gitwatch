@@ -96,3 +96,9 @@ Turn gitwatch’s htop identity into a concrete repository-health surface.
 - At revision `6b7a4d0`, the repository-wide `make check` passed after the
   Status layout change: pinned lint reported 0 issues, full normal and race
   tests, vet, security fuzz, diff checks, and performance benchmarks passed.
+
+## Progress evidence (2026-09-22)
+
+- GitHub cached collection results now preserve stale-cache state through the asynchronous app message and render an explicit `provider cache: fresh|stale` label in the GitHub workspace. This keeps optional provider data visibly separate from authoritative local Git health.
+- Added UI regression coverage for both fresh and stale provider-cache labels. Focused app and GitHub-view tests pass; the full repository gate remains required before commit handoff.
+- Remaining: actual remote-latency timestamps, richer single-repository detail presentation, native/manual acceptance, and hosted cross-platform evidence.

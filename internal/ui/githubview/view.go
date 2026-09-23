@@ -29,6 +29,7 @@ type Model struct {
 	ErrorHint       string
 	State           provider.State
 	RetryAfter      string
+	ProviderStale   bool
 }
 
 func New() Model { return Model{} }
@@ -55,6 +56,11 @@ func (m *Model) SetReleases(releases []provider.Release) {
 		m.SelectedRelease = max(0, len(m.Releases)-1)
 	}
 }
+
+// SetProviderFreshness records whether any provider collection shown in the
+// workspace came from stale cache after a refresh failure. Local Git state is
+// intentionally independent of this optional provider signal.
+func (m *Model) SetProviderFreshness(stale bool) { m.ProviderStale = stale }
 
 func (m *Model) SetDetail(detail provider.PullRequestDetail) {
 	m.Detail = &detail
@@ -144,6 +150,11 @@ func (m Model) View() string {
 	if !m.Ready {
 		return strings.Join(append(lines, "  Loading provider data…"), "\n")
 	}
+	cacheState := "fresh"
+	if m.ProviderStale {
+		cacheState = "stale"
+	}
+	lines = append(lines, "  provider cache: "+cacheState)
 	if len(m.Pulls) > 0 {
 		lines = append(lines, fmt.Sprintf("Open pull requests: %d", len(m.Pulls)))
 		for _, pull := range m.Pulls {
