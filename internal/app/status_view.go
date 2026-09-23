@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 	"github.com/sphireinc/git-watch/internal/git"
+	"github.com/sphireinc/git-watch/internal/health"
 	"github.com/sphireinc/git-watch/internal/history"
 	"github.com/sphireinc/git-watch/internal/operations"
 	"github.com/sphireinc/git-watch/internal/platform"
@@ -164,7 +165,18 @@ func (m Model) statusView() string {
 	}
 	header := fmt.Sprintf("gitwatch · %s · %s · watch:%s", name, stateName(m.State), watchLabel)
 	metrics := fmt.Sprintf("STAGED %d  MODIFIED %d  UNTRACKED %d  CONFLICTS %d", m.Snapshot.Counts.Staged, m.Snapshot.Counts.Unstaged, m.Snapshot.Counts.Untracked, m.Snapshot.Counts.Conflicted)
-	lines := []string{fitSafeDisplay(header, width), fitSafeDisplay(metrics, width), strings.Repeat("─", width)}
+	localHealth := health.Compute(m.Snapshot, len(m.Stashes.Entries), len(m.Worktrees.Entries), nil)
+	if m.CommitConfigReady {
+		localHealth = health.ApplySigning(localHealth, m.CommitConfig.SignEnabled, m.CommitConfig.SignFormat)
+	}
+	healthLine := "HEALTH " + string(localHealth.Severity) + " · source:" + localHealth.Source
+	if len(localHealth.Attention) > 0 {
+		healthLine += " · attention:" + strings.Join(localHealth.Attention, ",")
+	}
+	if !localHealth.FreshAt.IsZero() {
+		healthLine += " · observed:" + localHealth.FreshAt.Format("15:04:05")
+	}
+	lines := []string{fitSafeDisplay(header, width), fitSafeDisplay(metrics, width), fitSafeDisplay(healthLine, width), strings.Repeat("─", width)}
 	if m.SubmodulesLoading {
 		lines = append(lines, fitSafeDisplay("SUBMODULES loading in background…", width))
 	} else if m.SubmodulesErr != nil {
@@ -272,15 +284,16 @@ func (m Model) statusView() string {
 }
 
 func (m Model) styleStatusLines(lines []string, statusLayout layout.Layout) []string {
-	if len(lines) < 3 {
+	if len(lines) < 4 {
 		return lines
 	}
 	styled := append([]string(nil), lines...)
 	styled[0] = m.Theme.Header.Render(styled[0])
 	styled[1] = m.styleStatusMetrics(styled[1])
-	styled[2] = m.Theme.Border.Render(styled[2])
+	styled[2] = m.Theme.Muted.Render(styled[2])
+	styled[3] = m.Theme.Border.Render(styled[3])
 
-	contentStart := 3
+	contentStart := 4
 	contentEnd := min(len(styled), contentStart+statusLayout.Details.Height)
 	for index := contentStart; index < contentEnd; index++ {
 		if statusLayout.Mode == layout.Wide {

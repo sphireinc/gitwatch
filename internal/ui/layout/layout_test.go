@@ -7,7 +7,7 @@ func TestResponsiveModes(t *testing.T) {
 		t.Fatal("responsive mode calculation failed")
 	}
 	l := Compute(200, 60)
-	if l.Files.Width+l.Details.Width != 200 || !l.Files.Contains(1, 3) {
+	if l.Files.Width+l.Details.Width != 200 || !l.Files.Contains(1, 4) {
 		t.Fatal(l)
 	}
 	custom := ComputeWithSplit(200, 60, Split{FilesPercent: 50, DetailsPercent: 50})

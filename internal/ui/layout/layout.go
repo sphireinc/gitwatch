@@ -56,7 +56,9 @@ func ComputeWithSplitAndCommitTree(width, height int, split Split, withCommitTre
 	l.Metrics = Rect{X: 0, Y: 1, Width: width, Height: 1}
 	l.Footer = Rect{X: 0, Y: height - 1, Width: width, Height: 1}
 	l.Activity = Rect{X: 0, Y: height - 4, Width: width, Height: 3}
-	contentTop, contentHeight := 3, height-7
+	// Status renders a header, metrics, and local-health row before the
+	// separator and content panels.
+	contentTop, contentHeight := 4, height-8
 	if width >= 140 {
 		filesWidth, detailsWidth := splitWidths(width, split)
 		filesHeight, treeHeight := splitTreeHeights(contentHeight, withCommitTree)

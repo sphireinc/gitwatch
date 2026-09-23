@@ -85,3 +85,10 @@ Turn gitwatch’s htop identity into a concrete repository-health surface.
   Missing or unknown formats become explicit warning attention without reading
   keys or credentials; repeated normal/race/vet checks pass. Provider freshness,
   single-repository detail, and native acceptance remain open.
+
+- Added a single-repository Status health row derived from the authoritative
+  snapshot, including severity, source, observation time, attention details,
+  and non-secret signing configuration warnings. The responsive layout and
+  mouse coordinates were updated for the additional row; focused normal,
+  race, vet, and layout checks pass. Provider freshness and native acceptance
+  remain open.

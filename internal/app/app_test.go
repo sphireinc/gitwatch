@@ -269,6 +269,23 @@ func TestActiveRebaseWithoutConflictsHasRecoveryRoute(t *testing.T) {
 	}
 }
 
+func TestStatusViewShowsLocalHealthAndSigningSource(t *testing.T) {
+	m := New()
+	m.Width = 120
+	m.Height = 30
+	m.Discovery.Root = t.TempDir()
+	m.CommitConfigReady = true
+	m.CommitConfig.SignEnabled = true
+	m.CommitConfig.SignFormat = ""
+	m.applySnapshot(repo.Snapshot{Root: m.Discovery.Root, Branch: repo.Branch{Name: "main"}, Counts: repo.Counts{Untracked: 2}, ObservedAt: time.Date(2026, 9, 22, 12, 34, 56, 0, time.UTC)})
+	status := ansi.Strip(m.statusView())
+	for _, want := range []string{"HEALTH warning", "source:git status", "attention:signing format unset", "observed:12:34:56"} {
+		if !strings.Contains(status, want) {
+			t.Fatalf("status health missing %q:\n%s", want, status)
+		}
+	}
+}
+
 func TestActiveCherryPickCanReopenProgressFromPalette(t *testing.T) {
 	m := New()
 	m.Discovery.Root = t.TempDir()
@@ -1445,7 +1462,7 @@ func TestStatusDiffUsesWideRightPaneAndNarrowOverlay(t *testing.T) {
 	m.DiffPath, m.DiffText, m.DiffAdded, m.DiffDeleted = "notes.txt", "diff --git a/notes.txt b/notes.txt\n-old\n+new", 1, 1
 	m.Width, m.Height = 160, 20
 	wide := strings.Split(m.View().Content, "\n")
-	if len(wide) != m.Height || !strings.Contains(wide[4], "│ Diff (unstaged) · notes.txt") {
+	if len(wide) != m.Height || !strings.Contains(wide[5], "│ Diff (unstaged) · notes.txt") {
 		t.Fatalf("wide diff is not right-aligned: %#v", wide)
 	}
 	m.Width = 80
@@ -1539,7 +1556,7 @@ func TestStatusMouseClickOpensSelectedFileDiff(t *testing.T) {
 	m.Width, m.Height = 160, 20
 	m.Snapshot.Entries = []repo.Entry{{Path: repo.Path("first.txt"), Unstaged: true}, {Path: repo.Path("second.txt"), Unstaged: true}}
 	m.Files.SetEntries(m.Snapshot.Entries)
-	updated, command := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 10, Y: 5})
+	updated, command := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 10, Y: 6})
 	m = updated.(Model)
 	if command == nil || m.Files.Selected != 1 || m.DiffPath != "second.txt" || !m.DiffLoading {
 		t.Fatalf("mouse diff = commandnil=%v selected=%d path=%q loading=%v", command == nil, m.Files.Selected, m.DiffPath, m.DiffLoading)
