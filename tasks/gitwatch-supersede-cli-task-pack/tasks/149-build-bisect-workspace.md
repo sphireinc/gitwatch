@@ -88,3 +88,10 @@ Make manual bisect visually obvious while live worktree status remains available
   passed quality/policy, full-history secret scan, and Ubuntu, macOS, and
   Windows jobs. This closes the candidate-patch rendering gap; native/manual
   80x24/NO_COLOR and full operator-loop evidence remain open.
+- Revision `07e8a29` adds the current candidate subject and Git-provided
+  approximate remaining estimate to the workspace, fixes latest marked
+  boundary display, and verifies an app-driven start/good/bad/reset loop in a
+  disposable repository. `make check` passed on Darwin arm64 at this revision
+  (lint, full/race tests, vet, format, diff, security, performance). This is
+  automated integration evidence, not native/manual 80x24, NO_COLOR, mouse,
+  or operator-loop acceptance; the task remains active.

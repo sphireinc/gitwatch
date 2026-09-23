@@ -50,13 +50,13 @@ Support starting, resuming, marking, skipping and resetting Git bisect as a repo
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -74,3 +74,12 @@ Support starting, resuming, marking, skipping and resetting Git bisect as a repo
 - The engine/state-loader slice is committed at `38c2b2c`; the full
   `make check` gate passed at that revision. Task 148 remains active until the
   operation-engine/UI integration and terminal acceptance are complete.
+- Revision `07e8a29` corrects stale good/bad boundaries after a mark, reloads
+  the candidate subject, and displays Git's approximate remaining revisions
+  and steps when `rev-list --bisect-vars` supplies them. A real-repository
+  loader test verifies both boundary updates from fresh runners; a workspace
+  integration test exercises start, good, bad, and confirmed reset through the
+  app controls. Focused tests and full `GOCACHE=/tmp/gitwatch-go-cache
+  GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` passed on Darwin arm64,
+  including lint (0 issues), full/race suites, vet, format, diff, security,
+  and performance checks. Native terminal/operator acceptance remains open.
