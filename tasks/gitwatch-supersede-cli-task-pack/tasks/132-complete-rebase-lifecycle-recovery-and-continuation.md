@@ -82,3 +82,10 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
   source revision: pinned lint (0 issues), formatting, full tests, race tests,
   vet, security fuzz, performance budgets, and diff checks. Native terminal
   evidence and edit-stop continue/amend/abort variants remain open.
+- Hosted Actions run `35825994043` on `c2941d6` passed Quality and policy,
+  full-history secret scan, Ubuntu full tests/race/build/runtime/PTY checks,
+  Windows full tests/build/runtime/path-and-CRLF parity, and macOS full
+  tests/race/build/runtime smoke. The overall run remains failed only at the
+  macOS PTY step because `tmux` is absent in the workflow environment; this is
+  not a Task 132 test failure. Cross-platform native/manual acceptance remains
+  open.
