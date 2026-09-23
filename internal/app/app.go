@@ -505,6 +505,11 @@ type GitHubReadyMsg struct {
 	ProviderStale bool
 	Err           error
 }
+
+type providerCIAttention struct {
+	State, Attention string
+	Stale            bool
+}
 type GitHubPullRequestCreatedMsg struct {
 	Pull provider.PullRequest
 	Err  error
@@ -864,6 +869,7 @@ type Model struct {
 	GitHubReviewsCache        *provider.Cache[provider.ReviewSnapshot]
 	GitHubIssuesCache         *provider.Cache[[]provider.Issue]
 	GitHubReleasesCache       *provider.Cache[[]provider.Release]
+	ProviderCI                map[string]providerCIAttention
 	GitHubCreateMode          bool
 	GitHubCreateField         int
 	GitHubCreateTitle         string
@@ -4793,6 +4799,26 @@ func (m Model) applyAutoFetchResults(rows []registry.Row) []registry.Row {
 				updated[index].Health.Severity = health.SeverityWarning
 			}
 			updated[index].Health.Attention = append(updated[index].Health.Attention, warning)
+		}
+	}
+	return updated
+}
+
+func (m Model) applyProviderCIAttention(rows []registry.Row) []registry.Row {
+	if len(m.ProviderCI) == 0 {
+		return rows
+	}
+	updated := append([]registry.Row(nil), rows...)
+	for index := range updated {
+		status, ok := m.ProviderCI[updated[index].Repository.Path]
+		if !ok {
+			continue
+		}
+		updated[index].ProviderCIState = status.State
+		updated[index].ProviderCIStale = status.Stale
+		updated[index].ProviderCIAttention = status.Attention
+		if status.Attention != "" && updated[index].Attention == "" {
+			updated[index].Attention = "ci:" + status.Attention
 		}
 	}
 	return updated
@@ -9260,6 +9286,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Err != nil {
 			m.GitHubMergeRefresh = false
 			m.GitHub.SetError(v.Repository, v.Branch, v.Err)
+			if m.ProviderCI == nil {
+				m.ProviderCI = make(map[string]providerCIAttention)
+			}
+			m.ProviderCI[m.Discovery.Root] = providerCIAttention{State: string(m.GitHub.State), Attention: "provider"}
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			v.Pull.Checks = provider.Checks{Total: v.Checks.Passing + v.Checks.Failing + v.Checks.Pending, Passing: v.Checks.Passing, Failing: v.Checks.Failing, Pending: v.Checks.Pending}
@@ -9269,6 +9299,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.GitHub.SetIssues(v.Issues)
 			m.GitHub.SetReleases(v.Releases)
 			m.GitHub.SetProviderFreshness(v.ProviderStale)
+			if m.ProviderCI == nil {
+				m.ProviderCI = make(map[string]providerCIAttention)
+			}
+			ciState, attention := "passing", ""
+			if v.Checks.Failing > 0 {
+				ciState, attention = "failing", "checks"
+			} else if v.Checks.Pending > 0 {
+				ciState = "pending"
+			}
+			m.ProviderCI[m.Discovery.Root] = providerCIAttention{State: ciState, Stale: v.ProviderStale, Attention: attention}
+			if len(m.Repositories.AllRows) > 0 {
+				m.Repositories.SetRows(m.applyProviderCIAttention(m.Repositories.AllRows))
+			}
 			if v.Detail != nil {
 				m.GitHub.SetDetail(*v.Detail)
 			}
@@ -9639,7 +9682,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			m.RepositoryRegistry = append([]registry.Repository(nil), v.Repositories...)
-			rows := m.applyCommitActivity(m.applyAutoFetchResults(v.Rows))
+			rows := m.applyProviderCIAttention(m.applyCommitActivity(m.applyAutoFetchResults(v.Rows)))
 			if len(m.Repositories.Rows) == 0 {
 				m.Repositories = repoview.New(rows)
 			} else {

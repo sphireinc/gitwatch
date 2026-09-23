@@ -2455,6 +2455,23 @@ func TestRepositoryDashboardUsesLoadedHistoryActivity(t *testing.T) {
 	}
 }
 
+func TestRepositoryDashboardProjectsCachedCIAttentionByRepository(t *testing.T) {
+	m := New()
+	m.ProviderCI = map[string]providerCIAttention{
+		"/repo": {State: "failing", Stale: true, Attention: "checks"},
+	}
+	rows := m.applyProviderCIAttention([]registry.Row{
+		{Repository: registry.Repository{Path: "/repo"}},
+		{Repository: registry.Repository{Path: "/other"}},
+	})
+	if rows[0].ProviderCIState != "failing" || !rows[0].ProviderCIStale || rows[0].ProviderCIAttention != "checks" {
+		t.Fatalf("cached CI state = %#v", rows[0])
+	}
+	if rows[1].ProviderCIState != "" || rows[1].Attention != "" {
+		t.Fatalf("unrelated repository changed = %#v", rows[1])
+	}
+}
+
 func containsPaletteID(results []commands.Match, id string) bool {
 	for _, result := range results {
 		if result.ID == id {

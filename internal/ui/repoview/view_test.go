@@ -42,3 +42,13 @@ func TestViewShowsOperationAttentionBadges(t *testing.T) {
 		t.Fatalf("operation badges missing: %s", view)
 	}
 }
+
+func TestViewShowsCachedCIAttentionAndStaleness(t *testing.T) {
+	m := New([]registry.Row{{Repository: registry.Repository{Name: "repo"}, ProviderCIState: "failing", ProviderCIStale: true, ProviderCIAttention: "checks"}})
+	view := m.View()
+	for _, want := range []string{"ci:failing(stale)/checks"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("cached CI badge missing %q: %s", want, view)
+		}
+	}
+}

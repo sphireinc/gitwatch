@@ -71,3 +71,10 @@ Turn CI visibility into actionable but bounded workflow support.
   checks pass at the pushed revision. Remaining work is multi-repository
   cached CI attention and native/manual evidence that provider work does not
   starve local status refresh.
+
+## Progress evidence (2026-09-22)
+
+- Added repository-scoped cached CI attention projection. Once provider checks are loaded for a repository, the repositories dashboard shows `ci:passing`, `ci:pending`, or `ci:failing`, marks stale cached data explicitly, and includes a bounded attention reason for failed checks or provider errors.
+- Unvisited repositories remain unchanged, provider data remains optional, and local Git health/status refresh paths are not replaced or blocked.
+- Added focused app and repositories-view tests for repository isolation and stale/failing CI presentation. Full quality-gate evidence is pending for this revision.
+- Remaining: broader multi-repository provider worker coverage, native/manual acceptance, and hosted cross-platform evidence.

@@ -11,28 +11,31 @@ import (
 
 // Row is a render-ready repository status row.
 type Row struct {
-	Repository        Repository
-	Branch            string
-	Dirty             int
-	Staged            int
-	Unstaged          int
-	Untracked         int
-	Conflicts         int
-	Ahead             int
-	Behind            int
-	Stashes           int
-	Worktrees         int
-	Remotes           int
-	Operation         string
-	Attention         string
-	Warnings          []string
-	State             string
-	Gitignore         GitignoreHealth
-	Health            health.Summary
-	RemoteFetchStatus string
-	RemoteFetchAt     time.Time
-	RemoteFetchError  string
-	Activity          []int
+	Repository          Repository
+	Branch              string
+	Dirty               int
+	Staged              int
+	Unstaged            int
+	Untracked           int
+	Conflicts           int
+	Ahead               int
+	Behind              int
+	Stashes             int
+	Worktrees           int
+	Remotes             int
+	Operation           string
+	Attention           string
+	Warnings            []string
+	State               string
+	Gitignore           GitignoreHealth
+	Health              health.Summary
+	RemoteFetchStatus   string
+	RemoteFetchAt       time.Time
+	RemoteFetchError    string
+	ProviderCIState     string
+	ProviderCIStale     bool
+	ProviderCIAttention string
+	Activity            []int
 }
 
 // GitignoreHealth is a compact dashboard projection of one repository's

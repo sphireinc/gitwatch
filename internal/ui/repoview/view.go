@@ -137,6 +137,15 @@ func (m Model) View() string {
 				line += fmt.Sprintf(" latency:%dms", row.Repository.LastAutoFetchMillis)
 			}
 		}
+		if row.ProviderCIState != "" {
+			line += " ci:" + platform.SafeText(row.ProviderCIState)
+			if row.ProviderCIStale {
+				line += "(stale)"
+			}
+			if row.ProviderCIAttention != "" {
+				line += "/" + platform.SafeText(row.ProviderCIAttention)
+			}
+		}
 		line += " gitignore:" + gitignoreLabel(row.Gitignore)
 		if len(row.Warnings) > 0 {
 			line += fmt.Sprintf(" warnings:%d", len(row.Warnings))
