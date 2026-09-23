@@ -111,3 +111,12 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   verifies evicted retry metadata is unavailable. Focused repeated tests and
   the full `make check` gate pass; process-count, provider/history scale, and
   native responsiveness evidence remain open.
+
+- Revision `73a5616` also releases per-repository operation mutexes after the
+  last queued/running operation for that repository finishes. Reference
+  counting preserves serialization for concurrent work while preventing the
+  repository-lock map from retaining every repository ever visited. Coverage
+  exercises 64 distinct repositories and asserts both lock maps return to
+  zero; focused repeated tests and the full `make check` gate pass. Process
+  counting, provider/history scale, and native responsiveness evidence remain
+  open.
