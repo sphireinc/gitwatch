@@ -3,6 +3,7 @@ package remoteintel
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync/atomic"
 	"testing"
@@ -111,5 +112,22 @@ func TestRunOnceUsesMostConservativeGroupInterval(t *testing.T) {
 	results := scheduler.RunOnce(context.Background(), []Repository{{Path: "/repo", Groups: []string{"slow", "fast"}}}, now, func(context.Context, string) error { return nil })
 	if len(results) != 1 || !results[0].Next.Equal(now.Add(5*time.Minute)) {
 		t.Fatalf("group interval result = %#v", results)
+	}
+}
+
+func TestRunOncePrunesRepositorySchedulerState(t *testing.T) {
+	scheduler := New(Config{Enabled: true, Interval: time.Hour, Workers: 1})
+	for index := 0; index < maxTrackedRepositories+44; index++ {
+		path := fmt.Sprintf("/repository-%03d", index)
+		results := scheduler.RunOnce(context.Background(), []Repository{{Path: path}}, time.Unix(int64(index), 0), func(context.Context, string) error { return nil })
+		if len(results) != 1 || results[0].Status != "fetched" {
+			t.Fatalf("fetch %q = %#v", path, results)
+		}
+	}
+	if len(scheduler.next) > maxTrackedRepositories || len(scheduler.fails) > maxTrackedRepositories {
+		t.Fatalf("scheduler state grew beyond bound: next=%d fails=%d", len(scheduler.next), len(scheduler.fails))
+	}
+	if len(scheduler.next) != 1 || len(scheduler.fails) != 0 {
+		t.Fatalf("inactive scheduler state retained: next=%d fails=%d", len(scheduler.next), len(scheduler.fails))
 	}
 }

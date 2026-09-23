@@ -53,6 +53,8 @@ type Scheduler struct {
 	fails  map[string]int
 }
 
+const maxTrackedRepositories = 256
+
 func New(config Config) *Scheduler {
 	if config.Interval <= 0 {
 		config.Interval = 30 * time.Minute
@@ -139,7 +141,44 @@ func (s *Scheduler) RunOnce(ctx context.Context, repositories []Repository, now 
 	for result := range results {
 		output = append(output, result)
 	}
+	s.pruneState(repositories)
 	return output
+}
+
+// pruneState drops repositories that are no longer in the active registry and
+// bounds the remaining scheduler state. The registry is itself capped at 256
+// repositories by default, so this keeps remote-awareness metadata aligned
+// with the source set rather than retaining historical repository paths.
+func (s *Scheduler) pruneState(repositories []Repository) {
+	current := make(map[string]struct{}, len(repositories))
+	for _, repository := range repositories {
+		if repository.Path != "" {
+			current[repository.Path] = struct{}{}
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for path := range s.next {
+		if _, ok := current[path]; !ok {
+			delete(s.next, path)
+			delete(s.fails, path)
+		}
+	}
+	for path := range s.fails {
+		if _, ok := current[path]; !ok {
+			delete(s.fails, path)
+		}
+	}
+	if len(current) <= maxTrackedRepositories {
+		return
+	}
+	for path := range s.next {
+		if len(s.next) <= maxTrackedRepositories {
+			break
+		}
+		delete(s.next, path)
+		delete(s.fails, path)
+	}
 }
 
 func (s *Scheduler) run(ctx context.Context, now time.Time, repository Repository, attempt int, fetch FetchFunc) Result {
