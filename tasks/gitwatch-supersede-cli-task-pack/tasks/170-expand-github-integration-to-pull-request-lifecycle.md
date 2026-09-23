@@ -77,3 +77,8 @@ Move optional GitHub support from read-only visibility to a practical pull-reque
   refresh.
 - Remaining: broader provider failure presentation and native/manual acceptance
   evidence.
+- At revision `6a23844`, the focused provider, GitHub workspace, and app suites
+  passed with `go test ./internal/provider ./internal/ui/githubview
+  ./internal/app`, covering pagination/detail parsing, provider error states,
+  stale-cache presentation, PR creation, checkout validation, and optional
+  app loading. Native/manual acceptance remains open.
