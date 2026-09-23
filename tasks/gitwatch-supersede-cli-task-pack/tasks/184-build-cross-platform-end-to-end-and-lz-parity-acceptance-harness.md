@@ -198,3 +198,8 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   conflict/resume scenarios, bisect, submodules, remotes, provider,
   multi-repository, custom-command, plugin, and app lanes. Hosted
   cross-platform PTY and native operator evidence remain open.
+- At revision `44307bf`, the real macOS arm64 binary passed the bounded
+  `scripts/pty-smoke.sh` run against a disposable fixture: startup rendered,
+  the terminal resized to 80x24, help opened, and `q` exited cleanly. This is
+  baseline native PTY evidence only; feature-specific custom-command,
+  conflict-workspace, Linux, and Windows operator evidence remain open.
