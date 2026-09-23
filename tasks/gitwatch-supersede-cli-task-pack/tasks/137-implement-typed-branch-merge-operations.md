@@ -83,3 +83,8 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
 - The Branches workspace now applies the linked-worktree occupancy guard before
   opening the merge strategy prompt, and app coverage verifies the user-facing
   refusal. Task remains active for native/manual evidence.
+- At revision `d7e734b`, the focused merge, application, and integration suites
+  passed with `go test ./internal/merge ./internal/app ./internal/integration`,
+  covering explicit strategies, dirty/occupied-worktree guards, fast-forward
+  and conflict snapshots, abort recovery, and post-merge refresh. Native/manual
+  terminal evidence remains open.
