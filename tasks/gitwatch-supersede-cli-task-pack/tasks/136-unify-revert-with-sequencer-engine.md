@@ -45,8 +45,8 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 
 ## Acceptance criteria
 
-- [ ] Revert uses the same durable operation lifecycle as rebase/cherry-pick.
-- [ ] No one-off conflict parser remains.
+- [x] Revert uses the same durable operation lifecycle as rebase/cherry-pick.
+- [x] No one-off conflict parser remains; revert consumes the shared sequencer projection, conflict snapshot, and lifecycle boundary.
 
 ## Completion record
 
@@ -104,3 +104,11 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   ./internal/integration`, including shared revert conflict detection,
   continuation, and fresh-runner abort coverage. Native acceptance and the
   unified coordinator remain open.
+- At revision `122c8de`, the production lifecycle audit found revert
+  continuation/skip/abort routed through `Runner.OperationLifecycle`, with no
+  separate revert conflict parser. `TestRevertConflictResumeParityScenario`,
+  `TestRevertConflictAbortAfterFreshRunnerParityScenario`, and
+  `TestDetectOperationStateReportsRevertProgress` passed as part of the full
+  local `GOCACHE=/tmp/gitwatch-go-cache make check` on macOS arm64. Hosted run
+  `35864391354` passed quality/policy, full-history secret scan, and Ubuntu,
+  macOS, and Windows matrices. Native operator acceptance remains open.

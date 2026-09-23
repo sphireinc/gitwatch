@@ -39,8 +39,8 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 
 ## Acceptance criteria
 
-- [ ] One resolver/coordinator serves every sequencer workflow.
-- [ ] No duplicate conflict parser or lifecycle state machine remains.
+- [x] One resolver/coordinator serves every sequencer workflow.
+- [x] No duplicate conflict parser or lifecycle state machine remains.
 
 ## Completion record
 
@@ -131,3 +131,14 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   (0 issues), full tests, race, vet, formatting, security fuzz, performance,
   and diff checks. The task remains open for broader cross-platform/native
   acceptance and its full end-to-end coordinator audit.
+- At revision `122c8de`, the production call-site audit confirmed all
+  rebase/cherry-pick/revert/merge lifecycle verbs use
+  `Runner.OperationLifecycle`; conflict UI rendering and input both consume
+  `sequencer.ActionsFor`, and operation recovery routing uses `RouteFor`.
+  Focused coverage includes `TestRecoveryCoordinatorSharesLifecycleRulesAcrossSequencers`,
+  all four real conflict/resume parity scenarios, fresh-runner revert abort,
+  external sequencer completion, and the edit-stop lifecycle variants. Full
+  local `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64, and
+  hosted Actions run `35864391354` passed quality/policy, secret scanning, and
+  Ubuntu/macOS/Windows matrices with macOS PTY acceptance. Native/manual
+  acceptance remains open.
