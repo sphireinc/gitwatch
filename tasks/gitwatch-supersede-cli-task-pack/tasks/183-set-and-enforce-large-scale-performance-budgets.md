@@ -102,3 +102,12 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   MB for the full-scan baseline; the 50,000-entry scale sample remained at
   approximately 214 microseconds, 46 KB, and 299 allocations. Leak/process,
   provider/history scale, and native responsiveness evidence remain open.
+
+- Revision `df374c5` bounds completed operation retention to the existing
+  32-entry history policy. The engine now prunes completed `latest` snapshots
+  and retry metadata while preserving active operations, preventing long-lived
+  sessions from growing those maps with every operation. A regression test
+  exercises 40 completed operations, verifies the retained snapshot bound, and
+  verifies evicted retry metadata is unavailable. Focused repeated tests and
+  the full `make check` gate pass; process-count, provider/history scale, and
+  native responsiveness evidence remain open.
