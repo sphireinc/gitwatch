@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fixedToken string
@@ -170,6 +171,20 @@ func TestGitHubClientDeletesValidatedBranchWithoutRetrying(t *testing.T) {
 	}
 }
 
+func TestGitHubClientDoesNotRetryAmbiguousBranchDelete(t *testing.T) {
+	attempts := 0
+	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), Retries: 3, HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		attempts++
+		return &http.Response{StatusCode: http.StatusBadGateway, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header), Request: r}, nil
+	})}}
+	if err := client.DeleteBranch(context.Background(), Repository{Owner: "o", Name: "r"}, "feature/topic"); err == nil {
+		t.Fatal("failed branch deletion unexpectedly succeeded")
+	}
+	if attempts != 1 {
+		t.Fatalf("delete attempts = %d, want 1", attempts)
+	}
+}
+
 func TestGitHubClientSubmitsReviewDecision(t *testing.T) {
 	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		if !strings.HasSuffix(r.URL.Path, "/reviews") || r.Method != http.MethodPost {
@@ -279,5 +294,22 @@ func TestProviderClassifiesStatesAndRetriesSafeReads(t *testing.T) {
 	})}}
 	if _, err := client.Checks(context.Background(), Repository{Owner: "o", Name: "r"}, "main"); err != nil || attempts != 2 {
 		t.Fatalf("retry attempts=%d err=%v", attempts, err)
+	}
+}
+
+func TestProviderRetryDelayHonorsBoundedRetryAfterForms(t *testing.T) {
+	seconds := &http.Response{Header: http.Header{"Retry-After": []string{"30"}}}
+	if got := providerRetryDelay(seconds, 0); got != 30*time.Second {
+		t.Fatalf("delta retry delay = %s, want 30s", got)
+	}
+	tooLong := &http.Response{Header: http.Header{"Retry-After": []string{"3600"}}}
+	if got := providerRetryDelay(tooLong, 0); got != maxProviderRetryDelay {
+		t.Fatalf("bounded retry delay = %s, want %s", got, maxProviderRetryDelay)
+	}
+	future := time.Now().Add(20 * time.Second)
+	date := &http.Response{Header: http.Header{"Retry-After": []string{future.UTC().Format(http.TimeFormat)}}}
+	got := providerRetryDelay(date, 0)
+	if got < 18*time.Second || got > 20*time.Second {
+		t.Fatalf("HTTP-date retry delay = %s, want about 20s", got)
 	}
 }

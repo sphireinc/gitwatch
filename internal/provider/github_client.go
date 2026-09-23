@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -500,7 +501,11 @@ func (c GitHubClient) delete(ctx context.Context, path string) error {
 		copy.Timeout = c.Timeout
 		client = &copy
 	}
-	response, err := c.doWithRetry(ctx, client, request)
+	// Deleting a remote ref is a provider-side mutation. Even when the API
+	// treats DELETE as idempotent, retrying an ambiguous response can repeat a
+	// user-confirmed mutation after the provider has already applied it. Keep
+	// mutation requests on the single-attempt path used by POST operations.
+	response, err := client.Do(request)
 	if err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -587,12 +592,7 @@ func (c GitHubClient) doWithRetry(ctx context.Context, client *http.Client, requ
 			return response, nil
 		}
 		_ = response.Body.Close()
-		delay := time.Duration(1<<attempt) * 50 * time.Millisecond
-		if retryAfter := response.Header.Get("Retry-After"); retryAfter != "" {
-			if seconds, parseErr := time.ParseDuration(retryAfter + "s"); parseErr == nil && seconds < time.Second {
-				delay = seconds
-			}
-		}
+		delay := providerRetryDelay(response, attempt)
 		timer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
@@ -602,4 +602,30 @@ func (c GitHubClient) doWithRetry(ctx context.Context, client *http.Client, requ
 		}
 		request = request.Clone(ctx)
 	}
+}
+
+const maxProviderRetryDelay = 2 * time.Minute
+
+// providerRetryDelay applies the provider's explicit Retry-After value when
+// present, then falls back to a bounded exponential delay for transient
+// server/quota responses. GitHub emits both delta-seconds and HTTP-date forms.
+func providerRetryDelay(response *http.Response, attempt int) time.Duration {
+	delay := time.Duration(1<<attempt) * 50 * time.Millisecond
+	if response == nil {
+		return delay
+	}
+	if value := strings.TrimSpace(response.Header.Get("Retry-After")); value != "" {
+		if seconds, err := strconv.ParseInt(value, 10, 64); err == nil && seconds >= 0 {
+			delay = time.Duration(seconds) * time.Second
+		} else if when, err := http.ParseTime(value); err == nil {
+			delay = time.Until(when)
+			if delay < 0 {
+				delay = 0
+			}
+		}
+	}
+	if delay > maxProviderRetryDelay {
+		return maxProviderRetryDelay
+	}
+	return delay
 }
