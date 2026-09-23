@@ -68,4 +68,9 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 - Status explicitly labels a stopped rebase with no conflicted paths as an `edit-stop`, alongside the Git-derived current commit and completed/remaining counts.
 - Rebase recovery now accepts `skip` in the typed lifecycle boundary and exposes it as `s` in the recovery workspace; the real-repository test verifies Git completes the skipped rebase and clears the operation projection.
 - Explicit restart coverage reconstructs a new runner/discovery against the paused repository, confirms the repository-scoped active rebase projection, and aborts it successfully.
+- At revision `cd954ea`, the focused rebase recovery suite passed with
+  `go test ./internal/app ./internal/git ./internal/integration`, including
+  active-operation routing, continue/skip/abort lifecycle behavior, fresh-runner
+  rediscovery, and authoritative post-operation snapshots. Native/manual
+  terminal evidence remains open, so the task is not yet eligible for archival.
 - The task is intentionally not moved to `tasks/completed` until restart recovery, edit-stop/skip behavior where applicable, and required native/manual evidence are proven.
