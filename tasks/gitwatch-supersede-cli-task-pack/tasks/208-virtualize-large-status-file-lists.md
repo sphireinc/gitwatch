@@ -209,3 +209,9 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   pinned lint (0 issues), full normal and race tests, vet, security fuzz, and
   the bounded 14,953/50,000-entry performance samples. Hosted cross-platform
   and native mouse interaction remain open.
+
+- At revision `d9f2fe2`, the elevated Darwin arm64 PTY lane was rerun against
+  the current binary and passed authoritative `UNTRACKED 14953` visibility at
+  80x24, help rendering, and clean quit. The run used poll watch mode and
+  reduced/off motion; hosted Windows/Linux, NO_COLOR PTY, and interactive
+  mouse evidence remain open.

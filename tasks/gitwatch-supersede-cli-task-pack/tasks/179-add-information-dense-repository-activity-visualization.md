@@ -59,6 +59,11 @@ Add useful htop-style visuals—change heat, diff magnitude and activity sparkli
   gate pass; large changed-file evidence and native 80x24/NO_COLOR/reduced-
   motion acceptance remain open.
 
+- Revision `d9f2fe2` adds Darwin arm64 PTY evidence for the real 80x24
+  dashboard/status lane and 14,953-file status scenario. The run used
+  reduced motion and the repository's bounded PTY harness; visualization-
+  specific NO_COLOR and Linux/Windows acceptance remain open.
+
 ## Completion record
 
 - [ ] Implementation commit recorded.

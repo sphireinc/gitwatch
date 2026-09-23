@@ -186,3 +186,9 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   cherry-pick, submodule, provider, multi-repository, plugin, app, and
   history-graph terminal lanes all passed. Hosted execution remains pending
   because the workflow-bearing commits have not yet been accepted by GitHub.
+
+- At revision `d9f2fe2`, the elevated Darwin arm64 PTY acceptance run passed
+  against the real built binary: standard startup, 80x24 resize, help view,
+  clean `q` shutdown, and the 14,953-file large-status lane. A bounded,
+  redacted native fixture capture was also produced. Linux, Windows, and
+  broader operator evidence remain open.
