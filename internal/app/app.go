@@ -919,6 +919,8 @@ type Model struct {
 	RepositoryMaxDepth        int
 	RepositoryMaxCount        int
 	RepositoryIgnoreDirs      []string
+	RepositoryVisualsEnabled  bool
+	RepositoryActivityBuckets int
 	RepositoryBatchConfirm    bool
 	RepositoryBatchRetry      bool
 	RepositoryBatchAction     multirepo.Action
@@ -1703,6 +1705,8 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.RepositoryGroups = cloneGroups(c.Repositories.Groups)
 	m.RepositoryMaxDepth, m.RepositoryMaxCount = c.Repositories.MaxDepth, c.Repositories.MaxRepositories
 	m.RepositoryIgnoreDirs = append([]string(nil), c.Repositories.IgnoreDirs...)
+	m.RepositoryVisualsEnabled, m.RepositoryActivityBuckets = c.Visuals.Enabled, c.Visuals.ActivityBuckets
+	m.Repositories.SetVisualization(m.RepositoryVisualsEnabled, m.RepositoryActivityBuckets)
 	if path, err := registry.StatePath(); err == nil {
 		m.RepositoryRegistryPath = path
 	}
@@ -9688,6 +9692,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			rows := m.applyProviderCIAttention(m.applyCommitActivity(m.applyAutoFetchResults(v.Rows)))
 			if len(m.Repositories.Rows) == 0 {
 				m.Repositories = repoview.New(rows)
+				m.Repositories.SetVisualization(m.RepositoryVisualsEnabled, m.RepositoryActivityBuckets)
 			} else {
 				m.Repositories.SetRows(rows)
 			}

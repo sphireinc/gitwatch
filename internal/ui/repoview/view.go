@@ -11,19 +11,34 @@ import (
 
 // Model stores filtered, sorted repository rows and the current selection.
 type Model struct {
-	Rows     []registry.Row
-	AllRows  []registry.Row
-	Selected int
-	Query    string
-	Sort     registry.SortKey
-	Desc     bool
+	Rows            []registry.Row
+	AllRows         []registry.Row
+	Selected        int
+	Query           string
+	Sort            registry.SortKey
+	Desc            bool
+	VisualsEnabled  bool
+	ActivityBuckets int
 }
 
 // New creates a repository view model from registry rows.
 func New(rows []registry.Row) Model {
-	m := Model{AllRows: append([]registry.Row(nil), rows...), Sort: registry.SortName}
+	m := Model{AllRows: append([]registry.Row(nil), rows...), Sort: registry.SortName, VisualsEnabled: true, ActivityBuckets: 8}
 	m.apply()
 	return m
+}
+
+// SetVisualization controls the optional dense dashboard indicators. The
+// bucket count is bounded here so configuration cannot make rendering scale
+// with an unbounded history slice.
+func (m *Model) SetVisualization(enabled bool, buckets int) {
+	if buckets < 1 {
+		buckets = 1
+	}
+	if buckets > 32 {
+		buckets = 32
+	}
+	m.VisualsEnabled, m.ActivityBuckets = enabled, buckets
 }
 
 // SetRows replaces repository rows while preserving selection when possible.
@@ -109,12 +124,14 @@ func (m Model) View() string {
 		}
 		state := row.State
 		line := fmt.Sprintf("%s%s · %s [%s] health:%s dirty:%d +%d/-%d stashes:%d worktrees:%d remotes:%d", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), state, platform.SafeText(string(row.Health.Severity)), row.Dirty, row.Ahead, row.Behind, row.Stashes, row.Worktrees, row.Remotes)
-		heat := activityviz.HeatLevel(row.Staged, row.Unstaged, row.Untracked, row.Conflicts)
-		activity := row.Activity
-		if len(activity) == 0 {
-			activity = []int{row.Ahead, row.Behind, row.Dirty, row.Conflicts}
+		if m.VisualsEnabled {
+			heat := activityviz.HeatLevel(row.Staged, row.Unstaged, row.Untracked, row.Conflicts)
+			activity := row.Activity
+			if len(activity) == 0 {
+				activity = []int{row.Ahead, row.Behind, row.Dirty, row.Conflicts}
+			}
+			line += fmt.Sprintf(" heat:%s%d diff:%s activity:%s", activityviz.HeatGlyph(heat), heat, activityviz.Bar(row.Staged+row.Unstaged, 10, 5), activityviz.Sparkline(activity, m.ActivityBuckets))
 		}
-		line += fmt.Sprintf(" heat:%s%d diff:%s activity:%s", activityviz.HeatGlyph(heat), heat, activityviz.Bar(row.Staged+row.Unstaged, 10, 5), activityviz.Sparkline(activity, 4))
 		if row.Health.SigningEnabled {
 			format := row.Health.SigningFormat
 			if format == "" {

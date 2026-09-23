@@ -52,3 +52,18 @@ func TestViewShowsCachedCIAttentionAndStaleness(t *testing.T) {
 		}
 	}
 }
+
+func TestViewCanDisableAndBoundActivityVisuals(t *testing.T) {
+	m := New([]registry.Row{{Repository: registry.Repository{Name: "repo"}, Dirty: 2, Activity: []int{1, 2, 3, 4, 5}}})
+	m.SetVisualization(false, 500)
+	if m.VisualsEnabled || m.ActivityBuckets != 32 {
+		t.Fatalf("visualization settings = enabled=%v buckets=%d", m.VisualsEnabled, m.ActivityBuckets)
+	}
+	if strings.Contains(m.View(), "heat:") || strings.Contains(m.View(), "activity:") {
+		t.Fatalf("disabled visuals remained visible: %s", m.View())
+	}
+	m.SetVisualization(true, 2)
+	if !strings.Contains(m.View(), "activity:") {
+		t.Fatalf("enabled visuals missing: %s", m.View())
+	}
+}
