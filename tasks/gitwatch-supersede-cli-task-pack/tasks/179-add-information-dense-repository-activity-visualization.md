@@ -52,7 +52,7 @@ Add useful htop-style visuals—change heat, diff magnitude and activity sparkli
   entries. Visualization-specific native acceptance and configurable dashboard
   space remain open.
 
-- Revision `fca2d8c` wires the validated `visuals.enabled` and
+- Revision `c25d6de` wires the validated `visuals.enabled` and
   `visuals.activity_buckets` settings into the repository dashboard. Disabled
   visuals now reclaim dashboard space, while bucket widths are clamped to the
   schema's safe 1–32 range. Focused view/app tests and the full `make check`
