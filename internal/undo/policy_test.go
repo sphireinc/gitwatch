@@ -101,17 +101,20 @@ func TestPlanAllowsOnlyMatchingSoftCommitUndo(t *testing.T) {
 func TestPlanRefusesDivergenceAndActiveOperations(t *testing.T) {
 	snapshot := repo.Snapshot{Root: "/repo", Branch: repo.Branch{Name: "main", OID: newHead}}
 	request := Request{Repository: "/repo", Kind: "commit", Ref: "main", OldHead: oldHead, NewHead: newHead, PostSnapshotHash: SnapshotFingerprint(snapshot)}
-	for name, mutate := range map[string]func(*repo.Snapshot){
-		"head": func(value *repo.Snapshot) { value.Branch.OID = oldHead },
-		"content": func(value *repo.Snapshot) {
+	for name, testCase := range map[string]struct {
+		mutate func(*repo.Snapshot)
+		want   error
+	}{
+		"head": {mutate: func(value *repo.Snapshot) { value.Branch.OID = oldHead }, want: ErrDiverged},
+		"content": {mutate: func(value *repo.Snapshot) {
 			value.Entries = []repo.Entry{{Path: repo.Path("changed.txt"), Unstaged: true}}
-		},
-		"active operation": func(value *repo.Snapshot) { var active sequencer.State; value.Operation = &active },
+		}, want: ErrDiverged},
+		"active operation": {mutate: func(value *repo.Snapshot) { var active sequencer.State; value.Operation = &active }, want: ErrActiveOperation},
 	} {
 		candidate := snapshot.Clone()
-		mutate(&candidate)
-		if _, err := Plan(request, candidate); err == nil {
-			t.Fatalf("%s divergence was accepted", name)
+		testCase.mutate(&candidate)
+		if _, err := Plan(request, candidate); !errors.Is(err, testCase.want) {
+			t.Fatalf("%s rejection = %v, want %v", name, err, testCase.want)
 		}
 	}
 }
@@ -213,6 +216,7 @@ func TestExecuteRefusesActiveSequencerBeforeMutation(t *testing.T) {
 	if err != nil || snapshot.Operation == nil {
 		t.Fatalf("active merge snapshot = %#v, err=%v", snapshot, err)
 	}
+	activeHead := snapshot.Branch.OID
 	outcome := Execute(ctx, runner, Request{
 		Repository: discovery.Root, Kind: "commit", Ref: "main",
 		OldHead: oldHead, NewHead: snapshot.Branch.OID,
@@ -220,6 +224,9 @@ func TestExecuteRefusesActiveSequencerBeforeMutation(t *testing.T) {
 	})
 	if !errors.Is(outcome.Err, ErrActiveOperation) {
 		t.Fatalf("active operation outcome = %v, want ErrActiveOperation", outcome.Err)
+	}
+	if outcome.Snapshot.Operation == nil || outcome.Snapshot.Branch.OID != activeHead {
+		t.Fatalf("active operation changed during refused undo: %#v", outcome.Snapshot)
 	}
 }
 
@@ -231,5 +238,83 @@ func TestPlanRefusesForeignRepository(t *testing.T) {
 	}, snapshot)
 	if !errors.Is(err, ErrRepositoryMismatch) {
 		t.Fatalf("foreign repository error = %v, want ErrRepositoryMismatch", err)
+	}
+}
+
+func TestExecuteUndoIsIsolatedFromOtherRepository(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	makeRepo := func(name string) (string, git.Runner) {
+		t.Helper()
+		dir := filepath.Join(root, name)
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		runner := git.NewRunner(dir)
+		for _, args := range [][]string{
+			{"init", "-b", "main", "--", dir},
+			{"config", "user.name", "test"},
+			{"config", "user.email", "test@example.com"},
+			{"config", "commit.gpgsign", "false"},
+		} {
+			if _, err := runner.Run(ctx, args...); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return dir, runner
+	}
+	commit := func(runner git.Runner, dir, value, message string) string {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, "file"), []byte(value+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Stage(ctx, []byte("file")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte(message + "\n")}); err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(mustRun(t, runner, ctx, "rev-parse", "HEAD").Stdout))
+	}
+
+	dirA, runnerA := makeRepo("repo-a")
+	_, runnerB := makeRepo("repo-b")
+	oldHeadA := commit(runnerA, dirA, "base", "base")
+	commit(runnerA, dirA, "recorded", "recorded")
+	dirB := runnerB.Dir
+	commit(runnerB, dirB, "unrelated repository", "unrelated")
+	discoveryA, err := git.Discover(ctx, dirA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	discoveryB, err := git.Discover(ctx, dirB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshotA, err := git.Snapshot(ctx, discoveryA, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headB := strings.TrimSpace(string(mustRun(t, runnerB, ctx, "rev-parse", "HEAD").Stdout))
+	outcome := Execute(ctx, runnerA, Request{
+		Repository: discoveryA.Root, Kind: "commit", Ref: "main", OldHead: oldHeadA,
+		NewHead: snapshotA.Branch.OID, PostSnapshotHash: SnapshotFingerprint(snapshotA),
+		Discovery: discoveryA, Generation: 1,
+	})
+	if outcome.Err != nil {
+		t.Fatalf("repo A undo outcome = %#v", outcome)
+	}
+	if got := strings.TrimSpace(string(mustRun(t, runnerA, ctx, "rev-parse", "HEAD").Stdout)); got != oldHeadA {
+		t.Fatalf("repo A HEAD = %s, want %s", got, oldHeadA)
+	}
+	if got := strings.TrimSpace(string(mustRun(t, runnerB, ctx, "rev-parse", "HEAD").Stdout)); got != headB {
+		t.Fatalf("repo B HEAD changed: got %s, want %s", got, headB)
+	}
+	contentB, err := os.ReadFile(filepath.Join(dirB, "file"))
+	if err != nil || string(contentB) != "unrelated repository\n" {
+		t.Fatalf("repo B content = %q, err=%v", contentB, err)
+	}
+	if outcome.Snapshot.Root != discoveryA.Root || discoveryB.Root == discoveryA.Root {
+		t.Fatalf("undo result scope = %q, repo A=%q, repo B=%q", outcome.Snapshot.Root, discoveryA.Root, discoveryB.Root)
 	}
 }
