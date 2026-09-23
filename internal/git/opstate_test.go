@@ -3,10 +3,13 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
+	"github.com/sphireinc/git-watch/internal/rebase"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
@@ -230,6 +233,93 @@ func TestOperationLifecycleSkipsRebase(t *testing.T) {
 	}
 	if string(content) != "main\n" {
 		t.Fatalf("post-skip content = %q", content)
+	}
+}
+
+func TestInteractiveRebaseEditStopSurvivesRestartAndCanSkip(t *testing.T) {
+	runner, discovery := operationFixture(t)
+	base := rev(t, runner, "HEAD")
+	if _, err := runner.Run(context.Background(), "checkout", "-b", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	commitFile(t, runner, discovery.Root, "first\n", "first")
+	first := rev(t, runner, "HEAD")
+	commitFile(t, runner, discovery.Root, "second\n", "second")
+	second := rev(t, runner, "HEAD")
+
+	plan, err := rebase.Parse(fmt.Sprintf("edit %s first\npick %s second\n", first, second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner.Env = append(runner.Env,
+		"GITWATCH_TEST_SEQUENCE_EDITOR=1",
+		"GITWATCH_TEST_SEQUENCE_PLAN="+plan.Render(),
+	)
+	outcome, err := runner.StartInteractiveRebase(context.Background(), RebaseRequest{
+		Base:   base,
+		Plan:   plan,
+		Editor: strconv.Quote(executable) + " -test.run=^TestSequenceEditorHelper$ --",
+	})
+	if err != nil {
+		t.Fatalf("start edit-stop rebase: %v (outcome=%+v)", err, outcome)
+	}
+	if !outcome.Paused || outcome.State == nil || outcome.State.Kind() != sequencer.KindRebase {
+		t.Fatalf("edit-stop outcome = %+v", outcome)
+	}
+	if outcome.State.CurrentCommit() != first || outcome.State.Remaining() != 1 || outcome.State.Completed() != 1 {
+		t.Fatalf("edit-stop progress = current=%q completed=%d remaining=%d", outcome.State.CurrentCommit(), outcome.State.Completed(), outcome.State.Remaining())
+	}
+
+	// Restart with a fresh runner and reconstruct the stopped state from Git.
+	restartedRunner := NewRunner(discovery.Root)
+	restartedRunner.Env = []string{"GIT_CONFIG_GLOBAL=/dev/null"}
+	restartedDiscovery, err := Discover(context.Background(), restartedRunner.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := DetectOperationState(context.Background(), restartedDiscovery, 55)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !recovered.Found || recovered.State.Kind() != sequencer.KindRebase || recovered.State.CurrentCommit() != first || recovered.State.Completed() != 1 || recovered.State.Remaining() != 1 {
+		t.Fatalf("recovered edit-stop = found=%v kind=%s current=%q completed=%d remaining=%d", recovered.Found, recovered.State.Kind(), recovered.State.CurrentCommit(), recovered.State.Completed(), recovered.State.Remaining())
+	}
+
+	if _, err := restartedRunner.OperationLifecycle(context.Background(), sequencer.KindRebase, "skip"); err != nil {
+		t.Fatalf("skip edit-stopped commit: %v", err)
+	}
+	snapshot, err := Snapshot(context.Background(), restartedDiscovery, 56)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Operation != nil || snapshot.Branch.Name != "feature" {
+		t.Fatalf("post-skip snapshot = %+v", snapshot)
+	}
+	content, err := os.ReadFile(filepath.Join(discovery.Root, "file.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "second\n" {
+		t.Fatalf("post-skip content = %q", content)
+	}
+}
+
+// TestSequenceEditorHelper runs only as the GIT_SEQUENCE_EDITOR subprocess
+// for TestInteractiveRebaseEditStopSurvivesRestartAndCanSkip.
+func TestSequenceEditorHelper(t *testing.T) {
+	if os.Getenv("GITWATCH_TEST_SEQUENCE_EDITOR") != "1" {
+		return
+	}
+	if len(os.Args) < 2 {
+		t.Fatal("sequence editor did not receive Git's todo path")
+	}
+	todoPath := os.Args[len(os.Args)-1]
+	if err := os.WriteFile(todoPath, []byte(os.Getenv("GITWATCH_TEST_SEQUENCE_PLAN")), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 
