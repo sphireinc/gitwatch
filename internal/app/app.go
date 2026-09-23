@@ -9290,6 +9290,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.ProviderCI = make(map[string]providerCIAttention)
 			}
 			m.ProviderCI[m.Discovery.Root] = providerCIAttention{State: string(m.GitHub.State), Attention: "provider"}
+			if len(m.Repositories.AllRows) > 0 {
+				m.Repositories.SetRows(m.applyProviderCIAttention(m.Repositories.AllRows))
+			}
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			v.Pull.Checks = provider.Checks{Total: v.Checks.Passing + v.Checks.Failing + v.Checks.Pending, Passing: v.Checks.Passing, Failing: v.Checks.Failing, Pending: v.Checks.Pending}
