@@ -183,6 +183,7 @@ func (r Runner) runWithCallback(ctx context.Context, input io.Reader, maxBytes i
 	}
 	start := time.Now()
 	cmd := exec.CommandContext(ctx, binary, args...)
+	configureCommandCancellation(cmd)
 	cmd.Dir = r.Dir
 	if len(r.Env) > 0 {
 		cmd.Env = append(os.Environ(), r.Env...)

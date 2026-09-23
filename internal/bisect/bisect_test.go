@@ -217,7 +217,7 @@ func TestRunCommandCancelsInFlightProcessWithinTimeout(t *testing.T) {
 	defer func() { _, _ = runner.Run(context.Background(), "bisect", "reset") }()
 
 	executable := filepath.Join(dir, "slow bisect check")
-	if err := os.WriteFile(executable, []byte("#!/bin/sh\nexec sleep 5\n"), 0o755); err != nil {
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nsleep 5\nexit 0\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	commandCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
