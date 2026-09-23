@@ -127,3 +127,12 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   the cache remains bounded. Focused repeated tests and the full `make check`
   gate pass; process counting, provider/history scale, and native
   responsiveness evidence remain open.
+
+- Revision `5cb970e` bounds remote-intelligence scheduler state to the active
+  repository set and the same 256-entry ceiling. Backoff/fetch metadata for
+  repositories removed from the registry is discarded, preventing repository
+  churn from growing the scheduler maps indefinitely. A regression test
+  exercises 300 distinct repository paths and verifies only the active entry
+  remains. Focused repeated tests and the full `make check` gate pass; process
+  counting, provider/history scale, and native responsiveness evidence remain
+  open.
