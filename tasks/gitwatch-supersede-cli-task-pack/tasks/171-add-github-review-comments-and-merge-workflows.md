@@ -93,3 +93,8 @@ Support common review and merge actions while keeping provider state distinct fr
   golangci-lint reporting 0 issues, full tests, full race, vet, diff checks,
   security fuzz, and performance benchmarks. Native/manual terminal evidence
   remains the only task-specific gap recorded here.
+- At revision `f0b249e`, the focused provider, GitHub workspace, and app suites
+  passed in both normal and race modes, covering review parsing/submission,
+  comment sanitization and reply targeting, explicit merge confirmation,
+  branch-deletion separation, stale refresh, and typed provider failure states.
+  Native/manual terminal evidence remains open.
