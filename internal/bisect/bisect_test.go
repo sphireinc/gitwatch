@@ -5,8 +5,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sphireinc/git-watch/internal/git"
 )
@@ -195,6 +197,57 @@ func TestRunCommandPropagatesCancelledContext(t *testing.T) {
 	if !errors.Is(outcome.Err, git.ErrCancelled) {
 		t.Fatalf("cancelled outcome error = %v, want %v", outcome.Err, git.ErrCancelled)
 	}
+}
+
+func TestRunCommandCancelsInFlightProcessWithinTimeout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script process fixture is Unix-specific")
+	}
+	ctx := context.Background()
+	dir, runner := bisectRepository(t)
+	good := commitBisectFixture(t, runner, dir, "good\n", "good")
+	bad := commitBisectFixture(t, runner, dir, "bad\n", "bad")
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome := Start(ctx, runner, StartRequest{Repository: discovery.Root, Generation: 1, Bad: bad, Good: good}); outcome.Err != nil {
+		t.Fatalf("start outcome = %#v", outcome)
+	}
+	defer func() { _, _ = runner.Run(context.Background(), "bisect", "reset") }()
+
+	executable := filepath.Join(dir, "slow bisect check")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nsleep 5\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	commandCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	outcome := RunCommand(commandCtx, git.NewRunner(dir), RunRequest{
+		Repository: discovery.Root, Generation: 2, Executable: executable,
+		MaxOutputBytes: 4096,
+	})
+	if elapsed := time.Since(started); elapsed > 3*time.Second {
+		t.Fatalf("in-flight cancellation took %s", elapsed)
+	}
+	if !errors.Is(outcome.Err, git.ErrCancelled) && !errors.Is(outcome.Err, context.DeadlineExceeded) {
+		t.Fatalf("in-flight cancellation error = %v", outcome.Err)
+	}
+}
+
+func commitBisectFixture(t *testing.T, runner git.Runner, dir, content, message string) string {
+	t.Helper()
+	ctx := context.Background()
+	if err := os.WriteFile(filepath.Join(dir, "file"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Stage(ctx, []byte("file")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Commit(ctx, git.CommitOptions{Message: []byte(message + "\n")}); err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(mustRun(t, runner, ctx, "rev-parse", "HEAD").Stdout))
 }
 
 func bisectRepository(t *testing.T) (string, git.Runner) {
