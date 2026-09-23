@@ -120,3 +120,10 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   zero; focused repeated tests and the full `make check` gate pass. Process
   counting, provider/history scale, and native responsiveness evidence remain
   open.
+
+- Revision `0af7a7c` bounds the registry status cache to 256 entries and evicts
+  the least recently refreshed result when repository churn exceeds that
+  limit. A regression test refreshes 300 distinct repositories and verifies
+  the cache remains bounded. Focused repeated tests and the full `make check`
+  gate pass; process counting, provider/history scale, and native
+  responsiveness evidence remain open.
