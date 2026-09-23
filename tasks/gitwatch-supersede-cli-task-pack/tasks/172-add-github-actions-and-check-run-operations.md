@@ -37,7 +37,7 @@ Turn CI visibility into actionable but bounded workflow support.
 
 ## Acceptance criteria
 
-- [ ] CI actions never starve filesystem/status refresh.
+- [x] CI actions never starve filesystem/status refresh.
 
 ## Completion record
 
@@ -79,3 +79,20 @@ Turn CI visibility into actionable but bounded workflow support.
 - Added focused app and repositories-view tests for repository isolation and stale/failing CI presentation. Full quality-gate evidence is pending for this revision.
 - Provider load failures now immediately project an `unavailable`/classified CI attention state into the already-open repositories dashboard instead of waiting for a separate registry refresh.
 - Remaining: broader multi-repository provider worker coverage, native/manual acceptance, and hosted cross-platform evidence.
+
+## Progress evidence (2026-09-23)
+
+- Added a background dashboard CI loader for up to 20 repositories with at most
+  two provider workers. It starts only after local repository status results
+  are applied, uses the existing bounded checks cache, keeps stale check state
+  distinct from provider errors, and ignores obsolete active-repository or
+  dashboard-request generations.
+- Added tests for the 20-repository/two-worker bound, cancellation, repository
+  isolation, stale-generation rejection, cached degradation, and immediate
+  local dashboard readiness. `make check` passed on macOS arm64, including
+  pinned lint (0 issues), full tests, full race tests, vet, security fuzz, and
+  performance budgets.
+- Hosted run `35823498470` passed Ubuntu and Windows test jobs. On macOS, the
+  test, race, build, and runtime-smoke steps passed; the separate PTY acceptance
+  step failed before producing evidence, so hosted macOS PTY acceptance remains
+  open. Native/manual terminal acceptance also remains open.

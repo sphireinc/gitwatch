@@ -2472,6 +2472,66 @@ func TestRepositoryDashboardProjectsCachedCIAttentionByRepository(t *testing.T) 
 	}
 }
 
+func TestRepositoriesReadySchedulesBackgroundCIWithoutDelayingLocalStatus(t *testing.T) {
+	m := New()
+	m.GitHubEnabled = true
+	rows := []registry.Row{
+		{Repository: registry.Repository{Name: "one", Path: "/one"}, Branch: "main", State: "ready"},
+		{Repository: registry.Repository{Name: "two", Path: "/two"}, Branch: "trunk", State: "ready"},
+	}
+	updated, cmd := m.Update(RepositoriesReadyMsg{Rows: rows})
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("GitHub-enabled repository refresh did not schedule background CI work")
+	}
+	if m.State != StateReady || len(m.Repositories.AllRows) != 2 {
+		t.Fatalf("local repository refresh waited for provider work: state=%v rows=%d", m.State, len(m.Repositories.AllRows))
+	}
+	for _, row := range m.Repositories.AllRows {
+		if row.State != "ready" || row.ProviderCIState != "" {
+			t.Fatalf("provider scheduling changed local row before results: %#v", row)
+		}
+	}
+}
+
+func TestDashboardCIResultsAreGenerationScopedAndDoNotChangeRefreshState(t *testing.T) {
+	m := New()
+	m.repositoryGeneration = 3
+	m.RepositoryCIRequest = 4
+	m.State = StateRefreshing
+	m.Repositories.SetRows([]registry.Row{{Repository: registry.Repository{Path: "/repo"}, State: "ready"}})
+	stale := DashboardCIReadyMsg{RepositoryGeneration: 3, RequestGeneration: 3, Summaries: []provider.CISummary{{Key: "/repo", State: "failing", Attention: "checks"}}}
+	updated, cmd := m.Update(stale)
+	got := updated.(Model)
+	if cmd != nil || len(got.ProviderCI) != 0 || got.State != StateRefreshing {
+		t.Fatalf("stale provider result applied: command=%v provider=%#v state=%v", cmd != nil, got.ProviderCI, got.State)
+	}
+	current := DashboardCIReadyMsg{RepositoryGeneration: 3, RequestGeneration: 4, Summaries: []provider.CISummary{{Key: "/repo", State: "failing", Attention: "checks", Stale: true}}}
+	updated, cmd = got.Update(current)
+	got = updated.(Model)
+	if cmd != nil || got.State != StateRefreshing || got.ProviderCI["/repo"].State != "failing" || !got.ProviderCI["/repo"].Stale {
+		t.Fatalf("current provider result = state %v, provider %#v, command=%v", got.State, got.ProviderCI, cmd != nil)
+	}
+	if row := got.Repositories.AllRows[0]; row.ProviderCIState != "failing" || !row.ProviderCIStale {
+		t.Fatalf("dashboard row = %#v", row)
+	}
+}
+
+func TestDashboardCISummaryDistinguishesProviderFailureFromCachedChecks(t *testing.T) {
+	failed := dashboardCISummary(context.Background(), "/repo", provider.ChecksSnapshot{}, false, provider.ErrProviderUnavailable)
+	if failed.State != provider.StateUnavailable || failed.Attention != string(provider.StateUnavailable) || failed.Stale {
+		t.Fatalf("uncached provider failure was misprojected: %#v", failed)
+	}
+	stale := dashboardCISummary(context.Background(), "/repo", provider.ChecksSnapshot{Failing: 1}, true, provider.ErrProviderUnavailable)
+	if stale.State != "failing" || stale.Attention != string(provider.StateUnavailable) || !stale.Stale {
+		t.Fatalf("stale failing checks lost provider degradation: %#v", stale)
+	}
+	pending := dashboardCISummary(context.Background(), "/repo", provider.ChecksSnapshot{Pending: 1}, false, nil)
+	if pending.State != "pending" || pending.Attention != "pending" {
+		t.Fatalf("pending checks = %#v", pending)
+	}
+}
+
 func containsPaletteID(results []commands.Match, id string) bool {
 	for _, result := range results {
 		if result.ID == id {

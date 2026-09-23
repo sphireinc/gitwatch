@@ -451,6 +451,11 @@ type RepositoriesReadyMsg struct {
 	Repositories []registry.Repository
 	Err          error
 }
+type DashboardCIReadyMsg struct {
+	RepositoryGeneration uint64
+	RequestGeneration    uint64
+	Summaries            []provider.CISummary
+}
 type RepositoryBatchFinishedMsg struct {
 	Results []multirepo.Result
 	Err     error
@@ -870,6 +875,7 @@ type Model struct {
 	GitHubIssuesCache         *provider.Cache[[]provider.Issue]
 	GitHubReleasesCache       *provider.Cache[[]provider.Release]
 	ProviderCI                map[string]providerCIAttention
+	RepositoryCIRequest       uint64
 	GitHubCreateMode          bool
 	GitHubCreateField         int
 	GitHubCreateTitle         string
@@ -4777,6 +4783,98 @@ func (m Model) loadRepositories() tea.Cmd {
 		}
 		results := engine.Refresh(m.commandContext(), repositories, m.Discovery.Root)
 		return RepositoriesReadyMsg{Rows: registry.Rows(results), Repositories: repositories}
+	}
+}
+
+func (m Model) loadRepositoryCI(rows []registry.Row, requestGeneration uint64) tea.Cmd {
+	if !m.GitHubEnabled || len(rows) == 0 {
+		return nil
+	}
+	requests := make([]provider.CISummaryRequest, 0, min(len(rows), provider.MaxDashboardCIRepositories))
+	for _, row := range rows {
+		if row.Repository.Path == "" || row.Branch == "" {
+			continue
+		}
+		requests = append(requests, provider.CISummaryRequest{Key: row.Repository.Path, Ref: row.Branch})
+		if len(requests) == provider.MaxDashboardCIRepositories {
+			break
+		}
+	}
+	if len(requests) == 0 {
+		return nil
+	}
+	generation := m.repositoryGeneration
+	ctx := m.commandContext()
+	tokenEnv := m.GitHubTokenEnv
+	if tokenEnv == "" {
+		tokenEnv = "GITHUB_TOKEN"
+	}
+	client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
+	cache := m.GitHubChecksCache
+	if cache == nil {
+		cache = provider.NewCache[provider.ChecksSnapshot](2 * time.Minute)
+	}
+	return func() tea.Msg {
+		summaries := provider.LoadCISummaries(ctx, requests, provider.DashboardCIWorkers, func(fetchCtx context.Context, request provider.CISummaryRequest) provider.CISummary {
+			summary := provider.CISummary{Key: request.Key}
+			discovery, err := git.Discover(fetchCtx, request.Key)
+			if err != nil {
+				summary.State = provider.Classify(fetchCtx, err)
+				summary.Attention = string(summary.State)
+				return summary
+			}
+			entries, err := remotes.List(fetchCtx, git.NewRunner(discovery.Root))
+			if err != nil {
+				summary.State = provider.Classify(fetchCtx, err)
+				summary.Attention = string(summary.State)
+				return summary
+			}
+			var repository provider.Repository
+			for _, remote := range entries {
+				if candidate, ok := provider.ParseGitHubRemote(remote.FetchURL); ok {
+					repository = candidate
+					break
+				}
+			}
+			if repository.Owner == "" {
+				summary.Skipped = true
+				return summary
+			}
+			key := repository.Host + "/" + repository.Owner + "/" + repository.Name + "@" + request.Ref
+			snapshot, stale, err := cache.GetWithStale(fetchCtx, key, func(fetchCtx context.Context) (provider.ChecksSnapshot, error) {
+				return client.Checks(fetchCtx, repository, request.Ref)
+			})
+			return dashboardCISummary(fetchCtx, request.Key, snapshot, stale, err)
+		})
+		return DashboardCIReadyMsg{RepositoryGeneration: generation, RequestGeneration: requestGeneration, Summaries: summaries}
+	}
+}
+
+func dashboardCISummary(ctx context.Context, key string, snapshot provider.ChecksSnapshot, stale bool, err error) provider.CISummary {
+	summary := provider.CISummary{Key: key, Stale: stale}
+	if err != nil {
+		summary.State = provider.Classify(ctx, err)
+		if stale {
+			summary.State = dashboardCIState(snapshot)
+		}
+		summary.Attention = string(provider.Classify(ctx, err))
+		return summary
+	}
+	summary.State = dashboardCIState(snapshot)
+	if summary.State == "failing" || summary.State == "pending" {
+		summary.Attention = string(summary.State)
+	}
+	return summary
+}
+
+func dashboardCIState(snapshot provider.ChecksSnapshot) provider.State {
+	switch {
+	case snapshot.Failing > 0:
+		return "failing"
+	case snapshot.Pending > 0:
+		return "pending"
+	default:
+		return "passing"
 	}
 }
 
@@ -9698,7 +9796,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.State = StateReady
 			m.reindexPalette()
+			m.RepositoryCIRequest++
+			return m, m.loadRepositoryCI(rows, m.RepositoryCIRequest)
 		}
+	case DashboardCIReadyMsg:
+		if !m.acceptsRepository(v.RepositoryGeneration) || v.RequestGeneration != m.RepositoryCIRequest {
+			return m, nil
+		}
+		if m.ProviderCI == nil {
+			m.ProviderCI = make(map[string]providerCIAttention)
+		}
+		for _, summary := range v.Summaries {
+			if summary.Skipped || summary.Key == "" {
+				continue
+			}
+			m.ProviderCI[summary.Key] = providerCIAttention{State: string(summary.State), Attention: summary.Attention, Stale: summary.Stale}
+		}
+		m.Repositories.SetRows(m.applyProviderCIAttention(m.Repositories.AllRows))
+		m.reindexPalette()
 	case RepositoryBatchProgressMsg:
 		action := "fetch"
 		if m.RepositoryBatchAction == multirepo.ActionPull {
