@@ -67,7 +67,8 @@ type Outcome struct {
 
 // Abort restores the state recorded by Git for a paused merge.
 func (e Engine) Abort(ctx context.Context) Outcome {
-	result, err := e.Runner.Run(ctx, "merge", "--abort")
+	lifecycle, err := e.Runner.OperationLifecycle(ctx, sequencer.KindMerge, "abort")
+	result := lifecycle.Result
 	outcome := Outcome{Result: result, Err: err}
 	discovery := e.Discovery
 	if discovery.Root == "" {

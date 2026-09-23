@@ -201,7 +201,7 @@ func (m Model) statusView() string {
 	}
 	if operation := m.Snapshot.Operation; operation != nil && operation.Kind().String() == "rebase" {
 		phase := operation.Phase().String()
-		if operation.CurrentCommit() != "" && m.Snapshot.Counts.Conflicted == 0 {
+		if details := operation.Details().Rebase; details != nil && details.EditStopped {
 			phase += " (edit-stop)"
 		}
 		progress := fmt.Sprintf("REBASE %s · %d completed · %d remaining · press C for recovery", phase, operation.Completed(), operation.Remaining())

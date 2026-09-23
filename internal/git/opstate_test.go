@@ -25,6 +25,26 @@ func TestDetectOperationStateNoOperation(t *testing.T) {
 	_ = runner
 }
 
+func TestRebaseStoppedAtEditUsesGitCompletedTodoAction(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		done      string
+		stopped   string
+		wantPause bool
+	}{
+		{name: "edit action", done: "pick aaa first\nedit bbb second\n", stopped: "bbb", wantPause: true},
+		{name: "conflicted pick", done: "pick aaa first\n", stopped: "aaa", wantPause: false},
+		{name: "different stopped commit", done: "edit aaa first\n", stopped: "bbb", wantPause: false},
+		{name: "missing stopped sha", done: "edit aaa first\n", wantPause: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := rebaseStoppedAtEdit(test.done, test.stopped); got != test.wantPause {
+				t.Fatalf("rebaseStoppedAtEdit(%q, %q) = %v, want %v", test.done, test.stopped, got, test.wantPause)
+			}
+		})
+	}
+}
+
 func TestDetectOperationStateMergeCherryPickRevertAndRebase(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -51,6 +71,9 @@ func TestDetectOperationStateMergeCherryPickRevertAndRebase(t *testing.T) {
 			}
 			if got.State.Phase() != sequencer.PhaseActive {
 				t.Fatalf("phase = %s", got.State.Phase())
+			}
+			if test.kind == sequencer.KindRebase && got.State.Details().Rebase.EditStopped {
+				t.Fatal("conflict rebase was incorrectly identified as an edit-stop")
 			}
 			if got.State.HeadCurrent() == "" || got.State.Details() == (sequencer.Details{}) {
 				t.Fatalf("incomplete operation projection: head=%q details=%#v", got.State.HeadCurrent(), got.State.Details())
@@ -273,6 +296,9 @@ func TestInteractiveRebaseEditStopSurvivesRestartAndCanSkip(t *testing.T) {
 	if outcome.State.CurrentCommit() != first || outcome.State.Remaining() != 1 || outcome.State.Completed() != 1 {
 		t.Fatalf("edit-stop progress = current=%q completed=%d remaining=%d", outcome.State.CurrentCommit(), outcome.State.Completed(), outcome.State.Remaining())
 	}
+	if details := outcome.State.Details().Rebase; details == nil || !details.EditStopped {
+		t.Fatalf("edit-stop was not captured in Git-derived details: %+v", details)
+	}
 
 	// Restart with a fresh runner and reconstruct the stopped state from Git.
 	restartedRunner := NewRunner(discovery.Root)
@@ -287,6 +313,9 @@ func TestInteractiveRebaseEditStopSurvivesRestartAndCanSkip(t *testing.T) {
 	}
 	if !recovered.Found || recovered.State.Kind() != sequencer.KindRebase || recovered.State.CurrentCommit() != first || recovered.State.Completed() != 1 || recovered.State.Remaining() != 1 {
 		t.Fatalf("recovered edit-stop = found=%v kind=%s current=%q completed=%d remaining=%d", recovered.Found, recovered.State.Kind(), recovered.State.CurrentCommit(), recovered.State.Completed(), recovered.State.Remaining())
+	}
+	if details := recovered.State.Details().Rebase; details == nil || !details.EditStopped {
+		t.Fatalf("restarted edit-stop details = %+v", details)
 	}
 
 	if _, err := restartedRunner.OperationLifecycle(context.Background(), sequencer.KindRebase, "skip"); err != nil {

@@ -138,7 +138,7 @@ type Recovery struct {
 // RecoveryActions derives valid lifecycle actions from the Git-derived
 // operation kind and current authoritative conflict/index projection.
 func (m Model) RecoveryActions() Recovery {
-	actions := sequencer.ActionsFor(m.Operation, m.unresolvedCount(), m.Staged)
+	actions := sequencer.ActionsFor(m.Progress, m.unresolvedCount(), m.Staged)
 	return Recovery{Continue: actions.Continue, Abort: actions.Abort, Skip: actions.Skip}
 }
 

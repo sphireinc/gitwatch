@@ -85,6 +85,7 @@ type RebaseDetails struct {
 	Base          string
 	Onto          string
 	Interactive   bool
+	EditStopped   bool
 	TodoRemaining int
 	TodoCompleted int
 }

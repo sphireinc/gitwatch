@@ -71,19 +71,19 @@ func (e Engine) Execute(ctx context.Context, request Request) Outcome {
 
 // Continue resumes an in-progress cherry-pick after conflict resolution.
 func (e Engine) Continue(ctx context.Context) Outcome {
-	return e.lifecycle(ctx, "--continue")
+	return e.lifecycle(ctx, "continue")
 }
 
 // Skip skips the current conflicted cherry-pick.
-func (e Engine) Skip(ctx context.Context) Outcome { return e.lifecycle(ctx, "--skip") }
+func (e Engine) Skip(ctx context.Context) Outcome { return e.lifecycle(ctx, "skip") }
 
 // Abort asks Git to restore the recorded original state.
-func (e Engine) Abort(ctx context.Context) Outcome { return e.lifecycle(ctx, "--abort") }
+func (e Engine) Abort(ctx context.Context) Outcome { return e.lifecycle(ctx, "abort") }
 
 func (e Engine) lifecycle(ctx context.Context, action string) Outcome {
 	journal := Journal{Repository: e.Repository, Generation: e.Generation}
-	result, commandErr := e.Runner.Run(ctx, "cherry-pick", action)
-	return e.finish(ctx, journal, result, commandErr)
+	lifecycle, commandErr := e.Runner.OperationLifecycle(ctx, sequencer.KindCherryPick, action)
+	return e.finish(ctx, journal, lifecycle.Result, commandErr)
 }
 
 func (e Engine) prepare(ctx context.Context, request Request) (Journal, error) {

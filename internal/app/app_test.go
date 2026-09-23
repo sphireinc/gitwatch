@@ -244,7 +244,7 @@ func TestActiveRebaseWithoutConflictsHasRecoveryRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	state = state.WithObservation("head", "current-commit", 2, 3, nil, time.Now())
-	state, err = state.WithDetails(sequencer.Details{Rebase: &sequencer.RebaseDetails{Interactive: true, TodoRemaining: 2, TodoCompleted: 3}})
+	state, err = state.WithDetails(sequencer.Details{Rebase: &sequencer.RebaseDetails{Interactive: true, EditStopped: true, TodoRemaining: 2, TodoCompleted: 3}})
 	if err != nil {
 		t.Fatal(err)
 	}

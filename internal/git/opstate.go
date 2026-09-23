@@ -178,11 +178,29 @@ func readRebaseMarker(paths map[string]string) operationMarker {
 		base = paths["rebase-apply"]
 	}
 	read := func(name string) string { return readMetadata(filepath.Join(base, name)) }
-	marker := operationMarker{kind: sequencer.KindRebase, headBefore: read("orig-head"), recoveryRef: read("onto"), current: read("stopped-sha"), headCurrent: read("head-name")}
-	marker.details.Rebase = &sequencer.RebaseDetails{Base: read("head-name"), Onto: read("onto"), Interactive: hasFile(filepath.Join(base, "git-rebase-todo")), TodoRemaining: countMetadataLines(read("git-rebase-todo")), TodoCompleted: countMetadataLines(read("done"))}
+	stoppedSHA := read("stopped-sha")
+	done := read("done")
+	marker := operationMarker{kind: sequencer.KindRebase, headBefore: read("orig-head"), recoveryRef: read("onto"), current: stoppedSHA, headCurrent: read("head-name")}
+	marker.details.Rebase = &sequencer.RebaseDetails{Base: read("head-name"), Onto: read("onto"), Interactive: hasFile(filepath.Join(base, "git-rebase-todo")), EditStopped: rebaseStoppedAtEdit(done, stoppedSHA), TodoRemaining: countMetadataLines(read("git-rebase-todo")), TodoCompleted: countMetadataLines(done)}
 	marker.remaining = marker.details.Rebase.TodoRemaining
 	marker.completed = marker.details.Rebase.TodoCompleted
 	return marker
+}
+
+func rebaseStoppedAtEdit(done, stoppedSHA string) bool {
+	if stoppedSHA == "" {
+		return false
+	}
+	lines := strings.Split(strings.TrimSpace(done), "\n")
+	for index := len(lines) - 1; index >= 0; index-- {
+		fields := strings.Fields(lines[index])
+		if len(fields) < 2 || !strings.EqualFold(fields[0], "edit") {
+			continue
+		}
+		sha := fields[1]
+		return strings.EqualFold(sha, stoppedSHA) || strings.HasPrefix(strings.ToLower(stoppedSHA), strings.ToLower(sha)) || strings.HasPrefix(strings.ToLower(sha), strings.ToLower(stoppedSHA))
+	}
+	return false
 }
 
 func readBisectMarker(ctx context.Context, runner Runner, paths map[string]string) (operationMarker, error) {
