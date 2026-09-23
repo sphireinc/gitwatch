@@ -192,3 +192,9 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   clean `q` shutdown, and the 14,953-file large-status lane. A bounded,
   redacted native fixture capture was also produced. Linux, Windows, and
   broader operator evidence remain open.
+
+- At revision `df1472b`, the repeatable parity harness passed the real
+  50-repository batch lane, watcher event/polling lanes, all sequencer
+  conflict/resume scenarios, bisect, submodules, remotes, provider,
+  multi-repository, custom-command, plugin, and app lanes. Hosted
+  cross-platform PTY and native operator evidence remain open.

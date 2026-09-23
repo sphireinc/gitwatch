@@ -123,3 +123,9 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   Windows 2025. The CI run also passed the repository security and performance
   gates. Native terminal cancellation and watcher-responsiveness evidence are
   still required before closing the task.
+
+- At revision `df1472b`, `GOCACHE=/tmp/gitwatch-parity-current-cache
+  GOMODCACHE=/tmp/gitwatch-modcache ./scripts/parity-check.sh` passed the real
+  50-repository batch-fetch lane, watcher and polling lanes, and the complete
+  integration/package coverage. Native cancellation and hosted cross-platform
+  acceptance remain open.
