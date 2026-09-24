@@ -42,6 +42,7 @@ var (
 	ErrActiveOperation = errors.New("another Git operation is already active")
 	ErrCurrentBranch   = errors.New("merge source is the current branch")
 	ErrSourceOccupied  = errors.New("merge source branch is checked out in another worktree")
+	ErrStaleGeneration = errors.New("merge request belongs to a stale repository generation")
 )
 
 // Request describes a merge into the currently checked-out branch.
@@ -101,6 +102,9 @@ type Engine struct {
 func (e Engine) Execute(ctx context.Context, request Request) Outcome {
 	if request.Repository == "" || request.Repository != e.Repository {
 		return Outcome{Err: errors.New("merge request belongs to a different repository")}
+	}
+	if request.Generation != e.Generation {
+		return Outcome{Err: ErrStaleGeneration}
 	}
 	if !validSource(request.Source) {
 		return Outcome{Err: ErrInvalidSource}

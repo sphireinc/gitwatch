@@ -98,3 +98,9 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
   [35866061892](https://github.com/sphireinc/gitwatch/actions/runs/35866061892)
   passed quality/policy, full-history secret scan, and Ubuntu, macOS, and
   Windows test jobs. Native/manual terminal evidence remains open.
+- The merge request already carried a repository generation, but the typed
+  engine did not compare it with the active engine generation before probing
+  or mutating Git. `Engine.Execute` now rejects stale-generation requests and
+  has a focused test proving the guard runs before Git access. Cross-platform
+  CI for the current code revision remains pending; native/manual acceptance
+  remains open.

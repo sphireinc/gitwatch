@@ -169,6 +169,14 @@ func TestInvalidMergeSourceAndStrategyAreRejected(t *testing.T) {
 	}
 }
 
+func TestMergeRejectsStaleRepositoryGenerationBeforeGit(t *testing.T) {
+	engine := Engine{Repository: "repo", Generation: 12}
+	outcome := engine.Execute(context.Background(), Request{Repository: "repo", Generation: 11, Source: "feature"})
+	if !errors.Is(outcome.Err, ErrStaleGeneration) {
+		t.Fatalf("stale generation outcome = %#v", outcome)
+	}
+}
+
 func TestMergeRejectsCurrentBranchSource(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
