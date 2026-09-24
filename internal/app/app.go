@@ -1849,6 +1849,9 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 	operationKind, operationTarget := sequencer.KindUnknown, ""
 	if snapshot.Operation != nil {
 		operationKind, operationTarget = snapshot.Operation.Kind(), snapshot.Operation.Target()
+		if operationKind == sequencer.KindCherryPick && operationTarget == "" {
+			operationTarget = snapshot.Branch.Name
+		}
 	}
 	m.Conflict.SetSnapshot(operationKind, operationTarget, snapshot.Conflicts)
 	m.Conflict.SetOperationState(snapshot.Operation)
@@ -10334,12 +10337,12 @@ func (m Model) featureView(view workspace.View) tea.View {
 			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
 		}
 	case workspace.Conflict:
-		title, content = "gitwatch · conflict resolver", m.Conflict.View(m.Width, m.Height-6)
+		title, content = "gitwatch · conflict resolver", m.Conflict.View(m.Width, m.recoveryPaneHeight())
 		if m.Status != "" {
 			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
 		}
 	case workspace.CherryPick:
-		title, content = "gitwatch · cherry-pick progress", m.Conflict.View(m.Width, m.Height-6)
+		title, content = "gitwatch · cherry-pick progress", m.Conflict.View(m.Width, m.recoveryPaneHeight())
 		if m.Status != "" {
 			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
 		}
@@ -10516,14 +10519,17 @@ func (m Model) featureView(view workspace.View) tea.View {
 	if view == workspace.Blame {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect origin commit  [] load more  [esc] back  [q] quit"
 	}
-	if view == workspace.Conflict {
-		lines[len(lines)-1] = "[j/k] conflict  [n/p] hunk  [o/t/b] choose  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back  [q] quit"
-	}
-	if view == workspace.CherryPick {
-		lines[len(lines)-1] = "[j/k] commit/conflict  [n/p] hunk  [o/t/b] choose  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back  [q] quit"
+	if view == workspace.Conflict || view == workspace.CherryPick {
+		lines[len(lines)-1] = recoveryFooter(m.Conflict.RecoveryActions(), m.Width)
 	}
 	if m.Notifications != nil && m.Notifications.Attention() > 0 {
-		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
+		attention := fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
+		if m.Width > 0 && len(lines[len(lines)-1])+len(attention) > m.Width {
+			attention = fmt.Sprintf("  [!] %d", m.Notifications.Attention())
+		}
+		if m.Width <= 0 || len(lines[len(lines)-1])+len(attention) <= m.Width {
+			lines[len(lines)-1] += attention
+		}
 	}
 	if m.Toast.Text != "" {
 		content += "\n\nNOTICE: " + platform.SafeText(m.Toast.Text)
@@ -10532,6 +10538,40 @@ func (m Model) featureView(view workspace.View) tea.View {
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v
+}
+
+func recoveryFooter(actions conflictview.Recovery, width int) string {
+	parts := make([]string, 0, 8)
+	if actions.Continue {
+		parts = append(parts, "[c] continue")
+	}
+	if actions.Skip {
+		parts = append(parts, "[s] skip")
+	}
+	if actions.Abort {
+		parts = append(parts, "[x] abort")
+	}
+	parts = append(parts, "[1] status", "[q] quit", "[j/k] move")
+	if width >= 100 {
+		parts = append(parts, "[o/t/b] choose", "[m] mark", "[?] help")
+	}
+	return strings.Join(parts, "  ")
+}
+
+func (m Model) recoveryPaneHeight() int {
+	if m.Height <= 0 {
+		return 0
+	}
+	// Five rows belong to the surrounding workspace chrome. Reserve three
+	// more for each notice so the actionable footer stays on-screen at 80x24.
+	height := m.Height - 5
+	if m.Status != "" {
+		height -= 3
+	}
+	if m.Toast.Text != "" {
+		height -= 3
+	}
+	return max(1, height)
 }
 
 func safeRenderLines(lines []string) []string {

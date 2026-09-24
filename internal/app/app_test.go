@@ -864,6 +864,7 @@ func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 
 func TestExternalCherryPickResolutionEnablesContinueFromFreshSnapshot(t *testing.T) {
 	m := New()
+	m.Width, m.Height = 80, 24
 	m.Discovery.Root = t.TempDir()
 	m.Workspace.Navigate(workspace.CherryPick, "Cherry-pick progress")
 	state, err := sequencer.NewState("repo", 1, sequencer.KindCherryPick, sequencer.PhasePaused)
@@ -883,9 +884,23 @@ func TestExternalCherryPickResolutionEnablesContinueFromFreshSnapshot(t *testing
 		Counts:     repo.Counts{Conflicted: 1, Staged: 1},
 		Generation: 1,
 	})
+	if m.Conflict.Target != "feature" {
+		t.Fatalf("cherry-pick target branch = %q", m.Conflict.Target)
+	}
 	if actions := m.Conflict.RecoveryActions(); actions.Continue {
 		t.Fatalf("unresolved cherry-pick exposed continue: %+v", actions)
 	}
+	footer := strings.Split(m.View().Content, "\n")
+	if !strings.Contains(footer[len(footer)-1], "[s] skip") || strings.Contains(footer[len(footer)-1], "[c] continue") || len(footer[len(footer)-1]) > 80 {
+		t.Fatalf("unresolved narrow footer = %q", footer[len(footer)-1])
+	}
+	m.Status = "cherry-pick paused for conflict recovery"
+	m.Toast.Text = "repository conflicts"
+	withNotices := strings.Split(m.View().Content, "\n")
+	if len(withNotices) > 24 || !strings.Contains(withNotices[len(withNotices)-1], "[s] skip") {
+		t.Fatalf("narrow recovery clipped its footer: %d lines, last=%q", len(withNotices), withNotices[len(withNotices)-1])
+	}
+	m.Status, m.Toast.Text = "", ""
 
 	// This is the authoritative refresh after an external editor resolved and
 	// staged the conflict while the progress workspace stayed open.
@@ -901,6 +916,10 @@ func TestExternalCherryPickResolutionEnablesContinueFromFreshSnapshot(t *testing
 	}
 	if view := m.Conflict.View(80, 24); !strings.Contains(view, "[c] continue") {
 		t.Fatalf("resolved progress footer omitted continue:\n%s", view)
+	}
+	footer = strings.Split(m.View().Content, "\n")
+	if !strings.Contains(footer[len(footer)-1], "[c] continue") || !strings.Contains(footer[len(footer)-1], "[s] skip") || len(footer[len(footer)-1]) > 80 {
+		t.Fatalf("resolved narrow footer = %q", footer[len(footer)-1])
 	}
 	updated, command := m.Update(key("c"))
 	if command == nil || updated.(Model).State != StateOperationPending {

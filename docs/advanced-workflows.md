@@ -48,6 +48,16 @@ the journal also counts newly created commits reachable from the result but
 not from either earlier boundary; a missing count is left unavailable rather
 than guessed.
 
+The cherry-pick progress workspace uses the current branch as its target and
+shows Git's ordered commit IDs. Git does not retain a unique source branch for
+an externally started pick, so that field is labeled unavailable instead of
+inferred. At narrow widths the recovery footer lists only currently valid
+Continue, Skip, and Abort actions before navigation shortcuts.
+When Git has already applied an earlier commit but no longer retains its
+source ID in the sequencer todo, the completed row shows the resulting commit
+ID derived from the sequencer's original HEAD; conflicted and pending rows
+continue to show Git's source IDs.
+
 ## External tools and custom commands
 
 From Status, `Ctrl-E` opens the selected path in the configured editor, `Ctrl-O`

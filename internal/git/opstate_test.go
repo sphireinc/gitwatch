@@ -139,6 +139,54 @@ func TestDetectOperationStateReportsCherryPickProgress(t *testing.T) {
 	}
 }
 
+func TestDetectCherryPickMiddleConflictReconstructsAppliedResultAfterRestart(t *testing.T) {
+	ctx := context.Background()
+	runner, discovery := operationFixture(t)
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	commitNamed := func(path, content, message string) string {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(discovery.Root, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Run(ctx, "add", "--", path); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Run(ctx, "commit", "-m", message); err != nil {
+			t.Fatal(err)
+		}
+		return rev(t, runner, "HEAD")
+	}
+	first := commitNamed("first.txt", "first\n", "first")
+	commitFile(t, runner, discovery.Root, "feature\n", "second")
+	second := rev(t, runner, "HEAD")
+	third := commitNamed("third.txt", "third\n", "third")
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+	commitFile(t, runner, discovery.Root, "main\n", "main")
+	original := rev(t, runner, "HEAD")
+	if _, err := runner.Run(ctx, "cherry-pick", first, second, third); err == nil {
+		t.Fatal("expected middle-commit conflict")
+	}
+	t.Cleanup(func() { _, _ = runner.Run(context.Background(), "cherry-pick", "--abort") })
+	restarted, err := Discover(ctx, discovery.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := DetectOperationState(ctx, restarted, 54)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := got.State
+	details := state.Details().CherryPick
+	applied := rev(t, NewRunner(discovery.Root), "HEAD")
+	if !got.Found || state.Kind() != sequencer.KindCherryPick || state.HeadBefore() != original || state.HeadCurrent() != applied || state.Completed() != 1 || state.Remaining() != 2 || details == nil || len(details.Commits) != 3 || len(details.Completed) != 1 || details.Completed[0] != applied || details.Commits[0] != applied || details.CurrentIndex != 1 || !strings.HasPrefix(second, details.Commits[1]) {
+		t.Fatalf("restarted middle-conflict state = found=%v state=%#v details=%#v", got.Found, state, details)
+	}
+}
+
 func TestDetectOperationStateReportsRevertProgress(t *testing.T) {
 	runner, discovery := operationFixture(t)
 	commitFile(t, runner, discovery.Root, "first\n", "first")
