@@ -110,3 +110,9 @@ Make manual bisect visually obvious while live worktree status remains available
   the installed v2.11.3 binary is built with Go 1.26 and cannot type-check Go
   1.27 export data. Hosted CI status is pending because GitHub API reads are
   currently unreachable. Native/manual evidence remains open.
+- Public Actions page follow-up: run
+  [36072840848](https://github.com/sphireinc/gitwatch/actions/runs/36072840848)
+  for `12ec973` was still in progress with 2/3 jobs complete; evidence run
+  [36073093897](https://github.com/sphireinc/gitwatch/actions/runs/36073093897)
+  for `39ef3ef` was waiting on that run. Hosted success/failure remains
+  unverified; native/manual acceptance remains open.
