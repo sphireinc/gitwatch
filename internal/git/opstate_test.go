@@ -187,6 +187,76 @@ func TestDetectCherryPickMiddleConflictReconstructsAppliedResultAfterRestart(t *
 	}
 }
 
+func TestDetectCherryPickFirstAndLastConflictAfterRestart(t *testing.T) {
+	for _, conflictIndex := range []int{0, 2} {
+		t.Run(fmt.Sprintf("conflict-%d", conflictIndex+1), func(t *testing.T) {
+			ctx := context.Background()
+			runner, discovery := operationFixture(t)
+			if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+				t.Fatal(err)
+			}
+			commits := make([]string, 3)
+			for index := range commits {
+				path := fmt.Sprintf("selected-%d.txt", index)
+				if index == conflictIndex {
+					path = "file.txt"
+				}
+				if err := os.WriteFile(filepath.Join(discovery.Root, path), []byte(fmt.Sprintf("feature-%d\n", index)), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := runner.Run(ctx, "add", "--", path); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := runner.Run(ctx, "commit", "-m", fmt.Sprintf("selected %d", index)); err != nil {
+					t.Fatal(err)
+				}
+				commits[index] = rev(t, runner, "HEAD")
+			}
+			if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+				t.Fatal(err)
+			}
+			commitFile(t, runner, discovery.Root, "main\n", "main")
+			original := rev(t, runner, "HEAD")
+			if _, err := runner.Run(ctx, "cherry-pick", commits[0], commits[1], commits[2]); err == nil {
+				t.Fatal("expected cherry-pick conflict")
+			}
+			t.Cleanup(func() { _, _ = runner.Run(context.Background(), "cherry-pick", "--abort") })
+			restarted, err := Discover(ctx, discovery.Root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := DetectOperationState(ctx, restarted, 55)
+			if err != nil {
+				t.Fatal(err)
+			}
+			state := got.State
+			details := state.Details().CherryPick
+			if !got.Found || state.Kind() != sequencer.KindCherryPick || state.HeadBefore() != original || state.Completed() != conflictIndex || state.Remaining() != 3-conflictIndex || details == nil || len(details.Commits) != 3 || details.CurrentIndex != conflictIndex || !strings.HasPrefix(commits[conflictIndex], details.Commits[conflictIndex]) {
+				t.Fatalf("restarted cherry-pick state = found=%v state=%#v details=%#v", got.Found, state, details)
+			}
+			if _, err := NewRunner(discovery.Root).OperationLifecycle(ctx, sequencer.KindCherryPick, "skip"); err != nil {
+				t.Fatal(err)
+			}
+			finished, err := DetectOperationState(ctx, restarted, 56)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if finished.Found {
+				t.Fatalf("cherry-pick still active after skip: %#v", finished)
+			}
+			for index := range commits {
+				if index == conflictIndex {
+					continue
+				}
+				path := filepath.Join(discovery.Root, fmt.Sprintf("selected-%d.txt", index))
+				if _, err := os.Stat(path); err != nil {
+					t.Fatalf("selected commit %d missing after skip: %v", index, err)
+				}
+			}
+		})
+	}
+}
+
 func TestDetectOperationStateReportsRevertProgress(t *testing.T) {
 	runner, discovery := operationFixture(t)
 	commitFile(t, runner, discovery.Root, "first\n", "first")

@@ -115,6 +115,16 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
   reopening, Skip, final branch/HEAD and clean quit under `NO_COLOR=1`.
   Full `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache
   make check` passed (lint 0 issues, full/race tests, vet, format, diff,
-  security, performance). The fixture is wired into Ubuntu/macOS CI, but
-  hosted CI and broader first/last-conflict, human-operator, and native
-  Windows terminal evidence remain open; Task 135 is not complete.
+  security, performance). The fixture is wired into Ubuntu/macOS CI.
+  Hosted Actions run `36013796348` at `8d1defa` passed quality/policy,
+  secret scan, Ubuntu/macOS tests and PTY acceptance, but Windows timed out
+  in `TestWatcherSeesExternalGitMetadataAndRecreatedDirectory` during
+  fsnotify metadata-watch repair. Commit `46ee853` drains backend channels
+  while repairing those watches; local macOS arm64 `make check` passed, and
+  hosted run `36016377594` passed all five jobs, including Windows tests and
+  path/CRLF parity plus Ubuntu/macOS PTY acceptance. A subsequent
+  real-repository test covers first- and last-selected-commit conflicts after
+  restart, reconstructs their original HEAD/current position/remaining count,
+  skips the conflicted commit, and verifies the other selected commits apply.
+  Human-operator and native Windows terminal evidence remain open; Task 135
+  is not complete.
