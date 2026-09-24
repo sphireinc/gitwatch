@@ -62,6 +62,9 @@ func Load(ctx context.Context, runner git.Runner, request Request) ([]Entry, err
 }
 
 func parse(output []byte) ([]Entry, error) {
+	if len(output) > MaxBytes {
+		return nil, fmt.Errorf("reflog output exceeds %d-byte limit", MaxBytes)
+	}
 	fields := strings.Split(strings.TrimSuffix(string(output), "\n"), "\x00")
 	if len(fields) > 0 && fields[len(fields)-1] == "" {
 		fields = fields[:len(fields)-1]

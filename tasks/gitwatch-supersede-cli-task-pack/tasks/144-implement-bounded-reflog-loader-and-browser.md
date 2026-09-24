@@ -85,3 +85,11 @@ Expose reflog as a recovery surface and foundation for semantic undo.
   [35866061892](https://github.com/sphireinc/gitwatch/actions/runs/35866061892)
   passed the full Windows/macOS/Ubuntu matrix at `0c362d1`; the code under test
   is unchanged at `cda3a1b`. Native/manual terminal evidence is still required.
+- The bounded loader already capped Git output at `MaxBytes`, but the parser
+  itself split its input before checking that same limit. `parse` now rejects
+  oversized input before conversion or field allocation; a regression test
+  and fuzz property cover the boundary. Focused tests and a two-second fuzz
+  run with a fresh Go cache passed, followed by the full local `make check`
+  (lint 0 issues, normal/race tests, vet, formatting, security, performance).
+  Hosted CI for this hardening change is pending; native/manual acceptance
+  remains open.
