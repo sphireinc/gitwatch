@@ -140,11 +140,11 @@ func operationMarkers(ctx context.Context, runner Runner) ([]operationMarker, er
 			markers[i].headCurrent = headCurrent
 		}
 		var applied []string
-		if markers[i].kind == sequencer.KindCherryPick && hasDirectory(paths["sequencer"]) {
+		if (markers[i].kind == sequencer.KindCherryPick || markers[i].kind == sequencer.KindRevert) && hasDirectory(paths["sequencer"]) {
 			if head := readMetadata(filepath.Join(paths["sequencer"], "head")); fullHexOID(head) {
 				markers[i].headBefore = head
 			}
-			applied = appliedCherryPickResults(ctx, runner, markers[i].headBefore, headCurrent)
+			applied = appliedSequencerResults(ctx, runner, markers[i].headBefore, headCurrent)
 		}
 		markers[i] = enrichMarker(paths, markers[i], applied)
 	}
@@ -259,7 +259,7 @@ func enrichMarker(paths map[string]string, marker operationMarker, applied []str
 			marker.remaining = 0
 		}
 	case sequencer.KindRevert:
-		progress := readSequencerCommits(paths["sequencer"], marker.current, nil)
+		progress := readSequencerCommits(paths["sequencer"], marker.current, applied)
 		commits, completed := progress.Commits, len(progress.Completed)
 		if len(commits) == 0 {
 			commits = nonEmpty(marker.current)
@@ -339,10 +339,10 @@ func readSequencerCommits(path, current string, applied []string) cherryPickProg
 	return progress
 }
 
-// Git's sequencer/head is the pre-pick HEAD. Git may not retain completed
-// source SHAs in todo/done; the resulting commits are still authoritative in
-// the bounded range from that HEAD to the current HEAD.
-func appliedCherryPickResults(ctx context.Context, runner Runner, original, current string) []string {
+// Git's sequencer/head is the pre-operation HEAD. Cherry-pick and revert may
+// not retain completed source SHAs in todo/done; their resulting commits are
+// still authoritative in the bounded range from that HEAD to the current HEAD.
+func appliedSequencerResults(ctx context.Context, runner Runner, original, current string) []string {
 	if !fullHexOID(original) || !fullHexOID(current) || original == current {
 		return nil
 	}

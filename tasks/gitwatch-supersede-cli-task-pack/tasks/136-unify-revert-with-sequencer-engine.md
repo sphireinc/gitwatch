@@ -112,3 +112,11 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   local `GOCACHE=/tmp/gitwatch-go-cache make check` on macOS arm64. Hosted run
   `35864391354` passed quality/policy, full-history secret scan, and Ubuntu,
   macOS, and Windows matrices. Native operator acceptance remains open.
+- A real three-commit revert with a middle conflict exposed a restart
+  projection defect: Git retained only the current/pending todo entries, so
+  Original HEAD was blank and the already applied revert was omitted. The
+  detector now reads Git's sequencer original HEAD and bounded result-commit
+  range for revert as well as cherry-pick, while preserving source IDs when
+  Git retains them. A fresh-runner test verifies completed/current/remaining
+  progress, Skip through the typed lifecycle, and the final reverted files.
+  Native/manual terminal acceptance and the unified coordinator remain open.

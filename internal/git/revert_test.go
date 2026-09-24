@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/sphireinc/git-watch/internal/sequencer"
 )
 
 func TestRevertRequestValidatesOrderedCommits(t *testing.T) {
@@ -75,5 +77,58 @@ func TestRunnerRevertAppliesMultipleCommitsInRequestedOrder(t *testing.T) {
 	}
 	if _, err := os.Stat(second); !os.IsNotExist(err) {
 		t.Fatalf("second reverted file still exists: %v", err)
+	}
+}
+
+func TestRevertMiddleConflictRecoversProgressAndSkipsAfterRestart(t *testing.T) {
+	ctx := context.Background()
+	runner, discovery := operationFixture(t)
+	commitNamed := func(path, content, message string) string {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(discovery.Root, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Run(ctx, "add", "--", path); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runner.Run(ctx, "commit", "-m", message); err != nil {
+			t.Fatal(err)
+		}
+		return rev(t, runner, "HEAD")
+	}
+	first := commitNamed("first.txt", "first\n", "first")
+	commitFile(t, runner, discovery.Root, "second\n", "second")
+	second := rev(t, runner, "HEAD")
+	third := commitNamed("third.txt", "third\n", "third")
+	commitFile(t, runner, discovery.Root, "diverged\n", "diverged")
+	original := rev(t, runner, "HEAD")
+	if _, err := runner.Revert(ctx, RevertRequest{Commits: []string{third, second, first}}); err == nil {
+		t.Fatal("expected middle revert conflict")
+	}
+	t.Cleanup(func() { _, _ = runner.Run(context.Background(), "revert", "--abort") })
+	restarted, err := Discover(ctx, discovery.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := DetectOperationState(ctx, restarted, 57)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := got.State
+	details := state.Details().Revert
+	if !got.Found || state.Kind() != sequencer.KindRevert || state.HeadBefore() != original || state.Completed() != 1 || state.Remaining() != 2 || details == nil || len(details.Commits) != 3 || len(details.Completed) != 1 || details.CurrentIndex != 1 {
+		t.Fatalf("restarted middle-revert state = found=%v state=%#v details=%#v", got.Found, state, details)
+	}
+	if _, err := NewRunner(discovery.Root).OperationLifecycle(ctx, sequencer.KindRevert, "skip"); err != nil {
+		t.Fatal(err)
+	}
+	finished, err := DetectOperationState(ctx, restarted, 58)
+	if err != nil || finished.Found {
+		t.Fatalf("revert remains active after skip: %#v, err=%v", finished, err)
+	}
+	for _, path := range []string{"first.txt", "third.txt"} {
+		if _, err := os.Stat(filepath.Join(discovery.Root, path)); !os.IsNotExist(err) {
+			t.Fatalf("reverted file %q remains: %v", path, err)
+		}
 	}
 }

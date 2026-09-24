@@ -58,6 +58,12 @@ source ID in the sequencer todo, the completed row shows the resulting commit
 ID derived from the sequencer's original HEAD; conflicted and pending rows
 continue to show Git's source IDs.
 
+Multi-commit reverts use the same durable recovery controls. After a restart,
+the revert pane reads Git's sequencer state and original HEAD; when Git has
+discarded completed source IDs, it shows the resulting revert commit IDs
+without guessing which source commits they replaced. Continue, Skip, and
+Abort act on the selected repository and refresh its authoritative status.
+
 ## External tools and custom commands
 
 From Status, `Ctrl-E` opens the selected path in the configured editor, `Ctrl-O`
