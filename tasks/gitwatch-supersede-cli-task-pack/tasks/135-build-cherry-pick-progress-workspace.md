@@ -59,7 +59,11 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 - `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 with formatting, lint, full tests, race tests, vet, security, and performance checks.
 - The implementation deliberately reuses the existing repository-scoped conflict workspace and authoritative snapshot refresh path; no second status model or render-time Git work was introduced.
 - Active cherry-picks now appear in the status summary and can be reopened through the command palette as `Reopen active cherry-pick`, preserving the same repository-scoped snapshot.
-- Completed and skipped commit IDs are normalized against the sequencer's ordered todo backup, including abbreviated/full SHA forms, so the progress view can render exact per-commit outcomes without relying on toast history.
+- Where Git retains an ordered todo backup, completed and skipped source IDs
+  are normalized across abbreviated/full SHA forms. Git may instead retain
+  only pending todo entries and `sequencer/head`; in that case the loader now
+  shows completed result commit IDs from the bounded original-HEAD-to-HEAD
+  range. It does not fabricate lost source or skipped IDs.
 - Recovery controls are now operation-specific: Skip is shown only for rebase, cherry-pick, and revert, while unsupported operations such as Merge expose only Continue and Abort.
 - A current cherry-picked commit is labeled `conflicted` when Git reports conflicted paths; the progress view can be left for Status and reopened through Ctrl-P without losing the operation projection.
 - Task 135 remains active until operator-owned native/manual acceptance is recorded.
@@ -98,3 +102,19 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
   performance, and diff checks. Hosted Actions run `35864391354` passed
   quality/policy, full-history secret scan, and Ubuntu/macOS/Windows matrices;
   macOS PTY acceptance passed. Native operator acceptance remains open.
+- Revision `8a112fb` fixes a real middle-conflict case: after Git had already
+  applied the first of three selected commits, the previous loader displayed
+  zero completed, omitted that commit, and left Original HEAD blank. The
+  loader now reads Git's `sequencer/head`, uses a bounded `rev-list` to show
+  completed result commits when `done`/`todo.backup` are absent, and keeps
+  current/pending source commits distinct. The 80x24 recovery footer exposes
+  only valid actions and remains visible with notices; the target branch is
+  shown, while an unrecoverable source ref is explicitly labeled unavailable.
+  A fresh-runner real-repository test and a native Darwin arm64 tmux fixture
+  verify a three-commit sequence with a middle conflict, Status navigation,
+  reopening, Skip, final branch/HEAD and clean quit under `NO_COLOR=1`.
+  Full `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache
+  make check` passed (lint 0 issues, full/race tests, vet, format, diff,
+  security, performance). The fixture is wired into Ubuntu/macOS CI, but
+  hosted CI and broader first/last-conflict, human-operator, and native
+  Windows terminal evidence remain open; Task 135 is not complete.

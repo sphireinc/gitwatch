@@ -131,3 +131,9 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
   GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` passed on Darwin arm64,
   including lint (0 issues), full/race tests, vet, formatting, diff, security,
   and performance checks. Native/operator acceptance remains open.
+- Hosted Actions run
+  [35913639117](https://github.com/sphireinc/gitwatch/actions/runs/35913639117)
+  on `39799a2` passed quality/policy, secret scanning, and the Ubuntu,
+  macOS, and Windows test matrices for the completion-journal slice. This is
+  cross-platform automated evidence, not the remaining native/operator
+  lifecycle matrix.
