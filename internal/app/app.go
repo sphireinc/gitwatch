@@ -1320,6 +1320,58 @@ func (m *Model) updateCustomCommandForm(key string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) clickCustomCommandForm(x, y int) tea.Cmd {
+	if m.CustomCommandForm == nil {
+		return nil
+	}
+	prompt, ok := m.CustomCommandForm.Current()
+	if !ok {
+		return nil
+	}
+	switch prompt.Kind {
+	case customcmd.PromptSelect, customcmd.PromptMultiSelect:
+		options := m.CustomCommandForm.Options()
+		option := y - 3
+		if option >= 0 && option < len(options) {
+			cursor := m.CustomCommandForm.Cursor()
+			down := (option - cursor + len(options)) % len(options)
+			up := (cursor - option + len(options)) % len(options)
+			direction, steps := "down", down
+			if up < down {
+				direction, steps = "up", up
+			}
+			for range steps {
+				if _, err := m.CustomCommandForm.Handle(direction); err != nil {
+					m.Status = "custom command form: " + platform.SafeText(err.Error())
+					return nil
+				}
+			}
+			if prompt.Kind == customcmd.PromptSelect {
+				return m.updateCustomCommandForm("enter")
+			}
+			return m.updateCustomCommandForm("space")
+		}
+		if y == len(options)+4 {
+			return m.updateCustomCommandForm("enter")
+		}
+	case customcmd.PromptConfirm:
+		if y == 3 {
+			if x < 9 {
+				return m.updateCustomCommandForm("y")
+			}
+			return m.updateCustomCommandForm("n")
+		}
+		if y == 5 {
+			return m.updateCustomCommandForm("enter")
+		}
+	case customcmd.PromptText, customcmd.PromptSecret:
+		if y == 6 {
+			return m.updateCustomCommandForm("enter")
+		}
+	}
+	return nil
+}
+
 func (m *Model) executePaletteAction(id string) tea.Cmd {
 	if command := m.PaletteCommands[id]; command != nil {
 		return command()
@@ -8459,6 +8511,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
+			if m.CustomCommandForm != nil {
+				return m, m.clickCustomCommandForm(v.X, v.Y)
+			}
 			if m.currentView() == workspace.Bisect {
 				row := v.Y - 4
 				switch {
@@ -9007,7 +9062,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.State = StateReady
-		if v.Err != nil {
+		if v.Output.Suppressed {
+			if v.Err != nil {
+				m.Status = "custom command " + platform.SafeText(v.Name) + " failed; output hidden because a secret prompt was used"
+			} else {
+				m.Status = "custom command " + platform.SafeText(v.Name) + " complete; output hidden because a secret prompt was used"
+			}
+		} else if v.Err != nil {
 			m.Status = "custom command " + platform.SafeText(v.Name) + ": " + platform.SafeText(platform.RedactSecrets(v.Err.Error()))
 		} else {
 			output := strings.TrimSpace(string(append(append([]byte(nil), v.Output.Stdout...), v.Output.Stderr...)))
@@ -10170,7 +10231,7 @@ func (m Model) customCommandFormView() tea.View {
 			}
 		}
 	}
-	lines = append(lines, "", "[enter] accept  [esc] cancel")
+	lines = append(lines, "", "[enter/click] accept  [esc] cancel")
 	v := tea.NewView(strings.Join(safeRenderLines(lines), "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v

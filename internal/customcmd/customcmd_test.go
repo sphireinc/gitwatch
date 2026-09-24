@@ -3,6 +3,7 @@ package customcmd
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -161,5 +162,49 @@ func TestResolvePromptsUsesLoadedRepositoryOptionsWithoutRunningCommands(t *test
 	}
 	if _, err := ResolvePrompts(prompts, Context{}); err == nil {
 		t.Fatal("empty dynamic option source was accepted")
+	}
+}
+
+func TestRunSuppressesSecretPromptOutputAndErrorDetails(t *testing.T) {
+	const secret = "private-token-value"
+	for _, mode := range []string{"stdout", "stderr"} {
+		t.Run(mode, func(t *testing.T) {
+			t.Setenv("GITWATCH_CUSTOMCMD_HELPER_SECRET", secret)
+			t.Setenv("GITWATCH_CUSTOMCMD_HELPER_MODE", mode)
+			definition := Definition{
+				Name:       "secret-test",
+				Executable: os.Args[0],
+				Args:       []string{"-test.run=^TestCustomCmdHelper$"},
+				Prompts:    []Prompt{{ID: "token", Label: "Token", Kind: PromptSecret}},
+			}
+			invocation, err := definition.Expand(Context{PromptValues: map[string]string{"token": secret}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			output, runErr := Run(context.Background(), invocation, 1024)
+			if !output.Suppressed || len(output.Stdout) != 0 || len(output.Stderr) != 0 {
+				t.Fatalf("secret output escaped: %#v", output)
+			}
+			if mode == "stderr" {
+				if runErr == nil || strings.Contains(runErr.Error(), secret) {
+					t.Fatalf("secret-bearing command error = %v", runErr)
+				}
+			} else if runErr != nil {
+				t.Fatalf("successful secret command failed: %v", runErr)
+			}
+		})
+	}
+}
+
+func TestCustomCmdHelper(t *testing.T) {
+	secret := os.Getenv("GITWATCH_CUSTOMCMD_HELPER_SECRET")
+	if secret == "" {
+		return
+	}
+	if os.Getenv("GITWATCH_CUSTOMCMD_HELPER_MODE") == "stderr" {
+		t.Fatalf("helper emitted secret: %s", secret)
+	}
+	if _, err := os.Stdout.WriteString(secret); err != nil {
+		t.Fatal(err)
 	}
 }

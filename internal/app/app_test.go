@@ -89,6 +89,98 @@ func TestCustomCommandConfirmationCanBeCancelled(t *testing.T) {
 	}
 }
 
+func TestCustomCommandFormMouseSelectsAndAccepts(t *testing.T) {
+	form, err := customcmd.NewForm([]customcmd.Prompt{
+		{ID: "branch", Label: "Branch", Kind: customcmd.PromptSelect, Options: []string{"main", "feature"}},
+		{ID: "targets", Label: "Targets", Kind: customcmd.PromptMultiSelect, Options: []string{"ui", "api"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.CustomCommandForm, m.CustomCommandPending = &form, "not-found"
+
+	updated, _ := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 0, Y: 4})
+	m = updated.(Model)
+	prompt, ok := m.CustomCommandForm.Current()
+	if !ok || prompt.ID != "targets" {
+		t.Fatalf("clicked select did not advance to next prompt: prompt=%#v", prompt)
+	}
+	updated, _ = m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 0, Y: 4})
+	m = updated.(Model)
+	if got := m.CustomCommandForm.SelectedOptions(); len(got) != 1 || got[0] != "api" {
+		t.Fatalf("clicked multi-select option = %#v", got)
+	}
+	updated, cmd := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 0, Y: 6})
+	m = updated.(Model)
+	if cmd != nil || m.CustomCommandForm != nil || m.CustomCommandPromptValues["branch"] != "feature" || m.CustomCommandPromptValues["targets"] != "api" {
+		t.Fatalf("clicked form accept = cmdnil=%v form=%v values=%#v", cmd == nil, m.CustomCommandForm != nil, m.CustomCommandPromptValues)
+	}
+}
+
+func TestCustomCommandFormMouseCanCancelConfirmation(t *testing.T) {
+	form, err := customcmd.NewForm([]customcmd.Prompt{{ID: "confirm", Label: "Confirm", Kind: customcmd.PromptConfirm}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.CustomCommandForm, m.CustomCommandPending = &form, "not-found"
+	updated, cmd := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 12, Y: 3})
+	m = updated.(Model)
+	if cmd != nil || m.CustomCommandForm != nil || m.Status != "custom command cancelled" {
+		t.Fatalf("clicked confirmation cancel = cmdnil=%v form=%v status=%q", cmd == nil, m.CustomCommandForm != nil, m.Status)
+	}
+}
+
+func TestCustomCommandFormMouseCanAcceptConfirmationAndText(t *testing.T) {
+	t.Run("confirm", func(t *testing.T) {
+		form, err := customcmd.NewForm([]customcmd.Prompt{{ID: "confirm", Label: "Confirm", Kind: customcmd.PromptConfirm}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := New()
+		defer func() { _ = m.Close() }()
+		m.CustomCommandForm, m.CustomCommandPending = &form, "not-found"
+		updated, cmd := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 1, Y: 3})
+		m = updated.(Model)
+		if cmd != nil || m.CustomCommandPromptValues["confirm"] != "true" {
+			t.Fatalf("clicked confirmation accept = cmdnil=%v values=%#v", cmd == nil, m.CustomCommandPromptValues)
+		}
+	})
+	t.Run("text", func(t *testing.T) {
+		form, err := customcmd.NewForm([]customcmd.Prompt{{ID: "ticket", Label: "Ticket", Kind: customcmd.PromptText}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := New()
+		defer func() { _ = m.Close() }()
+		m.CustomCommandForm, m.CustomCommandPending = &form, "not-found"
+		if _, err := m.CustomCommandForm.Handle("A"); err != nil {
+			t.Fatal(err)
+		}
+		updated, cmd := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 0, Y: 6})
+		m = updated.(Model)
+		if cmd != nil || m.CustomCommandPromptValues["ticket"] != "A" {
+			t.Fatalf("clicked text accept = cmdnil=%v values=%#v", cmd == nil, m.CustomCommandPromptValues)
+		}
+	})
+}
+
+func TestCustomCommandSecretOutputIsHiddenFromStatus(t *testing.T) {
+	const secret = "private-token-value"
+	m := New()
+	defer func() { _ = m.Close() }()
+	updated, _ := m.Update(CustomCommandFinishedMsg{
+		Name: "secret-test", Repository: m.repositoryGeneration, Output: customcmd.Output{Suppressed: true}, Err: errors.New(secret),
+	})
+	m = updated.(Model)
+	if strings.Contains(m.Status, secret) || !strings.Contains(m.Status, "output hidden because a secret prompt was used") {
+		t.Fatalf("secret completion status = %q", m.Status)
+	}
+}
+
 func TestStateTransitions(t *testing.T) {
 	m := New()
 	updated, _ := m.Update(RefreshStartedMsg{})
