@@ -90,6 +90,8 @@ Expose reflog as a recovery surface and foundation for semantic undo.
   oversized input before conversion or field allocation; a regression test
   and fuzz property cover the boundary. Focused tests and a two-second fuzz
   run with a fresh Go cache passed, followed by the full local `make check`
-  (lint 0 issues, normal/race tests, vet, formatting, security, performance).
-  Hosted CI for this hardening change is pending; native/manual acceptance
-  remains open.
+  at `325abb0` (lint 0 issues, normal/race tests, vet, formatting, security,
+  performance). Hosted run
+  [36066879709](https://github.com/sphireinc/gitwatch/actions/runs/36066879709)
+  passed quality/policy, full-history secret scan, and Windows/macOS/Ubuntu
+  tests. Native/manual acceptance remains open.
