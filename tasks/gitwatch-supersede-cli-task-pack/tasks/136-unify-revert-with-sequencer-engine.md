@@ -121,6 +121,8 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   completed/current/remaining progress, Skip through the typed lifecycle,
   and the final reverted files.
   Local macOS arm64 `make check` passed at that revision (lint 0 issues,
-  normal/race tests, vet, formatting, security, and performance); hosted CI
-  remains pending.
+  normal/race tests, vet, formatting, security, and performance). Hosted run
+  `36058259936` at `db4ae0a` passed quality/policy, full-history secret scan,
+  and Ubuntu/macOS/Windows test jobs, including Unix PTY and Windows
+  path/CRLF checks.
   Native/manual terminal acceptance and the unified coordinator remain open.
