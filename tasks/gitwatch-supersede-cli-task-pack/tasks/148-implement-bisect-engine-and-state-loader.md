@@ -83,3 +83,11 @@ Support starting, resuming, marking, skipping and resetting Git bisect as a repo
   GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` passed on Darwin arm64,
   including lint (0 issues), full/race suites, vet, format, diff, security,
   and performance checks. Native terminal/operator acceptance remains open.
+- At revision `12ec973`, an interactive 80x24 pseudo-terminal run with
+  `NO_COLOR=1` exercised bisect start with explicit refs, good, skip, bad,
+  candidate inspection, and confirmed reset in a disposable repository; reset
+  restored the original `main` tip and clean worktree. A second in-progress
+  bisect survived app exit/restart, was reopened through the palette's
+  `Reopen active Bisect` action, and accepted another mark. This is scripted
+  PTY evidence, not native/manual operator sign-off; the completion record
+  remains open.

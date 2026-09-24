@@ -95,3 +95,18 @@ Make manual bisect visually obvious while live worktree status remains available
   (lint, full/race tests, vet, format, diff, security, performance). This is
   automated integration evidence, not native/manual 80x24, NO_COLOR, mouse,
   or operator-loop acceptance; the task remains active.
+- Revision `12ec973` fixes quit-key routing in the Bisect workspace: `q` and
+  Ctrl-C now quit instead of being swallowed by workspace-specific dispatch,
+  while literal `q` remains typeable in start-ref prompts. Regression tests
+  cover both quit bindings and ref input. The interactive 80x24/`NO_COLOR=1`
+  PTY run documented under Task 148 exposed the defect and exercised the
+  operator loop; a locally built post-fix binary also confirmed `q` exits
+  directly from the reopened active-Bisect workspace. This remains scripted
+  PTY evidence rather than native/manual terminal sign-off.
+- At `12ec973`, `go test ./...`, `go test -race ./...`, `go vet ./...`, format,
+  diff, `scripts/security-check.sh`, and `scripts/performance-check.sh` passed
+  on Darwin arm64. `make check` cannot complete its pinned lint step offline:
+  fetching golangci-lint v2.12.0 fails DNS resolution for proxy.golang.org;
+  the installed v2.11.3 binary is built with Go 1.26 and cannot type-check Go
+  1.27 export data. Hosted CI status is pending because GitHub API reads are
+  currently unreachable. Native/manual evidence remains open.
