@@ -1909,6 +1909,13 @@ func recoveryWorkspaceLabel(kind sequencer.Kind) string {
 }
 
 func (m *Model) updateBisectKey(key string) tea.Cmd {
+	if key == "ctrl+c" {
+		m.State = StateShutdown
+		if err := m.shutdown(); err != nil {
+			m.Status = "shutdown: " + err.Error()
+		}
+		return tea.Quit
+	}
 	if m.BisectRunMode != "" || m.BisectRunConfirm {
 		switch key {
 		case "esc":
@@ -2007,6 +2014,13 @@ func (m *Model) updateBisectKey(key string) tea.Cmd {
 			m.Status = "known-" + m.BisectStartMode + " ref: " + m.BisectStartInput
 		}
 		return nil
+	}
+	if key == "q" {
+		m.State = StateShutdown
+		if err := m.shutdown(); err != nil {
+			m.Status = "shutdown: " + err.Error()
+		}
+		return tea.Quit
 	}
 	switch key {
 	case "g":

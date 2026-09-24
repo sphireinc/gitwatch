@@ -2088,6 +2088,34 @@ func TestBisectWorkspaceCollectsExplicitBadAndGoodRefs(t *testing.T) {
 	}
 }
 
+func TestBisectWorkspaceSupportsGlobalQuitKeys(t *testing.T) {
+	for _, shortcut := range []string{"q", "ctrl+c"} {
+		t.Run(shortcut, func(t *testing.T) {
+			m := New()
+			m.Workspace.Navigate(workspace.Bisect, "Bisect")
+			updated, cmd := m.Update(key(shortcut))
+			m = updated.(Model)
+			if cmd == nil || m.State != StateShutdown {
+				t.Fatalf("quit shortcut %q = cmdnil=%v state=%v", shortcut, cmd == nil, m.State)
+			}
+			if _, ok := cmd().(tea.QuitMsg); !ok {
+				t.Fatalf("quit shortcut %q returned %T, want tea.QuitMsg", shortcut, cmd())
+			}
+		})
+	}
+}
+
+func TestBisectWorkspaceCanTypeQuitKeyIntoStartRef(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Bisect, "Bisect")
+	m.BisectStartMode = "bad"
+	updated, cmd := m.Update(key("q"))
+	m = updated.(Model)
+	if cmd != nil || m.State == StateShutdown || m.BisectStartInput != "q" {
+		t.Fatalf("start-ref q input = cmdnil=%v state=%v input=%q", cmd == nil, m.State, m.BisectStartInput)
+	}
+}
+
 func TestBisectWorkspaceInspectsCandidateAndMapsMouseActions(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Workspace.Navigate(workspace.Bisect, "Bisect")
@@ -2514,6 +2542,9 @@ func key(text string) tea.KeyPressMsg {
 	}
 	if text == "ctrl+s" {
 		return tea.KeyPressMsg(tea.Key{Text: "s", Code: 's', Mod: tea.ModCtrl})
+	}
+	if text == "ctrl+c" {
+		return tea.KeyPressMsg(tea.Key{Code: 'c', Mod: tea.ModCtrl})
 	}
 	return tea.KeyPressMsg(tea.Key{Text: text, Code: []rune(text)[0]})
 }
