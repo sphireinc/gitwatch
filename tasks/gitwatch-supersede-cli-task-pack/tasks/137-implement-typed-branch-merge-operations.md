@@ -51,13 +51,13 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded (`06771d6` for the stale-generation guard; earlier feature commits are listed below).
+- [x] Exact tested revision recorded (`06771d6`).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented (native/manual acceptance remains open).
 
 ## Progress evidence
 
@@ -102,5 +102,10 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
   engine did not compare it with the active engine generation before probing
   or mutating Git. `Engine.Execute` now rejects stale-generation requests and
   has a focused test proving the guard runs before Git access. Cross-platform
-  CI for the current code revision remains pending; native/manual acceptance
+  local `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache
+  make check` passed at `06771d6` (lint 0 issues, normal/race tests, vet,
+  formatting, security and performance). Hosted run
+  [36059886734](https://github.com/sphireinc/gitwatch/actions/runs/36059886734)
+  passed quality/policy, secret scan, and Ubuntu/macOS/Windows tests, including
+  Unix PTY acceptance and Windows path/CRLF parity. Native/manual acceptance
   remains open.
