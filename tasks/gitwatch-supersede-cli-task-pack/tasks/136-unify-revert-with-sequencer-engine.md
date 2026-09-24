@@ -50,13 +50,13 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -117,6 +117,10 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   Original HEAD was blank and the already applied revert was omitted. The
   detector now reads Git's sequencer original HEAD and bounded result-commit
   range for revert as well as cherry-pick, while preserving source IDs when
-  Git retains them. A fresh-runner test verifies completed/current/remaining
-  progress, Skip through the typed lifecycle, and the final reverted files.
+  Git retains them. Commit `5468d36` includes a fresh-runner test verifying
+  completed/current/remaining progress, Skip through the typed lifecycle,
+  and the final reverted files.
+  Local macOS arm64 `make check` passed at that revision (lint 0 issues,
+  normal/race tests, vet, formatting, security, and performance); hosted CI
+  remains pending.
   Native/manual terminal acceptance and the unified coordinator remain open.

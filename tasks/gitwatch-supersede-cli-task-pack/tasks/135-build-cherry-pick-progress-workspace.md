@@ -123,8 +123,12 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
   while repairing those watches; local macOS arm64 `make check` passed, and
   hosted run `36016377594` passed all five jobs, including Windows tests and
   path/CRLF parity plus Ubuntu/macOS PTY acceptance. A subsequent
-  real-repository test covers first- and last-selected-commit conflicts after
-  restart, reconstructs their original HEAD/current position/remaining count,
-  skips the conflicted commit, and verifies the other selected commits apply.
+  real-repository test at `6617044` covers first- and last-selected-commit
+  conflicts after restart, reconstructs their original HEAD/current
+  position/remaining count, skips the conflicted commit, and verifies the
+  other selected commits apply. Local macOS arm64 `make check` passed at that
+  revision, and hosted run `36057387861` passed quality/policy, secret scan,
+  and Ubuntu/macOS/Windows test matrices (including Unix PTY and Windows
+  path/CRLF checks).
   Human-operator and native Windows terminal evidence remain open; Task 135
   is not complete.
