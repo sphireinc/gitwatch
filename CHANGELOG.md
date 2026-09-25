@@ -16,6 +16,7 @@ All notable user-visible changes to gitwatch are documented here. The project fo
 - Typed-argv editor, opener, and difftool handoffs with bounded temporary materialization.
 - Shell-free custom commands with context restrictions, placeholder validation, bounded output, cancellation, and refresh policy.
 - Repository-scoped `.gitignore` management with an offline catalog, previewed byte-preserving edits, managed-block ownership, and concurrent-edit protection.
+- Multi-repository health details now separate authoritative local state from fresh/stale provider data and show measured remote-fetch outcome and latency.
 
 ### Changed
 

@@ -112,6 +112,14 @@ persists private versioned JSON metadata with atomic replacement, and refreshes
 status via a bounded worker pool. A missing or failing repository becomes an
 independent error row; it does not block healthy repositories. Repository rows
 are filterable/sortable; favorites and groups are stored as registry metadata.
+Health severity is semantic rather than a single numeric score. Local state is
+derived from the authoritative Git snapshot and remains useful offline; the
+dashboard shows its source and observation time. Provider-derived CI attention
+is optional cached data marked `fresh` or `stale`. Remote-fetch outcome,
+completion time, and measured duration are shown separately, so remote
+freshness is not inferred from local status and remotes are not probed on every
+status refresh. See [provider behavior](provider.md) and
+[configuration](configuration.md) for cache and auto-fetch controls.
 
 ## Configuration and safety
 

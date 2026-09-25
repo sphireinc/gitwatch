@@ -11,6 +11,7 @@ workflows, configuration, safety boundaries, maintenance, and release evidence.
 - [Default keymap](../KEYMAP.md)
 - [Configuration](configuration.md)
 - [Advanced workflows](advanced-workflows.md)
+- [Optional GitHub provider behavior](provider.md)
 - [Troubleshooting](troubleshooting.md)
 - [Roadmap](../ROADMAP.md)
 - [Changelog](../CHANGELOG.md)
