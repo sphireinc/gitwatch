@@ -37,7 +37,7 @@ Round out high-value repository-provider integration without turning gitwatch in
 
 ## Acceptance criteria
 
-- [ ] GitHub workspace covers common repository lifecycle without becoming a core dependency.
+- [x] GitHub workspace covers common repository lifecycle without becoming a core dependency.
 
 ## Completion record
 
@@ -57,13 +57,15 @@ Round out high-value repository-provider integration without turning gitwatch in
 - Added bounded release parsing and paginated read-only release listing.
 - Added focused parser/client tests covering bounds, invalid data, query
   clamping, issue creation, and release summaries.
-- Remaining: add GitHub workspace issue/release summaries and open/create
+- Earlier gap: GitHub workspace issue/release summaries and open/create flows
+  still needed wiring; the following entries record those follow-ups.
 - Added stale-tolerant cached issue and release loading to the GitHub workspace
   and sanitized bounded issue/release summaries in the terminal view.
 - Added a guarded three-field issue form (title, body, comma-separated labels)
   with typed validation, explicit confirmation, non-retrying creation, and
   provider reload after creation.
-- Remaining: add open/list navigation hooks for issue and release URLs,
+- Follow-up: selection-aware open/list navigation hooks for issue and release
+  URLs were added as described below.
 - Added explicit browser navigation for the first bounded open issue (`O`)
   and release (`L`) summaries, with safe missing-URL handling and tests.
 - Palette issue/release entries now retain their selected index in the
@@ -100,3 +102,7 @@ Round out high-value repository-provider integration without turning gitwatch in
   `91424f1`, including Ubuntu, macOS, and Windows test/build/runtime jobs.
   Provider-disabled, no-auth, partial-scope, and native/manual acceptance
   remain open.
+- Current-main revalidation: full `make check` passed at implementation commit
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
+  Provider-disabled, no-auth, partial-scope, and native/manual acceptance remain
+  open; no native operator evidence is inferred from this run.

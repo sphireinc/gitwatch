@@ -37,17 +37,17 @@ Make Ctrl-P a workspace-wide navigator across repositories and already-loaded Gi
 
 ## Acceptance criteria
 
-- [ ] Cross-repo navigation is fast and does not spawn unbounded Git commands.
+- [x] Cross-repo navigation is fast and does not spawn unbounded Git commands.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded (`14ed506`).
+- [x] Exact tested revision recorded (`9b1cb342fffba50675ce83dfc957ac0cabae1ea9`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence (2026-09-22)
 
@@ -61,3 +61,9 @@ Make Ctrl-P a workspace-wide navigator across repositories and already-loaded Gi
 - Added repository-generation tagging and stale-result rejection for asynchronous GitHub loads so late provider responses cannot repopulate the current repository's palette or GitHub view.
 - Added a deterministic 50-repository palette benchmark and allocation regression test; the performance gate now executes the benchmark and maintainer documentation records its bounded in-memory scope and 2,500-allocation threshold.
 - Remaining: recorded cross-platform latency samples and native/manual acceptance.
+
+- Current macOS sample: `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache go test ./internal/app -run '^$' -bench '^BenchmarkCommandPalette50Repositories$' -benchtime=3s` on Darwin arm64 / Apple M1 Pro measured `34,416 ns/op`, `40,122 B/op`, and `406 allocs/op`. Linux/Windows latency samples and native/manual acceptance remain open.
+- Current-main revalidation: full `make check` passed at implementation commit
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
+  Dedicated cross-platform latency samples and native/manual acceptance remain
+  open; benchmark coverage is not represented as operator evidence.

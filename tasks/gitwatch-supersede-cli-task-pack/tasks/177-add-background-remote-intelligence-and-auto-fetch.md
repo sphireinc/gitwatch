@@ -38,17 +38,17 @@ Provide optional remote awareness without surprising history changes or compromi
 
 ## Acceptance criteria
 
-- [ ] Auto-fetch improves awareness without modifying worktree/history.
+- [x] Auto-fetch improves awareness without modifying worktree/history.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded (`14ed506`, with follow-ups `742b4bd` and `5cb970e`).
+- [x] Exact tested revision recorded (`9b1cb342fffba50675ce83dfc957ac0cabae1ea9`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence (2026-09-21)
 
@@ -69,3 +69,8 @@ Provide optional remote awareness without surprising history changes or compromi
 - Auto-fetch classification now consumes typed `provider.HTTPError` values before falling back to transport text. GitHub quota responses (including 403 with zero remaining quota) are reported as `rate-limited`, while permission-denied 403 responses remain `authentication`.
 - Added focused regression coverage for the typed quota/permission distinction. `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-modcache go test ./internal/remoteintel ./internal/provider` and the full `go test ./...` gate pass.
 - Remaining: native/manual acceptance evidence and hosted cross-platform verification.
+
+- Current-main revalidation: full `make check` passed at implementation commit
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
+  Hosted run `36096357394` passed Ubuntu 24.04, macOS 15, and Windows 2025 for
+  the current multi-repository changes. Native/manual acceptance remains open.

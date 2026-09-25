@@ -76,3 +76,6 @@ Expose Git, network, provider, plugin and custom-command work as a searchable ht
 - Focused test passed: `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache go test ./internal/app -run 'TestOperationJournalVirtualizesHighVolumeInterleavedRepositories' -count=1`.
 - Full gate passed on Go `go1.27.0 darwin/arm64` (macOS, Apple M1 Pro): `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` (pinned lint, full unit/race suites, vet, formatting, security fuzz, performance, diff checks).
 - Hosted run `36096357394` for revision `be0aca1` passed Ubuntu 24.04, macOS 15, and Windows 2025, along with quality/policy and full-history secret scanning. This closes the current hosted cross-platform check for the timeline changes; native/manual terminal acceptance remains open.
+- Current-main revalidation: full `make check` passed at implementation commit
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
+  Native/manual terminal acceptance remains open.

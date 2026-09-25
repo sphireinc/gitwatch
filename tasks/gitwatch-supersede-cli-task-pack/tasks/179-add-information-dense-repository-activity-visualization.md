@@ -37,7 +37,7 @@ Add useful htop-style visuals—change heat, diff magnitude and activity sparkli
 
 ## Acceptance criteria
 
-- [ ] Visuals communicate measurable state with negligible refresh overhead.
+- [x] Visuals communicate measurable state with negligible refresh overhead.
 
 ## Progress evidence (2026-09-22)
 
@@ -64,12 +64,16 @@ Add useful htop-style visuals—change heat, diff magnitude and activity sparkli
   reduced motion and the repository's bounded PTY harness; visualization-
   specific NO_COLOR and Linux/Windows acceptance remain open.
 
+- Current-main revalidation: full `make check` passed at implementation commit
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
+  Native 80x24, NO_COLOR, Linux, and Windows operator evidence remains open.
+
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded (`14ed506`, with visualization follow-ups `c25d6de` and `d9f2fe2`).
+- [x] Exact tested revision recorded (`9b1cb342fffba50675ce83dfc957ac0cabae1ea9`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
