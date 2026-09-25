@@ -17,6 +17,9 @@ func Classify(ctx context.Context, err error) State {
 	if errors.Is(err, ErrNoToken) {
 		return StateNotConfigured
 	}
+	if errors.Is(err, ErrNoGitHubRemote) {
+		return StateNotConfigured
+	}
 	var httpErr *HTTPError
 	if errors.As(err, &httpErr) {
 		switch httpErr.Status {

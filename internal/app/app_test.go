@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -912,6 +914,12 @@ func gitMustRunAppTest(t *testing.T, ctx context.Context, runner git.Runner, arg
 	if _, err := runner.Run(ctx, args...); err != nil {
 		t.Fatalf("git %v: %v", args, err)
 	}
+}
+
+type appRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f appRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }
 
 func sameTestPath(left, right string) bool {
@@ -3278,6 +3286,102 @@ func TestGitHubWorkspaceLoadsAsynchronouslyWhenEnabled(t *testing.T) {
 	m = updated.(Model)
 	if !m.GitHub.Ready || m.State != StateReady || !strings.Contains(m.GitHub.View(), "PR #1") {
 		t.Fatalf("GitHub result = ready=%v state=%v view=%s", m.GitHub.Ready, m.State, m.GitHub.View())
+	}
+}
+
+func TestGitHubUnavailableErrorRemainsInsideOptionalWorkspace(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.State, m.Status = StateReady, "working tree ready"
+	updated, _ := m.Update(GitHubReadyMsg{Err: provider.ErrNoGitHubRemote})
+	m = updated.(Model)
+	if m.State != StateReady || m.Status != "GitHub provider unavailable; local Git remains available" {
+		t.Fatalf("optional provider error changed core state: state=%v status=%q", m.State, m.Status)
+	}
+	view := m.GitHub.View()
+	if !strings.Contains(view, "no GitHub remote detected") || !strings.Contains(view, "Add a GitHub remote") {
+		t.Fatalf("optional provider error missing from GitHub workspace: %s", view)
+	}
+}
+
+func TestLateGitHubPRCreationCannotMutateCurrentRepositoryView(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/current"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.repositoryGeneration = 3
+	m.State, m.Status = StateReady, "current repository ready"
+	m.GitHub.SetData(provider.Repository{Host: "github.com", Owner: "current", Name: "repo"}, "main", provider.PullRequest{Number: 1, Title: "Current"}, provider.ChecksSnapshot{})
+	updated, command := m.Update(GitHubPullRequestCreatedMsg{
+		Generation: 2,
+		Repository: provider.Repository{Host: "github.com", Owner: "previous", Name: "repo"},
+		Branch:     "feature",
+		Pull:       provider.PullRequest{Number: 99, Title: "Stale"},
+	})
+	m = updated.(Model)
+	if command != nil || m.State != StateReady || m.Status != "current repository ready" || m.GitHub.Pull.Number != 1 {
+		t.Fatalf("late PR creation crossed repository generation: cmd=%v state=%v status=%q pull=%#v", command != nil, m.State, m.Status, m.GitHub.Pull)
+	}
+}
+
+func TestGitHubProviderFailureDoesNotHideIndependentResourcesOrBreakGitState(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "provider isolation")
+	runner := git.NewRunner(root)
+	gitMustRunAppTest(t, ctx, runner, "remote", "add", "origin", "https://github.com/octo/repo.git")
+
+	var branchPulls, pullLists, checkRuns, issueLists, releaseLists atomic.Int32
+	transport := appRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		respond := func(status int, body string) (*http.Response, error) {
+			return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header), Request: r}, nil
+		}
+		switch {
+		case r.URL.Path == "/repos/octo/repo/pulls" && r.URL.Query().Get("head") != "":
+			branchPulls.Add(1)
+			return respond(http.StatusOK, `[]`)
+		case strings.HasSuffix(r.URL.Path, "/check-runs"):
+			checkRuns.Add(1)
+			return respond(http.StatusServiceUnavailable, `{}`)
+		case r.URL.Path == "/repos/octo/repo/pulls":
+			pullLists.Add(1)
+			return respond(http.StatusOK, `[{"number":8,"title":"Open PR","state":"open","head":{"ref":"feature"},"base":{"ref":"main"}}]`)
+		case r.URL.Path == "/repos/octo/repo/issues":
+			issueLists.Add(1)
+			return respond(http.StatusOK, `[{"number":9,"title":"Open issue","state":"open"}]`)
+		case r.URL.Path == "/repos/octo/repo/releases":
+			releaseLists.Add(1)
+			return respond(http.StatusOK, `[{"id":1,"tag_name":"v1.0.0","name":"First"}]`)
+		default:
+			return respond(http.StatusNotFound, `{}`)
+		}
+	})
+
+	m := NewRepositoryWithConfig(git.Discovery{Root: root}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	defer func() { _ = m.Close() }()
+	m.Snapshot.Branch.Name = "feature"
+	client := provider.GitHubClient{BaseURL: "https://api.test", HTTPClient: &http.Client{Transport: transport}}
+
+	msg, ok := m.loadGitHubWithClient(&client)().(GitHubReadyMsg)
+	if !ok {
+		t.Fatal("GitHub loader returned the wrong message")
+	}
+	if msg.Err != nil || msg.Pull.Number != 0 || len(msg.Pulls) != 1 || len(msg.Issues) != 1 || len(msg.Releases) != 1 {
+		t.Fatalf("partial provider snapshot = %#v", msg)
+	}
+	if branchPulls.Load() != 1 || pullLists.Load() != 1 || checkRuns.Load() != 1 || issueLists.Load() != 1 || releaseLists.Load() != 1 {
+		t.Fatalf("independent provider requests: branch=%d pulls=%d checks=%d issues=%d releases=%d", branchPulls.Load(), pullLists.Load(), checkRuns.Load(), issueLists.Load(), releaseLists.Load())
+	}
+	if len(msg.Warnings) != 1 || msg.Warnings[0].Resource != "checks" {
+		t.Fatalf("provider resource warnings = %#v", msg.Warnings)
+	}
+
+	updated, _ := m.Update(msg)
+	m = updated.(Model)
+	view := m.GitHub.View()
+	for _, want := range []string{"No open pull request for the current branch", "PR #8: Open PR", "Issue #9: Open issue", "v1.0.0", "checks: GitHub HTTP 503"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("GitHub view missing %q: %s", want, view)
+		}
+	}
+	if m.State != StateReady {
+		t.Fatalf("optional provider failure changed core app state: %v", m.State)
 	}
 }
 

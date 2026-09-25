@@ -23,6 +23,21 @@ func TestParsePullRequestAndCache(t *testing.T) {
 	}
 }
 
+func TestPullRequestCacheInvalidatesBranchSnapshot(t *testing.T) {
+	client := &fakePRClient{value: PullRequest{Number: 1, Title: "before"}}
+	cache := NewPullRequestCache(time.Hour)
+	repository := Repository{Host: "github.com", Owner: "o", Name: "r"}
+	if _, err := cache.Get(context.Background(), client, repository, "feature"); err != nil {
+		t.Fatal(err)
+	}
+	client.value = PullRequest{Number: 2, Title: "after"}
+	cache.Invalidate(repository, "feature")
+	value, err := cache.Get(context.Background(), client, repository, "feature")
+	if err != nil || value.Number != 2 || client.calls != 2 {
+		t.Fatalf("post-invalidation pull = %#v calls=%d err=%v", value, client.calls, err)
+	}
+}
+
 func TestPullRequestCacheBoundsBranchAndRepositoryChurn(t *testing.T) {
 	value := PullRequest{Number: 1, Title: "cached"}
 	client := &fakePRClient{value: value}

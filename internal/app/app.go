@@ -510,6 +510,7 @@ type GitHubReadyMsg struct {
 	Checks        provider.ChecksSnapshot
 	Review        provider.ReviewSnapshot
 	ProviderStale bool
+	Warnings      []githubview.ResourceWarning
 	Err           error
 }
 
@@ -518,8 +519,11 @@ type providerCIAttention struct {
 	Stale            bool
 }
 type GitHubPullRequestCreatedMsg struct {
-	Pull provider.PullRequest
-	Err  error
+	Generation uint64
+	Repository provider.Repository
+	Branch     string
+	Pull       provider.PullRequest
+	Err        error
 }
 type GitHubMergeFinishedMsg struct {
 	Result provider.MergeResult
@@ -4352,6 +4356,10 @@ func (m Model) previewRemotePrune(remote string) tea.Cmd {
 }
 
 func (m Model) loadGitHub() tea.Cmd {
+	return m.loadGitHubWithClient(nil)
+}
+
+func (m Model) loadGitHubWithClient(clientOverride *provider.GitHubClient) tea.Cmd {
 	generation := m.repositoryGeneration
 	runner := git.NewRunner(m.Discovery.Root)
 	branch := m.Snapshot.Branch.Name
@@ -4372,79 +4380,107 @@ func (m Model) loadGitHub() tea.Cmd {
 			}
 		}
 		if repository.Owner == "" {
-			return GitHubReadyMsg{Generation: generation, Branch: branch, Err: fmt.Errorf("no GitHub remote detected")}
+			return GitHubReadyMsg{Generation: generation, Branch: branch, Err: provider.ErrNoGitHubRemote}
 		}
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
+		if clientOverride != nil {
+			client = *clientOverride
+		}
 		cache := m.GitHubCache
 		if cache == nil {
 			cache = provider.NewPullRequestCache(2 * time.Minute)
 		}
-		pull, err := cache.Get(m.commandContext(), client, repository, branch)
-		if err != nil {
-			return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Err: err}
+		warnings := make([]githubview.ResourceWarning, 0, 7)
+		addWarning := func(resource string, err error, stale bool) {
+			if err == nil {
+				return
+			}
+			message := err.Error()
+			if stale {
+				message = "refresh failed; showing cached data (" + message + ")"
+			}
+			warnings = append(warnings, githubview.ResourceWarning{Resource: resource, Message: message})
 		}
+		pull, pullErr := cache.Get(m.commandContext(), client, repository, branch)
+		addWarning("current-branch PR", pullErr, false)
 		checksCache := m.GitHubChecksCache
 		if checksCache == nil {
 			checksCache = provider.NewCache[provider.ChecksSnapshot](2 * time.Minute)
 		}
-		checks, err := checksCache.Get(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"@"+branch, func(ctx context.Context) (provider.ChecksSnapshot, error) {
+		checks, checksStale, checksErr := checksCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"@"+branch, func(ctx context.Context) (provider.ChecksSnapshot, error) {
 			return client.Checks(ctx, repository, branch)
 		})
-		if err != nil {
-			return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Err: err}
-		}
+		providerStale := checksStale
+		addWarning("checks", checksErr, checksStale)
 		pullsCache := m.GitHubPullsCache
 		if pullsCache == nil {
 			pullsCache = provider.NewCache[[]provider.PullRequest](2 * time.Minute)
 		}
-		providerStale := false
-		pulls, pullsStale, _ := pullsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/open", func(ctx context.Context) ([]provider.PullRequest, error) {
+		pulls, pullsStale, pullsErr := pullsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/open", func(ctx context.Context) ([]provider.PullRequest, error) {
 			return client.ListPullRequests(ctx, repository, 1, 25)
 		})
 		providerStale = providerStale || pullsStale
+		addWarning("open PR list", pullsErr, pullsStale)
 		var detail *provider.PullRequestDetail
-		detailsCache := m.GitHubDetailsCache
-		if detailsCache == nil {
-			detailsCache = provider.NewCache[provider.PullRequestDetail](2 * time.Minute)
+		var comments []provider.ReviewComment
+		var review provider.ReviewSnapshot
+		if pull.Number > 0 {
+			detailsCache := m.GitHubDetailsCache
+			if detailsCache == nil {
+				detailsCache = provider.NewCache[provider.PullRequestDetail](2 * time.Minute)
+			}
+			loaded, detailStale, detailErr := detailsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.PullRequestDetail, error) {
+				return client.PullRequestDetail(ctx, repository, pull.Number)
+			})
+			if detailErr == nil || loaded.Number == pull.Number {
+				detail = &loaded
+			}
+			providerStale = providerStale || detailStale
+			addWarning("PR detail", detailErr, detailStale)
+			commentsCache := m.GitHubCommentsCache
+			if commentsCache == nil {
+				commentsCache = provider.NewCache[[]provider.ReviewComment](2 * time.Minute)
+			}
+			var commentsStale bool
+			var commentsErr error
+			comments, commentsStale, commentsErr = commentsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number)+"/comments", func(ctx context.Context) ([]provider.ReviewComment, error) {
+				return client.ListReviewComments(ctx, repository, pull.Number)
+			})
+			providerStale = providerStale || commentsStale
+			addWarning("review comments", commentsErr, commentsStale)
 		}
-		if loaded, stale, detailErr := detailsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.PullRequestDetail, error) {
-			return client.PullRequestDetail(ctx, repository, pull.Number)
-		}); detailErr == nil || loaded.Number == pull.Number {
-			detail = &loaded
-			providerStale = providerStale || stale
-		}
-		commentsCache := m.GitHubCommentsCache
-		if commentsCache == nil {
-			commentsCache = provider.NewCache[[]provider.ReviewComment](2 * time.Minute)
-		}
-		comments, commentsStale, _ := commentsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number)+"/comments", func(ctx context.Context) ([]provider.ReviewComment, error) {
-			return client.ListReviewComments(ctx, repository, pull.Number)
-		})
-		providerStale = providerStale || commentsStale
 		issuesCache := m.GitHubIssuesCache
 		if issuesCache == nil {
 			issuesCache = provider.NewCache[[]provider.Issue](2 * time.Minute)
 		}
-		issues, issuesStale, _ := issuesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/issues/open", func(ctx context.Context) ([]provider.Issue, error) {
+		issues, issuesStale, issuesErr := issuesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/issues/open", func(ctx context.Context) ([]provider.Issue, error) {
 			return client.ListIssues(ctx, repository, "open", 1, provider.MaxIssues)
 		})
 		providerStale = providerStale || issuesStale
+		addWarning("open issues", issuesErr, issuesStale)
 		releasesCache := m.GitHubReleasesCache
 		if releasesCache == nil {
 			releasesCache = provider.NewCache[[]provider.Release](2 * time.Minute)
 		}
-		releases, releasesStale, _ := releasesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/releases", func(ctx context.Context) ([]provider.Release, error) {
+		releases, releasesStale, releasesErr := releasesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/releases", func(ctx context.Context) ([]provider.Release, error) {
 			return client.ListReleases(ctx, repository, 1, provider.MaxReleases)
 		})
 		providerStale = providerStale || releasesStale
-		reviewsCache := m.GitHubReviewsCache
-		if reviewsCache == nil {
-			reviewsCache = provider.NewCache[provider.ReviewSnapshot](2 * time.Minute)
+		addWarning("releases", releasesErr, releasesStale)
+		if pull.Number > 0 {
+			reviewsCache := m.GitHubReviewsCache
+			if reviewsCache == nil {
+				reviewsCache = provider.NewCache[provider.ReviewSnapshot](2 * time.Minute)
+			}
+			var reviewStale bool
+			var reviewErr error
+			review, reviewStale, reviewErr = reviewsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"#"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.ReviewSnapshot, error) {
+				return client.Reviews(ctx, repository, pull.Number)
+			})
+			providerStale = providerStale || reviewStale
+			addWarning("reviews", reviewErr, reviewStale)
 		}
-		review, err := reviewsCache.Get(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"#"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.ReviewSnapshot, error) {
-			return client.Reviews(ctx, repository, pull.Number)
-		})
-		return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Pulls: pulls, Issues: issues, Releases: releases, Detail: detail, Comments: comments, Checks: checks, Review: review, ProviderStale: providerStale, Err: err}
+		return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Pulls: pulls, Issues: issues, Releases: releases, Detail: detail, Comments: comments, Checks: checks, Review: review, ProviderStale: providerStale, Warnings: warnings}
 	}
 }
 
@@ -4619,7 +4655,7 @@ func (m Model) githubCreatePrompt() string {
 
 func (m Model) createGitHubPullRequest() tea.Cmd {
 	request := provider.PullRequestCreateRequest{Title: strings.TrimSpace(m.GitHubCreateTitle), Body: m.GitHubCreateBody, Head: m.Snapshot.Branch.Name, Base: strings.TrimSpace(m.GitHubCreateBase)}
-	repository, tokenEnv := m.GitHub.Repository, m.GitHubTokenEnv
+	repository, branch, generation, tokenEnv := m.GitHub.Repository, m.Snapshot.Branch.Name, m.repositoryGeneration, m.GitHubTokenEnv
 	if tokenEnv == "" {
 		tokenEnv = "GITHUB_TOKEN"
 	}
@@ -4627,7 +4663,7 @@ func (m Model) createGitHubPullRequest() tea.Cmd {
 	return func() tea.Msg {
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
 		pull, err := client.CreatePullRequest(ctx, repository, request)
-		return GitHubPullRequestCreatedMsg{Pull: pull, Err: err}
+		return GitHubPullRequestCreatedMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Err: err}
 	}
 }
 
@@ -9578,7 +9614,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.Repositories.AllRows) > 0 {
 				m.Repositories.SetRows(m.applyProviderCIAttention(m.Repositories.AllRows))
 			}
-			m.State, m.Status = StateError, v.Err.Error()
+			m.State, m.Status = StateReady, "GitHub provider unavailable; local Git remains available"
 		} else {
 			v.Pull.Checks = provider.Checks{Total: v.Checks.Passing + v.Checks.Failing + v.Checks.Pending, Passing: v.Checks.Passing, Failing: v.Checks.Failing, Pending: v.Checks.Pending}
 			v.Pull.ReviewState = v.Review.State()
@@ -9587,11 +9623,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.GitHub.SetIssues(v.Issues)
 			m.GitHub.SetReleases(v.Releases)
 			m.GitHub.SetProviderFreshness(v.ProviderStale)
+			m.GitHub.SetWarnings(v.Warnings)
 			if m.ProviderCI == nil {
 				m.ProviderCI = make(map[string]providerCIAttention)
 			}
 			ciState, attention := "passing", ""
-			if v.Checks.Failing > 0 {
+			checksUnavailable := false
+			for _, warning := range v.Warnings {
+				if warning.Resource == "checks" {
+					checksUnavailable = true
+					break
+				}
+			}
+			if checksUnavailable {
+				ciState, attention = string(provider.StateUnavailable), "provider"
+				if v.ProviderStale {
+					ciState = string(provider.StateStaleCache)
+				}
+			} else if v.Checks.Failing > 0 {
 				ciState, attention = "failing", "checks"
 			} else if v.Checks.Pending > 0 {
 				ciState = "pending"
@@ -9614,11 +9663,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.reindexPalette()
 		}
 	case GitHubPullRequestCreatedMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		if v.Repository.Owner != "" && (v.Repository != m.GitHub.Repository || v.Branch != m.GitHub.Branch) {
+			return m, nil
+		}
 		m.GitHubCreateConfirm = false
 		if v.Err != nil {
 			m.State, m.Status = StateError, "GitHub PR creation: "+platform.SafeText(v.Err.Error())
 		} else {
 			m.State, m.Status = StateReady, fmt.Sprintf("GitHub PR #%d created", v.Pull.Number)
+			if m.GitHubCache != nil {
+				repository, branch := v.Repository, v.Branch
+				if repository.Owner == "" {
+					repository, branch = m.GitHub.Repository, m.GitHub.Branch
+				}
+				m.GitHubCache.Invalidate(repository, branch)
+			}
 			return m, m.loadGitHub()
 		}
 	case GitHubMergeFinishedMsg:

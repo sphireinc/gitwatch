@@ -40,7 +40,7 @@ provenance and local playback instructions.
 - Repository-scoped bisect workspace for starting and resuming a manual bisect, marking candidates good/bad/skipped, inspecting their patches, and confirming reset. The workspace shows the latest boundaries, candidate subject, log, and Git's approximate remaining count when available.
 - Bounded path history and blame inspection, plus guarded historical patch editing through a controlled rebase.
 - Typed-argv editor, opener, and difftool handoffs, with shell-free custom commands and context-aware bindings.
-- Optional read-only GitHub pull-request/check visibility, multi-repository dashboards, and capability-bounded out-of-process plugins.
+- Optional, failure-isolated GitHub pull-request workspace with checks, multi-repository dashboards, and capability-bounded out-of-process plugins.
 - Keyboard and mouse parity, `NO_COLOR`, semantic themes, high-contrast-safe text, and reduced/off motion.
 - No telemetry.
 

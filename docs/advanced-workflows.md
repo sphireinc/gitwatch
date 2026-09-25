@@ -96,9 +96,12 @@ typed argv operations and branch occupancy is explicit.
 Remote URLs are redacted before display or diagnostics. Pull strategy must be
 explicit (`merge`, `rebase`, or `ff-only`), and force pushing is represented
 only by the opt-in `--force-with-lease` operation. GitHub support is optional:
-remote detection, environment/GitHub CLI token sources, cached PR metadata, and
-check-run parsing degrade to an unavailable provider state without blocking
-core Git workflows.
+remote detection, environment/GitHub CLI token sources, bounded cached PR and
+repository data, and check-run parsing run separately from local Git refresh.
+A branch with no open pull request is a normal state. Independent provider
+failures appear as sanitized resource warnings, and unavailable/authentication/
+rate-limit states never mark the local repository unavailable. Creating a pull
+request is an explicit provider action and never pushes the local branch.
 
 ## Plugins and multi-repository work
 

@@ -10,6 +10,11 @@ import (
 	"github.com/sphireinc/git-watch/internal/provider"
 )
 
+type ResourceWarning struct {
+	Resource string
+	Message  string
+}
+
 type Model struct {
 	Repository      provider.Repository
 	Branch          string
@@ -30,13 +35,20 @@ type Model struct {
 	State           provider.State
 	RetryAfter      string
 	ProviderStale   bool
+	Warnings        []ResourceWarning
 }
 
 func New() Model { return Model{} }
 
 func (m *Model) SetData(repository provider.Repository, branch string, pull provider.PullRequest, checks provider.ChecksSnapshot) {
+	if m.Repository != repository || m.Branch != branch || m.Pull.Number != pull.Number {
+		m.Detail = nil
+		m.Comments = nil
+		m.SelectedComment = 0
+	}
 	m.Repository, m.Branch, m.Pull, m.Checks, m.Ready, m.Error = repository, branch, pull, checks, true, ""
 	m.State, m.RetryAfter = provider.StateAvailable, ""
+	m.Warnings = nil
 }
 
 func (m *Model) SetPullRequests(pulls []provider.PullRequest) {
@@ -61,6 +73,14 @@ func (m *Model) SetReleases(releases []provider.Release) {
 // workspace came from stale cache after a refresh failure. Local Git state is
 // intentionally independent of this optional provider signal.
 func (m *Model) SetProviderFreshness(stale bool) { m.ProviderStale = stale }
+
+func (m *Model) SetWarnings(warnings []ResourceWarning) {
+	const maxWarnings = 8
+	if len(warnings) > maxWarnings {
+		warnings = warnings[:maxWarnings]
+	}
+	m.Warnings = append(m.Warnings[:0], warnings...)
+}
 
 func (m *Model) SetDetail(detail provider.PullRequestDetail) {
 	m.Detail = &detail
@@ -118,7 +138,11 @@ func (m *Model) SetError(repository provider.Repository, branch string, err erro
 	}
 	switch m.State {
 	case provider.StateNotConfigured:
-		m.ErrorHint = "Configure a GitHub token or sign in with gh auth login."
+		if errors.Is(err, provider.ErrNoGitHubRemote) {
+			m.ErrorHint = "Add a GitHub remote to use this optional workspace."
+		} else {
+			m.ErrorHint = "Configure a GitHub token or sign in with gh auth login."
+		}
 	case provider.StateUnauthorized:
 		m.ErrorHint = "The token is missing permission for this repository or action; local Git remains authoritative."
 	case provider.StateRateLimited:
@@ -133,7 +157,14 @@ func (m *Model) SetError(repository provider.Repository, branch string, err erro
 func (m Model) View() string {
 	lines := []string{"GitHub"}
 	if m.Repository.Owner == "" || m.Repository.Name == "" {
-		return strings.Join(append(lines, "  No GitHub repository detected"), "\n")
+		if m.Error == "" {
+			return strings.Join(append(lines, "  No GitHub repository detected"), "\n")
+		}
+		lines = append(lines, "  No GitHub repository detected", "  provider state: "+platform.SafeText(string(m.State)), "  "+platform.SafeText(m.Error))
+		if m.ErrorHint != "" {
+			lines = append(lines, "  Hint: "+platform.SafeText(m.ErrorHint))
+		}
+		return strings.Join(lines, "\n")
 	}
 	lines = append(lines, fmt.Sprintf("Repository: %s/%s", platform.SafeText(m.Repository.Owner), platform.SafeText(m.Repository.Name)), "Branch: "+platform.SafeText(m.Branch))
 	if m.Error != "" {
@@ -155,6 +186,12 @@ func (m Model) View() string {
 		cacheState = "stale"
 	}
 	lines = append(lines, "  provider cache: "+cacheState)
+	if len(m.Warnings) > 0 {
+		lines = append(lines, "Provider warnings:")
+		for _, warning := range m.Warnings {
+			lines = append(lines, "  "+platform.SafeText(warning.Resource)+": "+platform.SafeText(warning.Message))
+		}
+	}
 	if len(m.Pulls) > 0 {
 		lines = append(lines, fmt.Sprintf("Open pull requests: %d", len(m.Pulls)))
 		for _, pull := range m.Pulls {
@@ -187,11 +224,16 @@ func (m Model) View() string {
 			lines = append(lines, fmt.Sprintf("%s%s: %s [%s]", prefix, kind, platform.SafeText(release.TagName), platform.SafeText(release.Name)))
 		}
 	}
-	lines = append(lines, fmt.Sprintf("PR #%d: %s [%s]", m.Pull.Number, platform.SafeText(m.Pull.Title), platform.SafeText(m.Pull.State)))
-	if m.Pull.Draft {
-		lines = append(lines, "  Draft")
+	if m.Pull.Number == 0 {
+		lines = append(lines, "No open pull request for the current branch")
+	} else {
+		lines = append(lines, fmt.Sprintf("PR #%d: %s [%s]", m.Pull.Number, platform.SafeText(m.Pull.Title), platform.SafeText(m.Pull.State)))
+		if m.Pull.Draft {
+			lines = append(lines, "  Draft")
+		}
+		lines = append(lines, fmt.Sprintf("  %s -> %s  mergeable=%s reviews=%d comments=%d", platform.SafeText(m.Pull.Head), platform.SafeText(m.Pull.Base), platform.SafeText(m.Pull.Mergeable), m.Pull.Reviews, m.Pull.Comments), "Review: "+platform.SafeText(m.Pull.ReviewState))
 	}
-	lines = append(lines, fmt.Sprintf("  %s -> %s  mergeable=%s reviews=%d comments=%d", platform.SafeText(m.Pull.Head), platform.SafeText(m.Pull.Base), platform.SafeText(m.Pull.Mergeable), m.Pull.Reviews, m.Pull.Comments), "Review: "+platform.SafeText(m.Pull.ReviewState), fmt.Sprintf("Checks: %d passing  %d failing  %d pending", m.Checks.Passing, m.Checks.Failing, m.Checks.Pending))
+	lines = append(lines, fmt.Sprintf("Checks: %d passing  %d failing  %d pending", m.Checks.Passing, m.Checks.Failing, m.Checks.Pending))
 	for i, run := range m.Checks.Runs {
 		selected := " "
 		if i == m.SelectedRun {
@@ -211,16 +253,16 @@ func (m Model) View() string {
 			lines = append(lines, "    "+platform.SafeText(run.URL))
 		}
 	}
-	if m.Pull.URL != "" {
+	if m.Pull.Number > 0 && m.Pull.URL != "" {
 		lines = append(lines, "URL: "+platform.SafeText(m.Pull.URL))
 	}
-	if m.Detail != nil {
+	if m.Pull.Number > 0 && m.Detail != nil {
 		lines = append(lines, fmt.Sprintf("Commits: %d  Files: %d", len(m.Detail.Commits), len(m.Detail.Files)))
 		for _, file := range m.Detail.Files {
 			lines = append(lines, fmt.Sprintf("  %s %s +%d -%d", platform.SafeText(file.Status), platform.SafeText(file.Path), file.Additions, file.Deletions))
 		}
 	}
-	if len(m.Comments) > 0 {
+	if m.Pull.Number > 0 && len(m.Comments) > 0 {
 		lines = append(lines, fmt.Sprintf("Review comments: %d", len(m.Comments)))
 		for index, comment := range m.Comments {
 			prefix := "  "
