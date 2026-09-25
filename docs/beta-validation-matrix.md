@@ -5,6 +5,11 @@ beta. Automated checks run in CI and `./scripts/release-check.sh`;
 operator-owned rows must include the exact commit/tag and command output or
 recording link before a public release is accepted.
 
+The latest hosted automation check for candidate `e4d8faf` (2026-09-25),
+[Actions run 36104615360](https://github.com/sphireinc/git-watch/actions/runs/36104615360),
+passed quality/policy, full-history secret scanning, and the three-platform
+test matrix. It does not change the pending native operator cells below.
+
 Use Go 1.25.10 and golangci-lint v2.12.0 for candidate-gate evidence. Each
 manual cell applies only to the exact candidate commit recorded with its
 evidence; an observation from another or unidentified build remains pending.

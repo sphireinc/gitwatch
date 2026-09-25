@@ -55,3 +55,11 @@ fixture and PTY metadata were retained temporarily under a private `/tmp`
 directory. These are automated tmux-PTY observations, not native operator
 evidence; all operator matrix cells remain pending and Task 34 stays in
 progress.
+
+## Hosted CI follow-up (2026-09-25)
+
+GitHub Actions run [36104615360](https://github.com/sphireinc/git-watch/actions/runs/36104615360)
+for exact branch HEAD `e4d8faf` completed successfully in 5m10s. The run
+included quality/policy, full-history secret scanning, and all three platform
+test-matrix jobs. This is hosted automated evidence only; it does not establish
+native operator acceptance or close any pending matrix row.
