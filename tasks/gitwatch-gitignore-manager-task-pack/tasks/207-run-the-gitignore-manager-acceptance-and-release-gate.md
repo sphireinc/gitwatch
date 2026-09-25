@@ -57,3 +57,19 @@ This task is not done when the UI merely looks correct. It is done only when the
 - `./scripts/secret-scan.sh --history` passed with no leaks found across 369 commits.
 - `make check` passed on macOS arm64 with Go 1.27.0 after fixing all 21 golangci-lint findings and making disposable-commit tests independent of host-wide Git signing configuration. This includes formatting, lint (0 issues), full tests, race tests, vet, security, and performance gates.
 - Native operator acceptance and CI evidence for Linux, macOS, and Windows remain required by `docs/release-checklist.md`, including terminal/UI, filesystem notification, resize, installation, and shutdown checks. This task is intentionally not moved to `tasks/completed` until those platform-scoped requirements have authoritative evidence.
+
+## Current-main automated revalidation (2026-09-25)
+
+On Go 1.27.0 / Darwin arm64, the focused packages passed:
+`go test ./internal/gitignore/... ./internal/ui/gitignoreview ./internal/multirepo`.
+Hosted Actions run [36178722786](https://github.com/sphireinc/gitwatch/actions/runs/36178722786)
+passed pinned lint, the full-history secret scan, full tests/race/vet, and
+Ubuntu, macOS, and Windows jobs for commit `a121687`; the subsequent changes
+through current `main` `a443231` are docs/release-workflow only, with no Go
+source changes. These automated results do not replace Task 207's specific
+operator flows (fresh-repo composition, handwritten-byte preservation,
+overlap removal, multi-repo batch behavior, stale-preview protection, and
+offline operation). The owner-provided beta matrix sign-off is recorded
+separately and is not represented as a retained scenario-by-scenario Task 207
+run log. Task 207 remains open pending explicit linkage/carry of operator
+acceptance for those feature-specific scenarios.
