@@ -77,6 +77,9 @@ func (m Model) View() string {
 			lines = append(lines, fmt.Sprintf("    contributions: %d", len(entry.Contributions)))
 			for _, contribution := range entry.Contributions {
 				lines = append(lines, "      "+platform.SafeText(contribution.Kind)+": "+platform.SafeText(contribution.Title))
+				if contribution.Action != nil {
+					lines = append(lines, "        action: "+platform.SafeText(contribution.Action.Title)+" · "+platform.SafeText(contribution.Action.Provider))
+				}
 			}
 		}
 		if entry.Error != "" {

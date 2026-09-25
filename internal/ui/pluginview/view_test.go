@@ -31,9 +31,12 @@ func TestViewShowsExtensionSurfaceCountsAndPermissionRevocation(t *testing.T) {
 
 func TestViewShowsSchemaDefinedContributions(t *testing.T) {
 	entry := plugins.Entry{Manifest: plugins.Manifest{ID: "one", Name: "One", Version: "2"}, Enabled: true, Healthy: true}
-	entry.Contributions = []plugin.Contribution{{SchemaVersion: plugin.APIVersion2, Kind: "table", Title: "Repository health", ReadOnly: true}}
+	entry.Contributions = []plugin.Contribution{{
+		SchemaVersion: plugin.APIVersion2, Kind: "repository_metadata", Title: "Repository health", ReadOnly: true,
+		Action: &plugin.ActionSpec{ID: "github", Title: "Open GitHub metadata", Provider: plugin.ActionProviderGitHubRepository, ReadOnly: true},
+	}}
 	view := New([]plugins.Entry{entry}).View()
-	for _, want := range []string{"contributions: 1", "table: Repository health"} {
+	for _, want := range []string{"contributions: 1", "repository_metadata: Repository health", "action: Open GitHub metadata · github.repository"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("missing %q: %s", want, view)
 		}

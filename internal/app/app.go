@@ -1078,6 +1078,33 @@ func (m Model) paletteActions() []commands.Action {
 		}
 		actions = append(actions, commands.Action{ID: fmt.Sprintf("palette_plugin_%d", index), Label: platform.SafeText("Open plugin: " + name), Category: "plugin", Enabled: true})
 	}
+	pluginActionCount := 0
+	if m.PluginsEnabled {
+		for pluginIndex, entry := range m.Plugins.Entries {
+			if pluginIndex >= paletteIndexLimit || pluginActionCount >= paletteIndexLimit {
+				break
+			}
+			name := entry.Manifest.Name
+			if name == "" {
+				name = entry.Manifest.ID
+			}
+			for contributionIndex, contribution := range entry.Contributions {
+				if !plugins.CanRunMetadataAction(entry, contribution) {
+					continue
+				}
+				actions = append(actions, commands.Action{
+					ID:       fmt.Sprintf("plugin_metadata_%d_%d", pluginIndex, contributionIndex),
+					Label:    platform.SafeText("Plugin action: " + name + " · " + contribution.Action.Title),
+					Category: "provider",
+					Enabled:  m.GitHubEnabled && m.Discovery.Root != "",
+				})
+				pluginActionCount++
+				if pluginActionCount >= paletteIndexLimit {
+					break
+				}
+			}
+		}
+	}
 	for index, row := range m.Repositories.Rows {
 		label := "Open repository: " + row.Repository.Name
 		if row.Repository.Path != "" {
@@ -1394,6 +1421,27 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 	}
 	if strings.HasPrefix(id, "customcmd:") {
 		return m.runCustomCommand(strings.TrimPrefix(id, "customcmd:"))
+	}
+	if strings.HasPrefix(id, "plugin_metadata_") {
+		parts := strings.Split(strings.TrimPrefix(id, "plugin_metadata_"), "_")
+		if len(parts) != 2 {
+			return nil
+		}
+		pluginIndex, pluginErr := strconv.Atoi(parts[0])
+		contributionIndex, contributionErr := strconv.Atoi(parts[1])
+		if pluginErr != nil || contributionErr != nil || pluginIndex < 0 || contributionIndex < 0 || pluginIndex >= len(m.Plugins.Entries) {
+			return nil
+		}
+		entry := m.Plugins.Entries[pluginIndex]
+		if contributionIndex >= len(entry.Contributions) || !plugins.CanRunMetadataAction(entry, entry.Contributions[contributionIndex]) {
+			return nil
+		}
+		if !m.PluginsEnabled || !m.GitHubEnabled || m.Discovery.Root == "" {
+			m.Status = "plugin metadata action is unavailable; enable the GitHub provider"
+			return nil
+		}
+		m.Status = "opening host GitHub repository metadata"
+		return m.navigate(workspace.GitHub, "GitHub")
 	}
 	for prefix, route := range map[string]workspace.View{"palette_branch_": workspace.Branches, "palette_commit_": workspace.Log, "palette_file_": workspace.Status} {
 		if !strings.HasPrefix(id, prefix) {

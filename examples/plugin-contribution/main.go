@@ -23,7 +23,7 @@ func run() error {
 			continue
 		}
 		if message.Type == plugin.MessageHandshake {
-			response, err := plugin.Encode(plugin.Message{Type: plugin.MessageHandshake, Payload: []byte(`{"api_version":2,"accepted":true,"capabilities":["table"]}`)})
+			response, err := plugin.Encode(plugin.Message{Type: plugin.MessageHandshake, Payload: []byte(`{"api_version":2,"accepted":true,"capabilities":["table","context_action","repository_metadata"]}`)})
 			if err != nil {
 				continue
 			}
@@ -48,6 +48,27 @@ func run() error {
 			continue
 		}
 		if _, err := os.Stdout.Write(response); err != nil {
+			return err
+		}
+		metadata, err := plugin.NewContribution("example.github", plugin.Contribution{
+			SchemaVersion: plugin.APIVersion2,
+			Kind:          "repository_metadata",
+			Title:         "GitHub repository",
+			Description:   "Open repository metadata provided by the host.",
+			Action: &plugin.ActionSpec{
+				ID: "github-repository", Title: "Open GitHub repository metadata",
+				Context: "repository", Provider: plugin.ActionProviderGitHubRepository, ReadOnly: true,
+			},
+			ReadOnly: true,
+		})
+		if err != nil {
+			continue
+		}
+		metadataResponse, err := plugin.Encode(metadata)
+		if err != nil {
+			continue
+		}
+		if _, err := os.Stdout.Write(metadataResponse); err != nil {
 			return err
 		}
 	}

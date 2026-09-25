@@ -45,3 +45,10 @@ For additive API-2 clients, use `NewHandshakeVersions` and
 contributions. The SDK bounds contribution collections and rejects terminal
 control characters before encoding; unknown capabilities are deliberately
 degraded during versioned negotiation.
+
+Read-only repository metadata actions use `Contribution.Action`. Provider
+identifiers are host-owned routing keys rather than URLs or executable names;
+the current `github.repository` provider opens the host GitHub workspace for
+the active repository. Such actions require both `context_action` and
+`repository_metadata` to be negotiated. See `examples/plugin-contribution`
+for a buildable API-2 example.

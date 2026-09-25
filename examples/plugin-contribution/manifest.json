@@ -4,5 +4,5 @@
   "version": "2.0.0",
   "api_version": 2,
   "executable": "gitwatch-plugin-contribution",
-  "capabilities": ["table", "repository_metadata"]
+  "capabilities": ["table", "context_action", "repository_metadata"]
 }

@@ -2905,6 +2905,55 @@ func TestPluginNotificationContributionUsesSessionNotificationModel(t *testing.T
 	}
 }
 
+func TestPluginMetadataActionUsesHostProviderFromCommandPalette(t *testing.T) {
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.PluginsEnabled, m.GitHubEnabled = true, true
+	m.Discovery = git.Discovery{Root: t.TempDir()}
+	contribution := publicplugin.Contribution{
+		SchemaVersion: publicplugin.APIVersion2,
+		Kind:          "repository_metadata",
+		Title:         "Repository metadata",
+		Action: &publicplugin.ActionSpec{
+			ID: "github-repository", Title: "Open GitHub repository metadata",
+			Context: "repository", Provider: publicplugin.ActionProviderGitHubRepository, ReadOnly: true,
+		},
+		ReadOnly: true,
+	}
+	entry := plugins.Entry{
+		Manifest: plugins.Manifest{ID: "metadata", Name: "Metadata", APIVersion: publicplugin.APIVersion2},
+		Enabled:  true, Healthy: true,
+		GrantedCapabilities: []plugins.Capability{plugins.CapabilityContextAction, plugins.CapabilityRepositoryMeta},
+		Contributions:       []publicplugin.Contribution{contribution},
+	}
+	m.Plugins.SetEntries([]plugins.Entry{entry})
+	actionID := "plugin_metadata_0_0"
+	var found bool
+	for _, action := range m.paletteActions() {
+		if action.ID == actionID {
+			found = action.Enabled && strings.Contains(action.Label, "Open GitHub repository metadata")
+			break
+		}
+	}
+	if !found {
+		t.Fatal("negotiated plugin provider action was not available in the command palette")
+	}
+	if command := m.executePaletteAction(actionID); command == nil || m.currentView() != workspace.GitHub {
+		t.Fatalf("provider action route = command:%v view:%q", command != nil, m.currentView())
+	}
+
+	m.GitHubEnabled = false
+	for _, action := range m.paletteActions() {
+		if action.ID == actionID && action.Enabled {
+			t.Fatal("plugin provider action bypassed the disabled host provider")
+		}
+	}
+	m.Workspace = workspace.New()
+	if command := m.executePaletteAction(actionID); command != nil || m.currentView() != workspace.Status {
+		t.Fatalf("disabled provider action route = command:%v view:%q", command != nil, m.currentView())
+	}
+}
+
 func TestPaletteReindexesWhenLoadedRepositoryStateChanges(t *testing.T) {
 	m := New()
 	m.Repositories = repoview.New([]registry.Row{{Repository: registry.Repository{Name: "gone", Path: "/gone"}}})
