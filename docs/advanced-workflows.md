@@ -64,6 +64,30 @@ discarded completed source IDs, it shows the resulting revert commit IDs
 without guessing which source commits they replaced. Continue, Skip, and
 Abort act on the selected repository and refresh its authoritative status.
 
+## Bisect and recovery
+
+An active bisect can be reopened from Status with `C` or from the command
+palette. In the Bisect workspace, `S` starts a session by asking for the
+known-bad and known-good refs and then confirming them. Use `g`, `b`, or `s` to
+mark the current candidate good, bad, or untestable; `i` inspects its commit,
+and `x` asks before resetting to the branch where the bisect began. `1` returns
+to live Status while the bisect remains active, so you can run tests and keep
+watching the checked-out candidate. External bisect changes are reconstructed
+from Git when the repository refreshes.
+
+For an automated test, press `A`, enter the executable path, then enter each
+argument separately. Press Enter after each value; an empty argument finishes
+input, and `y` confirms the run. The command is passed to
+[`git bisect run`](https://git-scm.com/docs/git-bisect#_bisect_run) as an
+executable plus argv values; gitwatch does not build a shell command string.
+Only run programs you trust: Git executes the selected program against each
+candidate revision, and that program can read or change local files or access
+the network. Output is streamed to the workspace after terminal-text
+sanitization and is capped at 64 KiB for display. The operation has a
+30-minute timeout; `Ctrl-C` shuts down gitwatch and cancels the running Git
+process tree. Git's resulting bisect state and refreshed repository snapshot,
+not the displayed output, determine the outcome.
+
 ## External tools and custom commands
 
 From Status, `Ctrl-E` opens the selected path in the configured editor, `Ctrl-O`

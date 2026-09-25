@@ -46,13 +46,13 @@ Support automated bisect testing without violating argv-only execution.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commits recorded (`f0b0509`, `62e2de1`, `64fe6d4`, `5f40631`, and `abebf5c`).
+- [x] Exact tested revision recorded (`e3bdedb`; current-main hosted verification is recorded below).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded through `make check` at `e3bdedb`.
+- [x] Race/vet/lint/format evidence recorded through `make check` at `e3bdedb`.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -113,3 +113,41 @@ Support automated bisect testing without violating argv-only execution.
   the in-flight cancellation test: formatting, pinned lint (0 issues), normal
   and race tests, vet, security fuzz checks, diff checks, and performance
   benchmarks all completed successfully.
+
+## Current-main documentation and gate audit (2026-09-25)
+
+- The application accepts an executable and argument tokens separately and
+  passes them as argv to `git bisect run`; it does not construct a shell
+  command. The shared Git runner uses cancellable process-tree handling on
+  Unix and Windows. The automated run is operation-engine scoped with a
+  30-minute timeout, bounded streaming output, and sanitized 64 KiB workspace
+  display.
+- The later commits above close the previously noted incremental-output and
+  in-flight timeout/cancellation implementation gaps; Task 167 is in
+  `tasks/completed`, satisfying the custom-command foundation dependency.
+- In `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache
+  GOPROXY=off GOSUMDB=off go test ./internal/bisect ./internal/git
+  ./internal/app -count=1`, the bisect and Git packages passed; the app package
+  was blocked by the sandbox denying the test server's IPv6 localhost bind in
+  unrelated `TestRepositoryBatchCancellationIsReportedAsCancelled`.
+- `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache
+  GOPROXY=off GOSUMDB=off go test ./internal/app -run 'Bisect' -count=1`
+  passed, including automated-run argv collection and bounded output display.
+- The current local `make check` retry stopped at pinned-linter module lookup
+  because the sandbox cannot resolve `proxy.golang.org`; the full gate remains
+  recorded as passing at `e3bdedb`, with current-main hosted CI below.
+- Hosted Actions run `36179909264` for current main `eebde8f` passed quality,
+  policy, secret scanning, and the Ubuntu, macOS, and Windows matrix.
+- The user-approved matrix has no bisect-specific row. Keep Task 150's native
+  operator cell open unless task-specific operator acceptance is explicitly
+  carried or collected; no native transcript is claimed here.
+- User documentation now describes the manual and automated bisect workflows,
+  argv-only command entry, confirmation, bounded output, timeout, and cancel
+  behavior in `README.md`, `KEYMAP.md`, and `docs/advanced-workflows.md`.
+- The executable is intentionally user-supplied and may mutate files or access
+  the network; gitwatch does not sandbox it. Output display is bounded and
+  sanitized, so it is diagnostic rather than a source of operation truth.
+
+Task 150's code and hosted gates are complete. Native/operator acceptance for
+the automated-run workflow remains open, along with the Task 148–149
+bisect-workspace operator gates on which this workflow depends.

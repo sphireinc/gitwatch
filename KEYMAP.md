@@ -101,6 +101,21 @@
 | Enter | Preview the inverse patch and guarded rebase plan; the paused commit then opens the amend composer |
 | Ctrl-X | Abort the rebase and restore the original history |
 
+## Bisect workspace
+
+| Key | Action |
+|---|---|
+| C | Open recovery for an active bisect from Status |
+| S | Start a bisect by entering known-bad and known-good refs |
+| A | Enter an executable and separate argv values for an automated bisect run |
+| g / b / s | Mark the current candidate good / bad / skip it |
+| i | Inspect the current candidate commit and patch |
+| x then y | Confirm reset to the pre-bisect branch |
+| r | Reload bisect state from Git |
+| 1 | Return to live Status without ending the bisect |
+| Esc | Cancel a prompt or return to the prior workspace |
+| Ctrl-C | Quit gitwatch; a running automated bisect is canceled |
+
 ## `.gitignore` manager
 
 | Key or input | Action |
