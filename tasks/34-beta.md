@@ -85,3 +85,28 @@ checkout at worktree HEAD `53658fd`: startup, resize to 80x24, help, and clean
 quit. The checkout remained clean afterward. The binary was built from
 `354573e`; intervening changes were documentation-only. This remains scripted
 PTY evidence, not native operator sign-off.
+
+## Merged-main revalidation (2026-09-25)
+
+After PR #9 merged, exact `main` revision
+`be2d1d999ac3b3e62eafb59bd11b6f1703aac4c6` passed
+`GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache make check`
+locally on Darwin 26.6.2 arm64 with Go 1.27.0 and Git 2.33.0. Formatting,
+pinned golangci-lint (0 issues), `go test ./...`, `go test -race ./...`,
+`go vet ./...`, whitespace checks, security fuzz checks, and performance
+budgets all passed.
+
+Hosted Actions run
+[36137333931](https://github.com/sphireinc/gitwatch/actions/runs/36137333931)
+completed successfully on that exact merge commit. Quality/policy, full-history
+secret scan, and Ubuntu 24.04, macOS 15, and Windows 2025 jobs passed. Ubuntu
+and macOS passed race tests, Unix runtime smoke, and PTY/large-status
+acceptance; Windows passed runtime smoke and path/CRLF parity (the Windows
+race job is skipped by the workflow). The public GitHub issues page showed no
+open issues at this check; this does not cover unreported or privately tracked
+blockers.
+
+This refresh confirms the merged code and automated gates only. Task 34 remains
+in progress pending the remaining beta scenarios and explicit blocker/data-loss
+review; the candidate-specific owner matrix sign-off remains recorded
+separately above.
