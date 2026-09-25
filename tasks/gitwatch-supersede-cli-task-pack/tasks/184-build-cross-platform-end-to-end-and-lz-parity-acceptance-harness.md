@@ -43,13 +43,13 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded (`64e3788`, with subsequent parity lanes recorded below).
+- [x] Exact tested revision recorded (`9b1cb342fffba50675ce83dfc957ac0cabae1ea9`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -207,6 +207,18 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   `GOOS=windows GOARCH=amd64 go build ./...` and
   `GOOS=linux GOARCH=amd64 go build ./...`. These are compile-only checks and
   do not replace hosted Windows/Linux tests or native PTY acceptance.
+
+- Current-main validation on exact implementation revision
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9`: full `make check` and
+  `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache
+  ./scripts/parity-check.sh` passed on Darwin arm64 / Go 1.27.0. The parity
+  script exercised real repository integration, watcher, sequencer, bisect,
+  submodule, remote/provider, multi-repository, custom-command, plugin, and app
+  lanes. Hosted run `36179909264` passed quality/policy, full-history secret
+  scanning, and Ubuntu/macOS/Windows matrix jobs for `eebde8f`; parity-specific
+  source and workflow are unchanged through `9b1cb34`. This invocation did not
+  enable optional PTY lanes and does not close native/manual evidence. The full
+  parity matrix and native operator sign-off remain open.
 
 ## Progress evidence (2026-09-25)
 
