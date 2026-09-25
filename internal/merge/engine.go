@@ -73,7 +73,12 @@ func (e Engine) Abort(ctx context.Context) Outcome {
 	outcome := Outcome{Result: result, Err: err}
 	discovery := e.Discovery
 	if discovery.Root == "" {
-		discovery, _ = git.Discover(ctx, e.Runner.Dir)
+		var discoverErr error
+		discovery, discoverErr = git.Discover(ctx, e.Runner.Dir)
+		if discoverErr != nil {
+			outcome.Err = errors.Join(outcome.Err, fmt.Errorf("discover repository after merge abort: %w", discoverErr))
+			return outcome
+		}
 	}
 	if discovery.Root != "" {
 		refresh, refreshErr := git.Snapshot(ctx, discovery, e.Generation)
@@ -82,8 +87,8 @@ func (e Engine) Abort(ctx context.Context) Outcome {
 			if refresh.Operation != nil && refresh.Operation.Kind() == sequencer.KindMerge {
 				outcome.Paused, outcome.State = true, refresh.Operation
 			}
-		} else if outcome.Err == nil {
-			outcome.Err = refreshErr
+		} else {
+			outcome.Err = errors.Join(outcome.Err, fmt.Errorf("refresh repository after merge abort: %w", refreshErr))
 		}
 	}
 	return outcome
@@ -169,16 +174,12 @@ func (e Engine) Execute(ctx context.Context, request Request) Outcome {
 	outcome := Outcome{Result: result, Err: commandErr}
 	updated, discoverErr := git.Discover(ctx, e.Runner.Dir)
 	if discoverErr != nil {
-		if outcome.Err == nil {
-			outcome.Err = discoverErr
-		}
+		outcome.Err = errors.Join(outcome.Err, fmt.Errorf("discover repository after merge: %w", discoverErr))
 		return outcome
 	}
 	refreshed, refreshErr := git.Snapshot(ctx, updated, e.Generation)
 	if refreshErr != nil {
-		if outcome.Err == nil {
-			outcome.Err = refreshErr
-		}
+		outcome.Err = errors.Join(outcome.Err, fmt.Errorf("refresh repository after merge: %w", refreshErr))
 		return outcome
 	}
 	outcome.Snapshot = &refreshed

@@ -251,6 +251,14 @@ func TestConflictingMergeReturnsPausedStateAndAbortRestoresWorktree(t *testing.T
 	}
 }
 
+func TestAbortReportsRepositoryDiscoveryFailure(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing-repository")
+	outcome := (Engine{Runner: git.NewRunner(missing)}).Abort(context.Background())
+	if outcome.Err == nil || !strings.Contains(outcome.Err.Error(), "discover repository after merge abort") {
+		t.Fatalf("abort did not report post-abort discovery failure: %#v", outcome)
+	}
+}
+
 func setupMergeRepository(t *testing.T, dir string) git.Runner {
 	t.Helper()
 	runner := git.NewRunner(dir)
