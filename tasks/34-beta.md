@@ -40,3 +40,18 @@ and issue-tracker evidence only; it does not establish that no unreported
 blocker/data-loss issue exists and does not fill any native operator matrix
 cell. Keep Task 34 in progress until the remaining beta scenarios and exact
 candidate native evidence are recorded.
+
+## Current-host PTY supplement (2026-09-25)
+
+Built `1.0.0-dev` from exact branch HEAD
+`5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725` with commit and build date embedded.
+On Darwin 25.6.0 arm64, Go 1.27.0, Git 2.33.0, and tmux 3.6a,
+`scripts/native-fixture.sh` prepared the mixed staged/unstaged, rename, and
+spaced-path repository; its porcelain-v2 inspection matched the intended state.
+`scripts/pty-smoke.sh` passed startup, 120x32-to-80x24 resize, help rendering,
+and clean quit. `scripts/pty-large-status-smoke.sh` also passed with exactly
+14,953 untracked files and the authoritative count visible at 80x24. Redacted
+fixture and PTY metadata were retained temporarily under a private `/tmp`
+directory. These are automated tmux-PTY observations, not native operator
+evidence; all operator matrix cells remain pending and Task 34 stays in
+progress.
