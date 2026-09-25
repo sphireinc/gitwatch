@@ -10,6 +10,13 @@ The latest hosted automation check for candidate `e4d8faf` (2026-09-25),
 passed quality/policy, full-history secret scanning, and the three-platform
 test matrix. It does not change the pending native operator cells below.
 
+An exact-HEAD scripted PTY run on `354573e` exercised a linked worktree with
+`apps/web` and `services/api` subtrees, external filesystem refresh, diff
+rendering, and a stage/unstage round trip. Final porcelain-v2 confirmed only
+the three intended modified files and no staged residue. This automated
+fixture evidence does not replace native operator observation or clear any
+pending cell.
+
 Use Go 1.25.10 and golangci-lint v2.12.0 for candidate-gate evidence. Each
 manual cell applies only to the exact candidate commit recorded with its
 evidence; an observation from another or unidentified build remains pending.

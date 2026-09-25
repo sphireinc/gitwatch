@@ -63,3 +63,17 @@ for exact branch HEAD `e4d8faf` completed successfully in 5m10s. The run
 included quality/policy, full-history secret scanning, and all three platform
 test-matrix jobs. This is hosted automated evidence only; it does not establish
 native operator acceptance or close any pending matrix row.
+
+## Linked-worktree monorepo PTY follow-up (2026-09-25)
+
+Built exact branch HEAD `354573e` with build identity embedded, then ran
+`scripts/record-demo.sh` against a disposable linked worktree on Darwin 25.6.0
+arm64, Go 1.27.0, Git 2.33.0, and tmux 3.6a. The fixture contained tracked
+`apps/web` and `services/api` package trees plus `docs/notes.md`. At 80x24 with
+filesystem watching, an external edit appeared without manual refresh and its
+diff rendered; the selected file's staged count changed `0 → 1 → 0`. After
+clean quit, porcelain-v2 showed exactly the three intended modified files,
+`git diff --cached --exit-code` was clean, and `git diff --check` passed. The
+linked worktree's `.git` indirection resolved through `git rev-parse`. This is
+automated PTY evidence only; it does not establish native operator acceptance
+or complete real-production-repository beta coverage.
