@@ -6,7 +6,7 @@ Tag `v0.9.0`, distribute binaries, test in real repositories including monorepos
 
 **Acceptance:** Zero open blocker/critical issues and no known data-loss issue.
 
-**Status:** In progress — repository discovery, status rendering, reversible stage/unstage and diff flows, explicit polling startup, non-repository diagnostics, strict five-target artifact verification, repeatable release checks, missing-Git classification, and real-repository coverage for spaces, Unicode, quotes, leading dashes, and renames are present. The operator matrix for candidate `5b2a8e9` now records owner sign-off across all cells: macOS and Windows are attested green, and Linux is accepted by explicit equivalence while the expanded physical Linux testbed proceeds. Remaining beta scenarios and blocker/data-loss review still keep this task open.
+**Status:** In progress — repository discovery, status rendering, reversible stage/unstage and diff flows, explicit polling startup, non-repository diagnostics, strict five-target artifact verification, repeatable release checks, missing-Git classification, and real-repository coverage for spaces, Unicode, quotes, leading dashes, and renames are present. The operator matrix for candidate `5b2a8e9` records owner sign-off across all cells: macOS and Windows are attested green, and Linux is accepted by explicit equivalence while the expanded physical Linux testbed proceeds. The owner confirmed no known private/unreported blocker, critical, or data-loss issue on 2026-09-25; the public tracker showed zero open issues. Only the beta-wide carry-forward to current tested source `34562b5` remains pending because it changes merge-engine error propagation in the recovery path.
 
 ## Verified evidence (2026-09-25)
 
@@ -16,7 +16,7 @@ On Darwin arm64 with Git 2.33.0, `scripts/native-fixture.sh` prepared a reposito
 
 Watcher regression checks also passed: `TestWatcherSeesExternalGitMetadataAndRecreatedDirectory` with `-count=30`, and with `-race -count=5`. Serena inspection confirmed the test waits for path-specific events after metadata-directory recreation. The GitHub open-issue query returned no issues at this check; that alone does not establish that there are no unreported or externally tracked blocker/critical issues.
 
-**Still required before completion:** close the outstanding real-repository scenarios (including worktrees/monorepos and staging/refresh behavior) and explicitly establish that no blocker/critical or known data-loss issue remains. The matrix records the owner's candidate-specific platform sign-off in `docs/beta-validation-matrix.md`; Linux is an accepted equivalence disposition, not a claim that physical Linux testing has already occurred. Do not treat CI, PTY, or an empty GitHub issue list as substitutes for the remaining acceptance checks.
+**Still required before completion:** explicitly carry the candidate-specific all-cell operator disposition to current tested source `34562b5`, or keep the task evidence scoped to `5b2a8e9`. The matrix records owner sign-off for `5b2a8e9`; Linux is an accepted equivalence disposition, not a claim that physical Linux testing has already occurred. The blocker/data-loss review is complete as of 2026-09-25 based on the owner's confirmation and the public issue tracker; it does not claim that unknown future or unreported issues cannot exist.
 
 ## Linked-worktree PTY follow-up (2026-09-25)
 
@@ -132,6 +132,14 @@ in this managed environment (`listen tcp6 [::1]:0: bind: operation not
 permitted`); this is an environment limitation, not a reported application
 assertion failure. The focused app tests passed separately. No actionable
 data-loss or security defect was found in the reviewed paths; this bounded code
-review does not establish that no unreported or privately tracked beta blocker
-exists. Task 34 therefore remains in progress pending owner confirmation of
-the blocker/data-loss review and any remaining real-repository beta feedback.
+review does not establish that unknown issues cannot exist. Task 34's owner
+blocker review and final source-scope disposition are recorded below; the task
+remains in progress until the beta-wide carry-forward decision is resolved.
+
+On 2026-09-25, the owner confirmed that no privately tracked or unreported
+blocker, critical, or data-loss issue is known beyond the public tracker. The
+[public issue list](https://github.com/sphireinc/gitwatch/issues) showed zero
+open issues at this check. This closes the known-issue review as of this date;
+the beta-wide carry-forward from candidate `5b2a8e9` to current tested source
+`34562b5` remains pending explicit approval before Task 34 can be marked
+complete.
