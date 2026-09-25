@@ -46,14 +46,20 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 
 - [x] Implementation commits recorded, including `1e1edc9`, `05dda0f`,
   `28021b7`, and `f254971`.
-- [x] Exact tested revision recorded (`06771d6`, containing the coordinator
-  and current operation recovery paths).
+- [x] Exact tested revision recorded (`34562b5`; full local and hosted
+  verification is recorded below).
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [x] Known limitations/deferred work documented (native/manual acceptance and
-  real operator platform evidence remain open).
+- [ ] Native/manual acceptance for Task 143 remains open. The user's all-cell
+  sign-off is specific to candidate `5b2a8e9`; the carry-forward to `34562b5`
+  was explicitly recorded for Task 137. Since `34562b5` changes merge-engine
+  error propagation used by merge recovery, Task 143 awaits a separate
+  carry-forward decision or fresh operator evidence.
+- [x] Known limitations/deferred work documented: Linux cells use the explicit
+  owner-approved macOS-equivalence decision while physical multi-distribution
+  testing continues; no fresh per-platform transcript was captured at
+  `34562b5`.
 
 ## Progress evidence
 
@@ -157,3 +163,36 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   performance). Hosted run `36065168227` passed all five jobs on retry after
   one transient reflog fuzz timeout; Windows path/CRLF and Unix PTY checks
   passed. Native/manual acceptance remains outstanding.
+
+## Merged-main coordinator acceptance (2026-09-25)
+
+- Dependency metadata now follows the selected graph: Task 135 precedes Task
+  143, and Task 143 precedes Task 132. Task 143 depends on 135, 136, 137, 140,
+  and 141; Task 132 depends on 143.
+- Serena's current-source audit confirmed that `sequencer.ActionsFor`
+  centralizes Continue/Skip/Abort availability, `sequencer.RouteFor` supplies
+  operation recovery destinations, and the app delegates workspace routing to
+  that shared map. Continue is blocked while conflicts remain; ordinary
+  cherry-pick, revert, and merge continuation requires staged results, while
+  rebase edit-stop is Git-derived. Skip is restricted to supporting operations.
+- Regression coverage includes shared lifecycle-action rules, route coverage
+  for durable recovery kinds, four real conflict/resume parity scenarios,
+  external sequencer completion, fresh-snapshot recovery, repository-generation
+  isolation, and a single attention notification per operation transition.
+- At application revision `34562b5`, local
+  `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache
+  make check` passed on Darwin arm64, and hosted Actions run
+  [36143404629](https://github.com/sphireinc/gitwatch/actions/runs/36143404629)
+  passed quality/policy, full-history secret scanning, and the Ubuntu, macOS,
+  and Windows jobs. The Windows race job is skipped by workflow configuration.
+  No Go source has changed since `34562b5`.
+- The owner-provided all-cell green disposition for candidate
+  `5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725` records macOS and Windows green,
+  with Linux accepted by macOS equivalence rather than a physical Linux run.
+- The user explicitly carried this disposition to `34562b5` for Task 137. The
+  Task 143 operator gate remains open pending the separate decision requested,
+  because that revision changes merge-engine error propagation used by merge
+  recovery.
+
+Task 143's implementation and automated verification audit is complete. Keep
+the task active until its native/operator acceptance gate is resolved.
