@@ -170,7 +170,8 @@ The two layout percentages must both be positive and sum to exactly `100`;
 totals above or below `100`, zero values, and negative values are configuration
 errors.
 
-The following environment variables affect configuration:
+The following environment variables affect configuration, persisted state, or
+terminal rendering:
 
 | Variable | Effect |
 | --- | --- |
@@ -182,6 +183,9 @@ The following environment variables affect configuration:
 | `GITWATCH_WATCH` | Overrides `watch`. |
 | `GITWATCH_INTERVAL` | Overrides `interval`, as a positive integer number of seconds. |
 | `GITHUB_TOKEN` | Default GitHub token source when `github.token_env` is unchanged; GitHub CLI authentication may also be used. |
+| `GITWATCH_REGISTRY` | Overrides the multi-repository registry state-file path; otherwise it is `$XDG_CONFIG_HOME/gitwatch/repositories.json` or `$HOME/.config/gitwatch/repositories.json`. |
+| `GITWATCH_PLUGIN_STATE` | Overrides the plugin enablement state-file path; otherwise it is `$XDG_CONFIG_HOME/gitwatch/plugins.json` or `$HOME/.config/gitwatch/plugins.json`. |
+| `NO_COLOR` | Any non-empty value disables terminal color output. |
 
 Explicit CLI values take precedence over file and environment values for the
 settings they control. Supported configuration-related flags are `--config`,
