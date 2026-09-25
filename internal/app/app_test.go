@@ -2052,6 +2052,46 @@ func TestOperationJournalWorkspaceIsBoundedAndNavigable(t *testing.T) {
 	}
 }
 
+func TestOperationJournalVirtualizesHighVolumeInterleavedRepositories(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: "/workspace"})
+	m.Width, m.Height = 100, 12 // four visible timeline rows
+	for index := 0; index < 250; index++ {
+		repository, label := "/repo-a", "repoA"
+		if index%2 != 0 {
+			repository, label = "/repo-b", "repoB"
+		}
+		m.ActivityLog.Add(history.Event{
+			Kind:    history.OperationSuccess,
+			Message: fmt.Sprintf("%s-entry-%03d", label, index),
+			Operation: &history.OperationRecord{
+				Repository: repository,
+				Kind:       "fetch",
+				Outcome:    "success",
+				Target:     fmt.Sprintf("target-%03d", index),
+			},
+		})
+	}
+	if retained := len(m.ActivityLog.All()); retained != 100 {
+		t.Fatalf("journal retained %d events, want bounded capacity 100", retained)
+	}
+	m.JournalFilterInput = "repo:/repo-a"
+	view := m.operationJournalView()
+	if got := strings.Count(view, "repoA-entry-"); got != 4 {
+		t.Fatalf("visible filtered repository events = %d, want 4: %q", got, view)
+	}
+	if strings.Contains(view, "repoB-entry-") {
+		t.Fatalf("interleaved repository leaked into filtered view: %q", view)
+	}
+	for _, want := range []string{"repoA-entry-248", "repoA-entry-246", "repoA-entry-244", "repoA-entry-242"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("virtualized timeline omitted %q: %q", want, view)
+		}
+	}
+	if strings.Contains(view, "repoA-entry-240") {
+		t.Fatalf("timeline rendered beyond the four-row viewport: %q", view)
+	}
+}
+
 func TestOperationJournalCanFilterByRepository(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: "/repo-a"})
 	m.Width, m.Height = 160, 24
