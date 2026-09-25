@@ -38,7 +38,7 @@ Support common review and merge actions while keeping provider state distinct fr
 
 ## Acceptance criteria
 
-- [ ] PR review/merge is usable and never fabricates local Git state.
+- [x] PR review/merge is usable and never fabricates local Git state.
 
 ## Completion record
 
@@ -109,3 +109,7 @@ Support common review and merge actions while keeping provider state distinct fr
 - Follow-up: hosted Actions run `36085163506` completed successfully for
   `91424f1`, including Ubuntu, macOS, and Windows test/build/runtime jobs.
   Native/manual review-and-merge acceptance remains open.
+- Current-main revalidation: full `make check` passed at implementation commit
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
+  Review/merge behavior is unchanged from hosted-verified `91424f1`; native
+  manual acceptance remains open.

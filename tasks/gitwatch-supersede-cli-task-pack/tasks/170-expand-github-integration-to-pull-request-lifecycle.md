@@ -38,7 +38,7 @@ Move optional GitHub support from read-only visibility to a practical pull-reque
 
 ## Acceptance criteria
 
-- [ ] PR create/inspect/checkout works while provider remains optional and failure-isolated.
+- [x] PR create/inspect/checkout works while provider remains optional and failure-isolated.
 
 ## Completion record
 
@@ -108,3 +108,7 @@ Move optional GitHub support from read-only visibility to a practical pull-reque
   Ubuntu, macOS, and Windows test/build/runtime jobs. This is hosted evidence;
   native/manual terminal acceptance remains outstanding, so the task remains
   active.
+- Current-main revalidation: full `make check` passed at implementation commit
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
+  PR/provider implementation is unchanged from hosted-verified `91424f1`;
+  native/manual acceptance remains open.

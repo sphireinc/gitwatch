@@ -108,3 +108,7 @@ Turn CI visibility into actionable but bounded workflow support.
   `91424f1`, including Ubuntu, macOS, and Windows test/build/runtime jobs and
   hosted PTY/large-status acceptance. This remains scripted hosted evidence;
   native/manual workflow and watcher-responsiveness evidence remain open.
+- Current-main revalidation: full `make check` passed at implementation commit
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
+  Hosted results remain tied to `91424f1`; native/manual workflow and
+  watcher-responsiveness evidence remain open.

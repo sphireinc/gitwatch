@@ -37,7 +37,7 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
 
 ## Acceptance criteria
 
-- [ ] Plugins are richer while isolation remains a core differentiator.
+- [x] Plugins are richer while isolation remains a core differentiator.
 
 ## Completion record
 
@@ -139,3 +139,7 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
   `91424f1`. Quality/policy and full-history secret scanning passed; Ubuntu,
   macOS, and Windows test/build/runtime jobs passed. This does not replace the
   still-open native/manual terminal acceptance or release evidence.
+- Current-main revalidation: full `make check` passed at implementation commit
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
+  Plugin SDK/runtime/contribution code is unchanged from hosted-verified
+  `91424f1`; native/manual acceptance and release evidence remain open.
