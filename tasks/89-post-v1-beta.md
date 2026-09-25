@@ -75,5 +75,20 @@ checksum verification. This does not publish a beta. The owner selected
 exact release commit still needs resolution, so no beta tag or release has
 been created.
 
+## Local release-check follow-up (2026-09-25)
+
+On clean local `main` at `ab4b23401813b586b1823d89a05fe31e533c5578`,
+`VERSION=1.1.0-beta.1 GOCACHE=/tmp/git-watch-go-cache
+GOMODCACHE=/tmp/git-watch-go-mod-cache ./scripts/release-check.sh` initially
+completed tests, race, vet, performance, and security, then stopped because the
+offline module cache lacked sources needed for license collection. Retrying as
+`VERSION=1.1.0-beta.1 GOPROXY=https://proxy.golang.org,direct
+GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache
+./scripts/release-check.sh` passed. It verified the local source install/runtime
+smoke, five supported platform archives, release metadata, SBOM inputs, and
+checksums. No tag, push, or GitHub Release was created. This local verification
+does not substitute for hosted CI or native operator evidence on `ab4b234`; the
+exact publication commit remains subject to owner selection.
+
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
