@@ -13,8 +13,9 @@ completion from the published release or CI.
 A limited local macOS ARM64 supplement verified the published archive checksum,
 source install, CLI/config migration, and scripted runtime workflow on
 2026-09-25 (details in the release sign-off). This is not a clean-machine run
-or cross-platform operator evidence; the corresponding checklist rows remain
-unchecked.
+or cross-platform operator evidence. It also verified in-memory migration of
+a schema-v2 config inspected by the official v1.0.8 binary; this does not close
+the clean-machine or package-manager upgrade rows, which remain unchecked.
 
 ## Automated candidate gate
 

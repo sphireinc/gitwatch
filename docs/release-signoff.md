@@ -27,7 +27,11 @@ and clean-exit demo in a disposable repository. The archive binary's isolated
 config check passed; schema-v1 and schema-v2 migration dry-runs/inspection
 normalized to schema v3 without rewriting either source file. This automated
 host check does not satisfy clean-machine or Linux/Windows operator acceptance,
-and does not verify upgrade from the stable v1.0.8 release.
+and does not verify a clean-machine or package-manager upgrade. A separate
+stable-tag config migration check accepted a schema-v2 config inspected by the
+official v1.0.8 macOS ARM64 binary, then verified v1.0.9's in-memory migration
+to schema v3 without rewriting the file. This is configuration compatibility
+evidence, not a full installed-binary upgrade acceptance.
 
 ## Historical prepublication candidate: `0f10d5d`
 

@@ -30,7 +30,17 @@ legacy schema-v1 and schema-v2 configuration in memory to v3; config inspection
 showed the v3 workspace/visuals fields, and both source-file hashes remained
 unchanged. `go test ./internal/config` passed on the current checkout.
 
+For the stable upgrade path, the official v1.0.8 macOS ARM64 archive also
+passed its `SHA256SUMS` check and reported commit `67ff7ba23066977345e0a0edfd2ab761ed940462`.
+Its isolated `--config-inspect` output was accepted by v1.0.8 `--config-check`
+as schema v2, then the v1.0.9 binary dry-ran and inspected it as schema v3.
+The schema-v2 file hash remained
+`c7ec13c79188967e8c182bad86ba1a381a0cad6954d57579c86e1cf7fd6f98cd` across
+the v1.0.9 migration/inspection. This verifies configuration compatibility
+between the two stable releases, not a clean-machine executable or package
+manager upgrade.
+
 This is isolated local/automated evidence on Go 1.27.0, not a clean-machine or
-native operator run; it does not verify the stable v1.0.8-to-v1.0.9 upgrade,
-Linux or Windows installation, or any pending platform matrix row. Task 35
-remains in progress.
+native operator run; it does not verify clean-machine upgrade behavior, Linux
+or Windows installation, or any pending platform matrix row. Task 35 remains
+in progress.
