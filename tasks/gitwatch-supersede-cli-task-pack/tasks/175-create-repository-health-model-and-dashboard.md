@@ -38,18 +38,18 @@ Turn gitwatch’s htop identity into a concrete repository-health surface.
 
 ## Acceptance criteria
 
-- [ ] Dashboard remains valuable offline.
-- [ ] Live local health is status-derived; cached external health is labeled stale/fresh.
+- [x] Dashboard remains valuable offline.
+- [x] Live local health is status-derived; cached external health is labeled stale/fresh.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -102,3 +102,11 @@ Turn gitwatch’s htop identity into a concrete repository-health surface.
 - GitHub cached collection results now preserve stale-cache state through the asynchronous app message and render an explicit `provider cache: fresh|stale` label in the GitHub workspace. This keeps optional provider data visibly separate from authoritative local Git health.
 - Added UI regression coverage for both fresh and stale provider-cache labels. Focused app and GitHub-view tests pass; the full repository gate remains required before commit handoff.
 - Remaining: actual remote-latency timestamps, richer single-repository detail presentation, native/manual acceptance, and hosted cross-platform evidence.
+
+## Progress evidence (2026-09-24)
+
+- Revision `f0e289793f699efe54bf9b2b8a7c81edaec7e999` records measured auto-fetch latency for both already-registered and newly discovered repositories; the previous first-seen path omitted the duration.
+- The repository dashboard prioritizes remote-fetch status and elapsed milliseconds within an 80-column row, and shows local-health source/observation time, fetch completion time, and explicit cached-provider `(fresh)`/`(stale)` labels in its detail line.
+- Focused regression coverage: `TestAutoFetchFinishedRecordsMeasuredLatencyForRegisteredAndNewRepos`, `TestViewShowsMeasuredAutoFetchLatency`, `TestViewShowsCachedCIAttentionAndStaleness`, and `TestComputeOfflineCleanRepositoryRemainsHealthy`.
+- Full validation passed on Go `go1.27.0 darwin/arm64` (macOS, Apple M1 Pro): `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` (format, pinned lint, full unit and race suites, vet, diff, security fuzz, performance); the focused race-test selection and `go build -o /tmp/gitwatch-task174.iQFJ30/gitwatch-task175-verified ./cmd/gitwatch` also passed.
+- Scripted pseudo-terminal run at 80x24 showed a healthy local-health row and `remote-fetch:fetched latency:1250ms`; this is automated local PTY evidence, not native/operator acceptance. Offline behavior is separately covered by `TestComputeOfflineCleanRepositoryRemainsHealthy`. Full release-pinned Go 1.25.10 and hosted cross-platform evidence were not established by this run. Further single-repository detail and native/manual acceptance remain open.
