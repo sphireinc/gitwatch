@@ -44,9 +44,9 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 
 ## Acceptance criteria
 
-- [ ] Any active rebase can be resumed or aborted after restart.
-- [ ] Conflict handling uses unified resolver.
-- [ ] Completion refreshes status/history/branch divergence.
+- [x] Any active rebase can be resumed or aborted after restart.
+- [x] Conflict handling uses unified resolver.
+- [x] Completion refreshes status/history/branch divergence.
 
 ## Completion record
 
@@ -137,3 +137,22 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
   macOS, and Windows test matrices for the completion-journal slice. This is
   cross-platform automated evidence, not the remaining native/operator
   lifecycle matrix.
+
+## Merged-main revalidation (2026-09-25)
+
+On merged-main source revision
+`be2d1d999ac3b3e62eafb59bd11b6f1703aac4c6`,
+`GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache make check`
+passed on Darwin 26.6.2 arm64 with Go 1.27.0 and Git 2.33.0. This includes
+formatting, pinned lint (0 issues), full and race tests, vet, security fuzz,
+performance budgets, and diff checks. Hosted Actions run
+[36137333931](https://github.com/sphireinc/gitwatch/actions/runs/36137333931)
+passed quality/policy, full-history secret scan, and Ubuntu, macOS, and
+Windows jobs. The rebase restart/edit-stop continue, abort, and skip tests
+passed in the full test suites. `OperationFinishedMsg` applies Git's
+authoritative post-operation snapshot and schedules both status refresh and
+history reload after successful rebase completion.
+
+This automated merged-main verification does not establish native/manual
+operator evidence for rebase recovery and does not close the remaining
+cross-platform lifecycle acceptance. Keep the task active.
