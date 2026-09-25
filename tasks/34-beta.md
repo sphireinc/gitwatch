@@ -6,7 +6,7 @@ Tag `v0.9.0`, distribute binaries, test in real repositories including monorepos
 
 **Acceptance:** Zero open blocker/critical issues and no known data-loss issue.
 
-**Status:** In progress — repository discovery, status rendering, reversible stage/unstage and diff flows, explicit polling startup, non-repository diagnostics, strict five-target artifact verification, repeatable release checks, missing-Git classification, and real-repository coverage for spaces, Unicode, quotes, leading dashes, and renames are present; the operator matrix in `docs/beta-validation-matrix.md` still requires full macOS, Linux, and native Windows beta evidence.
+**Status:** In progress — repository discovery, status rendering, reversible stage/unstage and diff flows, explicit polling startup, non-repository diagnostics, strict five-target artifact verification, repeatable release checks, missing-Git classification, and real-repository coverage for spaces, Unicode, quotes, leading dashes, and renames are present. The operator matrix for candidate `5b2a8e9` now records owner sign-off across all cells: macOS and Windows are attested green, and Linux is accepted by explicit equivalence while the expanded physical Linux testbed proceeds. Remaining beta scenarios and blocker/data-loss review still keep this task open.
 
 ## Verified evidence (2026-09-25)
 
@@ -16,7 +16,7 @@ On Darwin arm64 with Git 2.33.0, `scripts/native-fixture.sh` prepared a reposito
 
 Watcher regression checks also passed: `TestWatcherSeesExternalGitMetadataAndRecreatedDirectory` with `-count=30`, and with `-race -count=5`. Serena inspection confirmed the test waits for path-specific events after metadata-directory recreation. The GitHub open-issue query returned no issues at this check; that alone does not establish that there are no unreported or externally tracked blocker/critical issues.
 
-**Still required before completion:** complete and attach operator evidence for the macOS, Linux, and native Windows rows in `docs/beta-validation-matrix.md`, including exact commit, terminal/emulator, dimensions, interaction/resize behavior, and terminal restoration; test the outstanding real-repository scenarios (including worktrees/monorepos and staging/refresh behavior); and explicitly establish that no blocker/critical or known data-loss issue remains. Do not treat CI, PTY, or an empty GitHub issue list as substitutes for these acceptance checks.
+**Still required before completion:** close the outstanding real-repository scenarios (including worktrees/monorepos and staging/refresh behavior) and explicitly establish that no blocker/critical or known data-loss issue remains. The matrix records the owner's candidate-specific platform sign-off in `docs/beta-validation-matrix.md`; Linux is an accepted equivalence disposition, not a claim that physical Linux testing has already occurred. Do not treat CI, PTY, or an empty GitHub issue list as substitutes for the remaining acceptance checks.
 
 ## Linked-worktree PTY follow-up (2026-09-25)
 
@@ -37,9 +37,9 @@ passed its quality/policy, full-history secret scan, and Ubuntu 24.04, macOS
 the large-status PTY acceptance; Windows path/CRLF parity passed. The open
 GitHub issue query returned no issues at this check. This is current automated
 and issue-tracker evidence only; it does not establish that no unreported
-blocker/data-loss issue exists and does not fill any native operator matrix
-cell. Keep Task 34 in progress until the remaining beta scenarios and exact
-candidate native evidence are recorded.
+blocker/data-loss issue exists. The matrix sign-off was recorded separately
+after this automated check. Keep Task 34 in progress until the remaining beta
+scenarios and blocker/data-loss review are complete.
 
 ## Current-host PTY supplement (2026-09-25)
 
@@ -53,16 +53,18 @@ and clean quit. `scripts/pty-large-status-smoke.sh` also passed with exactly
 14,953 untracked files and the authoritative count visible at 80x24. Redacted
 fixture and PTY metadata were retained temporarily under a private `/tmp`
 directory. These are automated tmux-PTY observations, not native operator
-evidence; all operator matrix cells remain pending and Task 34 stays in
-progress.
+evidence. At the time of this supplement, the operator cells were pending; the
+later owner sign-off for candidate `5b2a8e9` is recorded in the beta matrix.
+Task 34 remains in progress for the other acceptance criteria.
 
 ## Hosted CI follow-up (2026-09-25)
 
 GitHub Actions run [36104615360](https://github.com/sphireinc/git-watch/actions/runs/36104615360)
 for exact branch HEAD `e4d8faf` completed successfully in 5m10s. The run
 included quality/policy, full-history secret scanning, and all three platform
-test-matrix jobs. This is hosted automated evidence only; it does not establish
-native operator acceptance or close any pending matrix row.
+test-matrix jobs. This is hosted automated evidence only and does not establish
+native operator acceptance. The subsequent owner sign-off for candidate
+`5b2a8e9` is recorded separately in the beta matrix.
 
 ## Linked-worktree monorepo PTY follow-up (2026-09-25)
 
