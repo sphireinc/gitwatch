@@ -39,9 +39,9 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 
 ## Acceptance criteria
 
-- [ ] User can see exactly which commit failed and what remains.
-- [ ] No modal traps the user.
-- [ ] External resolution appears automatically.
+- [x] User can see exactly which commit failed and what remains.
+- [x] No modal traps the user.
+- [x] External resolution appears automatically.
 
 ## Completion record
 
@@ -51,10 +51,10 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
 - [x] Focused tests recorded: real multi-commit conflict progress/resume, wide and 80x24 rendering, palette recovery, navigation away/back, typed start/journal flow, and external resolution refresh/Continue input.
 - [x] `go test ./...` recorded through `make check` at `122c8de`.
 - [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` at `122c8de` (lint reported 0 issues).
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [x] Known limitations/deferred work documented: richer conflicted-history presentation beyond Git's current sequencer projection and native/manual acceptance remain outstanding.
+- [x] Owner-provided cross-platform operator acceptance recorded for the exact application source; Linux is accepted by the documented equivalence disposition, not represented as a physical Linux transcript.
+- [x] Known limitation documented: richer conflicted-history presentation beyond Git's current sequencer projection remains deferred; operator acceptance is recorded below.
 
-## Local progress evidence (task remains active)
+## Implementation progress evidence
 
 - `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 with formatting, lint, full tests, race tests, vet, security, and performance checks.
 - The implementation deliberately reuses the existing repository-scoped conflict workspace and authoritative snapshot refresh path; no second status model or render-time Git work was introduced.
@@ -66,7 +66,7 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
   range. It does not fabricate lost source or skipped IDs.
 - Recovery controls are now operation-specific: Skip is shown only for rebase, cherry-pick, and revert, while unsupported operations such as Merge expose only Continue and Abort.
 - A current cherry-picked commit is labeled `conflicted` when Git reports conflicted paths; the progress view can be left for Status and reopened through Ctrl-P without losing the operation projection.
-- Task 135 remains active until operator-owned native/manual acceptance is recorded.
+- The acceptance criteria are verified below; the user-provided operator sign-off and its Linux-equivalence scope are recorded in the merged-main acceptance section.
 
 ## Additional implementation evidence
 
@@ -130,5 +130,36 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
   revision, and hosted run `36057387861` passed quality/policy, secret scan,
   and Ubuntu/macOS/Windows test matrices (including Unix PTY and Windows
   path/CRLF checks).
-  Human-operator and native Windows terminal evidence remain open; Task 135
-  is not complete.
+  At that revision, human-operator and native Windows terminal evidence
+  remained open; the later owner sign-off is recorded below.
+
+## Merged-main acceptance (2026-09-25)
+
+- The watcher event handler requests `m.refresh()` and resubscribes. The
+  refresh obtains a fresh Git snapshot through the repository refresh
+  coordinator (or `git.Snapshot` fallback), so filesystem notifications remain
+  hints and Git remains authoritative.
+- `TestCherryPickViewShowsRepositoryScopedProgress` asserts completed and
+  conflicted commits, the remaining count, and recovery control. The
+  80x24 `TestExternalCherryPickResolutionEnablesContinueFromFreshSnapshot`
+  verifies that the authoritative resolved snapshot enables Continue and that
+  the user can invoke it without leaving the workspace. The route/navigation
+  test proves Status and the palette can leave and reopen progress without a
+  modal trap. The real-repository first/middle/last conflict restart tests
+  cover reconstruction of current and remaining commits.
+- `make check` passed on merged main source revision
+  `be2d1d999ac3b3e62eafb59bd11b6f1703aac4c6`; hosted Actions run
+  [36137333931](https://github.com/sphireinc/gitwatch/actions/runs/36137333931)
+  passed quality/policy, full-history secret scan, and Ubuntu/macOS/Windows
+  matrices. Windows race testing is skipped by the workflow.
+- The beta matrix records the user's explicit all-cells operator sign-off for
+  candidate `5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725`; tracked differences
+  from that candidate through merged main are documentation/task records, not
+  application code. The sign-off therefore covers this task's application
+  source. Linux is recorded as accepted by equivalence while physical Linux
+  testing continues; no raw terminal transcript is claimed here.
+- The known limitation remains explicit: Git's sequencer projection cannot
+  reconstruct richer conflicted-history details than Git retains. This is
+  documented and does not block the listed acceptance criteria.
+
+Task 135 is complete on merged main under the recorded owner acceptance.
