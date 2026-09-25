@@ -52,8 +52,8 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 
 - [x] Recovery entry point and progress presentation are implemented; an active rebase discovered by the live snapshot can be opened from Status with `C`, including when no conflict file is present. Continue and abort remain typed lifecycle intents in the existing conflict/recovery workspace.
 - [x] Implementation commits recorded: `224362f` (active recovery route), `2374459` (continuation coverage and stale-marker fix), and the follow-up skip-support slice.
-- [x] Exact tested revision recorded (`34562b5`; full local and hosted
-  verification is recorded below).
+- [x] Exact tested revision recorded (`e1d611a` for the current local full
+  gate; hosted cross-platform verification is recorded at `34562b5`).
 - [x] Focused tests recorded: `TestActiveRebaseWithoutConflictsHasRecoveryRoute`, `TestOperationLifecycleAbortsRebaseAndRefreshesOperationState`, `TestOperationLifecycleContinuesResolvedRebase`, `TestOperationLifecycleSkipsRebase`, and `TestDetectOperationStateSurvivesRunnerReconstructionDuringRebase`; the real disposable-repository tests create a rebase conflict, exercise typed abort/continue/skip, verify fresh-runner rediscovery, and verify authoritative post-operation snapshots and worktree content.
 - [x] `go test ./...` recorded through `make check`.
 - [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` (lint reported 0 issues).
@@ -183,6 +183,11 @@ cross-platform lifecycle acceptance. Keep the task active.
   passed quality/policy, full-history secret scanning, and Ubuntu, macOS, and
   Windows jobs. The Windows race job is skipped by workflow configuration.
   No Go source has changed since that revision.
+- At current-main revision `e1d611a`,
+  `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache
+  make check` passed on Darwin arm64 with Go 1.27.0: formatting, pinned lint
+  (0 issues), full and race tests, vet, security fuzz checks, performance
+  budgets, and diff checks.
 
 Task 132 is complete under the rebase implementation, automated verification,
 and owner-provided platform-acceptance evidence recorded here.
