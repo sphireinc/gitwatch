@@ -188,10 +188,16 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 - The owner-provided all-cell green disposition for candidate
   `5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725` records macOS and Windows green,
   with Linux accepted by macOS equivalence rather than a physical Linux run.
-- The user explicitly carried this disposition to `34562b5` for Task 137 and
-  separately approved the same carry-forward for Task 143. The Linux pass
-  remains by macOS equivalence, not a claim of a physical Linux run. No fresh
-  native terminal transcript at `34562b5` is claimed.
+- Between `5b2a8e9` and `34562b5`, `internal/merge/engine.go` and its tests
+  changed to preserve merge-command errors while also reporting repository
+  discovery and snapshot-refresh failures after merge execution or abort. This
+  is part of Task 143's merge recovery path, despite the TUI, sequencer, and
+  conflict-view files remaining unchanged.
+- The user explicitly carried the all-cell green disposition to `34562b5` for
+  Task 137 and separately approved the same carry-forward for Task 143 with
+  this merge-recovery-path change in scope. This is owner-authorized acceptance
+  of the code delta, not a claim of fresh terminal testing at `34562b5`. Linux
+  remains accepted by macOS equivalence, not physical Linux evidence.
 
 Task 143 is complete under the shared coordinator implementation, current-main
 verification, and owner-authorized platform-acceptance evidence recorded here.
