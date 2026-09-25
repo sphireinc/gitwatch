@@ -17,6 +17,10 @@ the three intended modified files and no staged residue. This automated
 fixture evidence does not replace native operator observation or clear any
 pending cell.
 
+The same binary also passed the read-only `scripts/pty-smoke.sh` on the actual
+gitwatch checkout at `53658fd`; the working tree remained clean. That check
+covers scripted startup, 80x24 resize/help, and quit only.
+
 Use Go 1.25.10 and golangci-lint v2.12.0 for candidate-gate evidence. Each
 manual cell applies only to the exact candidate commit recorded with its
 evidence; an observation from another or unidentified build remains pending.

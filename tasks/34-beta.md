@@ -77,3 +77,9 @@ clean quit, porcelain-v2 showed exactly the three intended modified files,
 linked worktree's `.git` indirection resolved through `git rev-parse`. This is
 automated PTY evidence only; it does not establish native operator acceptance
 or complete real-production-repository beta coverage.
+
+The same binary also passed `scripts/pty-smoke.sh` against the actual gitwatch
+checkout at worktree HEAD `53658fd`: startup, resize to 80x24, help, and clean
+quit. The checkout remained clean afterward. The binary was built from
+`354573e`; intervening changes were documentation-only. This remains scripted
+PTY evidence, not native operator sign-off.
