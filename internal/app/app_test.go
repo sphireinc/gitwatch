@@ -35,6 +35,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/rebase"
 	"github.com/sphireinc/git-watch/internal/reflog"
 	"github.com/sphireinc/git-watch/internal/registry"
+	"github.com/sphireinc/git-watch/internal/remoteintel"
 	"github.com/sphireinc/git-watch/internal/remotes"
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
@@ -1989,6 +1990,39 @@ func TestSelectedProfileOverridesAutoFetchPolicy(t *testing.T) {
 	policy := m.AutoFetchScheduler.Config()
 	if policy.Interval != 11*time.Minute || policy.Jitter != 2*time.Second {
 		t.Fatalf("selected auto-fetch profile = %#v", policy)
+	}
+}
+
+func TestAutoFetchFinishedRecordsMeasuredLatencyForRegisteredAndNewRepos(t *testing.T) {
+	for _, registered := range []bool{false, true} {
+		name := "new repository"
+		if registered {
+			name = "existing repository"
+		}
+		t.Run(name, func(t *testing.T) {
+			model := New()
+			defer func() { _ = model.Close() }()
+			if registered {
+				model.RepositoryRegistry = []registry.Repository{{Path: "/repo", Name: "repo"}}
+			}
+
+			started := time.Unix(1_000, 0)
+			finished := started.Add(1250 * time.Millisecond)
+			updated, _ := model.Update(AutoFetchFinishedMsg{Results: []remoteintel.Result{{
+				Repository: "/repo",
+				Status:     "fetched",
+				Started:    started,
+				Finished:   finished,
+			}}})
+			model = updated.(Model)
+			if len(model.RepositoryRegistry) != 1 {
+				t.Fatalf("repository registry = %#v", model.RepositoryRegistry)
+			}
+			got := model.RepositoryRegistry[0]
+			if got.LastAutoFetchMillis != 1250 || !got.LastAutoFetch.Equal(finished) {
+				t.Fatalf("fetch timing = at %s, latency %dms", got.LastAutoFetch, got.LastAutoFetchMillis)
+			}
+		})
 	}
 }
 

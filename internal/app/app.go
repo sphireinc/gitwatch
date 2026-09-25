@@ -9010,6 +9010,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.AutoFetchResults = make(map[string]remoteintel.Result)
 		}
 		for _, result := range v.Results {
+			latencyMillis := int64(0)
+			if !result.Started.IsZero() && !result.Finished.IsZero() {
+				latencyMillis = result.Finished.Sub(result.Started).Milliseconds()
+			}
 			m.AutoFetchResults[result.Repository] = result
 			matched := false
 			for index := range m.RepositoryRegistry {
@@ -9020,12 +9024,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.RepositoryRegistry[index].LastAutoFetch = result.Finished
 				m.RepositoryRegistry[index].LastAutoFetchStatus = result.Status
 				m.RepositoryRegistry[index].LastAutoFetchError = result.FailureClass
-				if !result.Started.IsZero() && !result.Finished.IsZero() {
-					m.RepositoryRegistry[index].LastAutoFetchMillis = result.Finished.Sub(result.Started).Milliseconds()
-				}
+				m.RepositoryRegistry[index].LastAutoFetchMillis = latencyMillis
 			}
 			if !matched && result.Repository != "" {
-				m.RepositoryRegistry = append(m.RepositoryRegistry, registry.Repository{Path: result.Repository, Name: filepath.Base(result.Repository), LastAutoFetch: result.Finished, LastAutoFetchStatus: result.Status, LastAutoFetchError: result.FailureClass})
+				m.RepositoryRegistry = append(m.RepositoryRegistry, registry.Repository{Path: result.Repository, Name: filepath.Base(result.Repository), LastAutoFetch: result.Finished, LastAutoFetchStatus: result.Status, LastAutoFetchError: result.FailureClass, LastAutoFetchMillis: latencyMillis})
 			}
 		}
 		if len(m.Repositories.AllRows) > 0 {

@@ -122,16 +122,7 @@ func (m Model) View() string {
 		if i == m.Selected {
 			prefix = "> "
 		}
-		state := row.State
-		line := fmt.Sprintf("%s%s · %s [%s] health:%s dirty:%d +%d/-%d stashes:%d worktrees:%d remotes:%d", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), state, platform.SafeText(string(row.Health.Severity)), row.Dirty, row.Ahead, row.Behind, row.Stashes, row.Worktrees, row.Remotes)
-		if m.VisualsEnabled {
-			heat := activityviz.HeatLevel(row.Staged, row.Unstaged, row.Untracked, row.Conflicts)
-			activity := row.Activity
-			if len(activity) == 0 {
-				activity = []int{row.Ahead, row.Behind, row.Dirty, row.Conflicts}
-			}
-			line += fmt.Sprintf(" heat:%s%d diff:%s activity:%s", activityviz.HeatGlyph(heat), heat, activityviz.Bar(row.Staged+row.Unstaged, 10, 5), activityviz.Sparkline(activity, m.ActivityBuckets))
-		}
+		line := fmt.Sprintf("%s%s · %s [%s] health:%s", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), row.State, platform.SafeText(string(row.Health.Severity)))
 		if row.Health.SigningEnabled {
 			format := row.Health.SigningFormat
 			if format == "" {
@@ -154,21 +145,48 @@ func (m Model) View() string {
 				line += fmt.Sprintf(" latency:%dms", row.Repository.LastAutoFetchMillis)
 			}
 		}
-		if row.ProviderCIState != "" {
-			line += " ci:" + platform.SafeText(row.ProviderCIState)
-			if row.ProviderCIStale {
-				line += "(stale)"
+		line += fmt.Sprintf(" dirty:%d +%d/-%d stashes:%d worktrees:%d remotes:%d", row.Dirty, row.Ahead, row.Behind, row.Stashes, row.Worktrees, row.Remotes)
+		if m.VisualsEnabled {
+			heat := activityviz.HeatLevel(row.Staged, row.Unstaged, row.Untracked, row.Conflicts)
+			activity := row.Activity
+			if len(activity) == 0 {
+				activity = []int{row.Ahead, row.Behind, row.Dirty, row.Conflicts}
 			}
-			if row.ProviderCIAttention != "" {
-				line += "/" + platform.SafeText(row.ProviderCIAttention)
-			}
+			line += fmt.Sprintf(" heat:%s%d diff:%s activity:%s", activityviz.HeatGlyph(heat), heat, activityviz.Bar(row.Staged+row.Unstaged, 10, 5), activityviz.Sparkline(activity, m.ActivityBuckets))
 		}
 		line += " gitignore:" + gitignoreLabel(row.Gitignore)
 		if len(row.Warnings) > 0 {
 			line += fmt.Sprintf(" warnings:%d", len(row.Warnings))
 		}
 		lines = append(lines, line)
-		lines = append(lines, "    "+platform.SafeText(row.Repository.Path))
+
+		details := make([]string, 0, 3)
+		if !row.Health.FreshAt.IsZero() {
+			source := row.Health.Source
+			if source == "" {
+				source = "local"
+			}
+			details = append(details, "source:"+platform.SafeText(source)+" observed:"+row.Health.FreshAt.Format("15:04:05"))
+		}
+		if !row.RemoteFetchAt.IsZero() {
+			details = append(details, "fetch@"+row.RemoteFetchAt.Format("15:04:05"))
+		}
+		if row.ProviderCIState != "" {
+			freshness := "(fresh)"
+			if row.ProviderCIStale {
+				freshness = "(stale)"
+			}
+			provider := "ci:" + platform.SafeText(row.ProviderCIState) + freshness
+			if row.ProviderCIAttention != "" {
+				provider += "/" + platform.SafeText(row.ProviderCIAttention)
+			}
+			details = append(details, provider)
+		}
+		pathLine := "    " + platform.SafeText(row.Repository.Path)
+		if len(details) > 0 {
+			pathLine = "    " + strings.Join(details, " · ") + " · " + platform.SafeText(row.Repository.Path)
+		}
+		lines = append(lines, pathLine)
 	}
 	if len(m.Rows) == 0 {
 		lines = append(lines, "  No repositories")
