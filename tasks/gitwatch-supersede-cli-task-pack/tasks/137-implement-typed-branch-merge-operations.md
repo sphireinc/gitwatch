@@ -45,9 +45,9 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
 
 ## Acceptance criteria
 
-- [ ] Merge strategy is explicit.
-- [ ] Conflict enters common resolver.
-- [ ] No implicit stash/reset/force behavior.
+- [x] Merge strategy is explicit.
+- [x] Conflict enters common resolver.
+- [x] No implicit stash/reset/force behavior.
 
 ## Completion record
 
@@ -56,8 +56,8 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [x] Known limitations/deferred work documented (native/manual acceptance remains open).
+- [ ] Native/manual evidence recorded for the post-`34562b5` application source. The owner sign-off for candidate `5b2a8e9` remains candidate-specific and is not carried forward as evidence for this later code change.
+- [x] Known limitations/deferred work documented (current-source native/manual acceptance remains open).
 
 ## Progress evidence
 
@@ -109,3 +109,41 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
   passed quality/policy, secret scan, and Ubuntu/macOS/Windows tests, including
   Unix PTY acceptance and Windows path/CRLF parity. Native/manual acceptance
   remains open.
+
+## Merged-main implementation audit (2026-09-25)
+
+- The typed merge engine supports regular, fast-forward-only, no-fast-forward,
+  and squash strategies. It rejects dirty worktrees, active operations,
+  self-merges, stale repository generations, invalid sources, and source
+  branches occupied in another linked worktree; it never invokes stash, reset,
+  or force behavior.
+- The Branches prompt requires an explicit strategy and retains qualified
+  remote-tracking names. Merge execution uses the repository operation engine
+  and applies an authoritative post-command snapshot. A conflicted result
+  enters the shared conflict resolver; squash explains that changes are staged
+  without creating a merge commit.
+- Coverage includes explicit strategy and clean-worktree checks,
+  remote-qualified source handling, stale-generation and worktree-occupancy
+  guards, real fast-forward/no-ff/squash outcomes, conflict snapshot and abort,
+  and app-level refresh after a real merge.
+- The audit found merge recovery could discard repository-discovery or
+  post-command snapshot errors. Commit `34562b5` now joins those errors into
+  the returned outcome, and `TestAbortReportsRepositoryDiscoveryFailure`
+  covers the abort failure path. Error outcomes are surfaced by the app and
+  trigger another refresh attempt.
+- User-facing guidance now documents the `M` Branches key and merge strategy,
+  safety, conflict, abort, and squash behavior in `KEYMAP.md` and
+  `docs/advanced-workflows.md`.
+- `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache
+  make check` passed at application revision `34562b5` on Darwin arm64:
+  formatting, lint (0 issues), normal/race tests, vet, security checks, and
+  performance budgets.
+- Hosted Actions run
+  [36143404629](https://github.com/sphireinc/gitwatch/actions/runs/36143404629)
+  passed quality/policy, full-history secret scan, and Ubuntu 24.04, macOS 15,
+  and Windows 2025 jobs. Unix PTY/large-status and Windows path/CRLF checks
+  passed; the Windows race job is skipped by workflow configuration.
+- The matrix's owner-provided all-cells sign-off is for candidate
+  `5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725`. Since `34562b5` changes
+  application code, no terminal evidence for that later source is claimed.
+  Task 137 remains active for current-source native/manual acceptance.

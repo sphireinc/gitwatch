@@ -22,6 +22,7 @@
 | / / s | Filter / sort branches (in Branches view) |
 | c / R | Create / rename branch (in Branches view) |
 | u / N | Set / unset branch upstream (in Branches view) |
+| M | Merge selected branch into the current branch after choosing a strategy |
 | D / X | Confirm normal / force branch deletion (in Branches view) |
 | s | Stashes view |
 | l | History view |

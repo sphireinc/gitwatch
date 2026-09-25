@@ -91,6 +91,20 @@ requires exact confirmation and never permits deleting the checked-out branch.
 Worktree discovery uses `git worktree list --porcelain`; lifecycle commands are
 typed argv operations and branch occupancy is explicit.
 
+In Branches, select a local or remote-tracking branch and press `M` to merge it
+into the currently checked-out branch. The prompt requires an explicit
+strategy: `merge` (normal Git behavior), `ff-only`, `no-ff`, or `squash`.
+Remote-tracking refs retain their qualified name, such as `origin/topic`.
+Merging requires a clean worktree; gitwatch does not auto-stash, reset, or
+force a merge, and it refuses a merge while another Git operation is active
+or when the source branch is checked out in another linked worktree.
+
+If Git reports a conflict, gitwatch opens the common conflict-recovery view
+with the authoritative conflict snapshot. Resolve and stage the paths before
+using `c` to continue; use `x` to abort. Merge does not offer Skip. With
+`squash`, Git stages the combined changes but creates no merge commit; review
+the staged result and commit it separately.
+
 ## Remotes and GitHub
 
 Remote URLs are redacted before display or diagnostics. Pull strategy must be
