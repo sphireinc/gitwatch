@@ -1,23 +1,28 @@
-# Prerelease configuration migration
+# Legacy configuration migration
 
-The first stable gitwatch release uses configuration schema version 2. The
-schema number is independent of the application release number and advanced
-during prerelease development. This guide exists for users of early source and
-beta builds; no stable v1-to-v2 application upgrade is implied.
+The published gitwatch v1.0.9 release uses configuration schema version 3.
+The schema number is independent of the application release number. This guide
+covers configuration files created by earlier prerelease and beta builds; it
+does not describe an application-version upgrade.
 
-## Configuration
+## Configuration migration
 
-Configuration without a version, and version-1 configuration files, are
-migrated in memory to the version-2 defaults. gitwatch does not rewrite the
-source file automatically. Run `gitwatch --config-inspect` to review the
-effective configuration, then explicitly update the file if desired.
+Configuration without a version and schema-version-1 or schema-version-2 files
+are normalized in memory to schema version 3. gitwatch never rewrites the
+source file during startup or migration inspection. Run
+`gitwatch --config-migration-dry-run --config <path>` to review the migration
+plan, or `gitwatch --config-inspect --config <path>` to inspect the effective
+configuration after in-memory defaults are applied.
 
-Version 2 adds repository groups and per-group refresh intervals, remote pull
-strategy settings, GitHub/provider settings, plugin directories/output limits,
-notification quiet mode, and validated keymap bindings. Unknown future
-versions are rejected instead of being silently rewritten.
+Schema version 2 introduced repository groups and per-group refresh intervals,
+remote pull strategy settings, GitHub/provider settings, plugin directories and
+output limits, notification quiet mode, and validated keymap bindings. Schema
+version 3 adds bounded workspace and visualization settings. See the
+[configuration guide](configuration.md) and [JSON Schema](configuration.schema.json)
+for the complete current option list, defaults, and constraints. Future schema
+versions are rejected rather than silently rewritten.
 
-## Keyboard changes
+## Historical keyboard changes
 
 The core status bindings remain stable. Workbench views are opened with
 `b` (branches), `n` (remotes), `v` (repositories), and `E` (plugins when

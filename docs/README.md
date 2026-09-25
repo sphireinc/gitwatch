@@ -25,7 +25,7 @@ workflows, configuration, safety boundaries, maintenance, and release evidence.
 - [Plugins](plugins.md)
 - [Plugin SDK](plugin-sdk.md)
 - [Distribution and upgrades](distribution.md)
-- [Migration from v1](migration-v1.md)
+- [Legacy configuration migration](migration-v1.md)
 - [Demo and recording guide](demo.md)
 
 ## Safety and operations

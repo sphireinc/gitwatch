@@ -10,6 +10,12 @@ artifacts, checksums, SBOM, attestation, and publication are recorded in the
 upgrade, and shutdown acceptance rows below remain open; do not infer their
 completion from the published release or CI.
 
+A limited local macOS ARM64 supplement verified the published archive checksum,
+source install, CLI/config migration, and scripted runtime workflow on
+2026-09-25 (details in the release sign-off). This is not a clean-machine run
+or cross-platform operator evidence; the corresponding checklist rows remain
+unchecked.
+
 ## Automated candidate gate
 
 Use Go 1.25.10 and the repository-pinned golangci-lint v2.12.0, then run the gate on the exact release commit. Record the versions with the evidence:

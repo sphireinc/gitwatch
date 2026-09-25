@@ -17,6 +17,18 @@ release workflow.
 
 **Acceptance remains in progress.** The release workflow does not provide native interactive evidence. macOS, Linux, and native Windows operator runs, clean-machine installation, upgrade/migration behavior, terminal and child-process restoration, and exact-candidate release-blocker/data-loss review remain pending in the [beta validation matrix](beta-validation-matrix.md) and [release checklist](release-checklist.md).
 
+### Local v1.0.9 install/runtime supplement (2026-09-25)
+
+On Darwin 25.6.0 arm64, the published macOS ARM64 archive matched its release
+checksum, extracted with its license/notice files, and reported the signed-tag
+identity. The source-installed `@v1.0.9` binary also reported version 1.0.9.
+Both binaries passed the scripted 80x24 watcher-refresh, diff, stage/unstage,
+and clean-exit demo in a disposable repository. The archive binary's isolated
+config check passed; schema-v1 and schema-v2 migration dry-runs/inspection
+normalized to schema v3 without rewriting either source file. This automated
+host check does not satisfy clean-machine or Linux/Windows operator acceptance,
+and does not verify upgrade from the stable v1.0.8 release.
+
 ## Historical prepublication candidate: `0f10d5d`
 
 The records below describe the candidate and decision state before v1.0.9 was
