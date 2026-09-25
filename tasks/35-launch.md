@@ -44,3 +44,15 @@ This is isolated local/automated evidence on Go 1.27.0, not a clean-machine or
 native operator run; it does not verify clean-machine upgrade behavior, Linux
 or Windows installation, or any pending platform matrix row. Task 35 remains
 in progress.
+
+## Exact-candidate acceptance boundary (2026-09-25)
+
+The published `v1.0.9` tag targets `951f3f64c64fef31c3fc088577f14713e1175ffb`
+from 2026-09-22. The later all-cell owner operator disposition in
+`docs/beta-validation-matrix.md` is for `5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725`
+from 2026-09-25, 200 commits later. The exact comparison contains 89 changed
+Go source files (`6,533` insertions and `409` deletions), so the later matrix
+sign-off cannot be retroactively treated as native acceptance for the older
+published tag. The recorded local archive/source checks remain limited to
+Darwin arm64; exact-tag native acceptance and clean-machine installation and
+upgrade rows remain open.
