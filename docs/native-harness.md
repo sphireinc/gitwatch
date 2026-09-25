@@ -27,3 +27,8 @@ translate a POSIX result into Windows evidence.
 Keep recordings and screenshots outside the repository unless they contain no
 personal paths, credentials, private URLs, or repository contents. Delete the
 fixture and evidence after reporting, including on failure.
+
+To exercise a linked worktree with the automated terminal harness, pass the
+worktree root to `scripts/pty-smoke.sh` or `scripts/record-demo.sh`. These
+scripts validate the repository with `git rev-parse`; they do not assume that
+`.git` is a directory, because linked worktrees use a `.git` file.

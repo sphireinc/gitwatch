@@ -8,7 +8,7 @@ if [ ! -x "$binary" ]; then
 	echo "gitwatch binary is not executable: $binary" >&2
 	exit 2
 fi
-if [ ! -d "$repository/.git" ]; then
+if ! git -C "$repository" rev-parse --show-toplevel >/dev/null 2>&1; then
 	echo "demo repository is not initialized: $repository" >&2
 	exit 2
 fi
