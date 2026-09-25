@@ -45,7 +45,7 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
 - [x] Exact tested revision recorded (`844b9b2`, Darwin arm64).
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [x] Known limitations/deferred work documented.
 
@@ -124,3 +124,18 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
   DNS resolution for `proxy.golang.org` failed before lint ran. Hosted CI status
   for the pushed commit is not yet recorded. Native/manual terminal acceptance
   and full release evidence remain open; this task remains active.
+
+- At 2026-09-25 02:11 UTC, the pinned linter was fetched with network access and
+  reported QF1001 in `validActionToken`, added in commit `844b9b2`. Commit
+  `2fd3c74` applies the equivalent De Morgan form without changing the accepted
+  ASCII token characters. At tested revision `91424f1`, the full
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` passed on Darwin arm64 / Go 1.27.0, including pinned lint (0 issues),
+  tests, race, vet, format, diff, security fuzz, and performance checks. Hosted
+  Actions run `36085163506` was queued for `91424f1`; native/manual terminal
+  acceptance and release evidence remain open.
+
+- Follow-up: hosted Actions run `36085163506` completed successfully for
+  `91424f1`. Quality/policy and full-history secret scanning passed; Ubuntu,
+  macOS, and Windows test/build/runtime jobs passed. This does not replace the
+  still-open native/manual terminal acceptance or release evidence.

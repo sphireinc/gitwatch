@@ -42,13 +42,13 @@ Support common review and merge actions while keeping provider state distinct fr
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded (`91424f1`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -98,3 +98,14 @@ Support common review and merge actions while keeping provider state distinct fr
   comment sanitization and reply targeting, explicit merge confirmation,
   branch-deletion separation, stale refresh, and typed provider failure states.
   Native/manual terminal evidence remains open.
+
+- At tested revision `91424f1`, Darwin arm64 `make check` passed with pinned
+  lint (0 issues), full and race tests, vet, formatting, diff checks, security
+  fuzz, and performance checks. Hosted run `36085163506` passed quality/policy
+  and full-history secret scanning; its Ubuntu/macOS/Windows test jobs were
+  still running at this update. Native/manual review-and-merge acceptance
+  remains open.
+
+- Follow-up: hosted Actions run `36085163506` completed successfully for
+  `91424f1`, including Ubuntu, macOS, and Windows test/build/runtime jobs.
+  Native/manual review-and-merge acceptance remains open.

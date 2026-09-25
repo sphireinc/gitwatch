@@ -41,13 +41,13 @@ Round out high-value repository-provider integration without turning gitwatch in
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded (`91424f1`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -88,3 +88,15 @@ Round out high-value repository-provider integration without turning gitwatch in
   lint reporting 0 issues, full tests, race, vet, security fuzz, and
   performance gates. Provider-disabled, no-auth, partial-scope, and native
   terminal acceptance remain explicit follow-up evidence.
+
+- At tested revision `91424f1`, Darwin arm64 `make check` passed with pinned
+  lint (0 issues), full and race tests, vet, formatting, diff checks, security
+  fuzz, and performance checks. Hosted run `36085163506` passed quality/policy
+  and full-history secret scanning; its Ubuntu/macOS/Windows test jobs were
+  still running at this update. Provider-disabled, no-auth, partial-scope, and
+  native/manual acceptance remain open.
+
+- Follow-up: hosted Actions run `36085163506` completed successfully for
+  `91424f1`, including Ubuntu, macOS, and Windows test/build/runtime jobs.
+  Provider-disabled, no-auth, partial-scope, and native/manual acceptance
+  remain open.

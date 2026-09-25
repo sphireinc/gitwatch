@@ -41,13 +41,13 @@ Turn CI visibility into actionable but bounded workflow support.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded (`91424f1`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -96,3 +96,15 @@ Turn CI visibility into actionable but bounded workflow support.
   test, race, build, and runtime-smoke steps passed; the separate PTY acceptance
   step failed before producing evidence, so hosted macOS PTY acceptance remains
   open. Native/manual terminal acceptance also remains open.
+
+- At tested revision `91424f1`, Darwin arm64 `make check` passed with pinned
+  lint (0 issues), full and race tests, vet, formatting, diff checks, security
+  fuzz, and performance checks. Hosted run `36085163506` passed quality/policy
+  and full-history secret scanning; its Ubuntu/macOS/Windows test jobs were
+  still running at this update. Native/manual workflow and watcher-responsiveness
+  evidence remain open.
+
+- Follow-up: hosted Actions run `36085163506` completed successfully for
+  `91424f1`, including Ubuntu, macOS, and Windows test/build/runtime jobs and
+  hosted PTY/large-status acceptance. This remains scripted hosted evidence;
+  native/manual workflow and watcher-responsiveness evidence remain open.
