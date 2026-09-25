@@ -39,7 +39,7 @@ provenance and local playback instructions.
 - Guarded stage, unstage, restore, hunk, commit, stash, branch, worktree, remote, and history workflows.
 - Repository-scoped bisect workspace for starting and resuming a manual bisect, marking candidates good/bad/skipped, inspecting their patches, and confirming reset. An optional automated run accepts an executable and separate arguments without shell-string construction. The workspace shows the latest boundaries, candidate subject, log, and Git's approximate remaining count when available.
 - Bounded path history and blame inspection, plus guarded historical patch editing through a controlled rebase.
-- Typed-argv editor, opener, and difftool handoffs, with shell-free custom commands and context-aware bindings.
+- Typed-argv editor, opener, and difftool handoffs, with shell-free custom commands, validated text/secret/selection prompts, and context-aware bindings.
 - Optional, failure-isolated GitHub pull-request workspace with checks; multi-repository health rows show live local state separately from cached provider freshness and measured remote-fetch latency.
 - Capability-bounded out-of-process plugins.
 - Keyboard and mouse parity, `NO_COLOR`, semantic themes, high-contrast-safe text, and reduced/off motion.

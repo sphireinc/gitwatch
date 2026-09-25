@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-const configurationSchemaV3SHA256 = "90613e7f4df1778e5a5aaf18f1ea1327cd8d801af94aeb45af2248d8ec915808"
+const configurationSchemaV3SHA256 = "cded805c00c7783ae2b04b6d22ffea69c938cc936e98340ef99f7daa3fede2ae"
 
 func TestDocumentedSchemaV3CoversAdvancedConfigurationSurface(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "configuration.schema.json"))

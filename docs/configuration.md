@@ -117,12 +117,56 @@ Supported argv/directory placeholders are `{repo}`, `{path}`, `{sha}`,
 `{branch}`, `{remote}`, `{tag}`, `{url}`, and `{prompt:<id>}`. No shell parsing
 or expansion occurs.
 
-Each `prompts[]` object supports `id`, `label`, `kind`, `required`, `pattern`,
-`options`, `options_source`, and `default`. `kind` is one of `text`, `secret`,
-`confirm`, `select`, or `multi-select`. `select` and `multi-select` require
-static `options` or an `options_source` of `branches`, `remotes`, `tags`,
-`commits`, or `paths`. `pattern`, when supplied, is a regular expression.
-Secret prompt values are redacted from history and diagnostics.
+Each `prompts[]` object supports these fields:
+
+| Field | Meaning |
+|---|---|
+| `id` | Unique prompt identifier used by `{prompt:<id>}`. |
+| `label` | User-facing prompt label. |
+| `kind` | `text`, `secret`, `confirm`, `select`, or `multi-select`. |
+| `required` | Reject an empty value when the prompt is submitted. |
+| `pattern` | Go regular expression used to validate text or secret input. |
+| `options` | Static choices for `select` and `multi-select`. |
+| `options_source` | Append choices from already-loaded `branches`, `remotes`, `tags`, `commits`, or `paths`; opening the form does not launch a Git or provider request. |
+| `default` | Initial value for text, or one preselected option for select/multi-select. It must satisfy validation and match an available choice. Secret and confirmation prompts cannot have defaults. |
+
+For example, this command asks for a validated ticket ID and selects a branch
+from the repository state already loaded by gitwatch:
+
+```json
+{
+  "custom_commands": [
+    {
+      "name": "show-ticket",
+      "executable": "ticket-tool",
+      "contexts": ["status"],
+      "args": ["show", "--id", "{prompt:ticket}", "--branch", "{prompt:branch}"],
+      "prompts": [
+        {
+          "id": "ticket",
+          "label": "Ticket ID",
+          "kind": "text",
+          "required": true,
+          "pattern": "^[A-Z]+-[0-9]+$",
+          "default": "APP-42"
+        },
+        {
+          "id": "branch",
+          "label": "Branch",
+          "kind": "select",
+          "options_source": "branches"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Secret input is masked and redacted from history, output, and diagnostics.
+However, when a secret is substituted into argv, operating-system process
+inspection may reveal it to another process running as the same user. Avoid
+passing high-sensitivity credentials this way; prefer a custom executable that
+accepts secrets over standard input.
 
 ### `commit_tree`, `workspace`, `visuals`, and keymaps
 

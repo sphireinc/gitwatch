@@ -37,17 +37,17 @@ Support interactive custom workflows such as selecting a branch or entering a ti
 
 ## Acceptance criteria
 
-- [ ] Custom commands support rich prompts without requiring shell scripts.
+- [x] Custom commands support rich prompts without requiring shell scripts.
 
 ## Completion record
 
 - [ ] Implementation commit recorded.
 - [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -87,3 +87,27 @@ Support interactive custom workflows such as selecting a branch or entering a ti
   is unavailable; installed v2.11.3 was built with Go 1.26 and cannot consume
   this Go 1.27 toolchain's export data. Native/manual mouse acceptance and
   provider-backed option sources remain open; the task remains active.
+
+- Current-main form audit found `prompts[].default` was accepted by the schema
+  and retained in the prompt value but never loaded into the form. Defaults are
+  now applied to text and choice prompts, checked against patterns and available
+  options, and reflected in the select/multi-select controls. Secret and
+  confirmation prompts reject defaults so secrets cannot be stored as default
+  config values and confirmations cannot be pre-accepted.
+- Added tests for text, select, and multi-select defaults and for invalid secret,
+  confirmation, pattern, and choice defaults. Focused `go test ./internal/customcmd`
+  and app custom-command tests passed on current main after the fix.
+- README, default keymap, advanced workflows, and configuration reference now
+  describe prompted custom commands, field semantics, an example, cancellation,
+  and the argv process-inspection limitation for secret values.
+- Provider-backed option sources are not implemented; the supported dynamic
+  sources use repository state already loaded by gitwatch. Native keyboard and
+  mouse operator acceptance remains open, and no native transcript is claimed.
+- Validation on Darwin arm64 with Go 1.27.0 passed for the updated worktree:
+  focused `go test ./internal/customcmd ./internal/config`, focused app custom-
+  command tests, full `go test ./...`, full `go test -race ./...`, `go vet
+  ./...`, `make fmt diff-check security performance release-policy`, and the
+  repository-pinned golangci-lint v2.12.0 run (`0 issues`). The first sandboxed
+  full-test attempt could not bind the app test's localhost listener; both full
+  test suites passed when run with that listener permission. Native keyboard/
+  mouse acceptance and provider-backed option sources remain open.

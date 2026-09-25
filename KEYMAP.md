@@ -101,6 +101,18 @@
 | Enter | Preview the inverse patch and guarded rebase plan; the paused commit then opens the amend composer |
 | Ctrl-X | Abort the rebase and restore the original history |
 
+## Custom-command forms
+
+| Key or input | Action |
+|---|---|
+| Text input | Type the value; Backspace edits it |
+| Enter | Validate and advance to the next prompt; submit only after the final prompt |
+| Up/Down or j/k | Move through select or multi-select options |
+| Space | Toggle the highlighted multi-select option |
+| y / n | Accept or cancel a confirmation prompt |
+| Mouse | Select/toggle options and accept the visible form control |
+| Esc | Cancel the form; no command runs |
+
 ## Bisect workspace
 
 | Key | Action |

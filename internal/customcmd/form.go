@@ -74,15 +74,41 @@ func NewForm(prompts []Prompt) (Form, error) {
 		copyPrompts[index] = Prompt{ID: prompt.ID, Label: prompt.Label, Kind: prompt.Kind, Required: prompt.Required, Pattern: prompt.Pattern, Options: append([]string(nil), prompt.Options...), OptionsSource: prompt.OptionsSource, Default: prompt.Default}
 	}
 	form := Form{prompts: copyPrompts, values: make(map[string]string), selected: make(map[string]map[string]bool)}
+	for _, prompt := range copyPrompts {
+		if prompt.Default == "" {
+			continue
+		}
+		if (prompt.Kind == PromptSelect || prompt.Kind == PromptMultiSelect) && !containsOption(prompt.Options, prompt.Default) {
+			return Form{}, fmt.Errorf("prompt %q default must match an option", prompt.ID)
+		}
+		form.values[prompt.ID] = prompt.Default
+		if prompt.Kind == PromptMultiSelect {
+			form.selected[prompt.ID] = map[string]bool{prompt.Default: true}
+		}
+	}
 	form.loadCurrent()
 	return form, nil
 }
 
 func validatePrompt(prompt Prompt) error {
 	switch prompt.Kind {
-	case PromptText, PromptSecret, PromptConfirm:
+	case PromptText:
 		if len(prompt.Options) != 0 {
 			return fmt.Errorf("prompt %q does not accept options", prompt.ID)
+		}
+	case PromptSecret:
+		if len(prompt.Options) != 0 {
+			return fmt.Errorf("prompt %q does not accept options", prompt.ID)
+		}
+		if prompt.Default != "" {
+			return fmt.Errorf("secret prompt %q cannot have a default", prompt.ID)
+		}
+	case PromptConfirm:
+		if len(prompt.Options) != 0 {
+			return fmt.Errorf("prompt %q does not accept options", prompt.ID)
+		}
+		if prompt.Default != "" {
+			return fmt.Errorf("confirmation prompt %q cannot have a default", prompt.ID)
 		}
 	case PromptSelect, PromptMultiSelect:
 		if len(prompt.Options) == 0 && prompt.OptionsSource == "" {
@@ -102,6 +128,9 @@ func validatePrompt(prompt Prompt) error {
 		return fmt.Errorf("prompt %q has unknown kind %q", prompt.ID, prompt.Kind)
 	}
 	if prompt.OptionsSource != "" {
+		if prompt.Kind != PromptSelect && prompt.Kind != PromptMultiSelect {
+			return fmt.Errorf("prompt %q does not accept an options source", prompt.ID)
+		}
 		switch prompt.OptionsSource {
 		case "branches", "remotes", "tags", "commits", "paths":
 		default:
@@ -109,11 +138,30 @@ func validatePrompt(prompt Prompt) error {
 		}
 	}
 	if prompt.Pattern != "" {
-		if _, err := regexp.Compile(prompt.Pattern); err != nil {
+		pattern, err := regexp.Compile(prompt.Pattern)
+		if err != nil {
 			return fmt.Errorf("prompt %q has invalid pattern: %w", prompt.ID, err)
 		}
+		if prompt.Default != "" && !pattern.MatchString(prompt.Default) {
+			return fmt.Errorf("prompt %q default does not match its pattern", prompt.ID)
+		}
+	}
+	if prompt.Default != "" && prompt.Required && strings.TrimSpace(prompt.Default) == "" {
+		return fmt.Errorf("prompt %q required default cannot be blank", prompt.ID)
+	}
+	if prompt.Default != "" && prompt.OptionsSource == "" && (prompt.Kind == PromptSelect || prompt.Kind == PromptMultiSelect) && !containsOption(prompt.Options, prompt.Default) {
+		return fmt.Errorf("prompt %q default must match an option", prompt.ID)
 	}
 	return nil
+}
+
+func containsOption(options []string, target string) bool {
+	for _, option := range options {
+		if option == target {
+			return true
+		}
+	}
+	return false
 }
 
 // ResolvePrompts fills dynamic option sources from already-loaded repository

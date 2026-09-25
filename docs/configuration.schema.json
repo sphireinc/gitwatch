@@ -123,7 +123,38 @@
                 "options": { "type": "array", "items": { "type": "string" } },
                 "options_source": { "enum": ["branches", "remotes", "tags", "commits", "paths"] },
                 "default": { "type": "string" }
-              }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": { "kind": { "enum": ["secret", "confirm"] } },
+                    "required": ["kind"]
+                  },
+                  "then": { "properties": { "default": { "maxLength": 0 } } }
+                },
+                {
+                  "if": {
+                    "properties": { "kind": { "enum": ["text", "secret", "confirm"] } },
+                    "required": ["kind"]
+                  },
+                  "then": {
+                    "properties": { "options": { "maxItems": 0 } },
+                    "not": { "required": ["options_source"] }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": { "kind": { "enum": ["select", "multi-select"] } },
+                    "required": ["kind"]
+                  },
+                  "then": {
+                    "anyOf": [
+                      { "required": ["options_source"] },
+                      { "required": ["options"], "properties": { "options": { "minItems": 1 } } }
+                    ]
+                  }
+                }
+              ]
             }
           }
         }

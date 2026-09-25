@@ -143,6 +143,60 @@ func TestFormSubmitsTypedValuesAndRedactsSecrets(t *testing.T) {
 	}
 }
 
+func TestFormAppliesTextSelectAndMultiSelectDefaults(t *testing.T) {
+	form, err := NewForm([]Prompt{
+		{ID: "ticket", Label: "Ticket", Kind: PromptText, Required: true, Pattern: `^[A-Z]+-[0-9]+$`, Default: "ABC-42"},
+		{ID: "branch", Label: "Branch", Kind: PromptSelect, Options: []string{"main", "feature"}, Default: "feature"},
+		{ID: "targets", Label: "Targets", Kind: PromptMultiSelect, Options: []string{"api", "web"}, Default: "web"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := form.Input(); got != "ABC-42" {
+		t.Fatalf("text default = %q", got)
+	}
+	if event, err := form.Handle("enter"); err != nil || event != FormChanged {
+		t.Fatalf("text default submit = %v, err=%v", event, err)
+	}
+	if got := form.Input(); got != "feature" || form.Cursor() != 1 {
+		t.Fatalf("select default = %q at cursor %d", got, form.Cursor())
+	}
+	if event, err := form.Handle("enter"); err != nil || event != FormChanged {
+		t.Fatalf("select default submit = %v, err=%v", event, err)
+	}
+	if got := form.SelectedOptions(); len(got) != 1 || got[0] != "web" {
+		t.Fatalf("multi-select default = %#v", got)
+	}
+	if event, err := form.Handle("enter"); err != nil || event != FormSubmitted {
+		t.Fatalf("multi-select default submit = %v, err=%v", event, err)
+	}
+	values := form.Values()
+	if values["ticket"] != "ABC-42" || values["branch"] != "feature" || values["targets"] != "web" {
+		t.Fatalf("submitted defaults = %#v", values)
+	}
+}
+
+func TestFormRejectsInvalidDefaults(t *testing.T) {
+	tests := []struct {
+		name   string
+		prompt Prompt
+	}{
+		{name: "secret", prompt: Prompt{ID: "token", Label: "Token", Kind: PromptSecret, Default: "stored-secret"}},
+		{name: "confirmation", prompt: Prompt{ID: "confirm", Label: "Confirm", Kind: PromptConfirm, Default: "true"}},
+		{name: "pattern", prompt: Prompt{ID: "ticket", Label: "Ticket", Kind: PromptText, Pattern: `^[A-Z]+$`, Default: "lowercase"}},
+		{name: "select-option", prompt: Prompt{ID: "branch", Label: "Branch", Kind: PromptSelect, Options: []string{"main"}, Default: "missing"}},
+		{name: "multi-select-option", prompt: Prompt{ID: "target", Label: "Target", Kind: PromptMultiSelect, Options: []string{"api"}, Default: "web"}},
+		{name: "text-options-source", prompt: Prompt{ID: "text", Label: "Text", Kind: PromptText, OptionsSource: "branches"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := NewForm([]Prompt{test.prompt}); err == nil {
+				t.Fatal("invalid default was accepted")
+			}
+		})
+	}
+}
+
 func TestDefinitionPromptsExpandOnlyAfterValuesAreSupplied(t *testing.T) {
 	definition := Definition{Name: "ticket", Executable: "tool", Prompts: []Prompt{{ID: "ticket", Label: "Ticket", Kind: PromptText, Required: true}}, Args: []string{"--ticket={prompt:ticket}"}}
 	if _, err := definition.Expand(Context{}); err == nil {

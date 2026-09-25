@@ -100,10 +100,20 @@ normal authoritative refresh after the external process exits.
 Custom commands use the same process boundary. Each command declares an
 executable, an argument array, an allowed context, an optional timeout, and
 whether it mutates repository state. Supported placeholders are `{repo}`,
-`{path}`, `{sha}`, `{branch}`, `{remote}`, `{tag}`, and `{url}`. Commands do
-not accept shell strings or unknown placeholders. Mutating commands request a
-status refresh when they finish; commands requiring confirmation use the
-prompt/form workflow before execution.
+`{path}`, `{sha}`, `{branch}`, `{remote}`, `{tag}`, `{url}`, and
+`{prompt:<id>}`. Typed prompts support validated text, masked secrets,
+confirmation, and static or already-loaded branch/remote/tag/commit/path
+selections. The form must be fully submitted before any process starts; `Esc`
+cancels it. Commands do not accept shell strings or unknown placeholders.
+Mutating commands request a status refresh when they finish; commands requiring
+confirmation use the prompt/form workflow before execution.
+
+Secret prompt input is masked and redacted from command output, diagnostics,
+and operation records. When a secret is substituted into an argv value, the
+operating system may still expose that argument to process-inspection tools
+available to the same user. Do not use this transport for credentials that
+must be hidden from other same-user processes; use a tool that accepts secrets
+through a protected channel such as standard input.
 
 See [configuration](configuration.md) for the JSON shape and
 [the keymap](../KEYMAP.md) for the built-in bindings.
