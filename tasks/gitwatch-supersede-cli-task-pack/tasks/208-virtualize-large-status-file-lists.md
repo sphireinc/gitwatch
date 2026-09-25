@@ -105,27 +105,27 @@ behavior without introducing a JavaScript runtime or web UI dependency.
 
 ## Acceptance criteria
 
-- [ ] The complete authoritative status snapshot remains correct for all
+- [x] The complete authoritative status snapshot remains correct for all
   14,953+ entries.
-- [ ] Status rendering and scrolling process only a bounded visible range plus
+- [x] Status rendering and scrolling process only a bounded visible range plus
   documented overscan rather than materializing every row per frame.
-- [ ] Selection, filtering, diff, stage, restore, page movement, and refresh
+- [x] Selection, filtering, diff, stage, restore, page movement, and refresh
   remain logically correct for off-screen rows.
-- [ ] No visible regression occurs at 80x24, with `NO_COLOR`, or with reduced
+- [x] No visible regression occurs at 80x24, with `NO_COLOR`, or with reduced
   motion; keyboard and mouse reach equivalent rows/actions.
 - [ ] Benchmarks and manual acceptance demonstrate that the reported large
   repository no longer scrolls at a crawl.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] Large-repository benchmark and regression evidence recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format/performance evidence recorded.
+- [x] Implementation commit recorded (`6e0c06a`, with PTY and presentation follow-ups).
+- [x] Exact tested revision recorded (`9b1cb342fffba50675ce83dfc957ac0cabae1ea9`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] Large-repository benchmark and regression evidence recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format/performance evidence recorded.
 - [ ] Native/manual terminal evidence recorded.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Current implementation evidence
 
@@ -242,4 +242,11 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   microseconds/op, 55.1 KB/op, and 634 allocations/op for the bounded
   14,953-entry viewport versus 135.1 milliseconds/op, 9.91 MB/op, and 418,721
   allocations/op for its full-scan baseline. Native interactive mouse/NO_COLOR
-  and hosted cross-platform evidence remain open; Task 208 is not complete.
+  acceptance remains open; Task 208 is not complete.
+
+- Hosted Actions run `36179909264` for `eebde8f` completed successfully with
+  quality/policy, secret scanning, and three OS matrix jobs. The status
+  virtualization source is unchanged between `eebde8f` and the locally tested
+  implementation revision `9b1cb342fffba50675ce83dfc957ac0cabae1ea9`.
+  This is hosted CI evidence only; native mouse/NO_COLOR acceptance remains
+  open.

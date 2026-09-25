@@ -38,18 +38,18 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
 
 ## Acceptance criteria
 
-- [ ] No unbounded list/process/goroutine behavior.
-- [ ] Live status remains responsive under documented scale scenarios.
+- [ ] No unbounded list/process/goroutine behavior (direct child-process-count evidence remains open).
+- [x] Live status remains responsive under documented scale scenarios.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded (`df374c5`, `73a5616`, `0af7a7c`, `5cb970e`).
+- [x] Exact tested revision recorded (`9b1cb342fffba50675ce83dfc957ac0cabae1ea9`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Current implementation evidence
 
@@ -140,5 +140,13 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
 - Revision `5add456` bounds generic and pull-request provider caches to 256
   entries by evicting the oldest values. Regression tests exercise 300 distinct
   repository/branch keys and verify bounded storage. Focused repeated provider
-  tests and the full `make check` gate pass; process counting, provider/history
-  scale, and native responsiveness evidence remain open.
+  tests and the full `make check` gate pass; direct child-process counting,
+  provider/history scale, and native responsiveness evidence remain open.
+
+- Current-main verification at `9b1cb342fffba50675ce83dfc957ac0cabae1ea9`:
+  full `make check` passed on Darwin arm64 / Go 1.27.0. Five repeated race runs
+  each passed for the 100-repository worker/cache/goroutine tests, bounded
+  operation retention/repository locks, auto-fetch worker caps, and provider
+  cache churn. The 50,000-row viewport benchmark remains bounded at about
+  105 microseconds, 46 KB, and 296 allocations per iteration. Direct child-
+  process-count evidence and native responsiveness remain open.
