@@ -6,9 +6,12 @@ This checklist separates repeatable automation from native human acceptance and 
 
 GitHub published v1.0.9 on 2026-09-22. Its signed tag, release workflow,
 artifacts, checksums, SBOM, attestation, and publication are recorded in the
-[release sign-off](release-signoff.md). The native operator, clean-install,
-upgrade, and shutdown acceptance rows below remain open; do not infer their
-completion from the published release or CI.
+[release sign-off](release-signoff.md). On 2026-09-25, the owner confirmed
+complete native operator runs on macOS, Linux, and Windows against the exact
+published commit `951f3f64c64fef31c3fc088577f14713e1175ffb`. The detailed
+per-workflow checklist below still needs linked, auditable run records; clean-
+machine install, upgrade, and shutdown/process rows must not be inferred from
+the release publication or CI.
 
 A limited local macOS ARM64 supplement verified the published archive checksum,
 source install, CLI/config migration, and scripted runtime workflow on
@@ -43,6 +46,11 @@ Tagged pushes matching `v*.*.*` run `.github/workflows/release.yml`. The workflo
 ## Native operator acceptance
 
 Record the commit/tag, OS and architecture, terminal and dimensions, Git version, watch mode, and evidence link for every run. Every workflow row below must pass separately on macOS, Linux, and native Windows; a pass on one platform does not carry to another. Optional integrations must be exercised both disabled/unavailable and enabled with disposable, non-secret test data.
+
+The owner has confirmed that exact-tag native runs were completed for v1.0.9
+on all three platforms. Until their sanitized records are linked to the
+individual rows, the checkboxes below remain an evidence-tracking checklist,
+not a denial that those owner-confirmed runs occurred.
 
 ### Platform completion
 

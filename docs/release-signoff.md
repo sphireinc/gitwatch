@@ -2,8 +2,8 @@
 
 This file preserves the prepublication sign-off snapshot for candidate
 `0f10d5d` and records the later v1.0.9 publication separately. The publication
-is verified; native operator acceptance remains open and is not implied by the
-release workflow.
+is verified. Exact-tag native runs were later confirmed by the owner; the
+release workflow itself is not native operator evidence.
 
 ## Current public release: v1.0.9
 
@@ -15,7 +15,23 @@ release workflow.
 - GitHub post-v1 tracking: `v1.1-candidate` label and [v1.1 Ideas milestone](https://github.com/sphireinc/gitwatch/milestone/1) exist; the milestone is explicitly not a schedule or release commitment.
 - The published GitHub release notes report the `go-runewidth` update from `0.0.29` to `0.0.30`; see the [release page](https://github.com/sphireinc/gitwatch/releases/tag/v1.0.9) for the exact published notes.
 
-**Acceptance remains in progress.** The release workflow does not provide native interactive evidence. macOS, Linux, and native Windows operator runs, clean-machine installation, upgrade/migration behavior, terminal and child-process restoration, and exact-candidate release-blocker/data-loss review remain pending in the [beta validation matrix](beta-validation-matrix.md) and [release checklist](release-checklist.md).
+**Acceptance remains in progress.** On 2026-09-25, the owner confirmed that
+complete native operator runs were performed against exact commit
+`951f3f64c64fef31c3fc088577f14713e1175ffb` on all three platforms:
+
+| Platform | Exact-tag run | Disposition |
+| --- | --- | --- |
+| macOS | `v1.0.9` / `951f3f6` | Owner confirmed complete |
+| Linux | `v1.0.9` / `951f3f6` | Owner confirmed complete |
+| Windows | `v1.0.9` / `951f3f6` | Owner confirmed complete |
+
+This owner confirmation is distinct from the later `5b2a8e9` beta matrix.
+Per-run host/terminal metadata and sanitized recordings have not been attached
+here, so the detailed checklist remains an evidence-tracking item. Clean-machine
+installation, upgrade/migration behavior, terminal and child-process
+restoration, and exact-tag release-blocker/data-loss review also remain to be
+audited in the [release checklist](release-checklist.md). The release workflow
+does not provide native interactive evidence.
 
 ### Local v1.0.9 install/runtime supplement (2026-09-25)
 
