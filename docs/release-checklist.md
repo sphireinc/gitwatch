@@ -2,6 +2,14 @@
 
 This checklist separates repeatable automation from native human acceptance and publication. A passing local command is evidence only for the commit and host on which it ran.
 
+## Current release status
+
+GitHub published v1.0.9 on 2026-09-22. Its signed tag, release workflow,
+artifacts, checksums, SBOM, attestation, and publication are recorded in the
+[release sign-off](release-signoff.md). The native operator, clean-install,
+upgrade, and shutdown acceptance rows below remain open; do not infer their
+completion from the published release or CI.
+
 ## Automated candidate gate
 
 Use Go 1.25.10 and the repository-pinned golangci-lint v2.12.0, then run the gate on the exact release commit. Record the versions with the evidence:
@@ -78,13 +86,13 @@ capture only sanitized evidence and remove temporary fixtures after each run.
 
 Tasks 34, 35, 89, 90, and 120 remain explicitly in progress. This checklist and the [beta validation matrix](beta-validation-matrix.md) record their outstanding operator evidence; documentation changes alone do not complete those tasks.
 
-## Publication
+## Publication checklist for a future release
 
-- [ ] Freeze `CHANGELOG.md` into a dated release section and finalize `docs/release-v1.0.0.md`.
+- [ ] Freeze `CHANGELOG.md` into a dated release section and finalize the version-specific release notes.
 - [ ] Confirm canonical module path, repository metadata, issue labels, discussions/support links, security reporting, branch rules, and least-privilege Actions settings.
-- [ ] Create and verify the signed `v1.0.0` tag from the accepted commit.
+- [ ] Create and verify the signed `vX.Y.Z` tag from the accepted commit.
 - [ ] Approve the protected release environment and review generated notes, checksums, SBOM, provenance, archives, license files, and signatures.
-- [ ] Verify `go install github.com/sphireinc/git-watch/cmd/gitwatch@v1.0.0` from outside the source checkout.
+- [ ] Verify `go install github.com/sphireinc/git-watch/cmd/gitwatch@vX.Y.Z` from outside the source checkout.
 - [ ] Publish and test package-manager metadata.
 - [ ] Publish the announcement and genuine demo assets.
 - [ ] Monitor security, crash, data-loss, and install reports after launch.

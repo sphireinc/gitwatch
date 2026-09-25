@@ -4,6 +4,22 @@ All notable user-visible changes to gitwatch are documented here. The project fo
 
 ## [Unreleased]
 
+No post-v1.0.9 entries have been recorded here yet.
+
+## [1.0.9] - 2026-09-22
+
+### Changed
+
+- Updated `github.com/mattn/go-runewidth` from `0.0.29` to `0.0.30`, as recorded in the [published release notes](https://github.com/sphireinc/gitwatch/releases/tag/v1.0.9).
+
+## Project feature summary (not version-attributed)
+
+The bullets below are a cumulative project overview inherited from the
+pre-launch changelog. They are not an Unreleased list and have not been mapped
+to individual tags. See [GitHub Releases](https://github.com/sphireinc/gitwatch/releases)
+for per-release notes; future changes should be recorded under `[Unreleased]`
+and moved into a dated version section when released.
+
 ### Added
 
 - Live authoritative Git status, staged/unstaged diff inspection, conflict-aware file details, safe stage/unstage, watcher/poll fallback, and responsive keyboard/mouse TUI behavior.
@@ -24,5 +40,3 @@ All notable user-visible changes to gitwatch are documented here. The project fo
 - Public documentation, contributor policy, CI, release packaging, and repository hygiene were prepared for the first FOSS release.
 - The production TUI now drives status through the coalescing refresh coordinator and observes both worktree files and linked-worktree Git metadata, with visible polling fallback and clean cancellation during repository switches and shutdown.
 - Filesystem watching ignores read-only Git-metadata events that macOS kqueue reports as mode changes, preventing status-refresh feedback loops while preserving real worktree and metadata changes.
-
-The first public release will move these entries into a dated `1.0.0` section after the cross-platform operator and publication gates in the release checklist are complete.
