@@ -110,3 +110,28 @@ This refresh confirms the merged code and automated gates only. Task 34 remains
 in progress pending the remaining beta scenarios and explicit blocker/data-loss
 review; the candidate-specific owner matrix sign-off remains recorded
 separately above.
+
+## Guarded-mutation audit supplement (2026-09-25)
+
+On current `main` (`cd4bce2`), a focused source review traced the UI-to-Git
+paths for worktree restore, branch deletion/reset, remote force-with-lease and
+tag deletion, linked-worktree removal, stash apply/pop/drop, and merge recovery.
+The reviewed UI paths require explicit confirmation for destructive actions;
+branch deletion checks the exact branch name and refuses the current branch;
+worktree removal is dispatched without `--force`; stash apply/pop use clean-
+worktree checks; and recovery reset modes are limited to soft/mixed rather than
+hard reset. Merge execution preflights dirty state and does not stash/reset
+automatically. `TestMutationCompletionAlwaysRequestsAuthoritativeRefresh`
+covers refresh requests for failed mutation completions across operation classes.
+
+Uncached focused guard/refresh tests passed for app, branch, Git, merge, remote,
+stash, tag, and worktree packages. The selected app tests covered explicit
+remote-tag/force-push, stash, worktree, branch, and mutation-refresh flows. The
+broader uncached app-package run could not bind its localhost `httptest` server
+in this managed environment (`listen tcp6 [::1]:0: bind: operation not
+permitted`); this is an environment limitation, not a reported application
+assertion failure. The focused app tests passed separately. No actionable
+data-loss or security defect was found in the reviewed paths; this bounded code
+review does not establish that no unreported or privately tracked beta blocker
+exists. Task 34 therefore remains in progress pending owner confirmation of
+the blocker/data-loss review and any remaining real-repository beta feedback.
