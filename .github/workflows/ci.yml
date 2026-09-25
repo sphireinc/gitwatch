@@ -48,6 +48,8 @@ jobs:
         run: ./scripts/security-check.sh
       - name: Performance budgets
         run: ./scripts/performance-check.sh
+      - name: Release channel policy
+        run: ./scripts/release-policy-check.sh
 
   test:
     name: Test (${{ matrix.os }})

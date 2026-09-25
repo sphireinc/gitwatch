@@ -32,6 +32,10 @@ overwritten. After local verification, a pushed tag starts the protected
 release workflow; publication still requires its CI checks and
 release-environment approval.
 
+Semantic-version tags with a prerelease suffix (for example,
+`v1.1.0-beta.1`) are published as GitHub prereleases and are not promoted as
+stable releases. Stable `vX.Y.Z` tags use the regular release channel.
+
 ## Verification and upgrade safety
 
 Every release emits `gitwatch_<version>_release.json` from the checked-out

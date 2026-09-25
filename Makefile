@@ -6,10 +6,10 @@ GOLANGCI_LINT_VERSION := $(shell cat .golangci-lint-version)
 # user's normal configuration.
 GIT_TEST_ENV := GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
 
-.PHONY: check test race vet fmt lint diff-check security performance build release \
+.PHONY: check test race vet fmt lint diff-check security performance release-policy build release \
 	secrets secrets-history install-hooks clean
 
-check: fmt lint test race vet diff-check security performance
+check: fmt lint test race vet diff-check security performance release-policy
 
 test:
 	$(GIT_TEST_ENV) go test ./...
@@ -35,6 +35,9 @@ security:
 
 performance:
 	./scripts/performance-check.sh
+
+release-policy:
+	./scripts/release-policy-check.sh
 
 build:
 	go build $(GOFLAGS) ./cmd/gitwatch

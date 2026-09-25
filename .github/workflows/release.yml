@@ -161,6 +161,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          release_type=$(./scripts/release-type.sh "$GITHUB_REF_NAME")
+          release_flags=()
+          if [[ "$release_type" == "prerelease" ]]; then
+            release_flags+=(--prerelease)
+          fi
           assets=(
             dist/*.tar.gz
             dist/*.zip
@@ -170,10 +175,11 @@ jobs:
           )
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
-            gh release edit "$GITHUB_REF_NAME" --title "gitwatch ${GITHUB_REF_NAME}"
+            gh release edit "$GITHUB_REF_NAME" --title "gitwatch ${GITHUB_REF_NAME}" "${release_flags[@]}"
           else
             gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
               --generate-notes \
               --title "gitwatch ${GITHUB_REF_NAME}" \
-              --verify-tag
+              --verify-tag \
+              "${release_flags[@]}"
           fi

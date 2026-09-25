@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Repository-wide tests, race tests, vetting, benchmarks, release checks, strict five-target artifact verification, OS-specific CI runtime smoke checks, and real-repository integration fixtures pass; the plugin API-1 compatibility fixtures, beta validation matrix, feedback template, and release sign-off record are documented. The matrix is owner-signed for exact candidate `5b2a8e9` across macOS, Windows, and all Linux cells by explicit platform-equivalence acceptance; physical multi-distribution Linux testing continues. On 2026-09-25 the owner confirmed no known private/unreported blocker, critical, or data-loss issue beyond the public tracker, which showed zero open issues. A separate post-v1 beta release is not present in current tags/releases, so beta publication and the exact candidate's full acceptance remain open.
+Progress: Repository-wide tests, race tests, vetting, benchmarks, release checks, strict five-target artifact verification, OS-specific CI runtime smoke checks, and real-repository integration fixtures pass; the plugin API-1 compatibility fixtures, beta validation matrix, feedback template, and release sign-off record are documented. The matrix is owner-signed for exact candidate `5b2a8e9` across macOS, Windows, and all Linux cells by explicit platform-equivalence acceptance; physical multi-distribution Linux testing continues. On 2026-09-25 the owner confirmed no known private/unreported blocker, critical, or data-loss issue beyond the public tracker, which showed zero open issues. The owner selected beta tag `v1.1.0-beta.1`; candidate disposition, publication, and the feedback window remain open, and no beta tag or release has been created.
 
 ## Objective
 Cut a beta release containing all post-v1 features. Collect crash/error/performance feedback, test across macOS/Linux/Windows and major terminals, validate Git versions, freeze plugin API candidate, and resolve all release-blocking defects.
@@ -42,9 +42,32 @@ The user-approved carry-forward to `34562b5` is recorded for Tasks 137 and
 or the v1.0.9 stable publication satisfies Task 89's exact-candidate beta
 release requirement.
 
-**Still required:** obtain/record the beta-wide acceptance scope for current
-source, select and authorize a beta version/channel, then complete the beta
-publication and its feedback window. No beta tag or release has been created.
+**Still required:** resolve whether the all-cell matrix disposition carries to
+the exact release commit, then create and publish the authorized
+`v1.1.0-beta.1` tag/release and complete its feedback window. No beta tag or
+release has been created.
+
+## Prerelease channel safeguard (2026-09-25)
+
+The release workflow now classifies `vMAJOR.MINOR.PATCH` tags as stable and
+hyphen-suffixed versions such as `v1.1.0-beta.1` as prereleases. It passes
+GitHub CLI's `--prerelease` flag both when creating a release and when updating
+an existing one, so a beta tag is not accidentally published in the stable
+channel. `scripts/release-policy-check.sh` covers channel classification,
+invalid tags, and workflow wiring; it is part of `make check`, CI, and the
+release check. `docs/distribution.md` documents the distinction.
+
+Local verification on Darwin arm64 / Go 1.27.0: release policy checks, release
+workflow YAML parsing, extracted publish-step Bash syntax, formatting,
+`go test ./...`, `go test -race ./...`, `go vet ./...`, security checks, and
+performance budgets passed. The repository-pinned golangci-lint v2.12.0 was
+built from its cached source, but local lint could not type-check Go 1.27's
+new generic standard-library methods (`math/rand/v2`) with the Go 1.25.5-built
+linter; the required Go 1.25.10 toolchain is not installed in this restricted
+environment. Hosted CI remains the authoritative lint gate. The owner has
+selected `v1.1.0-beta.1`, but this safeguard does not publish a beta; whether
+the recorded matrix disposition carries to the exact release commit still
+needs resolution, so no beta tag or release has been created.
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.

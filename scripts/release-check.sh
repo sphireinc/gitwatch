@@ -7,9 +7,10 @@ export GOCACHE="$cache"
 export GOPROXY="${GOPROXY:-off}"
 export GOSUMDB="${GOSUMDB:-off}"
 
-for script in scripts/release.sh scripts/release-check.sh scripts/verify-release-artifacts.sh scripts/verify-sbom.sh; do
+for script in scripts/release.sh scripts/release-check.sh scripts/release-type.sh scripts/verify-release-artifacts.sh scripts/verify-sbom.sh; do
 	sh -n "$script"
 done
+./scripts/release-policy-check.sh
 
 go test ./...
 go test -race ./...
