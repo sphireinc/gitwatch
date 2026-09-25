@@ -25,3 +25,18 @@ The existing PTY scripts incorrectly required `<repo>/.git` to be a directory. R
 Built from `9b7acaa` on Go 1.27.0, Darwin 25.6.0 arm64, Git 2.33.0, and tmux 3.6a. The updated 80x24 PTY startup/help/quit smoke passed in the linked worktree. The scripted PTY demo also passed there with filesystem watch enabled: an external edit appeared in status and diff without pressing refresh; the displayed counts transitioned from modified to staged and back to modified; final porcelain status showed only the intended unstaged `docs/notes.md` change, with no staged residue. The script resized the session and exited cleanly. This is automated PTY evidence only and does not fill native operator matrix cells.
 
 `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` passed on Darwin arm64, including pinned golangci-lint (0 issues), formatting, full tests, race tests, vet, whitespace checks, security fuzzing, and performance budgets. The earlier sandbox-only lint download failure was resolved by allowing the pinned module download; no lint finding was suppressed.
+
+## Latest automated evidence (2026-09-25)
+
+At commit `6e0c06a403e0f9909e019c7959d7fea5d88c2775`, the complete local
+`make check` passed on Darwin arm64 / Apple M1 Pro, including formatting,
+pinned lint (0 issues), full and race tests, vet, security fuzz checks, and
+performance budgets. Hosted Actions run [36103006507](https://github.com/sphireinc/gitwatch/actions/runs/36103006507)
+passed its quality/policy, full-history secret scan, and Ubuntu 24.04, macOS
+15, and Windows 2025 test/build matrix. Its Linux and macOS jobs also passed
+the large-status PTY acceptance; Windows path/CRLF parity passed. The open
+GitHub issue query returned no issues at this check. This is current automated
+and issue-tracker evidence only; it does not establish that no unreported
+blocker/data-loss issue exists and does not fill any native operator matrix
+cell. Keep Task 34 in progress until the remaining beta scenarios and exact
+candidate native evidence are recorded.
