@@ -79,6 +79,9 @@ func TestRunnerCancellation(t *testing.T) {
 	if !errors.Is(err, ErrCancelled) {
 		t.Fatalf("expected cancellation, got %v", err)
 	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation cause, got %v", err)
+	}
 }
 
 func TestRunnerBoundedStreamingDeliversBothStreamsAndBoundsRetention(t *testing.T) {

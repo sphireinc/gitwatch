@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -3817,6 +3818,68 @@ func TestRepositoryBatchCancelUsesActiveContext(t *testing.T) {
 	m = updated.(Model)
 	if cmd != nil || !called || m.RepositoryBatchCancel == nil || !strings.Contains(m.Status, "cancelling") {
 		t.Fatalf("batch cancellation = cmd=%v called=%v cancel=%v status=%q", cmd != nil, called, m.RepositoryBatchCancel != nil, m.Status)
+	}
+}
+
+func TestRepositoryBatchCancellationIsReportedAsCancelled(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "batch cancellation fixture")
+
+	requestStarted := make(chan struct{}, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		requestStarted <- struct{}{}
+		<-request.Context().Done()
+	}))
+	defer server.Close()
+
+	runner := git.NewRunner(root)
+	gitMustRunAppTest(t, ctx, runner, "remote", "add", "origin", server.URL+"/slow.git")
+	m := NewRepositoryWithConfig(git.Discovery{Root: root}, config.Defaults())
+	m.Repositories = repoview.New([]registry.Row{{
+		Repository: registry.Repository{Path: root, Name: "repo"},
+		Branch:     "main",
+	}})
+	m.RepositoryBatchAction = multirepo.ActionFetch
+	m.RepositoryBatchStrategy = "ff-only"
+	command := m.runRepositoryBatchFetch()
+	cancel := m.RepositoryBatchCancel
+	defer cancel()
+
+	finished := make(chan RepositoryBatchFinishedMsg, 1)
+	go func() {
+		for message := command(); ; {
+			switch value := message.(type) {
+			case RepositoryBatchProgressMsg:
+				command = batchProgressCommand(value.Events)
+				message = command()
+			case RepositoryBatchFinishedMsg:
+				finished <- value
+				return
+			default:
+				finished <- RepositoryBatchFinishedMsg{Err: fmt.Errorf("unexpected batch message %T", message)}
+				return
+			}
+		}
+	}()
+
+	select {
+	case <-requestStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("batch fetch did not reach the stalled remote")
+	}
+	cancel()
+
+	select {
+	case result := <-finished:
+		if result.Err != nil {
+			t.Fatal(result.Err)
+		}
+		if len(result.Results) != 1 || result.Results[0].Status != "cancelled" {
+			t.Fatalf("cancelled batch result = %#v", result.Results)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("batch did not finish after cancellation")
 	}
 }
 

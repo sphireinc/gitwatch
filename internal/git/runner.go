@@ -63,6 +63,10 @@ func (e *CommandError) Error() string {
 	return fmt.Sprintf("%v: git %s", e.Kind, strings.Join(e.Args, " "))
 }
 
+func (e *CommandError) Is(target error) bool {
+	return errors.Is(e.Kind, target) || errors.Is(e.Cause, target)
+}
+
 func (e *CommandError) Unwrap() error { return e.Kind }
 
 // Runner executes Git with an argument vector in a specific directory.
