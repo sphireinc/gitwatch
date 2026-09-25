@@ -64,10 +64,16 @@ performance budgets passed. The repository-pinned golangci-lint v2.12.0 was
 built from its cached source, but local lint could not type-check Go 1.27's
 new generic standard-library methods (`math/rand/v2`) with the Go 1.25.5-built
 linter; the required Go 1.25.10 toolchain is not installed in this restricted
-environment. Hosted CI remains the authoritative lint gate. The owner has
-selected `v1.1.0-beta.1`, but this safeguard does not publish a beta; whether
-the recorded matrix disposition carries to the exact release commit still
-needs resolution, so no beta tag or release has been created.
+environment. Hosted CI run [36178722786](https://github.com/sphireinc/gitwatch/actions/runs/36178722786)
+passed the pinned lint, release-channel policy check, full-history secret scan,
+and Linux, macOS, and Windows jobs. On clean commit `a121687`,
+`VERSION=1.1.0-beta.1 ./scripts/release-check.sh` also passed on Darwin arm64 /
+Go 1.27.0, including isolated source install/runtime smoke, full tests, race,
+vet, security/performance checks, five-target archives, release metadata, and
+checksum verification. This does not publish a beta. The owner selected
+`v1.1.0-beta.1`, but whether the recorded matrix disposition carries to the
+exact release commit still needs resolution, so no beta tag or release has
+been created.
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.
