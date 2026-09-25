@@ -215,8 +215,15 @@ type ActionSpec struct {
 	Title       string `json:"title"`
 	Description string `json:"description,omitempty"`
 	Context     string `json:"context,omitempty"`
+	Provider    string `json:"provider,omitempty"`
 	ReadOnly    bool   `json:"read_only"`
 }
+
+const (
+	// ActionProviderGitHubRepository requests the host's read-only GitHub
+	// repository workspace. It never lets a plugin choose a URL or token.
+	ActionProviderGitHubRepository = "github.repository"
+)
 
 type TableColumn struct {
 	ID    string `json:"id"`
@@ -258,6 +265,26 @@ func (c Contribution) Validate() error {
 	if len(c.Columns) > MaxContributionFields {
 		return errors.New("plugin contribution has too many columns")
 	}
+	if c.Kind == "repository_metadata" && !c.ReadOnly {
+		return errors.New("repository metadata contributions must be read-only")
+	}
+	if c.Action != nil {
+		if !validActionToken(c.Action.ID) || c.Action.Title == "" {
+			return errors.New("invalid plugin action")
+		}
+		if len(c.Action.Title) > MaxContributionText || len(c.Action.Description) > MaxContributionText {
+			return fmt.Errorf("plugin action text exceeds %d bytes", MaxContributionText)
+		}
+		if c.Action.Context != "" && !validActionToken(c.Action.Context) {
+			return errors.New("invalid plugin action context")
+		}
+		if c.Action.Provider != "" && !validActionToken(c.Action.Provider) {
+			return errors.New("invalid plugin action provider")
+		}
+		if c.Kind == "repository_metadata" && (!c.Action.ReadOnly || c.Action.Provider == "") {
+			return errors.New("repository metadata actions must be read-only and name a provider")
+		}
+	}
 	for _, value := range append([]string{c.Title, c.Description}, contributionValues(c)...) {
 		if hasControl(value) {
 			return errors.New("plugin contribution contains terminal control data")
@@ -280,9 +307,24 @@ func contributionValues(c Contribution) []string {
 		}
 	}
 	if c.Action != nil {
-		values = append(values, c.Action.ID, c.Action.Title, c.Action.Description, c.Action.Context)
+		values = append(values, c.Action.ID, c.Action.Title, c.Action.Description, c.Action.Context, c.Action.Provider)
 	}
 	return values
+}
+
+func validActionToken(value string) bool {
+	if value == "" || len(value) > MaxFieldBytes {
+		return false
+	}
+	for _, r := range value {
+		if (r < 'a' || r > 'z') &&
+			(r < 'A' || r > 'Z') &&
+			(r < '0' || r > '9') &&
+			r != '.' && r != '_' && r != '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func hasControl(value string) bool {

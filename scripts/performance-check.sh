@@ -13,6 +13,8 @@ go test ./internal/patch ./internal/history ./internal/registry \
 	-benchmem -benchtime=1x
 go test ./internal/app -run '^$' -bench '^BenchmarkStatusMouseRowHeights14953$' \
 	-benchmem -benchtime=1x
+go test ./internal/app -run '^$' -bench '^BenchmarkStatusFileLines14953$' \
+	-benchmem -benchtime=1x
 go test ./internal/app -run '^$' -bench '^BenchmarkStatusMouseRowHeightsScale$' \
 	-benchmem -benchtime=1x
 go test ./internal/app -run '^$' -bench '^BenchmarkCommandPalette50Repositories$' \

@@ -37,9 +37,11 @@ provenance and local playback instructions.
 - Lower-left context panes for the commit tree, unpushed commits, and a read-only branch summary.
 - The initial changed-file selection and subsequent mouse or keyboard selections preview that file's diff without mutating the repository; working-tree changes use the unstaged diff even when the file also has staged changes.
 - Guarded stage, unstage, restore, hunk, commit, stash, branch, worktree, remote, and history workflows.
+- Repository-scoped bisect workspace for starting and resuming a manual bisect, marking candidates good/bad/skipped, inspecting their patches, and confirming reset. The workspace shows the latest boundaries, candidate subject, log, and Git's approximate remaining count when available.
 - Bounded path history and blame inspection, plus guarded historical patch editing through a controlled rebase.
 - Typed-argv editor, opener, and difftool handoffs, with shell-free custom commands and context-aware bindings.
-- Optional read-only GitHub pull-request/check visibility, multi-repository dashboards, and capability-bounded out-of-process plugins.
+- Optional, failure-isolated GitHub pull-request workspace with checks; multi-repository health rows show live local state separately from cached provider freshness and measured remote-fetch latency.
+- Capability-bounded out-of-process plugins.
 - Keyboard and mouse parity, `NO_COLOR`, semantic themes, high-contrast-safe text, and reduced/off motion.
 - No telemetry.
 
@@ -156,7 +158,7 @@ Read the [security policy](SECURITY.md) and [threat model](docs/security.md) bef
 
 ## Configuration
 
-Configuration is JSON at `$XDG_CONFIG_HOME/gitwatch/config.json` or the platform configuration fallback. `GITWATCH_CONFIG`, `GITWATCH_THEME`, `GITWATCH_MOTION`, `GITWATCH_WATCH`, and `GITWATCH_INTERVAL` provide explicit environment overrides; CLI flags take precedence. The `layout.files_percent` and `layout.details_percent` settings control the wide status panel split and must sum to `100`.
+Configuration is JSON at `$XDG_CONFIG_HOME/gitwatch/config.json`, or `$HOME/.config/gitwatch/config.json` when `XDG_CONFIG_HOME` is unset. Explicit `--config` takes precedence over `GITWATCH_CONFIG` and the default path. `GITWATCH_PROFILE`, `GITWATCH_THEME`, `GITWATCH_MOTION`, `GITWATCH_WATCH`, and `GITWATCH_INTERVAL` override their matching settings; the corresponding CLI options take precedence. The `layout.files_percent` and `layout.details_percent` settings control the wide status panel split and must sum to `100`. See the configuration guide for every setting, default, environment variable, CLI override, and migration rule.
 
 ```sh
 gitwatch --config-check --config /path/to/config.json

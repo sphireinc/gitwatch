@@ -215,3 +215,31 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   80x24, help rendering, and clean quit. The run used poll watch mode and
   reduced/off motion; hosted Windows/Linux, NO_COLOR PTY, and interactive
   mouse evidence remain open.
+
+- 2026-09-25: table and file-tree refreshes now preserve the selected logical
+  path and move the viewport to keep it visible after list changes. Added
+  regressions for 14,953-entry refresh, filtering/page movement, offscreen diff,
+  stage and restore targeting, wrapped-row mouse mapping, and 50,000-entry
+  render allocation scaling. The rendered-line benchmark measured 295.9
+  microseconds/op, 55.1 KB/op, and 634 allocations/op for a bounded viewport
+  versus 135.9 milliseconds/op, 9.91 MB/op, and 418,713 allocations/op for the
+  full-scan baseline on macOS arm64 / Apple M1 Pro. The performance gate now
+  runs this comparison. Focused new tests passed; the broader app test was
+  blocked by sandbox denial of an unrelated `httptest` localhost listener and
+  is being rerun with test-network permission. Native mouse/NO_COLOR acceptance
+  and hosted cross-platform evidence remain open; Task 208 is not complete.
+
+- 2026-09-25 validation update: the full check passed on macOS arm64 / Apple
+  M1 Pro:
+
+  ```text
+  GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make check
+  ```
+
+  It included formatting, pinned lint (0 issues), `go test ./...`,
+  `go test -race ./...`, `go vet ./...`, security fuzz checks, and the
+  performance gate. The gate's rendered-line benchmark measured 291.7
+  microseconds/op, 55.1 KB/op, and 634 allocations/op for the bounded
+  14,953-entry viewport versus 135.1 milliseconds/op, 9.91 MB/op, and 418,721
+  allocations/op for its full-scan baseline. Native interactive mouse/NO_COLOR
+  and hosted cross-platform evidence remain open; Task 208 is not complete.

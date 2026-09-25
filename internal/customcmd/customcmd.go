@@ -16,6 +16,7 @@ var ErrOutputLimit = fmt.Errorf("custom command output exceeds configured limit"
 // Output contains bounded command output for status or journal presentation.
 type Output struct {
 	Stdout, Stderr []byte
+	Suppressed     bool
 }
 
 // Context supplies repository values to one custom command invocation.
@@ -59,6 +60,7 @@ type Invocation struct {
 	Confirm    bool
 	Mutates    bool
 	Refresh    bool
+	sensitive  bool
 }
 
 // Command creates an exec.Cmd without involving a shell. It is intentionally
@@ -95,6 +97,9 @@ func Run(ctx context.Context, invocation Invocation, maxBytes int) (Output, erro
 	command.Stdout, command.Stderr = stdout, stderr
 	err = command.Run()
 	output := Output{Stdout: stdout.Bytes(), Stderr: stderr.Bytes()}
+	if invocation.sensitive {
+		output = Output{Suppressed: true}
+	}
 	if stdout.exceeded || stderr.exceeded {
 		return output, ErrOutputLimit
 	}
@@ -174,7 +179,14 @@ func (d Definition) Expand(ctx Context) (Invocation, error) {
 		}
 		directory = strings.ReplaceAll(directory, "{repo}", ctx.RepositoryRoot)
 	}
-	return Invocation{Name: d.Name, Label: d.displayLabel(), Executable: d.Executable, Args: args, Directory: directory, Timeout: d.Timeout, Confirm: d.Confirm, Mutates: d.Mutates, Refresh: d.Refresh || d.Mutates}, nil
+	sensitive := false
+	for _, prompt := range d.Prompts {
+		if prompt.Kind == PromptSecret && ctx.PromptValues[prompt.ID] != "" {
+			sensitive = true
+			break
+		}
+	}
+	return Invocation{Name: d.Name, Label: d.displayLabel(), Executable: d.Executable, Args: args, Directory: directory, Timeout: d.Timeout, Confirm: d.Confirm, Mutates: d.Mutates, Refresh: d.Refresh || d.Mutates, sensitive: sensitive}, nil
 }
 
 // Validate rejects shell-shaped configuration and unknown placeholders.

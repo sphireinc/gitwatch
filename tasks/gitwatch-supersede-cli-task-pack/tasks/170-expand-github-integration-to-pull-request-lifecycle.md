@@ -42,13 +42,13 @@ Move optional GitHub support from read-only visibility to a practical pull-reque
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded (`91424f1`).
+- [x] Exact tested revision recorded (`91424f1`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -82,3 +82,29 @@ Move optional GitHub support from read-only visibility to a practical pull-reque
   ./internal/app`, covering pagination/detail parsing, provider error states,
   stale-cache presentation, PR creation, checkout validation, and optional
   app loading. Native/manual acceptance remains open.
+
+## Additional progress evidence (2026-09-25)
+
+- Commit `91424f1` removes early returns when the current-branch PR or checks
+  endpoint fails. Current-branch absence is now a normal empty result; open PRs,
+  issues, releases, checks, and PR-specific resources load independently and
+  display bounded, sanitized per-resource warnings. Provider errors remain
+  within the optional GitHub workspace and do not set the core app to error.
+- PR create success invalidates the branch-scoped PR cache before reload, and
+  late create results are rejected after repository-generation changes. Added
+  cache, provider, view, and mocked-provider app tests; docs now explain empty
+  current-branch PR state and failure isolation.
+- On Darwin arm64 / Go 1.27.0, focused suites
+  `go test ./internal/provider ./internal/ui/githubview ./internal/app` and the
+  full `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache
+  make check` passed. The full gate reported pinned lint (0 issues), full and
+  race tests, vet, formatting, diff, security fuzz, and performance success.
+- Hosted CI run `36085163506` for `91424f1` was queued at the time of this
+  update. Native/manual terminal acceptance remains outstanding; this task
+  remains active.
+
+- Follow-up: hosted Actions run `36085163506` completed successfully for
+  `91424f1`. Quality/policy and full-history secret scanning passed, as did
+  Ubuntu, macOS, and Windows test/build/runtime jobs. This is hosted evidence;
+  native/manual terminal acceptance remains outstanding, so the task remains
+  active.

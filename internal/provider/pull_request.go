@@ -260,6 +260,13 @@ func NewPullRequestCache(ttl time.Duration) *PullRequestCache {
 	return &PullRequestCache{ttl: ttl, items: make(map[string]cachedPullRequest)}
 }
 
+func (c *PullRequestCache) Invalidate(repository Repository, branch string) {
+	key := repository.Host + "/" + repository.Owner + "/" + repository.Name + "@" + branch
+	c.mu.Lock()
+	delete(c.items, key)
+	c.mu.Unlock()
+}
+
 func (c *PullRequestCache) Get(ctx context.Context, client PullRequestClient, repository Repository, branch string) (PullRequest, error) {
 	key := repository.Host + "/" + repository.Owner + "/" + repository.Name + "@" + branch
 	now := time.Now()

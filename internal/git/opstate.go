@@ -139,7 +139,14 @@ func operationMarkers(ctx context.Context, runner Runner) ([]operationMarker, er
 		if headCurrent != "" {
 			markers[i].headCurrent = headCurrent
 		}
-		markers[i] = enrichMarker(paths, markers[i])
+		var applied []string
+		if (markers[i].kind == sequencer.KindCherryPick || markers[i].kind == sequencer.KindRevert) && hasDirectory(paths["sequencer"]) {
+			if head := readMetadata(filepath.Join(paths["sequencer"], "head")); fullHexOID(head) {
+				markers[i].headBefore = head
+			}
+			applied = appliedSequencerResults(ctx, runner, markers[i].headBefore, headCurrent)
+		}
+		markers[i] = enrichMarker(paths, markers[i], applied)
 	}
 	return markers, nil
 }
@@ -178,11 +185,29 @@ func readRebaseMarker(paths map[string]string) operationMarker {
 		base = paths["rebase-apply"]
 	}
 	read := func(name string) string { return readMetadata(filepath.Join(base, name)) }
-	marker := operationMarker{kind: sequencer.KindRebase, headBefore: read("orig-head"), recoveryRef: read("onto"), current: read("stopped-sha"), headCurrent: read("head-name")}
-	marker.details.Rebase = &sequencer.RebaseDetails{Base: read("head-name"), Onto: read("onto"), Interactive: hasFile(filepath.Join(base, "git-rebase-todo")), TodoRemaining: countMetadataLines(read("git-rebase-todo")), TodoCompleted: countMetadataLines(read("done"))}
+	stoppedSHA := read("stopped-sha")
+	done := read("done")
+	marker := operationMarker{kind: sequencer.KindRebase, headBefore: read("orig-head"), recoveryRef: read("onto"), current: stoppedSHA, headCurrent: read("head-name")}
+	marker.details.Rebase = &sequencer.RebaseDetails{Base: read("head-name"), Onto: read("onto"), Interactive: hasFile(filepath.Join(base, "git-rebase-todo")), EditStopped: rebaseStoppedAtEdit(done, stoppedSHA), TodoRemaining: countMetadataLines(read("git-rebase-todo")), TodoCompleted: countMetadataLines(done)}
 	marker.remaining = marker.details.Rebase.TodoRemaining
 	marker.completed = marker.details.Rebase.TodoCompleted
 	return marker
+}
+
+func rebaseStoppedAtEdit(done, stoppedSHA string) bool {
+	if stoppedSHA == "" {
+		return false
+	}
+	lines := strings.Split(strings.TrimSpace(done), "\n")
+	for index := len(lines) - 1; index >= 0; index-- {
+		fields := strings.Fields(lines[index])
+		if len(fields) < 2 || !strings.EqualFold(fields[0], "edit") {
+			continue
+		}
+		sha := fields[1]
+		return strings.EqualFold(sha, stoppedSHA) || strings.HasPrefix(strings.ToLower(stoppedSHA), strings.ToLower(sha)) || strings.HasPrefix(strings.ToLower(sha), strings.ToLower(stoppedSHA))
+	}
+	return false
 }
 
 func readBisectMarker(ctx context.Context, runner Runner, paths map[string]string) (operationMarker, error) {
@@ -205,7 +230,7 @@ func readBisectMarker(ctx context.Context, runner Runner, paths map[string]strin
 	return operationMarker{kind: sequencer.KindBisect, headCurrent: candidate, current: candidate, details: sequencer.Details{Bisect: &sequencer.BisectDetails{Good: good, Bad: bad, Candidate: candidate}}, diagnostics: boundedDiagnostics(string(result.Stdout), paths["BISECT_START"])}, nil
 }
 
-func enrichMarker(paths map[string]string, marker operationMarker) operationMarker {
+func enrichMarker(paths map[string]string, marker operationMarker, applied []string) operationMarker {
 	if marker.headBefore == "" {
 		marker.headBefore = readMetadata(paths["ORIG_HEAD"])
 	}
@@ -218,7 +243,7 @@ func enrichMarker(paths map[string]string, marker operationMarker) operationMark
 			marker.details.Rebase = &sequencer.RebaseDetails{}
 		}
 	case sequencer.KindCherryPick:
-		progress := readSequencerCommits(paths["sequencer"], marker.current)
+		progress := readSequencerCommits(paths["sequencer"], marker.current, applied)
 		commits, completed := progress.Commits, len(progress.Completed)
 		if len(commits) == 0 {
 			commits = nonEmpty(marker.current)
@@ -234,7 +259,7 @@ func enrichMarker(paths map[string]string, marker operationMarker) operationMark
 			marker.remaining = 0
 		}
 	case sequencer.KindRevert:
-		progress := readSequencerCommits(paths["sequencer"], marker.current)
+		progress := readSequencerCommits(paths["sequencer"], marker.current, applied)
 		commits, completed := progress.Commits, len(progress.Completed)
 		if len(commits) == 0 {
 			commits = nonEmpty(marker.current)
@@ -262,7 +287,7 @@ type cherryPickProgress struct {
 	CurrentIndex int
 }
 
-func readSequencerCommits(path, current string) cherryPickProgress {
+func readSequencerCommits(path, current string, applied []string) cherryPickProgress {
 	progress := cherryPickProgress{CurrentIndex: -1}
 	if !hasDirectory(path) {
 		return progress
@@ -270,14 +295,20 @@ func readSequencerCommits(path, current string) cherryPickProgress {
 	done := readSequencerActionSHAs(filepath.Join(path, "done"))
 	todo := readSequencerActionSHAs(filepath.Join(path, "todo"))
 	backup := readSequencerActionSHAs(filepath.Join(path, "todo.backup"))
+	if len(done) > 0 || len(backup) > 0 {
+		// When Git keeps source-side completed metadata, use that identity
+		// instead of mixing it with newly created result commit IDs.
+		applied = nil
+	}
 	if len(backup) == 0 {
-		backup = append(append([]string(nil), done...), todo...)
+		backup = append(append([]string(nil), applied...), done...)
+		backup = append(backup, todo...)
 		if current != "" {
 			backup = append(backup, current)
 		}
 	}
 	progress.Commits = normalizeCommitList(backup, nil)
-	progress.Completed = normalizeCommitList(done, progress.Commits)
+	progress.Completed = normalizeCommitList(append(append([]string(nil), applied...), done...), progress.Commits)
 	todo = normalizeCommitList(todo, progress.Commits)
 	current = canonicalCommit(current, progress.Commits)
 	remaining := make(map[string]struct{}, len(todo))
@@ -306,6 +337,38 @@ func readSequencerCommits(path, current string) cherryPickProgress {
 		}
 	}
 	return progress
+}
+
+// Git's sequencer/head is the pre-operation HEAD. Cherry-pick and revert may
+// not retain completed source SHAs in todo/done; their resulting commits are
+// still authoritative in the bounded range from that HEAD to the current HEAD.
+func appliedSequencerResults(ctx context.Context, runner Runner, original, current string) []string {
+	if !fullHexOID(original) || !fullHexOID(current) || original == current {
+		return nil
+	}
+	result, err := runner.RunBounded(ctx, metadataLimit, "rev-list", "--reverse", current, "^"+original)
+	if err != nil {
+		return nil
+	}
+	var commits []string
+	for _, line := range strings.Split(strings.TrimSpace(string(result.Stdout)), "\n") {
+		if fullHexOID(line) {
+			commits = append(commits, line)
+		}
+	}
+	return commits
+}
+
+func fullHexOID(value string) bool {
+	if len(value) != 40 && len(value) != 64 {
+		return false
+	}
+	for _, ch := range value {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", ch) {
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeCommitList(values, known []string) []string {

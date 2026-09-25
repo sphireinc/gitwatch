@@ -11,6 +11,7 @@ import (
 )
 
 var ErrNoToken = errors.New("no GitHub token configured")
+var ErrNoGitHubRemote = errors.New("no GitHub remote detected")
 
 const cliTokenTimeout = 10 * time.Second
 

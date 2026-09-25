@@ -2,10 +2,12 @@ package plugins
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	publicplugin "github.com/sphireinc/git-watch/pkg/plugin"
@@ -66,6 +68,81 @@ func TestProbeRecordsHostRenderedContributionOutput(t *testing.T) {
 	if !entry.Healthy || len(entry.Contributions) != 1 || entry.Contributions[0].Title != "Health" {
 		t.Fatalf("probed entry = %#v", entry)
 	}
+}
+
+func TestProbeFiltersContributionsByNegotiatedCapability(t *testing.T) {
+	table := pluginContributionMessage(t, "health", publicplugin.Contribution{
+		SchemaVersion: publicplugin.APIVersion2, Kind: "table", Title: "Health", ReadOnly: true,
+	})
+	notification := pluginContributionMessage(t, "notice", publicplugin.Contribution{
+		SchemaVersion: publicplugin.APIVersion2, Kind: "notification", Title: "Notice", ReadOnly: true,
+	})
+	entry := probeFixture(t, []publicplugin.Capability{publicplugin.TableContribution}, table, notification)
+	if len(entry.Contributions) != 1 || entry.Contributions[0].Kind != "table" {
+		t.Fatalf("ungranted contribution escaped negotiation: %#v", entry.Contributions)
+	}
+}
+
+func TestProbeEnablesOnlyGrantedHostOwnedMetadataAction(t *testing.T) {
+	action := pluginContributionMessage(t, "github", publicplugin.Contribution{
+		SchemaVersion: publicplugin.APIVersion2,
+		Kind:          "repository_metadata",
+		Title:         "GitHub repository",
+		Action: &publicplugin.ActionSpec{
+			ID: "github-repository", Title: "Open GitHub metadata", Context: "repository",
+			Provider: publicplugin.ActionProviderGitHubRepository, ReadOnly: true,
+		},
+		ReadOnly: true,
+	})
+	entry := probeFixture(t, []publicplugin.Capability{publicplugin.RepositoryMetadata, publicplugin.ContextAction}, action)
+	if len(entry.Contributions) != 1 || !CanRunMetadataAction(entry, entry.Contributions[0]) {
+		t.Fatalf("negotiated host action unavailable: %#v", entry)
+	}
+	entry.GrantedCapabilities = []Capability{CapabilityRepositoryMeta}
+	if CanRunMetadataAction(entry, entry.Contributions[0]) {
+		t.Fatal("metadata action ran without contextual-action grant")
+	}
+}
+
+func probeFixture(t *testing.T, negotiated []publicplugin.Capability, output ...publicplugin.Message) Entry {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("portable executable fixture uses a POSIX script")
+	}
+	directory := t.TempDir()
+	executable := filepath.Join(directory, "probe-plugin")
+	response, err := json.Marshal(publicplugin.HandshakeResponse{APIVersion: publicplugin.APIVersion2, Accepted: true, Capabilities: negotiated})
+	if err != nil {
+		t.Fatal(err)
+	}
+	messages := []publicplugin.Message{{Type: publicplugin.MessageHandshake, Payload: response}}
+	messages = append(messages, output...)
+	quoted := make([]string, 0, len(messages))
+	for _, message := range messages {
+		encoded, err := publicplugin.Encode(message)
+		if err != nil {
+			t.Fatal(err)
+		}
+		quoted = append(quoted, "'"+strings.ReplaceAll(strings.TrimSpace(string(encoded)), "'", "'\\''")+"'")
+	}
+	script := "#!/bin/sh\nprintf '%s\\n' " + strings.Join(quoted, " ") + "\n"
+	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	entry := Entry{Manifest: Manifest{
+		ID: "probe", Name: "Probe", Version: "2", APIVersion: APIVersion2, Executable: executable,
+		Capabilities: []Capability{CapabilityTable, CapabilityNotification, CapabilityRepositoryMeta, CapabilityContextAction},
+	}, Enabled: true, Healthy: true}
+	return Probe(context.Background(), Runtime{}, entry, DefaultCapabilities)
+}
+
+func pluginContributionMessage(t *testing.T, id string, contribution publicplugin.Contribution) publicplugin.Message {
+	t.Helper()
+	message, err := publicplugin.NewContribution(id, contribution)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return message
 }
 
 func TestPluginStateRoundTripIsPrivateAndImmutable(t *testing.T) {

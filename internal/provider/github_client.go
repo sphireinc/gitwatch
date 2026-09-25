@@ -94,7 +94,7 @@ func (c GitHubClient) PullRequest(ctx context.Context, repository Repository, br
 		return PullRequest{}, err
 	}
 	if len(values) == 0 {
-		return PullRequest{}, ErrProviderUnavailable
+		return PullRequest{}, nil
 	}
 	return ParsePullRequest(values[0])
 }

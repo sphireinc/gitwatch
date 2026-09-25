@@ -13,20 +13,23 @@ import (
 )
 
 type Entry struct {
-	Manifest      Manifest
-	Path          string
-	Enabled       bool
-	Healthy       bool
-	Error         string
-	Commands      []publicplugin.CommandSpec
-	Panels        []publicplugin.PanelSpec
-	Widgets       []publicplugin.StatusWidgetSpec
-	Contributions []publicplugin.Contribution
+	Manifest            Manifest
+	Path                string
+	Enabled             bool
+	Healthy             bool
+	Error               string
+	Commands            []publicplugin.CommandSpec
+	Panels              []publicplugin.PanelSpec
+	Widgets             []publicplugin.StatusWidgetSpec
+	Contributions       []publicplugin.Contribution
+	GrantedCapabilities []Capability
 }
 
 // Probe performs the opt-in process handshake and records only bounded,
 // schema-defined output for the host UI.
 func Probe(ctx context.Context, host Runtime, entry Entry, supported []Capability) Entry {
+	entry.Contributions = nil
+	entry.GrantedCapabilities = nil
 	if !entry.Enabled || !entry.Healthy {
 		return entry
 	}
@@ -47,8 +50,74 @@ func Probe(ctx context.Context, host Runtime, entry Entry, supported []Capabilit
 		entry.Error = decodeErr.Error()
 		return entry
 	}
-	entry.Contributions = contributions
+	entry.GrantedCapabilities = append([]Capability(nil), negotiation.Capabilities...)
+	entry.Contributions = filterContributions(contributions, entry.GrantedCapabilities)
 	return entry
+}
+
+// CanRunMetadataAction reports whether a contribution requests the one
+// host-owned provider action currently implemented by gitwatch. The provider
+// always uses the active repository and host credentials; plugins supply
+// neither URLs nor tokens.
+func CanRunMetadataAction(entry Entry, contribution publicplugin.Contribution) bool {
+	if !entry.Enabled || !entry.Healthy || entry.Manifest.APIVersion != publicplugin.APIVersion2 {
+		return false
+	}
+	if contribution.SchemaVersion != publicplugin.APIVersion2 || contribution.Kind != "repository_metadata" || !contribution.ReadOnly || contribution.Action == nil {
+		return false
+	}
+	if !contribution.Action.ReadOnly || contribution.Action.Provider != publicplugin.ActionProviderGitHubRepository {
+		return false
+	}
+	return hasCapability(entry.GrantedCapabilities, CapabilityContextAction) && hasCapability(entry.GrantedCapabilities, CapabilityRepositoryMeta)
+}
+
+func filterContributions(contributions []publicplugin.Contribution, granted []Capability) []publicplugin.Contribution {
+	filtered := make([]publicplugin.Contribution, 0, len(contributions))
+	for _, contribution := range contributions {
+		if !contribution.ReadOnly {
+			continue
+		}
+		var required []Capability
+		switch contribution.Kind {
+		case "table":
+			required = append(required, CapabilityTable)
+		case "detail":
+			required = append(required, CapabilityDetail)
+		case "notification":
+			required = append(required, CapabilityNotification)
+		case "repository_metadata":
+			required = append(required, CapabilityRepositoryMeta)
+		default:
+			continue
+		}
+		if contribution.Action != nil {
+			if contribution.Kind != "repository_metadata" || !contribution.Action.ReadOnly {
+				continue
+			}
+			required = append(required, CapabilityContextAction)
+		}
+		allowed := true
+		for _, capability := range required {
+			if !hasCapability(granted, capability) {
+				allowed = false
+				break
+			}
+		}
+		if allowed {
+			filtered = append(filtered, contribution)
+		}
+	}
+	return filtered
+}
+
+func hasCapability(capabilities []Capability, target Capability) bool {
+	for _, capability := range capabilities {
+		if capability == target {
+			return true
+		}
+	}
+	return false
 }
 
 // DecodeContributions extracts bounded, schema-defined contributions from a

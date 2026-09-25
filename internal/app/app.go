@@ -152,6 +152,7 @@ type OperationFinishedMsg struct {
 	Name       string
 	Repository uint64
 	Operation  *history.OperationRecord
+	Snapshot   *repo.Snapshot
 	Err        error
 }
 type RebaseFinishedMsg struct {
@@ -420,6 +421,7 @@ type BranchOperationFinishedMsg struct {
 
 type MergeFinishedMsg struct {
 	Repository uint64
+	Strategy   mergeops.Strategy
 	Outcome    mergeops.Outcome
 	Operation  *history.OperationRecord
 }
@@ -508,6 +510,7 @@ type GitHubReadyMsg struct {
 	Checks        provider.ChecksSnapshot
 	Review        provider.ReviewSnapshot
 	ProviderStale bool
+	Warnings      []githubview.ResourceWarning
 	Err           error
 }
 
@@ -516,8 +519,11 @@ type providerCIAttention struct {
 	Stale            bool
 }
 type GitHubPullRequestCreatedMsg struct {
-	Pull provider.PullRequest
-	Err  error
+	Generation uint64
+	Repository provider.Repository
+	Branch     string
+	Pull       provider.PullRequest
+	Err        error
 }
 type GitHubMergeFinishedMsg struct {
 	Result provider.MergeResult
@@ -1076,6 +1082,33 @@ func (m Model) paletteActions() []commands.Action {
 		}
 		actions = append(actions, commands.Action{ID: fmt.Sprintf("palette_plugin_%d", index), Label: platform.SafeText("Open plugin: " + name), Category: "plugin", Enabled: true})
 	}
+	pluginActionCount := 0
+	if m.PluginsEnabled {
+		for pluginIndex, entry := range m.Plugins.Entries {
+			if pluginIndex >= paletteIndexLimit || pluginActionCount >= paletteIndexLimit {
+				break
+			}
+			name := entry.Manifest.Name
+			if name == "" {
+				name = entry.Manifest.ID
+			}
+			for contributionIndex, contribution := range entry.Contributions {
+				if !plugins.CanRunMetadataAction(entry, contribution) {
+					continue
+				}
+				actions = append(actions, commands.Action{
+					ID:       fmt.Sprintf("plugin_metadata_%d_%d", pluginIndex, contributionIndex),
+					Label:    platform.SafeText("Plugin action: " + name + " · " + contribution.Action.Title),
+					Category: "provider",
+					Enabled:  m.GitHubEnabled && m.Discovery.Root != "",
+				})
+				pluginActionCount++
+				if pluginActionCount >= paletteIndexLimit {
+					break
+				}
+			}
+		}
+	}
 	for index, row := range m.Repositories.Rows {
 		label := "Open repository: " + row.Repository.Name
 		if row.Repository.Path != "" {
@@ -1318,6 +1351,58 @@ func (m *Model) updateCustomCommandForm(key string) tea.Cmd {
 	return nil
 }
 
+func (m *Model) clickCustomCommandForm(x, y int) tea.Cmd {
+	if m.CustomCommandForm == nil {
+		return nil
+	}
+	prompt, ok := m.CustomCommandForm.Current()
+	if !ok {
+		return nil
+	}
+	switch prompt.Kind {
+	case customcmd.PromptSelect, customcmd.PromptMultiSelect:
+		options := m.CustomCommandForm.Options()
+		option := y - 3
+		if option >= 0 && option < len(options) {
+			cursor := m.CustomCommandForm.Cursor()
+			down := (option - cursor + len(options)) % len(options)
+			up := (cursor - option + len(options)) % len(options)
+			direction, steps := "down", down
+			if up < down {
+				direction, steps = "up", up
+			}
+			for range steps {
+				if _, err := m.CustomCommandForm.Handle(direction); err != nil {
+					m.Status = "custom command form: " + platform.SafeText(err.Error())
+					return nil
+				}
+			}
+			if prompt.Kind == customcmd.PromptSelect {
+				return m.updateCustomCommandForm("enter")
+			}
+			return m.updateCustomCommandForm("space")
+		}
+		if y == len(options)+4 {
+			return m.updateCustomCommandForm("enter")
+		}
+	case customcmd.PromptConfirm:
+		if y == 3 {
+			if x < 9 {
+				return m.updateCustomCommandForm("y")
+			}
+			return m.updateCustomCommandForm("n")
+		}
+		if y == 5 {
+			return m.updateCustomCommandForm("enter")
+		}
+	case customcmd.PromptText, customcmd.PromptSecret:
+		if y == 6 {
+			return m.updateCustomCommandForm("enter")
+		}
+	}
+	return nil
+}
+
 func (m *Model) executePaletteAction(id string) tea.Cmd {
 	if command := m.PaletteCommands[id]; command != nil {
 		return command()
@@ -1340,6 +1425,27 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 	}
 	if strings.HasPrefix(id, "customcmd:") {
 		return m.runCustomCommand(strings.TrimPrefix(id, "customcmd:"))
+	}
+	if strings.HasPrefix(id, "plugin_metadata_") {
+		parts := strings.Split(strings.TrimPrefix(id, "plugin_metadata_"), "_")
+		if len(parts) != 2 {
+			return nil
+		}
+		pluginIndex, pluginErr := strconv.Atoi(parts[0])
+		contributionIndex, contributionErr := strconv.Atoi(parts[1])
+		if pluginErr != nil || contributionErr != nil || pluginIndex < 0 || contributionIndex < 0 || pluginIndex >= len(m.Plugins.Entries) {
+			return nil
+		}
+		entry := m.Plugins.Entries[pluginIndex]
+		if contributionIndex >= len(entry.Contributions) || !plugins.CanRunMetadataAction(entry, entry.Contributions[contributionIndex]) {
+			return nil
+		}
+		if !m.PluginsEnabled || !m.GitHubEnabled || m.Discovery.Root == "" {
+			m.Status = "plugin metadata action is unavailable; enable the GitHub provider"
+			return nil
+		}
+		m.Status = "opening host GitHub repository metadata"
+		return m.navigate(workspace.GitHub, "GitHub")
 	}
 	for prefix, route := range map[string]workspace.View{"palette_branch_": workspace.Branches, "palette_commit_": workspace.Log, "palette_file_": workspace.Status} {
 		if !strings.HasPrefix(id, prefix) {
@@ -1847,6 +1953,9 @@ func (m *Model) applySnapshot(snapshot repo.Snapshot) {
 	operationKind, operationTarget := sequencer.KindUnknown, ""
 	if snapshot.Operation != nil {
 		operationKind, operationTarget = snapshot.Operation.Kind(), snapshot.Operation.Target()
+		if operationKind == sequencer.KindCherryPick && operationTarget == "" {
+			operationTarget = snapshot.Branch.Name
+		}
 	}
 	m.Conflict.SetSnapshot(operationKind, operationTarget, snapshot.Conflicts)
 	m.Conflict.SetOperationState(snapshot.Operation)
@@ -1904,6 +2013,13 @@ func recoveryWorkspaceLabel(kind sequencer.Kind) string {
 }
 
 func (m *Model) updateBisectKey(key string) tea.Cmd {
+	if key == "ctrl+c" {
+		m.State = StateShutdown
+		if err := m.shutdown(); err != nil {
+			m.Status = "shutdown: " + err.Error()
+		}
+		return tea.Quit
+	}
 	if m.BisectRunMode != "" || m.BisectRunConfirm {
 		switch key {
 		case "esc":
@@ -2002,6 +2118,13 @@ func (m *Model) updateBisectKey(key string) tea.Cmd {
 			m.Status = "known-" + m.BisectStartMode + " ref: " + m.BisectStartInput
 		}
 		return nil
+	}
+	if key == "q" {
+		m.State = StateShutdown
+		if err := m.shutdown(); err != nil {
+			m.Status = "shutdown: " + err.Error()
+		}
+		return tea.Quit
 	}
 	switch key {
 	case "g":
@@ -3231,7 +3354,7 @@ func (m Model) mergeSelectedBranch(strategy mergeops.Strategy) tea.Cmd {
 			completed.NewHead = outcome.Snapshot.Branch.OID
 		}
 		attachLatestRecoveryPoint(ctx, runner, &completed)
-		return MergeFinishedMsg{Repository: generation, Outcome: outcome, Operation: &completed}
+		return MergeFinishedMsg{Repository: generation, Strategy: strategy, Outcome: outcome, Operation: &completed}
 	}
 }
 
@@ -4233,6 +4356,10 @@ func (m Model) previewRemotePrune(remote string) tea.Cmd {
 }
 
 func (m Model) loadGitHub() tea.Cmd {
+	return m.loadGitHubWithClient(nil)
+}
+
+func (m Model) loadGitHubWithClient(clientOverride *provider.GitHubClient) tea.Cmd {
 	generation := m.repositoryGeneration
 	runner := git.NewRunner(m.Discovery.Root)
 	branch := m.Snapshot.Branch.Name
@@ -4253,79 +4380,107 @@ func (m Model) loadGitHub() tea.Cmd {
 			}
 		}
 		if repository.Owner == "" {
-			return GitHubReadyMsg{Generation: generation, Branch: branch, Err: fmt.Errorf("no GitHub remote detected")}
+			return GitHubReadyMsg{Generation: generation, Branch: branch, Err: provider.ErrNoGitHubRemote}
 		}
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
+		if clientOverride != nil {
+			client = *clientOverride
+		}
 		cache := m.GitHubCache
 		if cache == nil {
 			cache = provider.NewPullRequestCache(2 * time.Minute)
 		}
-		pull, err := cache.Get(m.commandContext(), client, repository, branch)
-		if err != nil {
-			return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Err: err}
+		warnings := make([]githubview.ResourceWarning, 0, 7)
+		addWarning := func(resource string, err error, stale bool) {
+			if err == nil {
+				return
+			}
+			message := err.Error()
+			if stale {
+				message = "refresh failed; showing cached data (" + message + ")"
+			}
+			warnings = append(warnings, githubview.ResourceWarning{Resource: resource, Message: message})
 		}
+		pull, pullErr := cache.Get(m.commandContext(), client, repository, branch)
+		addWarning("current-branch PR", pullErr, false)
 		checksCache := m.GitHubChecksCache
 		if checksCache == nil {
 			checksCache = provider.NewCache[provider.ChecksSnapshot](2 * time.Minute)
 		}
-		checks, err := checksCache.Get(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"@"+branch, func(ctx context.Context) (provider.ChecksSnapshot, error) {
+		checks, checksStale, checksErr := checksCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"@"+branch, func(ctx context.Context) (provider.ChecksSnapshot, error) {
 			return client.Checks(ctx, repository, branch)
 		})
-		if err != nil {
-			return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Err: err}
-		}
+		providerStale := checksStale
+		addWarning("checks", checksErr, checksStale)
 		pullsCache := m.GitHubPullsCache
 		if pullsCache == nil {
 			pullsCache = provider.NewCache[[]provider.PullRequest](2 * time.Minute)
 		}
-		providerStale := false
-		pulls, pullsStale, _ := pullsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/open", func(ctx context.Context) ([]provider.PullRequest, error) {
+		pulls, pullsStale, pullsErr := pullsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/open", func(ctx context.Context) ([]provider.PullRequest, error) {
 			return client.ListPullRequests(ctx, repository, 1, 25)
 		})
 		providerStale = providerStale || pullsStale
+		addWarning("open PR list", pullsErr, pullsStale)
 		var detail *provider.PullRequestDetail
-		detailsCache := m.GitHubDetailsCache
-		if detailsCache == nil {
-			detailsCache = provider.NewCache[provider.PullRequestDetail](2 * time.Minute)
+		var comments []provider.ReviewComment
+		var review provider.ReviewSnapshot
+		if pull.Number > 0 {
+			detailsCache := m.GitHubDetailsCache
+			if detailsCache == nil {
+				detailsCache = provider.NewCache[provider.PullRequestDetail](2 * time.Minute)
+			}
+			loaded, detailStale, detailErr := detailsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.PullRequestDetail, error) {
+				return client.PullRequestDetail(ctx, repository, pull.Number)
+			})
+			if detailErr == nil || loaded.Number == pull.Number {
+				detail = &loaded
+			}
+			providerStale = providerStale || detailStale
+			addWarning("PR detail", detailErr, detailStale)
+			commentsCache := m.GitHubCommentsCache
+			if commentsCache == nil {
+				commentsCache = provider.NewCache[[]provider.ReviewComment](2 * time.Minute)
+			}
+			var commentsStale bool
+			var commentsErr error
+			comments, commentsStale, commentsErr = commentsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number)+"/comments", func(ctx context.Context) ([]provider.ReviewComment, error) {
+				return client.ListReviewComments(ctx, repository, pull.Number)
+			})
+			providerStale = providerStale || commentsStale
+			addWarning("review comments", commentsErr, commentsStale)
 		}
-		if loaded, stale, detailErr := detailsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.PullRequestDetail, error) {
-			return client.PullRequestDetail(ctx, repository, pull.Number)
-		}); detailErr == nil || loaded.Number == pull.Number {
-			detail = &loaded
-			providerStale = providerStale || stale
-		}
-		commentsCache := m.GitHubCommentsCache
-		if commentsCache == nil {
-			commentsCache = provider.NewCache[[]provider.ReviewComment](2 * time.Minute)
-		}
-		comments, commentsStale, _ := commentsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/pull/"+fmt.Sprint(pull.Number)+"/comments", func(ctx context.Context) ([]provider.ReviewComment, error) {
-			return client.ListReviewComments(ctx, repository, pull.Number)
-		})
-		providerStale = providerStale || commentsStale
 		issuesCache := m.GitHubIssuesCache
 		if issuesCache == nil {
 			issuesCache = provider.NewCache[[]provider.Issue](2 * time.Minute)
 		}
-		issues, issuesStale, _ := issuesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/issues/open", func(ctx context.Context) ([]provider.Issue, error) {
+		issues, issuesStale, issuesErr := issuesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/issues/open", func(ctx context.Context) ([]provider.Issue, error) {
 			return client.ListIssues(ctx, repository, "open", 1, provider.MaxIssues)
 		})
 		providerStale = providerStale || issuesStale
+		addWarning("open issues", issuesErr, issuesStale)
 		releasesCache := m.GitHubReleasesCache
 		if releasesCache == nil {
 			releasesCache = provider.NewCache[[]provider.Release](2 * time.Minute)
 		}
-		releases, releasesStale, _ := releasesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/releases", func(ctx context.Context) ([]provider.Release, error) {
+		releases, releasesStale, releasesErr := releasesCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/releases", func(ctx context.Context) ([]provider.Release, error) {
 			return client.ListReleases(ctx, repository, 1, provider.MaxReleases)
 		})
 		providerStale = providerStale || releasesStale
-		reviewsCache := m.GitHubReviewsCache
-		if reviewsCache == nil {
-			reviewsCache = provider.NewCache[provider.ReviewSnapshot](2 * time.Minute)
+		addWarning("releases", releasesErr, releasesStale)
+		if pull.Number > 0 {
+			reviewsCache := m.GitHubReviewsCache
+			if reviewsCache == nil {
+				reviewsCache = provider.NewCache[provider.ReviewSnapshot](2 * time.Minute)
+			}
+			var reviewStale bool
+			var reviewErr error
+			review, reviewStale, reviewErr = reviewsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"#"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.ReviewSnapshot, error) {
+				return client.Reviews(ctx, repository, pull.Number)
+			})
+			providerStale = providerStale || reviewStale
+			addWarning("reviews", reviewErr, reviewStale)
 		}
-		review, err := reviewsCache.Get(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"#"+fmt.Sprint(pull.Number), func(ctx context.Context) (provider.ReviewSnapshot, error) {
-			return client.Reviews(ctx, repository, pull.Number)
-		})
-		return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Pulls: pulls, Issues: issues, Releases: releases, Detail: detail, Comments: comments, Checks: checks, Review: review, ProviderStale: providerStale, Err: err}
+		return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Pulls: pulls, Issues: issues, Releases: releases, Detail: detail, Comments: comments, Checks: checks, Review: review, ProviderStale: providerStale, Warnings: warnings}
 	}
 }
 
@@ -4500,7 +4655,7 @@ func (m Model) githubCreatePrompt() string {
 
 func (m Model) createGitHubPullRequest() tea.Cmd {
 	request := provider.PullRequestCreateRequest{Title: strings.TrimSpace(m.GitHubCreateTitle), Body: m.GitHubCreateBody, Head: m.Snapshot.Branch.Name, Base: strings.TrimSpace(m.GitHubCreateBase)}
-	repository, tokenEnv := m.GitHub.Repository, m.GitHubTokenEnv
+	repository, branch, generation, tokenEnv := m.GitHub.Repository, m.Snapshot.Branch.Name, m.repositoryGeneration, m.GitHubTokenEnv
 	if tokenEnv == "" {
 		tokenEnv = "GITHUB_TOKEN"
 	}
@@ -4508,7 +4663,7 @@ func (m Model) createGitHubPullRequest() tea.Cmd {
 	return func() tea.Msg {
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
 		pull, err := client.CreatePullRequest(ctx, repository, request)
-		return GitHubPullRequestCreatedMsg{Pull: pull, Err: err}
+		return GitHubPullRequestCreatedMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Err: err}
 	}
 }
 
@@ -5030,10 +5185,20 @@ func (m *Model) runRepositoryBatchFetch() tea.Cmd {
 			defer close(events)
 			requests := make([]multirepo.Request, len(rows))
 			for index, row := range rows {
-				requests[index] = multirepo.Request{Repository: multirepo.Repository{ID: domain.RepositoryID(row.Repository.Path), Root: row.Repository.Path}, Remote: "origin", Branch: row.Branch, Strategy: m.RepositoryBatchStrategy, Action: m.RepositoryBatchAction}
-				if requests[index].Action == "" {
-					requests[index].Action = multirepo.ActionFetch
+				action := m.RepositoryBatchAction
+				if action == "" {
+					action = multirepo.ActionFetch
 				}
+				request := multirepo.Request{
+					Repository: multirepo.Repository{ID: domain.RepositoryID(row.Repository.Path), Root: row.Repository.Path},
+					Remote:     "origin",
+					Action:     action,
+				}
+				if action == multirepo.ActionPull {
+					request.Branch = row.Branch
+					request.Strategy = m.RepositoryBatchStrategy
+				}
+				requests[index] = request
 				events <- RepositoryBatchProgressMsg{Path: row.Repository.Path, Status: "queued", Total: len(rows), Events: events}
 			}
 			var progressMu sync.Mutex
@@ -6445,6 +6610,14 @@ func (m *Model) openConflictEditor() tea.Cmd {
 
 func (m Model) conflictLifecycle(action string) tea.Cmd {
 	runner, ctx, generation, kind := git.NewRunner(m.Discovery.Root), m.commandContext(), m.repositoryGeneration, m.Conflict.Operation
+	discovery := m.Discovery
+	originalHead, onto := "", ""
+	if kind == sequencer.KindRebase && m.Conflict.Progress != nil {
+		originalHead = m.Conflict.Progress.HeadBefore()
+		if details := m.Conflict.Progress.Details().Rebase; details != nil {
+			onto = details.Onto
+		}
+	}
 	operation := &history.OperationRecord{
 		Repository: m.Discovery.Root,
 		Kind:       kind.String(),
@@ -6458,9 +6631,44 @@ func (m Model) conflictLifecycle(action string) tea.Cmd {
 		_, err := runner.OperationLifecycle(ctx, kind, action)
 		completed := *operation
 		completed.Duration = time.Since(started)
+		var refreshed *repo.Snapshot
+		if snapshot, refreshErr := git.Snapshot(ctx, discovery, generation); refreshErr == nil {
+			refreshed = &snapshot
+			completed.NewHead = snapshot.Branch.OID
+			if err == nil && kind == sequencer.KindRebase && action != "abort" && snapshot.Operation == nil && validFullOID(originalHead) {
+				completed.OldHead = originalHead
+				completed.RewrittenCount, completed.HasRewrittenCount = countRewrittenCommits(ctx, runner, originalHead, onto, completed.NewHead)
+			}
+		}
 		attachLatestRecoveryPoint(ctx, runner, &completed)
-		return OperationFinishedMsg{Name: action + " " + kind.String(), Repository: generation, Operation: &completed, Err: err}
+		return OperationFinishedMsg{Name: action + " " + kind.String(), Repository: generation, Operation: &completed, Snapshot: refreshed, Err: err}
 	}
+}
+
+func validFullOID(value string) bool {
+	if len(value) != 40 && len(value) != 64 {
+		return false
+	}
+	for _, ch := range value {
+		if !isHexRune(ch) {
+			return false
+		}
+	}
+	return true
+}
+
+func countRewrittenCommits(ctx context.Context, runner git.Runner, original, onto, result string) (int, bool) {
+	if !validFullOID(original) || !validFullOID(onto) || !validFullOID(result) {
+		return 0, false
+	}
+	// Count only commit objects newly reachable from the result. This excludes
+	// unchanged commits already reachable from the original tip or onto base.
+	output, err := runner.RunBounded(ctx, 128, "rev-list", "--count", result, "^"+original, "^"+onto)
+	if err != nil {
+		return 0, false
+	}
+	count, err := strconv.Atoi(strings.TrimSpace(string(output.Stdout)))
+	return count, err == nil && count >= 0
 }
 
 func (m *Model) loadConflictContent() tea.Cmd {
@@ -8397,6 +8605,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseClickMsg:
 		if v.Button == tea.MouseLeft {
+			if m.CustomCommandForm != nil {
+				return m, m.clickCustomCommandForm(v.X, v.Y)
+			}
 			if m.currentView() == workspace.Bisect {
 				row := v.Y - 4
 				switch {
@@ -8799,6 +9010,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.AutoFetchResults = make(map[string]remoteintel.Result)
 		}
 		for _, result := range v.Results {
+			latencyMillis := int64(0)
+			if !result.Started.IsZero() && !result.Finished.IsZero() {
+				latencyMillis = result.Finished.Sub(result.Started).Milliseconds()
+			}
 			m.AutoFetchResults[result.Repository] = result
 			matched := false
 			for index := range m.RepositoryRegistry {
@@ -8809,12 +9024,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.RepositoryRegistry[index].LastAutoFetch = result.Finished
 				m.RepositoryRegistry[index].LastAutoFetchStatus = result.Status
 				m.RepositoryRegistry[index].LastAutoFetchError = result.FailureClass
-				if !result.Started.IsZero() && !result.Finished.IsZero() {
-					m.RepositoryRegistry[index].LastAutoFetchMillis = result.Finished.Sub(result.Started).Milliseconds()
-				}
+				m.RepositoryRegistry[index].LastAutoFetchMillis = latencyMillis
 			}
 			if !matched && result.Repository != "" {
-				m.RepositoryRegistry = append(m.RepositoryRegistry, registry.Repository{Path: result.Repository, Name: filepath.Base(result.Repository), LastAutoFetch: result.Finished, LastAutoFetchStatus: result.Status, LastAutoFetchError: result.FailureClass})
+				m.RepositoryRegistry = append(m.RepositoryRegistry, registry.Repository{Path: result.Repository, Name: filepath.Base(result.Repository), LastAutoFetch: result.Finished, LastAutoFetchStatus: result.Status, LastAutoFetchError: result.FailureClass, LastAutoFetchMillis: latencyMillis})
 			}
 		}
 		if len(m.Repositories.AllRows) > 0 {
@@ -8905,6 +9118,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.acceptsRepository(v.Repository) {
 			return m, nil
 		}
+		if v.Snapshot != nil {
+			m.applySnapshot(*v.Snapshot)
+		}
 		if v.Err != nil {
 			m.State = StateError
 			m.Status = v.Err.Error()
@@ -8913,8 +9129,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.State = StateReady
 			m.Status = v.Name + " complete"
+			if v.Operation != nil && v.Operation.Kind == "rebase" && v.Snapshot != nil && v.Snapshot.Operation == nil && v.Name != "abort rebase" && v.Operation.OldHead != "" && v.Operation.NewHead != "" {
+				m.Status = "rebase complete: " + shortSHA(v.Operation.OldHead) + " -> " + shortSHA(v.Operation.NewHead)
+				if v.Operation.HasRewrittenCount {
+					m.Status += fmt.Sprintf(" (%d rewritten commits)", v.Operation.RewrittenCount)
+				}
+			}
 			m.notify(notifications.JobComplete, notifications.Success, m.Status, "", false)
 			m.recordActivityWithOperation(history.OperationSuccess, "", m.Status, v.Operation)
+		}
+		if v.Err == nil && v.Operation != nil && v.Operation.Kind == "rebase" && v.Snapshot != nil && v.Snapshot.Operation == nil {
+			return m, tea.Batch(m.refresh(), m.loadHistory())
 		}
 		return m, m.refresh()
 	case ExternalToolFinishedMsg:
@@ -8933,7 +9158,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.State = StateReady
-		if v.Err != nil {
+		if v.Output.Suppressed {
+			if v.Err != nil {
+				m.Status = "custom command " + platform.SafeText(v.Name) + " failed; output hidden because a secret prompt was used"
+			} else {
+				m.Status = "custom command " + platform.SafeText(v.Name) + " complete; output hidden because a secret prompt was used"
+			}
+		} else if v.Err != nil {
 			m.Status = "custom command " + platform.SafeText(v.Name) + ": " + platform.SafeText(platform.RedactSecrets(v.Err.Error()))
 		} else {
 			output := strings.TrimSpace(string(append(append([]byte(nil), v.Output.Stdout...), v.Output.Stderr...)))
@@ -9395,7 +9626,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.Repositories.AllRows) > 0 {
 				m.Repositories.SetRows(m.applyProviderCIAttention(m.Repositories.AllRows))
 			}
-			m.State, m.Status = StateError, v.Err.Error()
+			m.State, m.Status = StateReady, "GitHub provider unavailable; local Git remains available"
 		} else {
 			v.Pull.Checks = provider.Checks{Total: v.Checks.Passing + v.Checks.Failing + v.Checks.Pending, Passing: v.Checks.Passing, Failing: v.Checks.Failing, Pending: v.Checks.Pending}
 			v.Pull.ReviewState = v.Review.State()
@@ -9404,11 +9635,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.GitHub.SetIssues(v.Issues)
 			m.GitHub.SetReleases(v.Releases)
 			m.GitHub.SetProviderFreshness(v.ProviderStale)
+			m.GitHub.SetWarnings(v.Warnings)
 			if m.ProviderCI == nil {
 				m.ProviderCI = make(map[string]providerCIAttention)
 			}
 			ciState, attention := "passing", ""
-			if v.Checks.Failing > 0 {
+			checksUnavailable := false
+			for _, warning := range v.Warnings {
+				if warning.Resource == "checks" {
+					checksUnavailable = true
+					break
+				}
+			}
+			if checksUnavailable {
+				ciState, attention = string(provider.StateUnavailable), "provider"
+				if v.ProviderStale {
+					ciState = string(provider.StateStaleCache)
+				}
+			} else if v.Checks.Failing > 0 {
 				ciState, attention = "failing", "checks"
 			} else if v.Checks.Pending > 0 {
 				ciState = "pending"
@@ -9431,11 +9675,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.reindexPalette()
 		}
 	case GitHubPullRequestCreatedMsg:
+		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
+		if v.Repository.Owner != "" && (v.Repository != m.GitHub.Repository || v.Branch != m.GitHub.Branch) {
+			return m, nil
+		}
 		m.GitHubCreateConfirm = false
 		if v.Err != nil {
 			m.State, m.Status = StateError, "GitHub PR creation: "+platform.SafeText(v.Err.Error())
 		} else {
 			m.State, m.Status = StateReady, fmt.Sprintf("GitHub PR #%d created", v.Pull.Number)
+			if m.GitHubCache != nil {
+				repository, branch := v.Repository, v.Branch
+				if repository.Owner == "" {
+					repository, branch = m.GitHub.Repository, m.GitHub.Branch
+				}
+				m.GitHubCache.Invalidate(repository, branch)
+			}
 			return m, m.loadGitHub()
 		}
 	case GitHubMergeFinishedMsg:
@@ -9548,7 +9805,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordActivityWithOperation(history.OperationFailure, "merge", v.Outcome.Err.Error(), v.Operation)
 			return m, m.refresh()
 		}
-		m.State, m.Status = StateReady, "merge completed"
+		m.State = StateReady
+		if v.Strategy == mergeops.Squash {
+			m.Status = "squash staged; review changes and commit when ready (no merge commit created)"
+		} else {
+			m.Status = "merge completed"
+		}
 		m.recordActivityWithOperation(history.OperationSuccess, "merge", m.Status, v.Operation)
 		return m, tea.Batch(m.refresh(), m.loadBranches(), m.loadHistory())
 	case HistoryReadyMsg:
@@ -10091,7 +10353,7 @@ func (m Model) customCommandFormView() tea.View {
 			}
 		}
 	}
-	lines = append(lines, "", "[enter] accept  [esc] cancel")
+	lines = append(lines, "", "[enter/click] accept  [esc] cancel")
 	v := tea.NewView(strings.Join(safeRenderLines(lines), "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v
@@ -10272,12 +10534,12 @@ func (m Model) featureView(view workspace.View) tea.View {
 			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
 		}
 	case workspace.Conflict:
-		title, content = "gitwatch · conflict resolver", m.Conflict.View(m.Width, m.Height-6)
+		title, content = "gitwatch · conflict resolver", m.Conflict.View(m.Width, m.recoveryPaneHeight())
 		if m.Status != "" {
 			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
 		}
 	case workspace.CherryPick:
-		title, content = "gitwatch · cherry-pick progress", m.Conflict.View(m.Width, m.Height-6)
+		title, content = "gitwatch · cherry-pick progress", m.Conflict.View(m.Width, m.recoveryPaneHeight())
 		if m.Status != "" {
 			content += "\n\nNOTICE: " + platform.SafeText(m.Status)
 		}
@@ -10454,14 +10716,17 @@ func (m Model) featureView(view workspace.View) tea.View {
 	if view == workspace.Blame {
 		lines[len(lines)-1] = "[j/k] move  [enter] inspect origin commit  [] load more  [esc] back  [q] quit"
 	}
-	if view == workspace.Conflict {
-		lines[len(lines)-1] = "[j/k] conflict  [n/p] hunk  [o/t/b] choose  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back  [q] quit"
-	}
-	if view == workspace.CherryPick {
-		lines[len(lines)-1] = "[j/k] commit/conflict  [n/p] hunk  [o/t/b] choose  [m] mark  [u] restore  [c] continue  [x] abort  [1] status  [esc] back  [q] quit"
+	if view == workspace.Conflict || view == workspace.CherryPick {
+		lines[len(lines)-1] = recoveryFooter(m.Conflict.RecoveryActions(), m.Width)
 	}
 	if m.Notifications != nil && m.Notifications.Attention() > 0 {
-		lines[len(lines)-1] += fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
+		attention := fmt.Sprintf("  [!] %d attention  [ctrl+n] dismiss", m.Notifications.Attention())
+		if m.Width > 0 && len(lines[len(lines)-1])+len(attention) > m.Width {
+			attention = fmt.Sprintf("  [!] %d", m.Notifications.Attention())
+		}
+		if m.Width <= 0 || len(lines[len(lines)-1])+len(attention) <= m.Width {
+			lines[len(lines)-1] += attention
+		}
 	}
 	if m.Toast.Text != "" {
 		content += "\n\nNOTICE: " + platform.SafeText(m.Toast.Text)
@@ -10470,6 +10735,40 @@ func (m Model) featureView(view workspace.View) tea.View {
 	v := tea.NewView(strings.Join(lines, "\n"))
 	v.AltScreen, v.MouseMode = true, tea.MouseModeCellMotion
 	return v
+}
+
+func recoveryFooter(actions conflictview.Recovery, width int) string {
+	parts := make([]string, 0, 8)
+	if actions.Continue {
+		parts = append(parts, "[c] continue")
+	}
+	if actions.Skip {
+		parts = append(parts, "[s] skip")
+	}
+	if actions.Abort {
+		parts = append(parts, "[x] abort")
+	}
+	parts = append(parts, "[1] status", "[q] quit", "[j/k] move")
+	if width >= 100 {
+		parts = append(parts, "[o/t/b] choose", "[m] mark", "[?] help")
+	}
+	return strings.Join(parts, "  ")
+}
+
+func (m Model) recoveryPaneHeight() int {
+	if m.Height <= 0 {
+		return 0
+	}
+	// Five rows belong to the surrounding workspace chrome. Reserve three
+	// more for each notice so the actionable footer stays on-screen at 80x24.
+	height := m.Height - 5
+	if m.Status != "" {
+		height -= 3
+	}
+	if m.Toast.Text != "" {
+		height -= 3
+	}
+	return max(1, height)
 }
 
 func safeRenderLines(lines []string) []string {

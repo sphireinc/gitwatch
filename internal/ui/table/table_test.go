@@ -28,6 +28,33 @@ func TestTableFilteringSortingAndStableSelection(t *testing.T) {
 	}
 }
 
+func TestRefreshAndFilterKeepScrolledSelectionInViewport(t *testing.T) {
+	entries := make([]repo.Entry, 10000)
+	for index := range entries {
+		entries[index] = repo.Entry{Path: repo.Path(fmt.Sprintf("file/%05d.txt", index))}
+	}
+	m := New(entries)
+	m.Move(len(entries)-1, 20)
+	selected := m.SelectedPath()
+	if m.Selected < m.Offset || m.Selected >= m.Offset+m.viewportRows {
+		t.Fatalf("initial selection %d is outside viewport [%d,%d)", m.Selected, m.Offset, m.Offset+m.viewportRows)
+	}
+
+	updated := append([]repo.Entry{{Path: repo.Path("aaa.txt")}}, entries...)
+	m.SetEntries(updated)
+	if got := m.SelectedPath(); got != selected {
+		t.Fatalf("refresh changed selected path from %q to %q", selected, got)
+	}
+	if m.Selected < m.Offset || m.Selected >= m.Offset+m.viewportRows {
+		t.Fatalf("refreshed selection %d is outside viewport [%d,%d)", m.Selected, m.Offset, m.Offset+m.viewportRows)
+	}
+
+	m.SetFilter("file/00000")
+	if m.Selected < m.Offset || m.Selected >= m.Offset+m.viewportRows {
+		t.Fatalf("filtered selection %d is outside viewport [%d,%d)", m.Selected, m.Offset, m.Offset+m.viewportRows)
+	}
+}
+
 func TestRowHitTesting(t *testing.T) {
 	m := New([]repo.Entry{{Path: repo.Path("a")}, {Path: repo.Path("b")}})
 	if e, ok := m.RowAt(4, 3, 5); !ok || string(e.Path) != "b" {

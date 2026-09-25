@@ -1,13 +1,14 @@
 # v2 release plan
 
-This is a future compatibility-boundary plan, not a gate for the first public
-v1 release. Configuration schema version 2 and plugin API version 1 are
-independent contract numbers and may ship in gitwatch v1.0.0.
+This is a compatibility-boundary plan for the gitwatch v2 application release.
+The published v1.0.9 release uses configuration schema version 3 and plugin
+API version 1. Application release numbers, configuration schema numbers, and
+plugin API versions are independent contracts.
 
-The v2 configuration schema is currently version `2`; unknown future
-configuration versions are rejected. The plugin wire contract is currently
-API version `1`, and its compatibility fixtures live under
-`pkg/plugin/testdata/v1/`. These are the freeze points for the next release.
+The current configuration schema is version `3`; unknown future configuration
+versions are rejected. The plugin wire contract is API version `1`, and its
+compatibility fixtures live under `pkg/plugin/testdata/v1/`. These are the
+existing freeze points for v2 planning.
 
 ## Contract inventory
 
@@ -15,7 +16,7 @@ API version `1`, and its compatibility fixtures live under
 |---|---|---|---|
 | Go module and public SDK import | `github.com/sphireinc/git-watch/pkg/plugin` | stable API-1 | Incompatible wire changes require API-2 and new fixtures |
 | CLI flags and exit behavior | config, inspection, diagnostics, and release flags | stable | Preserve existing flags and exit classes; document breaking changes |
-| Configuration file | JSON schema version 2 | stable v1 contract | Read v1/unversioned files in memory; reject future versions; never silently rewrite |
+| Configuration file | JSON schema version 3 | stable v1 contract | Preserve schema v3 and in-memory migration from v1/unversioned and v2 files; reject future versions; never silently rewrite |
 | Environment variables | config/profile and theme/motion/watch/provider overrides | stable | Preserve precedence and redact values from diagnostics |
 | Keymap action IDs | default, profile, and direct keymap actions | stable | Add actions only; renames/removals require aliases and deprecation |
 | Plugin wire messages | newline-delimited JSON, API version 1 | stable API-1 | New required semantics require API-2 negotiation and fixtures |
@@ -32,15 +33,15 @@ versions are rejected before startup. A future write mode must create a backup,
 show the dry-run plan, require confirmation, write atomically, and retain
 rollback instructions.
 
-An unversioned or version-1 file is reported as `v0 -> v2` or `v1 -> v2`, with
-current defaults supplied for fields absent from the source. Version 2 files
-report that no migration is required. Version 3 or newer files fail closed and
+An unversioned, version-1, or version-2 file is normalized to schema v3 in
+memory, with current defaults supplied for fields absent from the source. A
+version-3 file requires no migration. Version 4 or newer files fail closed and
 remain untouched.
 
 ## Fixtures and release gates
 
-`internal/config/migration_test.go` covers unversioned/version-1 in-memory
-migration and future-version rejection. The plugin API-1 request, response,
+`internal/config/migration_test.go` covers unversioned/version-1/version-2
+in-memory migration and future-version rejection. The plugin API-1 request, response,
 and status-widget fixtures under `pkg/plugin/testdata/v1/` are loaded through
 the public SDK by `pkg/plugin/plugin_test.go` and are the immutable v1 wire
 fixtures.

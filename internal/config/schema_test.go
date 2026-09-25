@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
-const configurationSchemaV3SHA256 = "fcca5988dc5393782cbbf23be342c007db822df1d7c2c27a44a5ee85609545f2"
+const configurationSchemaV3SHA256 = "90613e7f4df1778e5a5aaf18f1ea1327cd8d801af94aeb45af2248d8ec915808"
 
 func TestDocumentedSchemaV3CoversAdvancedConfigurationSurface(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "configuration.schema.json"))
@@ -69,6 +70,57 @@ func TestDocumentedSchemaV3CoversAdvancedConfigurationSurface(t *testing.T) {
 	for name := range schema.Properties {
 		if name == "token" || name == "password" || name == "secret" || name == "credential" {
 			t.Errorf("schema exposes secret-like top-level property %q", name)
+		}
+	}
+}
+
+func TestDocumentedSchemaV3CoversCustomCommandPrompts(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "configuration.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(data, &schema); err != nil {
+		t.Fatalf("schema JSON: %v", err)
+	}
+	var customCommands struct {
+		Items struct {
+			Properties map[string]json.RawMessage `json:"properties"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(schema.Properties["custom_commands"], &customCommands); err != nil {
+		t.Fatalf("custom command schema: %v", err)
+	}
+	var prompts struct {
+		Items struct {
+			Required   []string                   `json:"required"`
+			Properties map[string]json.RawMessage `json:"properties"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(customCommands.Items.Properties["prompts"], &prompts); err != nil {
+		t.Fatalf("prompt schema: %v", err)
+	}
+	for _, required := range []string{"id", "label", "kind"} {
+		if !slices.Contains(prompts.Items.Required, required) {
+			t.Errorf("prompt schema does not require %q", required)
+		}
+	}
+	for _, name := range []string{"id", "label", "kind", "required", "pattern", "options", "options_source", "default"} {
+		if _, ok := prompts.Items.Properties[name]; !ok {
+			t.Errorf("prompt schema is missing property %q", name)
+		}
+	}
+	var kind struct {
+		Enum []string `json:"enum"`
+	}
+	if err := json.Unmarshal(prompts.Items.Properties["kind"], &kind); err != nil {
+		t.Fatalf("prompt kind schema: %v", err)
+	}
+	for _, expected := range []string{"text", "secret", "confirm", "select", "multi-select"} {
+		if !slices.Contains(kind.Enum, expected) {
+			t.Errorf("prompt kind schema is missing %q", expected)
 		}
 	}
 }

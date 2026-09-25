@@ -93,9 +93,30 @@ func TestCherryPickViewShowsRepositoryScopedProgress(t *testing.T) {
 	m.SetSnapshot(sequencer.KindCherryPick, "feature", []conflicts.Conflict{{Path: []byte("file")}})
 	m.SetOperationState(&state)
 	view := m.View(120, 30)
-	for _, want := range []string{"Cherry-pick progress", "Original HEAD: before", "Progress: 1 completed · 1 remaining", "completed first", "conflicted current", "[s] skip"} {
+	for _, want := range []string{"Cherry-pick progress", "Source ref: unavailable", "Original HEAD: before", "Progress: 1 completed · 1 remaining", "completed first", "conflicted current", "[s] skip"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("view missing %q:\n%s", want, view)
+		}
+	}
+}
+
+func TestRebaseRecoveryShowsGitDerivedProgressAtNarrowWidth(t *testing.T) {
+	m := New()
+	state, err := sequencer.NewState("repo", 4, sequencer.KindRebase, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state = state.WithObservation("head", "commit-to-edit", 2, 1, nil, time.Now())
+	state, err = state.WithDetails(sequencer.Details{Rebase: &sequencer.RebaseDetails{EditStopped: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.SetSnapshot(sequencer.KindRebase, "main", nil)
+	m.SetOperationState(&state)
+	view := m.View(80, 24)
+	for _, want := range []string{"Rebase recovery", "State: paused (edit-stop)", "Progress: 1 completed · 2 remaining", "Current commit: commit-to-edit", "No active conflicts.", "[c] continue", "[s] skip", "[x] abort"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("narrow recovery missing %q:\n%s", want, view)
 		}
 	}
 }
@@ -103,11 +124,13 @@ func TestCherryPickViewShowsRepositoryScopedProgress(t *testing.T) {
 func TestRecoveryFooterOnlyShowsSupportedActions(t *testing.T) {
 	m := New()
 	m.SetSnapshot(sequencer.KindMerge, "main", nil)
+	setRecoveryProgress(t, &m, sequencer.KindMerge, false)
 	view := m.View(80, 24)
 	if strings.Contains(view, "[s] skip") {
 		t.Fatalf("merge footer exposed unsupported skip:\n%s", view)
 	}
 	m.SetSnapshot(sequencer.KindRebase, "main", nil)
+	setRecoveryProgress(t, &m, sequencer.KindRebase, true)
 	view = m.View(80, 24)
 	if !strings.Contains(view, "[s] skip") {
 		t.Fatalf("rebase footer omitted skip:\n%s", view)
@@ -117,11 +140,13 @@ func TestRecoveryFooterOnlyShowsSupportedActions(t *testing.T) {
 func TestRecoveryCoordinatorGatesContinueOnAuthoritativeState(t *testing.T) {
 	m := New()
 	m.SetSnapshot(sequencer.KindCherryPick, "main", []conflicts.Conflict{{Path: []byte("file"), Resolution: "unmerged"}})
+	setRecoveryProgress(t, &m, sequencer.KindCherryPick, false)
 	m.SetStagedCount(1)
 	if got := m.RecoveryActions(); got.Continue || !got.Skip || !got.Abort {
 		t.Fatalf("unresolved recovery = %+v", got)
 	}
 	m.SetSnapshot(sequencer.KindCherryPick, "main", nil)
+	setRecoveryProgress(t, &m, sequencer.KindCherryPick, false)
 	m.SetStagedCount(0)
 	if got := m.RecoveryActions(); got.Continue {
 		t.Fatalf("clean index exposed continue = %+v", got)
@@ -131,8 +156,23 @@ func TestRecoveryCoordinatorGatesContinueOnAuthoritativeState(t *testing.T) {
 		t.Fatalf("resolved recovery = %+v", got)
 	}
 	m.SetSnapshot(sequencer.KindMerge, "main", nil)
+	setRecoveryProgress(t, &m, sequencer.KindMerge, false)
 	if got := m.RecoveryActions(); !got.Continue || got.Skip || !got.Abort {
 		t.Fatalf("merge recovery = %+v", got)
+	}
+}
+
+func TestRebaseContinueRequiresStagedResolutionOrGitEditStop(t *testing.T) {
+	m := New()
+	m.SetSnapshot(sequencer.KindRebase, "main", nil)
+	setRecoveryProgress(t, &m, sequencer.KindRebase, false)
+	m.SetStagedCount(0)
+	if got := m.RecoveryActions(); got.Continue || !got.Abort || !got.Skip {
+		t.Fatalf("ordinary clean rebase exposed continue: %+v", got)
+	}
+	setRecoveryProgress(t, &m, sequencer.KindRebase, true)
+	if got := m.RecoveryActions(); !got.Continue || !got.Abort || !got.Skip {
+		t.Fatalf("Git edit-stop did not expose continue: %+v", got)
 	}
 }
 
@@ -149,6 +189,7 @@ func TestRecoveryCoordinatorSharesLifecycleRulesAcrossSequencers(t *testing.T) {
 		t.Run(test.kind.String(), func(t *testing.T) {
 			m := New()
 			m.SetSnapshot(test.kind, "target", nil)
+			setRecoveryProgress(t, &m, test.kind, test.kind == sequencer.KindRebase)
 			m.SetStagedCount(1)
 			recovery := m.RecoveryActions()
 			if !recovery.Continue || recovery.Skip != test.wantSkip || !recovery.Abort {
@@ -156,6 +197,21 @@ func TestRecoveryCoordinatorSharesLifecycleRulesAcrossSequencers(t *testing.T) {
 			}
 		})
 	}
+}
+
+func setRecoveryProgress(t *testing.T, model *Model, kind sequencer.Kind, editStopped bool) {
+	t.Helper()
+	state, err := sequencer.NewState("repo", 1, kind, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kind == sequencer.KindRebase {
+		state, err = state.WithDetails(sequencer.Details{Rebase: &sequencer.RebaseDetails{EditStopped: editStopped}})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	model.SetOperationState(&state)
 }
 
 func TestRevertViewUsesCommonProgressAndRecoveryPresentation(t *testing.T) {

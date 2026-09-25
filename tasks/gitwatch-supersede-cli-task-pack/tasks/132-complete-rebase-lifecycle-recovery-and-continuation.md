@@ -52,12 +52,12 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 
 - [x] Recovery entry point and progress presentation are implemented; an active rebase discovered by the live snapshot can be opened from Status with `C`, including when no conflict file is present. Continue and abort remain typed lifecycle intents in the existing conflict/recovery workspace.
 - [x] Implementation commits recorded: `224362f` (active recovery route), `2374459` (continuation coverage and stale-marker fix), and the follow-up skip-support slice.
-- [ ] Exact tested revision recorded.
+- [x] Exact tested revision recorded.
 - [x] Focused tests recorded: `TestActiveRebaseWithoutConflictsHasRecoveryRoute`, `TestOperationLifecycleAbortsRebaseAndRefreshesOperationState`, `TestOperationLifecycleContinuesResolvedRebase`, `TestOperationLifecycleSkipsRebase`, and `TestDetectOperationStateSurvivesRunnerReconstructionDuringRebase`; the real disposable-repository tests create a rebase conflict, exercise typed abort/continue/skip, verify fresh-runner rediscovery, and verify authoritative post-operation snapshots and worktree content.
 - [x] `go test ./...` recorded through `make check`.
 - [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` (lint reported 0 issues).
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [x] Known limitations/deferred work documented: edit-stop scenarios beyond the status projection and native Linux/macOS/Windows operator evidence still require dedicated acceptance coverage.
+- [x] Known limitations/deferred work documented: edit-stop continue/amend/abort variants and native Linux/macOS/Windows operator evidence still require dedicated acceptance coverage.
 
 ## Local progress evidence (task remains active)
 
@@ -74,3 +74,66 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
   rediscovery, and authoritative post-operation snapshots. Native/manual
   terminal evidence remains open, so the task is not yet eligible for archival.
 - The task is intentionally not moved to `tasks/completed` until restart recovery, edit-stop/skip behavior where applicable, and required native/manual evidence are proven.
+- At revision `0d2ee23`, `TestInteractiveRebaseEditStopSurvivesRestartAndCanSkip`
+  drove a real interactive rebase to an `edit` stop, reconstructed its
+  repository-scoped progress through a fresh runner, then skipped the stopped
+  commit and verified Git's completed operation state and resulting worktree.
+  `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 for this
+  source revision: pinned lint (0 issues), formatting, full tests, race tests,
+  vet, security fuzz, performance budgets, and diff checks. Native terminal
+  evidence and edit-stop continue/amend/abort variants remain open.
+- Hosted Actions run `35825994043` on `c2941d6` passed Quality and policy,
+  full-history secret scan, Ubuntu full tests/race/build/runtime/PTY checks,
+  Windows full tests/build/runtime/path-and-CRLF parity, and macOS full
+  tests/race/build/runtime smoke. The overall run remains failed only at the
+  macOS PTY step because `tmux` is absent in the workflow environment; this is
+  not a Task 132 test failure. Cross-platform native/manual acceptance remains
+  open.
+- At revision `a4d6d83`, real interactive-rebase edit-stop tests cover restart
+  followed by skip, continue without changes, amend followed by continue, and
+  restart followed by abort. They verify Git-derived stopped state, operation
+  cleanup, branch/HEAD outcome, and final worktree content. The full local
+  `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 (lint 0
+  issues, full tests, race, vet, formatting, security fuzz, performance, and
+  diff checks). Hosted Actions run `35863324235` passed quality/policy,
+  full-history secret scan, and Ubuntu/macOS/Windows test matrices, including
+  the PTY smoke on macOS. Native operator acceptance remains open, so the task
+  remains active.
+- Revision `56ccbd3` shows the Git-derived phase/edit-stop label, current
+  commit, and completed/remaining counts directly in the recovery pane. A
+  focused 80x24 view test passed. A new native tmux fixture on Darwin arm64
+  launched gitwatch after an externally started conflict rebase, opened
+  recovery with `C`, verified the progress pane under `NO_COLOR=1` and motion
+  off, skipped the stopped commit with `s`, and verified Git restored the
+  expected branch/HEAD and removed rebase metadata. The fixture is now part
+  of Unix CI. Full `GOCACHE=/tmp/gitwatch-go-cache
+  GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` passed at the source
+  revision (lint 0 issues, full/race tests, vet, format, diff, security, and
+  performance). This is automated PTY evidence for one skip path, not full
+  human/operator, abort/continue, edit-stop, or native Windows acceptance;
+  the task remains active.
+- Hosted Actions run
+  [35912038087](https://github.com/sphireinc/gitwatch/actions/runs/35912038087)
+  on `46443d0` passed quality/policy, full-history secret scan, Ubuntu and
+  macOS tests/race/build/runtime plus the new native PTY rebase recovery
+  fixture, and the Windows test/build/runtime/path-parity matrix. The Unix PTY
+  result does not constitute native Windows terminal interaction or a complete
+  operator-run rebase lifecycle matrix.
+- Revision `e3c0afd` records an authoritative post-lifecycle snapshot before
+  journaling rebase recovery actions. When Git reports completion, the status
+  message and semantic operation journal show the original and result HEADs;
+  the journal records the number of newly reachable commit objects when Git's
+  original/onto/result OIDs permit an exact count. Completion also schedules
+  history reload alongside status/operation refresh. Real-repository tests
+  cover skipping a conflicting commit and replaying one later commit (count
+  one), plus skipping into another conflict without claiming completion or a
+  final count. Focused tests and full `GOCACHE=/tmp/gitwatch-go-cache
+  GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` passed on Darwin arm64,
+  including lint (0 issues), full/race tests, vet, formatting, diff, security,
+  and performance checks. Native/operator acceptance remains open.
+- Hosted Actions run
+  [35913639117](https://github.com/sphireinc/gitwatch/actions/runs/35913639117)
+  on `39799a2` passed quality/policy, secret scanning, and the Ubuntu,
+  macOS, and Windows test matrices for the completion-journal slice. This is
+  cross-platform automated evidence, not the remaining native/operator
+  lifecycle matrix.

@@ -36,6 +36,34 @@ amend composer is used. Patch or replay conflicts remain in standard recovery,
 and `Ctrl-X` aborts through normal rebase abort semantics. This is a published
 history rewrite and may require coordination with downstream users.
 
+When Git reports an active rebase—including one started in another terminal—
+Status offers `C` to open Rebase recovery. The recovery pane shows Git-derived
+phase, current commit, completed/remaining counts, and conflict count; an
+edit stop is labeled explicitly. Use `c` to continue when the index or edit
+stop permits it, `s` to skip the current commit, or `x` to abort. Lifecycle
+actions refresh the authoritative repository state after Git finishes.
+When a rebase finishes, the completion message and operation journal show the
+original and resulting HEAD. If Git's original and onto commits are available,
+the journal also counts newly created commits reachable from the result but
+not from either earlier boundary; a missing count is left unavailable rather
+than guessed.
+
+The cherry-pick progress workspace uses the current branch as its target and
+shows Git's ordered commit IDs. Git does not retain a unique source branch for
+an externally started pick, so that field is labeled unavailable instead of
+inferred. At narrow widths the recovery footer lists only currently valid
+Continue, Skip, and Abort actions before navigation shortcuts.
+When Git has already applied an earlier commit but no longer retains its
+source ID in the sequencer todo, the completed row shows the resulting commit
+ID derived from the sequencer's original HEAD; conflicted and pending rows
+continue to show Git's source IDs.
+
+Multi-commit reverts use the same durable recovery controls. After a restart,
+the revert pane reads Git's sequencer state and original HEAD; when Git has
+discarded completed source IDs, it shows the resulting revert commit IDs
+without guessing which source commits they replaced. Continue, Skip, and
+Abort act on the selected repository and refresh its authoritative status.
+
 ## External tools and custom commands
 
 From Status, `Ctrl-E` opens the selected path in the configured editor, `Ctrl-O`
@@ -68,9 +96,12 @@ typed argv operations and branch occupancy is explicit.
 Remote URLs are redacted before display or diagnostics. Pull strategy must be
 explicit (`merge`, `rebase`, or `ff-only`), and force pushing is represented
 only by the opt-in `--force-with-lease` operation. GitHub support is optional:
-remote detection, environment/GitHub CLI token sources, cached PR metadata, and
-check-run parsing degrade to an unavailable provider state without blocking
-core Git workflows.
+remote detection, environment/GitHub CLI token sources, bounded cached PR and
+repository data, and check-run parsing run separately from local Git refresh.
+A branch with no open pull request is a normal state. Independent provider
+failures appear as sanitized resource warnings, and unavailable/authentication/
+rate-limit states never mark the local repository unavailable. Creating a pull
+request is an explicit provider action and never pushes the local branch.
 
 ## Plugins and multi-repository work
 
@@ -81,6 +112,14 @@ persists private versioned JSON metadata with atomic replacement, and refreshes
 status via a bounded worker pool. A missing or failing repository becomes an
 independent error row; it does not block healthy repositories. Repository rows
 are filterable/sortable; favorites and groups are stored as registry metadata.
+Health severity is semantic rather than a single numeric score. Local state is
+derived from the authoritative Git snapshot and remains useful offline; the
+dashboard shows its source and observation time. Provider-derived CI attention
+is optional cached data marked `fresh` or `stale`. Remote-fetch outcome,
+completion time, and measured duration are shown separately, so remote
+freshness is not inferred from local status and remotes are not probed on every
+status refresh. See [provider behavior](provider.md) and
+[configuration](configuration.md) for cache and auto-fetch controls.
 
 ## Configuration and safety
 

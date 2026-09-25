@@ -72,3 +72,18 @@ Support interactive custom workflows such as selecting a branch or entering a ti
   redaction, dynamic options from loaded state, validation, and app launch
   behavior. Native keyboard/mouse acceptance and provider-backed option
   sources remain open.
+- Revision `01c42ad` closes two concrete safety/usability gaps. Invocations
+  containing a non-empty secret prompt now suppress stdout/stderr before
+  results or errors leave the custom-command runner; the app reports only a
+  generic suppressed-output status. A test-binary helper verifies both
+  stdout-echo and stderr-failure cases without shell execution. Mouse clicks
+  now select and toggle dynamic options, accept text/select forms, and accept
+  or cancel confirmations through the same form handlers as keyboard input;
+  app tests cover those paths.
+- On Darwin arm64 at `01c42ad`, `go test ./...`, `go test -race ./...`,
+  `go vet ./...`, format, diff, `scripts/security-check.sh`, and
+  `scripts/performance-check.sh` passed. `make check` reached the pinned lint
+  step but cannot download golangci-lint v2.12.0 because proxy.golang.org DNS
+  is unavailable; installed v2.11.3 was built with Go 1.26 and cannot consume
+  this Go 1.27 toolchain's export data. Native/manual mouse acceptance and
+  provider-backed option sources remain open; the task remains active.

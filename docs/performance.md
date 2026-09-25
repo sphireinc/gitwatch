@@ -6,16 +6,28 @@ Status-panel row-height measurement is also viewport-bounded. Flat and tree stat
 views retain the complete logical entry set and stable offsets, while the pure
 `internal/ui/virtualrange` model clamps stale offsets and supplies bounded
 viewport-plus-overscan candidate ranges. Mouse hit-testing measures only rows
-that can occupy the current panel. Deterministic
-14,953-entry regression coverage and a benchmark live in
+that can occupy the current panel. Rendering accounts for wrapped path rows and
+panel headers; table and tree refreshes preserve the selected path and adjust
+the offset to keep it visible. The overscan tuning option is
+`workspace.status_overscan` (default `4`, range `0`–`32`); the complete Git
+snapshot remains in memory regardless of that presentation setting.
+
+Deterministic 14,953-entry regression coverage and benchmarks live in
 `internal/app/status_virtualization_test.go`:
 
 ```text
 go test ./internal/app -run '^$' -bench BenchmarkStatusMouseRowHeights14953 -benchmem
+go test ./internal/app -run '^$' -bench '^BenchmarkStatusFileLines14953$' -benchmem
 ```
 
-The same benchmark is part of `scripts/performance-check.sh`, so the release
-performance gate exercises both the bounded path and its full-scan comparison.
+The row-height and rendered-file-line benchmarks compare the bounded viewport
+with a full-scan baseline. Both are part of `scripts/performance-check.sh`, so
+the release performance gate exercises the bounded paths and their comparisons.
+On the recorded macOS arm64 / Apple M1 Pro `make check` run, the 14,953-entry
+rendered-line sample measured 291.7 microseconds/op, 55.1 KB/op, and 634
+allocations/op for the bounded viewport versus 135.1 milliseconds/op, 9.91
+MB/op, and 418,721 allocations/op for the full-scan baseline. These are
+host-specific observations, not portable latency limits.
 
 The cross-repository command palette has a deterministic 50-repository benchmark:
 

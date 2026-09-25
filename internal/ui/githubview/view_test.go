@@ -38,6 +38,33 @@ func TestViewRendersBoundedPullRequestListAndDetail(t *testing.T) {
 	}
 }
 
+func TestViewKeepsIndependentPullRequestDataVisibleWithoutCurrentPull(t *testing.T) {
+	m := New()
+	m.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "feature", provider.PullRequest{}, provider.ChecksSnapshot{})
+	m.SetPullRequests([]provider.PullRequest{{Number: 8, Title: "Open PR", State: "open"}})
+	m.SetIssues([]provider.Issue{{Number: 9, Title: "Open issue", State: "open"}})
+	m.SetWarnings([]ResourceWarning{{Resource: "checks", Message: "GitHub HTTP 503\x1b[2J"}})
+
+	view := m.View()
+	for _, want := range []string{"No open pull request for the current branch", "PR #8: Open PR", "Issue #9: Open issue", "checks: GitHub HTTP 503"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("missing %q: %s", want, view)
+		}
+	}
+	if strings.Contains(view, "\x1b") {
+		t.Fatalf("provider warning contains terminal escape: %q", view)
+	}
+}
+
+func TestViewShowsNoRemoteErrorWhenRepositoryIsUnavailable(t *testing.T) {
+	m := New()
+	m.SetError(provider.Repository{}, "main", provider.ErrNoGitHubRemote)
+	view := m.View()
+	if !strings.Contains(view, "no GitHub remote detected") || !strings.Contains(view, "provider state: not configured") || !strings.Contains(view, "Add a GitHub remote") {
+		t.Fatalf("no-remote provider error was hidden: %s", view)
+	}
+}
+
 func TestViewLabelsStaleProviderCache(t *testing.T) {
 	m := New()
 	m.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 4, State: "open"}, provider.ChecksSnapshot{})

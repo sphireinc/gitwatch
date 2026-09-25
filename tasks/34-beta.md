@@ -6,4 +6,82 @@ Tag `v0.9.0`, distribute binaries, test in real repositories including monorepos
 
 **Acceptance:** Zero open blocker/critical issues and no known data-loss issue.
 
-**Status:** In progress — repository discovery, status rendering, reversible stage/unstage and diff flows, explicit polling startup, non-repository diagnostics, strict five-target artifact verification, repeatable release checks, missing-Git classification, and real-repository coverage for spaces, Unicode, quotes, leading dashes, and renames are present; the operator matrix in `docs/beta-validation-matrix.md` still requires full macOS, Linux, and native Windows beta evidence.
+**Status:** In progress — repository discovery, status rendering, reversible stage/unstage and diff flows, explicit polling startup, non-repository diagnostics, strict five-target artifact verification, repeatable release checks, missing-Git classification, and real-repository coverage for spaces, Unicode, quotes, leading dashes, and renames are present. The operator matrix for candidate `5b2a8e9` now records owner sign-off across all cells: macOS and Windows are attested green, and Linux is accepted by explicit equivalence while the expanded physical Linux testbed proceeds. Remaining beta scenarios and blocker/data-loss review still keep this task open.
+
+## Verified evidence (2026-09-25)
+
+Source revision `a31cf80cce66ac95b83350fcfaae006e735fa1ef` passed hosted Actions run [36096868956](https://github.com/sphireinc/gitwatch/actions/runs/36096868956), including full-history secret scan, quality/policy, and Ubuntu 24.04, macOS 15, and Windows 2025 jobs. This is CI evidence, not native operator acceptance.
+
+On Darwin arm64 with Git 2.33.0, `scripts/native-fixture.sh` prepared a repository containing staged and unstaged README changes, a rename from `space name.txt` to `renamed unicode-é.txt`, and an untracked path with a space. The binary built from the recorded revision. `scripts/pty-smoke.sh` passed startup, 80x24 help, and clean quit; `scripts/pty-large-status-smoke.sh` passed with 14,953 untracked files at 80x24. These are automated PTY checks and do not establish manual input, resize, rendering, or terminal-restoration acceptance.
+
+Watcher regression checks also passed: `TestWatcherSeesExternalGitMetadataAndRecreatedDirectory` with `-count=30`, and with `-race -count=5`. Serena inspection confirmed the test waits for path-specific events after metadata-directory recreation. The GitHub open-issue query returned no issues at this check; that alone does not establish that there are no unreported or externally tracked blocker/critical issues.
+
+**Still required before completion:** close the outstanding real-repository scenarios (including worktrees/monorepos and staging/refresh behavior) and explicitly establish that no blocker/critical or known data-loss issue remains. The matrix records the owner's candidate-specific platform sign-off in `docs/beta-validation-matrix.md`; Linux is an accepted equivalence disposition, not a claim that physical Linux testing has already occurred. Do not treat CI, PTY, or an empty GitHub issue list as substitutes for the remaining acceptance checks.
+
+## Linked-worktree PTY follow-up (2026-09-25)
+
+The existing PTY scripts incorrectly required `<repo>/.git` to be a directory. Reproduction against a valid `git worktree add` linked tree failed with “repository is not initialized” even though `git rev-parse --git-dir` succeeded. `scripts/pty-smoke.sh` and `scripts/record-demo.sh` now validate through `git rev-parse`, and `docs/native-harness.md` documents linked-worktree use.
+
+Built from `9b7acaa` on Go 1.27.0, Darwin 25.6.0 arm64, Git 2.33.0, and tmux 3.6a. The updated 80x24 PTY startup/help/quit smoke passed in the linked worktree. The scripted PTY demo also passed there with filesystem watch enabled: an external edit appeared in status and diff without pressing refresh; the displayed counts transitioned from modified to staged and back to modified; final porcelain status showed only the intended unstaged `docs/notes.md` change, with no staged residue. The script resized the session and exited cleanly. This is automated PTY evidence only and does not fill native operator matrix cells.
+
+`GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` passed on Darwin arm64, including pinned golangci-lint (0 issues), formatting, full tests, race tests, vet, whitespace checks, security fuzzing, and performance budgets. The earlier sandbox-only lint download failure was resolved by allowing the pinned module download; no lint finding was suppressed.
+
+## Latest automated evidence (2026-09-25)
+
+At commit `6e0c06a403e0f9909e019c7959d7fea5d88c2775`, the complete local
+`make check` passed on Darwin arm64 / Apple M1 Pro, including formatting,
+pinned lint (0 issues), full and race tests, vet, security fuzz checks, and
+performance budgets. Hosted Actions run [36103006507](https://github.com/sphireinc/gitwatch/actions/runs/36103006507)
+passed its quality/policy, full-history secret scan, and Ubuntu 24.04, macOS
+15, and Windows 2025 test/build matrix. Its Linux and macOS jobs also passed
+the large-status PTY acceptance; Windows path/CRLF parity passed. The open
+GitHub issue query returned no issues at this check. This is current automated
+and issue-tracker evidence only; it does not establish that no unreported
+blocker/data-loss issue exists. The matrix sign-off was recorded separately
+after this automated check. Keep Task 34 in progress until the remaining beta
+scenarios and blocker/data-loss review are complete.
+
+## Current-host PTY supplement (2026-09-25)
+
+Built `1.0.0-dev` from exact branch HEAD
+`5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725` with commit and build date embedded.
+On Darwin 25.6.0 arm64, Go 1.27.0, Git 2.33.0, and tmux 3.6a,
+`scripts/native-fixture.sh` prepared the mixed staged/unstaged, rename, and
+spaced-path repository; its porcelain-v2 inspection matched the intended state.
+`scripts/pty-smoke.sh` passed startup, 120x32-to-80x24 resize, help rendering,
+and clean quit. `scripts/pty-large-status-smoke.sh` also passed with exactly
+14,953 untracked files and the authoritative count visible at 80x24. Redacted
+fixture and PTY metadata were retained temporarily under a private `/tmp`
+directory. These are automated tmux-PTY observations, not native operator
+evidence. At the time of this supplement, the operator cells were pending; the
+later owner sign-off for candidate `5b2a8e9` is recorded in the beta matrix.
+Task 34 remains in progress for the other acceptance criteria.
+
+## Hosted CI follow-up (2026-09-25)
+
+GitHub Actions run [36104615360](https://github.com/sphireinc/git-watch/actions/runs/36104615360)
+for exact branch HEAD `e4d8faf` completed successfully in 5m10s. The run
+included quality/policy, full-history secret scanning, and all three platform
+test-matrix jobs. This is hosted automated evidence only and does not establish
+native operator acceptance. The subsequent owner sign-off for candidate
+`5b2a8e9` is recorded separately in the beta matrix.
+
+## Linked-worktree monorepo PTY follow-up (2026-09-25)
+
+Built exact branch HEAD `354573e` with build identity embedded, then ran
+`scripts/record-demo.sh` against a disposable linked worktree on Darwin 25.6.0
+arm64, Go 1.27.0, Git 2.33.0, and tmux 3.6a. The fixture contained tracked
+`apps/web` and `services/api` package trees plus `docs/notes.md`. At 80x24 with
+filesystem watching, an external edit appeared without manual refresh and its
+diff rendered; the selected file's staged count changed `0 → 1 → 0`. After
+clean quit, porcelain-v2 showed exactly the three intended modified files,
+`git diff --cached --exit-code` was clean, and `git diff --check` passed. The
+linked worktree's `.git` indirection resolved through `git rev-parse`. This is
+automated PTY evidence only; it does not establish native operator acceptance
+or complete real-production-repository beta coverage.
+
+The same binary also passed `scripts/pty-smoke.sh` against the actual gitwatch
+checkout at worktree HEAD `53658fd`: startup, resize to 80x24, help, and clean
+quit. The checkout remained clean afterward. The binary was built from
+`354573e`; intervening changes were documentation-only. This remains scripted
+PTY evidence, not native operator sign-off.

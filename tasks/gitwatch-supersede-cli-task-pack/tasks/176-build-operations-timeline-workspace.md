@@ -37,17 +37,17 @@ Expose Git, network, provider, plugin and custom-command work as a searchable ht
 
 ## Acceptance criteria
 
-- [ ] User can answer “what just happened?” without opening logs.
+- [x] User can answer “what just happened?” without opening logs.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence (2026-09-21)
 
@@ -68,3 +68,11 @@ Expose Git, network, provider, plugin and custom-command work as a searchable ht
 - Kept provider mutations single-attempt, including remote branch deletion, so an ambiguous response cannot silently repeat a user-confirmed mutation. Added regression coverage for failed deletion attempts and all supported retry-delay forms.
 - Verification at `543c357872a833fbc5dfb5b7ffb4a85304b06a61`: focused provider tests, full normal/race tests, vet, pinned golangci-lint (0 issues), security fuzz checks, performance budgets, and whitespace checks all passed.
 - Remaining: high-volume timeline virtualization, multi-repository interleaving acceptance, and native/manual terminal evidence; hosted CI evidence remains pending push authorization.
+
+## Progress evidence (2026-09-25)
+
+- Revision `584d5709c6ea568cd08ea032901b2524c6148f95` adds `TestOperationJournalVirtualizesHighVolumeInterleavedRepositories`: 250 alternating events exceed the journal's 100-record retention cap; at a 12-row terminal height, the `repo:/repo-a` filter renders only its four newest matching entries and excludes interleaved repo-b and off-viewport rows.
+- Secret handling remains covered by `TestRedactArgsRemovesCredentialMaterial`; the journal stores sanitized argument copies at the recording boundary.
+- Focused test passed: `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache go test ./internal/app -run 'TestOperationJournalVirtualizesHighVolumeInterleavedRepositories' -count=1`.
+- Full gate passed on Go `go1.27.0 darwin/arm64` (macOS, Apple M1 Pro): `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` (pinned lint, full unit/race suites, vet, formatting, security fuzz, performance, diff checks).
+- Hosted run `36096357394` for revision `be0aca1` passed Ubuntu 24.04, macOS 15, and Windows 2025, along with quality/policy and full-history secret scanning. This closes the current hosted cross-platform check for the timeline changes; native/manual terminal acceptance remains open.

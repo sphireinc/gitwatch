@@ -32,7 +32,11 @@ type RecoveryActions struct {
 // authoritative conflict/index projection. A negative staged count means the
 // caller has not supplied an index count and the coordinator remains
 // conservative only where the count is known.
-func ActionsFor(kind Kind, unresolved, staged int) RecoveryActions {
+func ActionsFor(state *State, unresolved, staged int) RecoveryActions {
+	if state == nil {
+		return RecoveryActions{}
+	}
+	kind := state.Kind()
 	if kind == KindUnknown {
 		return RecoveryActions{}
 	}
@@ -47,12 +51,18 @@ func ActionsFor(kind Kind, unresolved, staged int) RecoveryActions {
 	if unresolved > 0 {
 		return actions
 	}
-	// Rebase edit-stops do not require staged changes. For other sequencers,
-	// a known clean index means there is nothing for Git to continue or commit.
-	if kind != KindRebase && staged >= 0 && staged == 0 {
+	if kind == KindRebase {
+		details := state.Details().Rebase
+		if details != nil && details.EditStopped {
+			actions.Continue = true
+		} else if staged > 0 {
+			actions.Continue = true
+		}
 		return actions
 	}
-	actions.Continue = true
+	// Cherry-pick, revert, and merge require an authoritative staged result
+	// before Continue is offered. A missing/unknown count is conservative.
+	actions.Continue = staged > 0
 	return actions
 }
 

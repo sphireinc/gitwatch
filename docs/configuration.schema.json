@@ -108,7 +108,24 @@
           "timeout": { "type": "integer", "minimum": 0 },
           "confirm": { "type": "boolean" },
           "mutates_repository": { "type": "boolean" },
-          "refresh": { "type": "boolean" }
+          "refresh": { "type": "boolean" },
+          "prompts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "label", "kind"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "label": { "type": "string", "minLength": 1 },
+                "kind": { "enum": ["text", "secret", "confirm", "select", "multi-select"] },
+                "required": { "type": "boolean" },
+                "pattern": { "type": "string" },
+                "options": { "type": "array", "items": { "type": "string" } },
+                "options_source": { "enum": ["branches", "remotes", "tags", "commits", "paths"] },
+                "default": { "type": "string" }
+              }
+            }
+          }
         }
       }
     },

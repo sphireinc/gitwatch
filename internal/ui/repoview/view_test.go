@@ -3,7 +3,9 @@ package repoview
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/sphireinc/git-watch/internal/health"
 	"github.com/sphireinc/git-watch/internal/registry"
 )
 
@@ -45,10 +47,36 @@ func TestViewShowsOperationAttentionBadges(t *testing.T) {
 
 func TestViewShowsCachedCIAttentionAndStaleness(t *testing.T) {
 	m := New([]registry.Row{{Repository: registry.Repository{Name: "repo"}, ProviderCIState: "failing", ProviderCIStale: true, ProviderCIAttention: "checks"}})
-	view := m.View()
-	for _, want := range []string{"ci:failing(stale)/checks"} {
-		if !strings.Contains(view, want) {
-			t.Fatalf("cached CI badge missing %q: %s", want, view)
+	lines := strings.Split(m.View(), "\n")
+	if len(lines) < 3 {
+		t.Fatalf("repository view rows = %q", lines)
+	}
+	stale := "ci:failing(stale)/checks"
+	if index := strings.Index(lines[2], stale); index < 0 || index >= 80 {
+		t.Fatalf("stale provider state is not prioritized in 80 columns: %q", lines[2])
+	}
+}
+
+func TestViewShowsMeasuredAutoFetchLatency(t *testing.T) {
+	observed := time.Date(2026, 9, 24, 15, 4, 5, 0, time.UTC)
+	m := New([]registry.Row{{
+		Repository:        registry.Repository{Name: "repo", LastAutoFetchMillis: 1250},
+		Health:            health.Summary{Source: "git status", FreshAt: observed},
+		RemoteFetchStatus: "fetched",
+		RemoteFetchAt:     observed,
+		ProviderCIState:   "passing",
+	}})
+	lines := strings.Split(m.View(), "\n")
+	if len(lines) < 3 {
+		t.Fatalf("repository view rows = %q", lines)
+	}
+	latency := "remote-fetch:fetched latency:1250ms"
+	if index := strings.Index(lines[1], latency); index < 0 || index >= 80 {
+		t.Fatalf("measured remote latency is not prioritized in 80 columns: %q", lines[1])
+	}
+	for _, detail := range []string{"source:git status observed:15:04:05", "fetch@15:04:05", "ci:passing(fresh)"} {
+		if index := strings.Index(lines[2], detail); index < 0 || index >= 80 {
+			t.Fatalf("freshness detail %q is not prioritized in 80 columns: %q", detail, lines[2])
 		}
 	}
 }

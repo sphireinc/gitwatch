@@ -45,6 +45,20 @@ func TestGitHubClientUsesTokenAndParsesResponses(t *testing.T) {
 	}
 }
 
+func TestGitHubClientTreatsMissingBranchPullRequestAsEmpty(t *testing.T) {
+	client := GitHubClient{BaseURL: "https://api.test", HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Query().Get("head") != "o:feature" || r.URL.Query().Get("state") != "open" {
+			t.Fatalf("branch pull request query = %s", r.URL.RawQuery)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("[]")), Header: make(http.Header), Request: r}, nil
+	})}}
+
+	pull, err := client.PullRequest(context.Background(), Repository{Owner: "o", Name: "r"}, "feature")
+	if err != nil || pull.Number != 0 {
+		t.Fatalf("missing branch pull request = %#v, %v", pull, err)
+	}
+}
+
 func TestGitHubClientListsBoundedOpenPullRequestPage(t *testing.T) {
 	client := GitHubClient{BaseURL: "https://api.test", TokenSource: fixedToken("token"), HTTPClient: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Query().Get("state") != "open" || r.URL.Query().Get("page") != "2" || r.URL.Query().Get("per_page") != "100" {

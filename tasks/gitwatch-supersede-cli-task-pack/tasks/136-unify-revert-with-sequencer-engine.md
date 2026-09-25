@@ -45,18 +45,18 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 
 ## Acceptance criteria
 
-- [ ] Revert uses the same durable operation lifecycle as rebase/cherry-pick.
-- [ ] No one-off conflict parser remains.
+- [x] Revert uses the same durable operation lifecycle as rebase/cherry-pick.
+- [x] No one-off conflict parser remains; revert consumes the shared sequencer projection, conflict snapshot, and lifecycle boundary.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -104,3 +104,25 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   ./internal/integration`, including shared revert conflict detection,
   continuation, and fresh-runner abort coverage. Native acceptance and the
   unified coordinator remain open.
+- At revision `122c8de`, the production lifecycle audit found revert
+  continuation/skip/abort routed through `Runner.OperationLifecycle`, with no
+  separate revert conflict parser. `TestRevertConflictResumeParityScenario`,
+  `TestRevertConflictAbortAfterFreshRunnerParityScenario`, and
+  `TestDetectOperationStateReportsRevertProgress` passed as part of the full
+  local `GOCACHE=/tmp/gitwatch-go-cache make check` on macOS arm64. Hosted run
+  `35864391354` passed quality/policy, full-history secret scan, and Ubuntu,
+  macOS, and Windows matrices. Native operator acceptance remains open.
+- A real three-commit revert with a middle conflict exposed a restart
+  projection defect: Git retained only the current/pending todo entries, so
+  Original HEAD was blank and the already applied revert was omitted. The
+  detector now reads Git's sequencer original HEAD and bounded result-commit
+  range for revert as well as cherry-pick, while preserving source IDs when
+  Git retains them. Commit `5468d36` includes a fresh-runner test verifying
+  completed/current/remaining progress, Skip through the typed lifecycle,
+  and the final reverted files.
+  Local macOS arm64 `make check` passed at that revision (lint 0 issues,
+  normal/race tests, vet, formatting, security, and performance). Hosted run
+  `36058259936` at `db4ae0a` passed quality/policy, full-history secret scan,
+  and Ubuntu/macOS/Windows test jobs, including Unix PTY and Windows
+  path/CRLF checks.
+  Native/manual terminal acceptance and the unified coordinator remain open.

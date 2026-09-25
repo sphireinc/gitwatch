@@ -8,6 +8,12 @@ func FuzzParseNeverPanics(f *testing.F) {
 	f.Add([]byte("sha\x00selector\x00-1\x00actor\x00subject\x00"))
 	f.Fuzz(func(t *testing.T, input []byte) {
 		entries, err := parse(input)
+		if len(input) > MaxBytes {
+			if err == nil {
+				t.Fatalf("oversized input of %d bytes was accepted", len(input))
+			}
+			return
+		}
 		if err != nil {
 			return
 		}

@@ -40,13 +40,13 @@ Make manual bisect visually obvious while live worktree status remains available
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -66,8 +66,8 @@ Make manual bisect visually obvious while live worktree status remains available
   action parity.
 - The workspace remains usable while Git status/watch refreshes continue to
   update the active repository model.
-- Candidate diff presentation beyond the reused inspector and native/manual
-  80x24/NO_COLOR evidence remain outstanding.
+- Native/manual 80x24/NO_COLOR evidence and a complete operator-driven bisect
+  loop remain outstanding.
 - The workspace-control slice is committed at `01fef5e`; the full `make check`
   gate passed at that revision. Explicit workspace start support is committed
   at `c7b7527`; the full `make check` gate passed there as well. Task 149
@@ -76,3 +76,43 @@ Make manual bisect visually obvious while live worktree status remains available
 - Candidate inspection and mouse-parity support are committed at `bc4eca2`;
   the full `make check` gate passed at that revision. Native terminal
   evidence remains outstanding.
+- Revision `e2cfe34` adds `TestBisectCandidateInspectorShowsCommitPatch`, which
+  creates a real two-commit repository, opens the active candidate from the
+  Bisect workspace, and verifies both commit metadata and its patch appear in
+  the workspace presentation. Focused app testing and
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` passed on Darwin arm64; lint reported 0 issues and the full/race tests,
+  vet, security, performance, formatting, and diff checks passed. GitHub
+  Actions run
+  [35869925536](https://github.com/sphireinc/gitwatch/actions/runs/35869925536)
+  passed quality/policy, full-history secret scan, and Ubuntu, macOS, and
+  Windows jobs. This closes the candidate-patch rendering gap; native/manual
+  80x24/NO_COLOR and full operator-loop evidence remain open.
+- Revision `07e8a29` adds the current candidate subject and Git-provided
+  approximate remaining estimate to the workspace, fixes latest marked
+  boundary display, and verifies an app-driven start/good/bad/reset loop in a
+  disposable repository. `make check` passed on Darwin arm64 at this revision
+  (lint, full/race tests, vet, format, diff, security, performance). This is
+  automated integration evidence, not native/manual 80x24, NO_COLOR, mouse,
+  or operator-loop acceptance; the task remains active.
+- Revision `12ec973` fixes quit-key routing in the Bisect workspace: `q` and
+  Ctrl-C now quit instead of being swallowed by workspace-specific dispatch,
+  while literal `q` remains typeable in start-ref prompts. Regression tests
+  cover both quit bindings and ref input. The interactive 80x24/`NO_COLOR=1`
+  PTY run documented under Task 148 exposed the defect and exercised the
+  operator loop; a locally built post-fix binary also confirmed `q` exits
+  directly from the reopened active-Bisect workspace. This remains scripted
+  PTY evidence rather than native/manual terminal sign-off.
+- At `12ec973`, `go test ./...`, `go test -race ./...`, `go vet ./...`, format,
+  diff, `scripts/security-check.sh`, and `scripts/performance-check.sh` passed
+  on Darwin arm64. `make check` cannot complete its pinned lint step offline:
+  fetching golangci-lint v2.12.0 fails DNS resolution for proxy.golang.org;
+  the installed v2.11.3 binary is built with Go 1.26 and cannot type-check Go
+  1.27 export data. Hosted CI status is pending because GitHub API reads are
+  currently unreachable. Native/manual evidence remains open.
+- Public Actions page follow-up: run
+  [36072840848](https://github.com/sphireinc/gitwatch/actions/runs/36072840848)
+  for `12ec973` was still in progress with 2/3 jobs complete; evidence run
+  [36073093897](https://github.com/sphireinc/gitwatch/actions/runs/36073093897)
+  for `39ef3ef` was waiting on that run. Hosted success/failure remains
+  unverified; native/manual acceptance remains open.

@@ -134,6 +134,37 @@ func TestContributionIsBoundedDataOnlyAndRejectsControlSequences(t *testing.T) {
 	}
 }
 
+func TestRepositoryMetadataActionUsesOnlyBoundedHostProviderIdentity(t *testing.T) {
+	contribution := Contribution{
+		SchemaVersion: APIVersion2,
+		Kind:          "repository_metadata",
+		Title:         "GitHub repository",
+		Action: &ActionSpec{
+			ID: "open-repository", Title: "Open repository metadata", Context: "repository",
+			Provider: ActionProviderGitHubRepository, ReadOnly: true,
+		},
+		ReadOnly: true,
+	}
+	if _, err := NewContribution("github", contribution); err != nil {
+		t.Fatalf("valid provider action rejected: %v", err)
+	}
+	unsafe := contribution
+	unsafe.Action = &ActionSpec{ID: "open", Title: "Open", Provider: "https://github.example/token", ReadOnly: true}
+	if _, err := NewContribution("unsafe", unsafe); err == nil {
+		t.Fatal("provider URL/userinfo was accepted as a provider identity")
+	}
+	unsafe = contribution
+	unsafe.ReadOnly = false
+	if _, err := NewContribution("mutable", unsafe); err == nil {
+		t.Fatal("mutable repository metadata action was accepted")
+	}
+	unsafe = contribution
+	unsafe.Action.ReadOnly = false
+	if _, err := NewContribution("mutable-action", unsafe); err == nil {
+		t.Fatal("mutating repository metadata action was accepted")
+	}
+}
+
 func TestAPI2ManifestAndVersionedHandshakeAreAdditive(t *testing.T) {
 	manifest := Manifest{ID: "demo", Name: "Demo", Version: "2", APIVersion: APIVersion2, Capabilities: []Capability{TableContribution}}
 	if err := manifest.Validate(); err != nil {

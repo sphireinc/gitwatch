@@ -109,6 +109,13 @@ jobs:
           'changed' | Set-Content (Join-Path $demo 'tracked.txt')
           $status = git -C $demo status --porcelain=v2 --branch
           if (-not $status) { throw 'status output was empty' }
+      - name: Install tmux for PTY acceptance on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          if ! command -v tmux >/dev/null 2>&1; then
+            brew install tmux
+          fi
       - name: PTY and large-status acceptance on Unix
         if: runner.os != 'Windows'
         shell: bash
@@ -122,6 +129,8 @@ jobs:
           ./scripts/pty-smoke.sh "$binary" "$demo" "$evidence"
           ./scripts/pty-large-status-smoke.sh "$binary" "$evidence"
           ./scripts/pty-history-smoke.sh "$binary" "$evidence"
+          ./scripts/pty-rebase-recovery-smoke.sh "$binary" "$evidence"
+          ./scripts/pty-cherry-pick-progress-smoke.sh "$binary" "$evidence"
       - name: Windows path and CRLF parity
         if: runner.os == 'Windows'
         shell: pwsh

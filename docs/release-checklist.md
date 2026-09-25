@@ -2,6 +2,21 @@
 
 This checklist separates repeatable automation from native human acceptance and publication. A passing local command is evidence only for the commit and host on which it ran.
 
+## Current release status
+
+GitHub published v1.0.9 on 2026-09-22. Its signed tag, release workflow,
+artifacts, checksums, SBOM, attestation, and publication are recorded in the
+[release sign-off](release-signoff.md). The native operator, clean-install,
+upgrade, and shutdown acceptance rows below remain open; do not infer their
+completion from the published release or CI.
+
+A limited local macOS ARM64 supplement verified the published archive checksum,
+source install, CLI/config migration, and scripted runtime workflow on
+2026-09-25 (details in the release sign-off). This is not a clean-machine run
+or cross-platform operator evidence. It also verified in-memory migration of
+a schema-v2 config inspected by the official v1.0.8 binary; this does not close
+the clean-machine or package-manager upgrade rows, which remain unchecked.
+
 ## Automated candidate gate
 
 Use Go 1.25.10 and the repository-pinned golangci-lint v2.12.0, then run the gate on the exact release commit. Record the versions with the evidence:
@@ -57,7 +72,7 @@ Record the commit/tag, OS and architecture, terminal and dimensions, Git version
 ### Optional integrations and multi-repository workflows
 
 - [ ] GitHub disabled/offline behavior leaves core Git usable; enabled behavior shows current-branch PR/check/review state, cache refresh, sanitized errors, validated browser opening, and URL copying without credential disclosure.
-- [ ] Multi-repository dashboard: bounded discovery, filtering/sorting, favorites/groups, stale/error state, concurrent refresh limits, repository switching, linked worktrees, and persisted private metadata.
+- [ ] Multi-repository dashboard: bounded discovery, filtering/sorting, favorites/groups, stale/error state, concurrent refresh limits, repository switching, linked worktrees, persisted private metadata, offline authoritative local health, explicit fresh/stale provider data, and remote-fetch outcome/completion-time/latency details.
 - [ ] Plugins: manifest discovery, version-one protocol compatibility, permission display, enable/disable/reload, command and widget state, malformed or hostile output, timeout/crash isolation, and a public SDK example against the candidate host.
 
 ### Environment, edge cases, and lifecycle
@@ -78,13 +93,13 @@ capture only sanitized evidence and remove temporary fixtures after each run.
 
 Tasks 34, 35, 89, 90, and 120 remain explicitly in progress. This checklist and the [beta validation matrix](beta-validation-matrix.md) record their outstanding operator evidence; documentation changes alone do not complete those tasks.
 
-## Publication
+## Publication checklist for a future release
 
-- [ ] Freeze `CHANGELOG.md` into a dated release section and finalize `docs/release-v1.0.0.md`.
+- [ ] Freeze `CHANGELOG.md` into a dated release section and finalize the version-specific release notes.
 - [ ] Confirm canonical module path, repository metadata, issue labels, discussions/support links, security reporting, branch rules, and least-privilege Actions settings.
-- [ ] Create and verify the signed `v1.0.0` tag from the accepted commit.
+- [ ] Create and verify the signed `vX.Y.Z` tag from the accepted commit.
 - [ ] Approve the protected release environment and review generated notes, checksums, SBOM, provenance, archives, license files, and signatures.
-- [ ] Verify `go install github.com/sphireinc/git-watch/cmd/gitwatch@v1.0.0` from outside the source checkout.
+- [ ] Verify `go install github.com/sphireinc/git-watch/cmd/gitwatch@vX.Y.Z` from outside the source checkout.
 - [ ] Publish and test package-manager metadata.
 - [ ] Publish the announcement and genuine demo assets.
 - [ ] Monitor security, crash, data-loss, and install reports after launch.

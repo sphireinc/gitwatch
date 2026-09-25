@@ -39,18 +39,21 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 
 ## Acceptance criteria
 
-- [ ] One resolver/coordinator serves every sequencer workflow.
-- [ ] No duplicate conflict parser or lifecycle state machine remains.
+- [x] One resolver/coordinator serves every sequencer workflow.
+- [x] No duplicate conflict parser or lifecycle state machine remains.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commits recorded, including `1e1edc9`, `05dda0f`,
+  `28021b7`, and `f254971`.
+- [x] Exact tested revision recorded (`06771d6`, containing the coordinator
+  and current operation recovery paths).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented (native/manual acceptance and
+  real operator platform evidence remain open).
 
 ## Progress evidence
 
@@ -117,3 +120,40 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
   route matrices, conflict-view gating, Git lifecycle boundary, app recovery
   routing, and real conflict/resume integrations. Native/manual acceptance and
   the final requirement-by-requirement audit remain open.
+- At revision `f254971`, rebase continue/abort, cherry-pick continue/skip/abort,
+  and merge abort now delegate to the shared `Runner.OperationLifecycle`
+  boundary; production adapters no longer construct separate lifecycle Git
+  invocations. The authoritative rebase projection identifies an edit-stop
+  only when Git's completed todo records the stopped SHA as `edit`. The shared
+  action matrix now requires staged results for ordinary rebase/cherry-pick/
+  revert/merge continuation, permits a clean-index Continue only for a
+  Git-derived rebase edit-stop, and always blocks Continue while conflicts are
+  unresolved. Regression tests cover real edit-stop restart/skip, conflicted
+  rebase identification, and the shared action matrix.
+  `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64 with lint
+  (0 issues), full tests, race, vet, formatting, security fuzz, performance,
+  and diff checks. The task remains open for broader cross-platform/native
+  acceptance and its full end-to-end coordinator audit.
+- At revision `122c8de`, the production call-site audit confirmed all
+  rebase/cherry-pick/revert/merge lifecycle verbs use
+  `Runner.OperationLifecycle`; conflict UI rendering and input both consume
+  `sequencer.ActionsFor`, and operation recovery routing uses `RouteFor`.
+  Focused coverage includes `TestRecoveryCoordinatorSharesLifecycleRulesAcrossSequencers`,
+  all four real conflict/resume parity scenarios, fresh-runner revert abort,
+  external sequencer completion, and the edit-stop lifecycle variants. Full
+  local `GOCACHE=/tmp/gitwatch-go-cache make check` passed on macOS arm64, and
+  hosted Actions run `35864391354` passed quality/policy, secret scanning, and
+  Ubuntu/macOS/Windows matrices with macOS PTY acceptance. Native/manual
+  acceptance remains open.
+- Final production call-site audit found `sequencer.ActionsFor` supplies the
+  conflict pane's rendered and accepted recovery actions, `sequencer.RouteFor`
+  supplies app recovery routing, and rebase/cherry-pick/revert/merge verbs
+  converge on `Runner.OperationLifecycle`. App tests cover external
+  sequencer completion, single notification per operation transition, and
+  stale snapshots after repository switches; integration fixtures cover
+  continue/resume for each of the four sequencers. At `06771d6`, local
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache
+  make check` passed (lint 0 issues, normal/race tests, vet, format, security,
+  performance). Hosted run `36065168227` passed all five jobs on retry after
+  one transient reflog fuzz timeout; Windows path/CRLF and Unix PTY checks
+  passed. Native/manual acceptance remains outstanding.

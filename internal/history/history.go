@@ -45,6 +45,8 @@ type OperationRecord struct {
 	Target                  string
 	OldHead                 string
 	NewHead                 string
+	RewrittenCount          int
+	HasRewrittenCount       bool
 	Refs                    []string
 	Duration                time.Duration
 	RecoverySHA             string

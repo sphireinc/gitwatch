@@ -41,13 +41,13 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded (`844b9b2`).
+- [x] Exact tested revision recorded (`844b9b2`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -94,3 +94,48 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
   including plugin contribution/runtime tests, race detection, vet, security
   fuzz checks, formatting, lint, and performance benchmarks. Provider-backed
   metadata actions and native/manual/release evidence remain open.
+
+## Additional progress evidence (2026-09-24)
+
+- Commit `844b9b2` adds a bounded `github.repository` API-2 metadata action.
+  It is exposed through the global command palette, then opens gitwatch's
+  existing GitHub workspace for the active repository. Provider selection is
+  host-owned: plugins supply neither repository URLs nor credentials, and the
+  action is revalidated at invocation.
+- API-2 contributions are now filtered against the capabilities actually
+  negotiated by the plugin process. Table, detail, notification, and
+  repository-metadata contributions require their corresponding grants;
+  provider actions additionally require `context_action`, API 2, and read-only
+  metadata/action declarations. Disabled or unhealthy entries cannot invoke
+  the provider action.
+- Updated the dependency-free API-2 example, SDK/plugin documentation, plugin
+  contribution summary, and compatibility/security tests. Focused tests passed
+  with `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache
+  go test ./pkg/plugin ./internal/plugins ./internal/ui/pluginview ./internal/app`.
+- On Darwin arm64 at `844b9b2`, the full
+  `GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_COUNT=1
+  GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
+  GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache go test
+  ./...` and `go test -race ./...` passed; `go vet ./...`,
+  `./scripts/security-check.sh`, `./scripts/performance-check.sh`, formatting,
+  and `git diff --check` passed.
+- `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` passed formatting but could not fetch pinned golangci-lint v2.12.0:
+  DNS resolution for `proxy.golang.org` failed before lint ran. Hosted CI status
+  for the pushed commit is not yet recorded. Native/manual terminal acceptance
+  and full release evidence remain open; this task remains active.
+
+- At 2026-09-25 02:11 UTC, the pinned linter was fetched with network access and
+  reported QF1001 in `validActionToken`, added in commit `844b9b2`. Commit
+  `2fd3c74` applies the equivalent De Morgan form without changing the accepted
+  ASCII token characters. At tested revision `91424f1`, the full
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` passed on Darwin arm64 / Go 1.27.0, including pinned lint (0 issues),
+  tests, race, vet, format, diff, security fuzz, and performance checks. Hosted
+  Actions run `36085163506` was queued for `91424f1`; native/manual terminal
+  acceptance and release evidence remain open.
+
+- Follow-up: hosted Actions run `36085163506` completed successfully for
+  `91424f1`. Quality/policy and full-history secret scanning passed; Ubuntu,
+  macOS, and Windows test/build/runtime jobs passed. This does not replace the
+  still-open native/manual terminal acceptance or release evidence.

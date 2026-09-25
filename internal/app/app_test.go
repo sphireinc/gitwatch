@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +35,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/rebase"
 	"github.com/sphireinc/git-watch/internal/reflog"
 	"github.com/sphireinc/git-watch/internal/registry"
+	"github.com/sphireinc/git-watch/internal/remoteintel"
 	"github.com/sphireinc/git-watch/internal/remotes"
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
@@ -42,6 +46,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/gitignoreview"
 	"github.com/sphireinc/git-watch/internal/ui/historyview"
 	"github.com/sphireinc/git-watch/internal/ui/hunkview"
+	"github.com/sphireinc/git-watch/internal/ui/layout"
 	"github.com/sphireinc/git-watch/internal/ui/pluginview"
 	"github.com/sphireinc/git-watch/internal/ui/remoteview"
 	"github.com/sphireinc/git-watch/internal/ui/repoview"
@@ -86,6 +91,98 @@ func TestCustomCommandConfirmationCanBeCancelled(t *testing.T) {
 	}
 	if command := m.updateCustomCommandForm("n"); command != nil || m.CustomCommandForm != nil || m.Status != "custom command cancelled" {
 		t.Fatalf("confirmation cancel = command nil %v form=%v status=%q", command == nil, m.CustomCommandForm != nil, m.Status)
+	}
+}
+
+func TestCustomCommandFormMouseSelectsAndAccepts(t *testing.T) {
+	form, err := customcmd.NewForm([]customcmd.Prompt{
+		{ID: "branch", Label: "Branch", Kind: customcmd.PromptSelect, Options: []string{"main", "feature"}},
+		{ID: "targets", Label: "Targets", Kind: customcmd.PromptMultiSelect, Options: []string{"ui", "api"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.CustomCommandForm, m.CustomCommandPending = &form, "not-found"
+
+	updated, _ := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 0, Y: 4})
+	m = updated.(Model)
+	prompt, ok := m.CustomCommandForm.Current()
+	if !ok || prompt.ID != "targets" {
+		t.Fatalf("clicked select did not advance to next prompt: prompt=%#v", prompt)
+	}
+	updated, _ = m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 0, Y: 4})
+	m = updated.(Model)
+	if got := m.CustomCommandForm.SelectedOptions(); len(got) != 1 || got[0] != "api" {
+		t.Fatalf("clicked multi-select option = %#v", got)
+	}
+	updated, cmd := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 0, Y: 6})
+	m = updated.(Model)
+	if cmd != nil || m.CustomCommandForm != nil || m.CustomCommandPromptValues["branch"] != "feature" || m.CustomCommandPromptValues["targets"] != "api" {
+		t.Fatalf("clicked form accept = cmdnil=%v form=%v values=%#v", cmd == nil, m.CustomCommandForm != nil, m.CustomCommandPromptValues)
+	}
+}
+
+func TestCustomCommandFormMouseCanCancelConfirmation(t *testing.T) {
+	form, err := customcmd.NewForm([]customcmd.Prompt{{ID: "confirm", Label: "Confirm", Kind: customcmd.PromptConfirm}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.CustomCommandForm, m.CustomCommandPending = &form, "not-found"
+	updated, cmd := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 12, Y: 3})
+	m = updated.(Model)
+	if cmd != nil || m.CustomCommandForm != nil || m.Status != "custom command cancelled" {
+		t.Fatalf("clicked confirmation cancel = cmdnil=%v form=%v status=%q", cmd == nil, m.CustomCommandForm != nil, m.Status)
+	}
+}
+
+func TestCustomCommandFormMouseCanAcceptConfirmationAndText(t *testing.T) {
+	t.Run("confirm", func(t *testing.T) {
+		form, err := customcmd.NewForm([]customcmd.Prompt{{ID: "confirm", Label: "Confirm", Kind: customcmd.PromptConfirm}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := New()
+		defer func() { _ = m.Close() }()
+		m.CustomCommandForm, m.CustomCommandPending = &form, "not-found"
+		updated, cmd := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 1, Y: 3})
+		m = updated.(Model)
+		if cmd != nil || m.CustomCommandPromptValues["confirm"] != "true" {
+			t.Fatalf("clicked confirmation accept = cmdnil=%v values=%#v", cmd == nil, m.CustomCommandPromptValues)
+		}
+	})
+	t.Run("text", func(t *testing.T) {
+		form, err := customcmd.NewForm([]customcmd.Prompt{{ID: "ticket", Label: "Ticket", Kind: customcmd.PromptText}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := New()
+		defer func() { _ = m.Close() }()
+		m.CustomCommandForm, m.CustomCommandPending = &form, "not-found"
+		if _, err := m.CustomCommandForm.Handle("A"); err != nil {
+			t.Fatal(err)
+		}
+		updated, cmd := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 0, Y: 6})
+		m = updated.(Model)
+		if cmd != nil || m.CustomCommandPromptValues["ticket"] != "A" {
+			t.Fatalf("clicked text accept = cmdnil=%v values=%#v", cmd == nil, m.CustomCommandPromptValues)
+		}
+	})
+}
+
+func TestCustomCommandSecretOutputIsHiddenFromStatus(t *testing.T) {
+	const secret = "private-token-value"
+	m := New()
+	defer func() { _ = m.Close() }()
+	updated, _ := m.Update(CustomCommandFinishedMsg{
+		Name: "secret-test", Repository: m.repositoryGeneration, Output: customcmd.Output{Suppressed: true}, Err: errors.New(secret),
+	})
+	m = updated.(Model)
+	if strings.Contains(m.Status, secret) || !strings.Contains(m.Status, "output hidden because a secret prompt was used") {
+		t.Fatalf("secret completion status = %q", m.Status)
 	}
 }
 
@@ -244,7 +341,7 @@ func TestActiveRebaseWithoutConflictsHasRecoveryRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	state = state.WithObservation("head", "current-commit", 2, 3, nil, time.Now())
-	state, err = state.WithDetails(sequencer.Details{Rebase: &sequencer.RebaseDetails{Interactive: true, TodoRemaining: 2, TodoCompleted: 3}})
+	state, err = state.WithDetails(sequencer.Details{Rebase: &sequencer.RebaseDetails{Interactive: true, EditStopped: true, TodoRemaining: 2, TodoCompleted: 3}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,6 +363,129 @@ func TestActiveRebaseWithoutConflictsHasRecoveryRoute(t *testing.T) {
 		if !strings.Contains(view, want) {
 			t.Fatalf("rebase recovery view missing %q:\n%s", want, view)
 		}
+	}
+}
+
+func TestRebaseRecoveryRecordsResultHeadAndRewrittenCount(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "base")
+	runner := git.NewRunner(root)
+	gitMustRunAppTest(t, ctx, runner, "switch", "-c", "feature")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("feature\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", "conflicting feature")
+	if err := os.WriteFile(filepath.Join(root, "later.txt"), []byte("later\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "later.txt")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", "later feature")
+	originalResult, err := runner.Run(ctx, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := strings.TrimSpace(string(originalResult.Stdout))
+	gitMustRunAppTest(t, ctx, runner, "switch", "main")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("main\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", "conflicting main")
+	gitMustRunAppTest(t, ctx, runner, "switch", "feature")
+	if _, err := runner.Run(ctx, "rebase", "main"); err == nil {
+		t.Fatal("expected conflict while rebasing")
+	}
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := git.Snapshot(ctx, discovery, 1)
+	if err != nil || snapshot.Operation == nil || snapshot.Operation.Kind() != sequencer.KindRebase {
+		t.Fatalf("paused snapshot = %#v, err=%v", snapshot.Operation, err)
+	}
+	m := NewRepository(discovery)
+	defer func() { _ = m.Close() }()
+	m.repositoryGeneration = 1
+	m.applySnapshot(snapshot)
+	m.Workspace.Navigate(workspace.Conflict, "Rebase recovery")
+	command := m.updateConflictKey("s")
+	if command == nil {
+		t.Fatal("skip was not scheduled")
+	}
+	message, ok := command().(OperationFinishedMsg)
+	if !ok || message.Err != nil || message.Snapshot == nil || message.Snapshot.Operation != nil || message.Operation == nil {
+		t.Fatalf("skip result = %#v", message)
+	}
+	if message.Operation.OldHead != original || message.Operation.NewHead != message.Snapshot.Branch.OID || !message.Operation.HasRewrittenCount || message.Operation.RewrittenCount != 1 {
+		t.Fatalf("rebase completion record = %#v", message.Operation)
+	}
+	updated, refresh := m.Update(message)
+	m = updated.(Model)
+	if refresh == nil || m.currentView() != workspace.Status || !strings.Contains(m.Status, "1 rewritten commits") {
+		t.Fatalf("rebase completion view = %q, workspace=%s, refreshnil=%v", m.Status, m.currentView(), refresh == nil)
+	}
+	events := m.ActivityLog.All()
+	if len(events) == 0 || events[len(events)-1].Operation == nil || events[len(events)-1].Operation.RewrittenCount != 1 {
+		t.Fatalf("rebase journal = %#v", events)
+	}
+	if !strings.Contains(journalEventDetails(&events[len(events)-1]), "rewritten commits: 1") {
+		t.Fatalf("rebase journal details = %q", journalEventDetails(&events[len(events)-1]))
+	}
+}
+
+func TestRebaseRecoveryKeepsWorkspaceWhenNextCommitConflicts(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "base")
+	runner := git.NewRunner(root)
+	gitMustRunAppTest(t, ctx, runner, "switch", "-c", "feature")
+	for _, value := range []string{"feature one", "feature two"} {
+		if err := os.WriteFile(filepath.Join(root, "README"), []byte(value+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+		gitMustRunAppTest(t, ctx, runner, "commit", "-m", value)
+	}
+	gitMustRunAppTest(t, ctx, runner, "switch", "main")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("main\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", "main")
+	gitMustRunAppTest(t, ctx, runner, "switch", "feature")
+	if _, err := runner.Run(ctx, "rebase", "main"); err == nil {
+		t.Fatal("expected first conflict")
+	}
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := git.Snapshot(ctx, discovery, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepository(discovery)
+	defer func() { _ = m.Close() }()
+	m.repositoryGeneration = 1
+	m.applySnapshot(snapshot)
+	m.Workspace.Navigate(workspace.Conflict, "Rebase recovery")
+	command := m.updateConflictKey("s")
+	if command == nil {
+		t.Fatal("skip was not scheduled")
+	}
+	message, ok := command().(OperationFinishedMsg)
+	if !ok || message.Snapshot == nil || message.Snapshot.Operation == nil || message.Operation == nil {
+		t.Fatalf("next conflict result = %#v", message)
+	}
+	if message.Operation.HasRewrittenCount {
+		t.Fatalf("intermediate action claimed a final rewrite count: %#v", message.Operation)
+	}
+	updated, refresh := m.Update(message)
+	m = updated.(Model)
+	if refresh == nil || m.currentView() != workspace.Conflict || strings.Contains(m.Status, "rebase complete:") || m.Snapshot.Operation == nil {
+		t.Fatalf("intermediate recovery = %q, workspace=%s, operation=%#v", m.Status, m.currentView(), m.Snapshot.Operation)
 	}
 }
 
@@ -699,6 +919,12 @@ func gitMustRunAppTest(t *testing.T, ctx context.Context, runner git.Runner, arg
 	}
 }
 
+type appRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f appRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
+
 func sameTestPath(left, right string) bool {
 	leftResolved, leftErr := filepath.EvalSymlinks(left)
 	rightResolved, rightErr := filepath.EvalSymlinks(right)
@@ -736,6 +962,71 @@ func TestCherryPickProgressCanNavigateToStatusAndBack(t *testing.T) {
 	}
 	if cmd := m.executePaletteAction("cherry_pick_recovery"); cmd != nil || m.currentView() != workspace.CherryPick {
 		t.Fatalf("progress reopen = view=%q cmdnil=%v", m.currentView(), cmd != nil)
+	}
+}
+
+func TestExternalCherryPickResolutionEnablesContinueFromFreshSnapshot(t *testing.T) {
+	m := New()
+	m.Width, m.Height = 80, 24
+	m.Discovery.Root = t.TempDir()
+	m.Workspace.Navigate(workspace.CherryPick, "Cherry-pick progress")
+	state, err := sequencer.NewState("repo", 1, sequencer.KindCherryPick, sequencer.PhasePaused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state = state.WithObservation("before", "current", 0, 1, []string{"file"}, time.Now())
+	state, err = state.WithDetails(sequencer.Details{CherryPick: &sequencer.CherryPickDetails{Commits: []string{"current"}, CurrentIndex: 0}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.applySnapshot(repo.Snapshot{
+		Root:       m.Discovery.Root,
+		Branch:     repo.Branch{Name: "feature"},
+		Operation:  &state,
+		Conflicts:  []conflicts.Conflict{{Path: []byte("file"), Resolution: "unmerged"}},
+		Counts:     repo.Counts{Conflicted: 1, Staged: 1},
+		Generation: 1,
+	})
+	if m.Conflict.Target != "feature" {
+		t.Fatalf("cherry-pick target branch = %q", m.Conflict.Target)
+	}
+	if actions := m.Conflict.RecoveryActions(); actions.Continue {
+		t.Fatalf("unresolved cherry-pick exposed continue: %+v", actions)
+	}
+	footer := strings.Split(m.View().Content, "\n")
+	if !strings.Contains(footer[len(footer)-1], "[s] skip") || strings.Contains(footer[len(footer)-1], "[c] continue") || len(footer[len(footer)-1]) > 80 {
+		t.Fatalf("unresolved narrow footer = %q", footer[len(footer)-1])
+	}
+	m.Status = "cherry-pick paused for conflict recovery"
+	m.Toast.Text = "repository conflicts"
+	withNotices := strings.Split(m.View().Content, "\n")
+	if len(withNotices) > 24 || !strings.Contains(withNotices[len(withNotices)-1], "[s] skip") {
+		t.Fatalf("narrow recovery clipped its footer: %d lines, last=%q", len(withNotices), withNotices[len(withNotices)-1])
+	}
+	m.Status, m.Toast.Text = "", ""
+
+	// This is the authoritative refresh after an external editor resolved and
+	// staged the conflict while the progress workspace stayed open.
+	m.applySnapshot(repo.Snapshot{
+		Root:       m.Discovery.Root,
+		Branch:     repo.Branch{Name: "feature"},
+		Operation:  &state,
+		Counts:     repo.Counts{Staged: 1},
+		Generation: 2,
+	})
+	if actions := m.Conflict.RecoveryActions(); !actions.Continue {
+		t.Fatalf("external resolution did not enable continue: %+v", actions)
+	}
+	if view := m.Conflict.View(80, 24); !strings.Contains(view, "[c] continue") {
+		t.Fatalf("resolved progress footer omitted continue:\n%s", view)
+	}
+	footer = strings.Split(m.View().Content, "\n")
+	if !strings.Contains(footer[len(footer)-1], "[c] continue") || !strings.Contains(footer[len(footer)-1], "[s] skip") || len(footer[len(footer)-1]) > 80 {
+		t.Fatalf("resolved narrow footer = %q", footer[len(footer)-1])
+	}
+	updated, command := m.Update(key("c"))
+	if command == nil || updated.(Model).State != StateOperationPending {
+		t.Fatalf("continue input after external resolution = state=%v cmdnil=%v", updated.(Model).State, command == nil)
 	}
 }
 
@@ -1057,6 +1348,76 @@ func TestBranchMergeRunsThroughOperationEngineAndRefreshes(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "feature.txt")); err != nil {
 		t.Fatalf("merged file missing: %v", err)
+	}
+}
+
+func TestBranchSquashMergeExplainsStagedChangesAndNoMergeCommit(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	runner := git.NewRunner(dir)
+	for _, args := range [][]string{{"init", "-b", "main", "--", dir}, {"config", "user.name", "test"}, {"config", "user.email", "test@example.com"}, {"config", "commit.gpgsign", "false"}} {
+		if _, err := runner.Run(ctx, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "add", "--", "base.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "commit", "-m", "base"); err != nil {
+		t.Fatal(err)
+	}
+	baseHeadResult, err := runner.Run(ctx, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseHead := strings.TrimSpace(string(baseHeadResult.Stdout))
+	if _, err := runner.Run(ctx, "switch", "-c", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "add", "--", "feature.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "commit", "-m", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.Run(ctx, "switch", "main"); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepositoryWithConfig(discovery, config.Defaults())
+	t.Cleanup(func() { _ = m.Close() })
+	m.repositoryGeneration = 3
+	m.Snapshot = repo.Snapshot{Root: dir, Branch: repo.Branch{Name: "main", OID: baseHead}}
+	m.BranchMergeTarget = "feature"
+
+	command := m.mergeSelectedBranch(mergeops.Squash)
+	if command == nil {
+		t.Fatal("squash merge command was not created")
+	}
+	finished := command().(MergeFinishedMsg)
+	if finished.Strategy != mergeops.Squash || finished.Outcome.Err != nil || finished.Outcome.Snapshot == nil || finished.Outcome.Snapshot.Counts.Staged == 0 {
+		t.Fatalf("squash outcome = %+v", finished)
+	}
+	updated, _ := m.Update(finished)
+	m = updated.(Model)
+	if m.State != StateReady || !strings.Contains(m.Status, "no merge commit created") || !strings.Contains(m.Status, "staged") {
+		t.Fatalf("squash completion did not explain resulting state: %s", m.Status)
+	}
+	if m.Snapshot.Counts.Staged == 0 || m.Snapshot.Operation != nil {
+		t.Fatalf("squash authoritative snapshot = %+v", m.Snapshot)
+	}
+	newHead, err := runner.Run(ctx, "rev-parse", "HEAD")
+	if err != nil || strings.TrimSpace(string(newHead.Stdout)) != baseHead {
+		t.Fatalf("squash unexpectedly created a merge commit: HEAD=%q err=%v", newHead.Stdout, err)
 	}
 }
 
@@ -1563,6 +1924,91 @@ func TestStatusMouseClickOpensSelectedFileDiff(t *testing.T) {
 	}
 }
 
+func TestStatusMouseClickMapsWrappedOffscreenPath(t *testing.T) {
+	entries := make([]repo.Entry, 14953)
+	for index := range entries {
+		entries[index] = repo.Entry{Path: repo.Path(fmt.Sprintf("generated/%05d.txt", index)), Untracked: true}
+	}
+	selectedPath := strings.Repeat("wrapped/segment/", 20) + "selected-file.txt"
+	entries[len(entries)-1].Path = repo.Path(selectedPath)
+
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	t.Cleanup(func() { _ = m.Close() })
+	m.Width, m.Height = 160, 20
+	m.Snapshot.Entries = entries
+	m.Files.SetEntries(entries)
+	target := len(m.Files.Visible) - 1
+	m.Files.Offset, m.Files.Selected = target-1, target-1
+
+	statusLayout := m.statusLayout()
+	files := statusLayout.Files
+	if statusLayout.Mode == layout.Wide {
+		files.Width = max(1, files.Width-1)
+	}
+	files.Width = max(1, files.Width-1)
+	visibleHeight := max(1, files.Height-1-m.statusFileHeaderRows(files.Width))
+	rowHeights := m.statusFileRowHeights(files.Width, visibleHeight)
+	if len(rowHeights) < 2 || rowHeights[0] != 1 || rowHeights[1] < 2 {
+		t.Fatalf("expected a wrapped offscreen target row, got heights %v", rowHeights)
+	}
+	rowTop := files.Y + 1 + m.statusFileHeaderRows(files.Width)
+	clickY := rowTop + rowHeights[0] + 1 // second visual line of the wrapped path
+	updated, command := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: files.X + 10, Y: clickY})
+	m = updated.(Model)
+	if command == nil || m.Files.SelectedPath() != selectedPath || m.DiffPath != selectedPath {
+		t.Fatalf("wrapped offscreen mouse selection = commandnil:%v selected:%q diff:%q", command == nil, m.Files.SelectedPath(), m.DiffPath)
+	}
+}
+
+func TestStatusMouseStageTargetsOffscreenPath(t *testing.T) {
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	if _, err := runner.Run(context.Background(), "init", "--quiet"); err != nil {
+		t.Fatal(err)
+	}
+	const target = "generated/14952.txt"
+	if err := os.MkdirAll(filepath.Join(root, "generated"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, target), []byte("offscreen target\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	entries := make([]repo.Entry, 14953)
+	for index := range entries {
+		entries[index] = repo.Entry{Path: repo.Path(fmt.Sprintf("generated/%05d.txt", index)), Untracked: true}
+	}
+
+	m := NewRepository(git.Discovery{Root: root})
+	t.Cleanup(func() { _ = m.Close() })
+	m.Width, m.Height = 160, 20
+	m.Snapshot.Entries = entries
+	m.Files.SetEntries(entries)
+	selected := len(m.Files.Visible) - 1
+	m.Files.Offset, m.Files.Selected = selected, selected
+	files := m.statusLayout().Files
+	if m.statusLayout().Mode == layout.Wide {
+		files.Width = max(1, files.Width-1)
+	}
+	files.Width = max(1, files.Width-1)
+	rowTop := files.Y + 1 + m.statusFileHeaderRows(files.Width)
+	updated, command := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: files.X + 1, Y: rowTop})
+	m = updated.(Model)
+	if command == nil || m.Files.SelectedPath() != target {
+		t.Fatalf("offscreen stage selection = commandnil:%v path:%q", command == nil, m.Files.SelectedPath())
+	}
+	message, ok := command().(OperationFinishedMsg)
+	if !ok || message.Err != nil {
+		t.Fatalf("offscreen stage result = %#v, valid:%v", message, ok)
+	}
+	staged, err := runner.Run(context.Background(), "diff", "--cached", "--name-only", "-z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(staged.Stdout), target+"\x00") {
+		t.Fatalf("staged paths do not contain selected offscreen path %q: %q", target, staged.Stdout)
+	}
+}
+
 func TestStatusFilterSortConflictAndDetailsActivity(t *testing.T) {
 	m := New()
 	m.Width, m.Height = 160, 20
@@ -1633,6 +2079,39 @@ func TestSelectedProfileOverridesAutoFetchPolicy(t *testing.T) {
 	}
 }
 
+func TestAutoFetchFinishedRecordsMeasuredLatencyForRegisteredAndNewRepos(t *testing.T) {
+	for _, registered := range []bool{false, true} {
+		name := "new repository"
+		if registered {
+			name = "existing repository"
+		}
+		t.Run(name, func(t *testing.T) {
+			model := New()
+			defer func() { _ = model.Close() }()
+			if registered {
+				model.RepositoryRegistry = []registry.Repository{{Path: "/repo", Name: "repo"}}
+			}
+
+			started := time.Unix(1_000, 0)
+			finished := started.Add(1250 * time.Millisecond)
+			updated, _ := model.Update(AutoFetchFinishedMsg{Results: []remoteintel.Result{{
+				Repository: "/repo",
+				Status:     "fetched",
+				Started:    started,
+				Finished:   finished,
+			}}})
+			model = updated.(Model)
+			if len(model.RepositoryRegistry) != 1 {
+				t.Fatalf("repository registry = %#v", model.RepositoryRegistry)
+			}
+			got := model.RepositoryRegistry[0]
+			if got.LastAutoFetchMillis != 1250 || !got.LastAutoFetch.Equal(finished) {
+				t.Fatalf("fetch timing = at %s, latency %dms", got.LastAutoFetch, got.LastAutoFetchMillis)
+			}
+		})
+	}
+}
+
 func TestOperationJournalWorkspaceIsBoundedAndNavigable(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Width, m.Height = 160, 24
@@ -1656,6 +2135,46 @@ func TestOperationJournalWorkspaceIsBoundedAndNavigable(t *testing.T) {
 	m = updated.(Model)
 	if m.JournalOffset != 2 {
 		t.Fatalf("journal mouse navigation = offset=%d", m.JournalOffset)
+	}
+}
+
+func TestOperationJournalVirtualizesHighVolumeInterleavedRepositories(t *testing.T) {
+	m := NewRepository(git.Discovery{Root: "/workspace"})
+	m.Width, m.Height = 100, 12 // four visible timeline rows
+	for index := 0; index < 250; index++ {
+		repository, label := "/repo-a", "repoA"
+		if index%2 != 0 {
+			repository, label = "/repo-b", "repoB"
+		}
+		m.ActivityLog.Add(history.Event{
+			Kind:    history.OperationSuccess,
+			Message: fmt.Sprintf("%s-entry-%03d", label, index),
+			Operation: &history.OperationRecord{
+				Repository: repository,
+				Kind:       "fetch",
+				Outcome:    "success",
+				Target:     fmt.Sprintf("target-%03d", index),
+			},
+		})
+	}
+	if retained := len(m.ActivityLog.All()); retained != 100 {
+		t.Fatalf("journal retained %d events, want bounded capacity 100", retained)
+	}
+	m.JournalFilterInput = "repo:/repo-a"
+	view := m.operationJournalView()
+	if got := strings.Count(view, "repoA-entry-"); got != 4 {
+		t.Fatalf("visible filtered repository events = %d, want 4: %q", got, view)
+	}
+	if strings.Contains(view, "repoB-entry-") {
+		t.Fatalf("interleaved repository leaked into filtered view: %q", view)
+	}
+	for _, want := range []string{"repoA-entry-248", "repoA-entry-246", "repoA-entry-244", "repoA-entry-242"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("virtualized timeline omitted %q: %q", want, view)
+		}
+	}
+	if strings.Contains(view, "repoA-entry-240") {
+		t.Fatalf("timeline rendered beyond the four-row viewport: %q", view)
 	}
 }
 
@@ -1830,6 +2349,34 @@ func TestBisectWorkspaceCollectsExplicitBadAndGoodRefs(t *testing.T) {
 	}
 }
 
+func TestBisectWorkspaceSupportsGlobalQuitKeys(t *testing.T) {
+	for _, shortcut := range []string{"q", "ctrl+c"} {
+		t.Run(shortcut, func(t *testing.T) {
+			m := New()
+			m.Workspace.Navigate(workspace.Bisect, "Bisect")
+			updated, cmd := m.Update(key(shortcut))
+			m = updated.(Model)
+			if cmd == nil || m.State != StateShutdown {
+				t.Fatalf("quit shortcut %q = cmdnil=%v state=%v", shortcut, cmd == nil, m.State)
+			}
+			if _, ok := cmd().(tea.QuitMsg); !ok {
+				t.Fatalf("quit shortcut %q returned %T, want tea.QuitMsg", shortcut, cmd())
+			}
+		})
+	}
+}
+
+func TestBisectWorkspaceCanTypeQuitKeyIntoStartRef(t *testing.T) {
+	m := New()
+	m.Workspace.Navigate(workspace.Bisect, "Bisect")
+	m.BisectStartMode = "bad"
+	updated, cmd := m.Update(key("q"))
+	m = updated.(Model)
+	if cmd != nil || m.State == StateShutdown || m.BisectStartInput != "q" {
+		t.Fatalf("start-ref q input = cmdnil=%v state=%v input=%q", cmd == nil, m.State, m.BisectStartInput)
+	}
+}
+
 func TestBisectWorkspaceInspectsCandidateAndMapsMouseActions(t *testing.T) {
 	m := NewRepository(git.Discovery{Root: t.TempDir()})
 	m.Workspace.Navigate(workspace.Bisect, "Bisect")
@@ -1844,6 +2391,127 @@ func TestBisectWorkspaceInspectsCandidateAndMapsMouseActions(t *testing.T) {
 	m = updated.(Model)
 	if cmd == nil || m.State != StateOperationPending || !strings.Contains(m.Status, "good") {
 		t.Fatalf("mouse good action = cmdnil=%v state=%v status=%q", cmd == nil, m.State, m.Status)
+	}
+}
+
+func TestBisectCandidateInspectorShowsCommitPatch(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "known good")
+	runner := git.NewRunner(root)
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("candidate change\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+	gitMustRunAppTest(t, ctx, runner, "commit", "-m", "candidate change")
+	head, err := runner.Run(ctx, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sha := strings.TrimSpace(string(head.Stdout))
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewRepository(discovery)
+	m.Workspace.Navigate(workspace.Bisect, "Bisect")
+	m.Bisect = bisect.State{Repository: discovery.Root, Active: true, Candidate: sha}
+	updated, cmd := m.Update(key("i"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("candidate inspection did not schedule a Git read")
+	}
+	updated, _ = m.Update(cmd())
+	m = updated.(Model)
+	if m.HistoryInspector.Commit.SHA != sha || !strings.Contains(m.HistoryInspector.Diff, "+candidate change") {
+		t.Fatalf("candidate inspector = %#v", m.HistoryInspector)
+	}
+	view := m.bisectWorkspaceView() + "\n" + inspectorText(m.HistoryInspector)
+	if !strings.Contains(view, "Patch:") || !strings.Contains(view, "+candidate change") {
+		t.Fatalf("bisect candidate patch missing from workspace view: %q", view)
+	}
+}
+
+func TestBisectWorkspaceCompletesManualLoopInRealRepository(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "known good")
+	runner := git.NewRunner(root)
+	head := func() string {
+		t.Helper()
+		result, err := runner.Run(ctx, "rev-parse", "HEAD")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(result.Stdout))
+	}
+	good := head()
+	for _, value := range []string{"still good", "first bad", "still bad", "known bad"} {
+		if err := os.WriteFile(filepath.Join(root, "README"), []byte(value+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		gitMustRunAppTest(t, ctx, runner, "add", "--", "README")
+		gitMustRunAppTest(t, ctx, runner, "commit", "-m", value)
+	}
+	bad := head()
+	discovery, err := git.Discover(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = runner.Run(context.Background(), "bisect", "reset") })
+	m := NewRepository(discovery)
+	defer func() { _ = m.Close() }()
+	m.Workspace.Navigate(workspace.Bisect, "Bisect")
+	m.BisectStartBad, m.BisectStartGood, m.BisectStartConfirm = bad, good, true
+	updated, cmd := m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("bisect start was not scheduled")
+	}
+	updated, refresh := m.Update(cmd())
+	m = updated.(Model)
+	if refresh == nil || !m.Bisect.Active || m.Bisect.Candidate == "" || m.Snapshot.Branch.OID != m.Bisect.Candidate {
+		t.Fatalf("start state = bisect=%#v snapshot=%#v refreshnil=%v", m.Bisect, m.Snapshot.Branch, refresh == nil)
+	}
+	if m.Bisect.Subject == "" || !m.Bisect.HasEstimate || !strings.Contains(m.bisectWorkspaceView(), "remaining:") || !strings.Contains(m.bisectWorkspaceView(), "subject:") {
+		t.Fatalf("candidate presentation = %#v, view=%q", m.Bisect, m.bisectWorkspaceView())
+	}
+	firstCandidate := m.Bisect.Candidate
+	updated, cmd = m.Update(key("g"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("bisect good was not scheduled")
+	}
+	updated, refresh = m.Update(cmd())
+	m = updated.(Model)
+	if refresh == nil || m.Bisect.Good != firstCandidate || m.Bisect.Candidate == firstCandidate || m.Snapshot.Branch.OID != m.Bisect.Candidate {
+		t.Fatalf("good state = bisect=%#v snapshot=%#v refreshnil=%v", m.Bisect, m.Snapshot.Branch, refresh == nil)
+	}
+	secondCandidate := m.Bisect.Candidate
+	updated, cmd = m.Update(key("b"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("bisect bad was not scheduled")
+	}
+	updated, refresh = m.Update(cmd())
+	m = updated.(Model)
+	if refresh == nil || m.Bisect.Bad != secondCandidate || m.Snapshot.Branch.OID != m.Bisect.Candidate {
+		t.Fatalf("bad state = bisect=%#v snapshot=%#v refreshnil=%v", m.Bisect, m.Snapshot.Branch, refresh == nil)
+	}
+	updated, cmd = m.Update(key("x"))
+	m = updated.(Model)
+	if cmd != nil || !m.BisectResetConfirm {
+		t.Fatalf("reset confirmation = cmdnil=%v confirm=%v", cmd == nil, m.BisectResetConfirm)
+	}
+	updated, cmd = m.Update(key("y"))
+	m = updated.(Model)
+	if cmd == nil {
+		t.Fatal("confirmed bisect reset was not scheduled")
+	}
+	updated, refresh = m.Update(cmd())
+	m = updated.(Model)
+	if refresh == nil || m.Bisect.Active || head() != bad {
+		t.Fatalf("reset state = bisect=%#v HEAD=%s refreshnil=%v", m.Bisect, head(), refresh == nil)
 	}
 }
 
@@ -2136,6 +2804,9 @@ func key(text string) tea.KeyPressMsg {
 	if text == "ctrl+s" {
 		return tea.KeyPressMsg(tea.Key{Text: "s", Code: 's', Mod: tea.ModCtrl})
 	}
+	if text == "ctrl+c" {
+		return tea.KeyPressMsg(tea.Key{Code: 'c', Mod: tea.ModCtrl})
+	}
 	return tea.KeyPressMsg(tea.Key{Text: text, Code: []rune(text)[0]})
 }
 
@@ -2400,6 +3071,55 @@ func TestPluginNotificationContributionUsesSessionNotificationModel(t *testing.T
 	items := m.Notifications.Items()
 	if len(items) != 1 || items[0].Kind != notifications.PluginContribution || items[0].Title != "Provider ready" || items[0].Message != "GitHub data is available" {
 		t.Fatalf("plugin notifications = %#v", items)
+	}
+}
+
+func TestPluginMetadataActionUsesHostProviderFromCommandPalette(t *testing.T) {
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.PluginsEnabled, m.GitHubEnabled = true, true
+	m.Discovery = git.Discovery{Root: t.TempDir()}
+	contribution := publicplugin.Contribution{
+		SchemaVersion: publicplugin.APIVersion2,
+		Kind:          "repository_metadata",
+		Title:         "Repository metadata",
+		Action: &publicplugin.ActionSpec{
+			ID: "github-repository", Title: "Open GitHub repository metadata",
+			Context: "repository", Provider: publicplugin.ActionProviderGitHubRepository, ReadOnly: true,
+		},
+		ReadOnly: true,
+	}
+	entry := plugins.Entry{
+		Manifest: plugins.Manifest{ID: "metadata", Name: "Metadata", APIVersion: publicplugin.APIVersion2},
+		Enabled:  true, Healthy: true,
+		GrantedCapabilities: []plugins.Capability{plugins.CapabilityContextAction, plugins.CapabilityRepositoryMeta},
+		Contributions:       []publicplugin.Contribution{contribution},
+	}
+	m.Plugins.SetEntries([]plugins.Entry{entry})
+	actionID := "plugin_metadata_0_0"
+	var found bool
+	for _, action := range m.paletteActions() {
+		if action.ID == actionID {
+			found = action.Enabled && strings.Contains(action.Label, "Open GitHub repository metadata")
+			break
+		}
+	}
+	if !found {
+		t.Fatal("negotiated plugin provider action was not available in the command palette")
+	}
+	if command := m.executePaletteAction(actionID); command == nil || m.currentView() != workspace.GitHub {
+		t.Fatalf("provider action route = command:%v view:%q", command != nil, m.currentView())
+	}
+
+	m.GitHubEnabled = false
+	for _, action := range m.paletteActions() {
+		if action.ID == actionID && action.Enabled {
+			t.Fatal("plugin provider action bypassed the disabled host provider")
+		}
+	}
+	m.Workspace = workspace.New()
+	if command := m.executePaletteAction(actionID); command != nil || m.currentView() != workspace.Status {
+		t.Fatalf("disabled provider action route = command:%v view:%q", command != nil, m.currentView())
 	}
 }
 
@@ -2727,6 +3447,102 @@ func TestGitHubWorkspaceLoadsAsynchronouslyWhenEnabled(t *testing.T) {
 	m = updated.(Model)
 	if !m.GitHub.Ready || m.State != StateReady || !strings.Contains(m.GitHub.View(), "PR #1") {
 		t.Fatalf("GitHub result = ready=%v state=%v view=%s", m.GitHub.Ready, m.State, m.GitHub.View())
+	}
+}
+
+func TestGitHubUnavailableErrorRemainsInsideOptionalWorkspace(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.State, m.Status = StateReady, "working tree ready"
+	updated, _ := m.Update(GitHubReadyMsg{Err: provider.ErrNoGitHubRemote})
+	m = updated.(Model)
+	if m.State != StateReady || m.Status != "GitHub provider unavailable; local Git remains available" {
+		t.Fatalf("optional provider error changed core state: state=%v status=%q", m.State, m.Status)
+	}
+	view := m.GitHub.View()
+	if !strings.Contains(view, "no GitHub remote detected") || !strings.Contains(view, "Add a GitHub remote") {
+		t.Fatalf("optional provider error missing from GitHub workspace: %s", view)
+	}
+}
+
+func TestLateGitHubPRCreationCannotMutateCurrentRepositoryView(t *testing.T) {
+	m := NewRepositoryWithConfig(git.Discovery{Root: "/current"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	m.repositoryGeneration = 3
+	m.State, m.Status = StateReady, "current repository ready"
+	m.GitHub.SetData(provider.Repository{Host: "github.com", Owner: "current", Name: "repo"}, "main", provider.PullRequest{Number: 1, Title: "Current"}, provider.ChecksSnapshot{})
+	updated, command := m.Update(GitHubPullRequestCreatedMsg{
+		Generation: 2,
+		Repository: provider.Repository{Host: "github.com", Owner: "previous", Name: "repo"},
+		Branch:     "feature",
+		Pull:       provider.PullRequest{Number: 99, Title: "Stale"},
+	})
+	m = updated.(Model)
+	if command != nil || m.State != StateReady || m.Status != "current repository ready" || m.GitHub.Pull.Number != 1 {
+		t.Fatalf("late PR creation crossed repository generation: cmd=%v state=%v status=%q pull=%#v", command != nil, m.State, m.Status, m.GitHub.Pull)
+	}
+}
+
+func TestGitHubProviderFailureDoesNotHideIndependentResourcesOrBreakGitState(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "provider isolation")
+	runner := git.NewRunner(root)
+	gitMustRunAppTest(t, ctx, runner, "remote", "add", "origin", "https://github.com/octo/repo.git")
+
+	var branchPulls, pullLists, checkRuns, issueLists, releaseLists atomic.Int32
+	transport := appRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		respond := func(status int, body string) (*http.Response, error) {
+			return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header), Request: r}, nil
+		}
+		switch {
+		case r.URL.Path == "/repos/octo/repo/pulls" && r.URL.Query().Get("head") != "":
+			branchPulls.Add(1)
+			return respond(http.StatusOK, `[]`)
+		case strings.HasSuffix(r.URL.Path, "/check-runs"):
+			checkRuns.Add(1)
+			return respond(http.StatusServiceUnavailable, `{}`)
+		case r.URL.Path == "/repos/octo/repo/pulls":
+			pullLists.Add(1)
+			return respond(http.StatusOK, `[{"number":8,"title":"Open PR","state":"open","head":{"ref":"feature"},"base":{"ref":"main"}}]`)
+		case r.URL.Path == "/repos/octo/repo/issues":
+			issueLists.Add(1)
+			return respond(http.StatusOK, `[{"number":9,"title":"Open issue","state":"open"}]`)
+		case r.URL.Path == "/repos/octo/repo/releases":
+			releaseLists.Add(1)
+			return respond(http.StatusOK, `[{"id":1,"tag_name":"v1.0.0","name":"First"}]`)
+		default:
+			return respond(http.StatusNotFound, `{}`)
+		}
+	})
+
+	m := NewRepositoryWithConfig(git.Discovery{Root: root}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
+	defer func() { _ = m.Close() }()
+	m.Snapshot.Branch.Name = "feature"
+	client := provider.GitHubClient{BaseURL: "https://api.test", HTTPClient: &http.Client{Transport: transport}}
+
+	msg, ok := m.loadGitHubWithClient(&client)().(GitHubReadyMsg)
+	if !ok {
+		t.Fatal("GitHub loader returned the wrong message")
+	}
+	if msg.Err != nil || msg.Pull.Number != 0 || len(msg.Pulls) != 1 || len(msg.Issues) != 1 || len(msg.Releases) != 1 {
+		t.Fatalf("partial provider snapshot = %#v", msg)
+	}
+	if branchPulls.Load() != 1 || pullLists.Load() != 1 || checkRuns.Load() != 1 || issueLists.Load() != 1 || releaseLists.Load() != 1 {
+		t.Fatalf("independent provider requests: branch=%d pulls=%d checks=%d issues=%d releases=%d", branchPulls.Load(), pullLists.Load(), checkRuns.Load(), issueLists.Load(), releaseLists.Load())
+	}
+	if len(msg.Warnings) != 1 || msg.Warnings[0].Resource != "checks" {
+		t.Fatalf("provider resource warnings = %#v", msg.Warnings)
+	}
+
+	updated, _ := m.Update(msg)
+	m = updated.(Model)
+	view := m.GitHub.View()
+	for _, want := range []string{"No open pull request for the current branch", "PR #8: Open PR", "Issue #9: Open issue", "v1.0.0", "checks: GitHub HTTP 503"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("GitHub view missing %q: %s", want, view)
+		}
+	}
+	if m.State != StateReady {
+		t.Fatalf("optional provider failure changed core app state: %v", m.State)
 	}
 }
 
@@ -3100,6 +3916,59 @@ func TestRepositoryBatchOperationEmitsBoundedProgressBeforeResults(t *testing.T)
 	}
 }
 
+func TestRepositoryBatchFetchIgnoresBranchAndPullStrategy(t *testing.T) {
+	ctx := context.Background()
+	base := t.TempDir()
+	root := filepath.Join(base, "repo")
+	remote := filepath.Join(base, "remote.git")
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, git.NewRunner(base), "init", "--bare", "--initial-branch=main", "--", remote)
+	initCommittedTestRepository(t, ctx, root, "batch fetch fixture")
+	runner := git.NewRunner(root)
+	gitMustRunAppTest(t, ctx, runner, "remote", "add", "origin", remote)
+	gitMustRunAppTest(t, ctx, runner, "push", "--set-upstream", "origin", "main")
+
+	m := NewRepositoryWithConfig(git.Discovery{Root: root}, config.Defaults())
+	m.Repositories = repoview.New([]registry.Row{{
+		Repository: registry.Repository{Path: root, Name: "repo"},
+		Branch:     "main",
+	}})
+	m.RepositoryBatchAction = multirepo.ActionFetch
+	m.RepositoryBatchStrategy = "ff-only"
+
+	command := m.runRepositoryBatchFetch()
+	var statuses []string
+	for message := command(); ; {
+		switch value := message.(type) {
+		case RepositoryBatchProgressMsg:
+			statuses = append(statuses, value.Status)
+			command = batchProgressCommand(value.Events)
+			message = command()
+		case RepositoryBatchFinishedMsg:
+			if len(value.Results) != 1 || value.Results[0].Status != "succeeded" {
+				t.Fatalf("batch result = %#v", value.Results)
+			}
+			if got := strings.Join(statuses, ","); got != "queued,running,succeeded" {
+				t.Fatalf("progress statuses = %s", got)
+			}
+			goto finished
+		default:
+			t.Fatalf("unexpected batch message %T", message)
+		}
+	}
+
+finished:
+	fetchHead, err := os.ReadFile(filepath.Join(root, ".git", "FETCH_HEAD"))
+	if err != nil {
+		t.Fatalf("read FETCH_HEAD after batch fetch: %v", err)
+	}
+	if len(fetchHead) == 0 {
+		t.Fatal("FETCH_HEAD is empty after successful batch fetch")
+	}
+}
+
 func TestRepositoryBatchCancelUsesActiveContext(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{})
 	m.Workspace.Navigate(workspace.Repositories, "Repositories")
@@ -3109,6 +3978,68 @@ func TestRepositoryBatchCancelUsesActiveContext(t *testing.T) {
 	m = updated.(Model)
 	if cmd != nil || !called || m.RepositoryBatchCancel == nil || !strings.Contains(m.Status, "cancelling") {
 		t.Fatalf("batch cancellation = cmd=%v called=%v cancel=%v status=%q", cmd != nil, called, m.RepositoryBatchCancel != nil, m.Status)
+	}
+}
+
+func TestRepositoryBatchCancellationIsReportedAsCancelled(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	initCommittedTestRepository(t, ctx, root, "batch cancellation fixture")
+
+	requestStarted := make(chan struct{}, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		requestStarted <- struct{}{}
+		<-request.Context().Done()
+	}))
+	defer server.Close()
+
+	runner := git.NewRunner(root)
+	gitMustRunAppTest(t, ctx, runner, "remote", "add", "origin", server.URL+"/slow.git")
+	m := NewRepositoryWithConfig(git.Discovery{Root: root}, config.Defaults())
+	m.Repositories = repoview.New([]registry.Row{{
+		Repository: registry.Repository{Path: root, Name: "repo"},
+		Branch:     "main",
+	}})
+	m.RepositoryBatchAction = multirepo.ActionFetch
+	m.RepositoryBatchStrategy = "ff-only"
+	command := m.runRepositoryBatchFetch()
+	cancel := m.RepositoryBatchCancel
+	defer cancel()
+
+	finished := make(chan RepositoryBatchFinishedMsg, 1)
+	go func() {
+		for message := command(); ; {
+			switch value := message.(type) {
+			case RepositoryBatchProgressMsg:
+				command = batchProgressCommand(value.Events)
+				message = command()
+			case RepositoryBatchFinishedMsg:
+				finished <- value
+				return
+			default:
+				finished <- RepositoryBatchFinishedMsg{Err: fmt.Errorf("unexpected batch message %T", message)}
+				return
+			}
+		}
+	}()
+
+	select {
+	case <-requestStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("batch fetch did not reach the stalled remote")
+	}
+	cancel()
+
+	select {
+	case result := <-finished:
+		if result.Err != nil {
+			t.Fatal(result.Err)
+		}
+		if len(result.Results) != 1 || result.Results[0].Status != "cancelled" {
+			t.Fatalf("cancelled batch result = %#v", result.Results)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("batch did not finish after cancellation")
 	}
 }
 

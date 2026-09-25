@@ -201,7 +201,7 @@ func (m Model) statusView() string {
 	}
 	if operation := m.Snapshot.Operation; operation != nil && operation.Kind().String() == "rebase" {
 		phase := operation.Phase().String()
-		if operation.CurrentCommit() != "" && m.Snapshot.Counts.Conflicted == 0 {
+		if details := operation.Details().Rebase; details != nil && details.EditStopped {
 			phase += " (edit-stop)"
 		}
 		progress := fmt.Sprintf("REBASE %s · %d completed · %d remaining · press C for recovery", phase, operation.Completed(), operation.Remaining())
@@ -876,6 +876,9 @@ func journalEventDetails(event *history.Event) string {
 	if operation.OldHead != "" || operation.NewHead != "" {
 		lines = append(lines, "HEAD: "+platform.SafeText(operation.OldHead)+" -> "+platform.SafeText(operation.NewHead))
 	}
+	if operation.HasRewrittenCount {
+		lines = append(lines, fmt.Sprintf("rewritten commits: %d", operation.RewrittenCount))
+	}
 	if len(operation.Refs) > 0 {
 		lines = append(lines, "refs: "+platform.SafeText(strings.Join(operation.Refs, ", ")))
 	}
@@ -979,10 +982,12 @@ func (m Model) bisectWorkspaceView() string {
 		"known good: " + platform.SafeText(state.Good),
 		"known bad:  " + platform.SafeText(state.Bad),
 		"candidate:  " + platform.SafeText(state.Candidate),
-		"actions:    [g] good  [b] bad  [s] skip  [x] reset  [i] inspect",
-		"",
-		"bisect log:",
+		"subject:    " + platform.SafeText(state.Subject),
 	}
+	if state.HasEstimate {
+		lines = append(lines, fmt.Sprintf("remaining:  ~%d revisions (%d steps)", state.Remaining, state.Steps))
+	}
+	lines = append(lines, "actions:    [g] good  [b] bad  [s] skip  [x] reset  [i] inspect", "", "bisect log:")
 	if len(state.Log) == 0 {
 		lines = append(lines, "  (no bisect log entries)")
 	} else {

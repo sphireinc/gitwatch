@@ -68,10 +68,28 @@ Version configuration deliberately for advanced workbench features instead of ac
   remains open.
 
 - The schema test now freezes the checked-in v3 document with a SHA-256 golden
-  identity (`fcca5988dc5393782cbbf23be342c007db822df1d7c2c27a44a5ee85609545f2`)
+  identity (`90613e7f4df1778e5a5aaf18f1ea1327cd8d801af94aeb45af2248d8ec915808`)
   in addition to its semantic surface checks. At revision `c8fbcf3`,
   focused config tests pass normally and under race/vet; native/release
   acceptance remains open.
+
+## Progress evidence (2026-09-25)
+
+- The configuration guide now enumerates schema-v3 defaults, nested fields,
+  environment variables, CLI overrides, duration units, and migration behavior.
+- Added `custom_commands[].prompts[]` to the published v3 JSON Schema, including
+  required identity fields, prompt kinds, option sources, validation patterns,
+  and defaults. The semantic schema test now verifies all prompt fields and
+  supported kinds; focused `internal/config` tests pass.
+- Updated the schema SHA-256 golden to
+  `90613e7f4df1778e5a5aaf18f1ea1327cd8d801af94aeb45af2248d8ec915808`.
+  Focused `internal/config` tests and `make check` pass on Go
+  `go1.27.0 darwin/arm64`; release-pinned Go and native/release acceptance
+  remain open.
+- Hosted run `36096357394` for `be0aca1` passed Ubuntu 24.04, macOS 15,
+  Windows 2025, quality/policy, and full-history secret scanning. This records
+  hosted Go 1.25.10 matrix coverage; publication and native release gates
+  remain open.
 
 - Revision `852eb3e` closes the automated inspection-redaction gap for split
   credential argv values such as `--token secret`, bearer/basic authorization

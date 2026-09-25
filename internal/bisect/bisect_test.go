@@ -53,6 +53,60 @@ func TestStartLoadMarkAndResetBisect(t *testing.T) {
 	}
 }
 
+func TestLoadUsesLatestMarkedBisectBoundaries(t *testing.T) {
+	ctx := context.Background()
+	dir, runner := bisectRepository(t)
+	good := commitBisectFixture(t, runner, dir, "good\n", "good")
+	commitBisectFixture(t, runner, dir, "one\n", "one")
+	commitBisectFixture(t, runner, dir, "two\n", "two")
+	commitBisectFixture(t, runner, dir, "three\n", "three")
+	bad := commitBisectFixture(t, runner, dir, "bad\n", "bad")
+	discovery, err := git.Discover(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := Start(ctx, runner, StartRequest{Repository: discovery.Root, Generation: 1, Bad: bad, Good: good})
+	if started.Err != nil || started.State.Candidate == "" {
+		t.Fatalf("start outcome = %#v", started)
+	}
+	if started.State.Subject == "" || !started.State.HasEstimate || started.State.Remaining < 0 {
+		t.Fatalf("candidate details = %#v", started.State)
+	}
+	t.Cleanup(func() { _, _ = runner.Run(context.Background(), "bisect", "reset") })
+	firstCandidate := started.State.Candidate
+	markedGood := MarkCandidate(ctx, git.NewRunner(dir), Request{Repository: discovery.Root, Generation: 2, Mark: Good})
+	if markedGood.Err != nil || markedGood.State.Good != firstCandidate {
+		t.Fatalf("latest good boundary = %#v, want %s", markedGood, firstCandidate)
+	}
+	secondCandidate := markedGood.State.Candidate
+	if secondCandidate == "" || secondCandidate == firstCandidate {
+		t.Fatalf("next candidate = %q after marking %s good", secondCandidate, firstCandidate)
+	}
+	markedBad := MarkCandidate(ctx, git.NewRunner(dir), Request{Repository: discovery.Root, Generation: 3, Mark: Bad})
+	if markedBad.Err != nil || markedBad.State.Bad != secondCandidate {
+		t.Fatalf("latest bad boundary = %#v, want %s", markedBad, secondCandidate)
+	}
+	reloaded, err := Load(ctx, git.NewRunner(dir), discovery.Root, 4)
+	if err != nil || reloaded.Good != firstCandidate || reloaded.Bad != secondCandidate {
+		t.Fatalf("reloaded boundaries = %#v, err=%v", reloaded, err)
+	}
+	if reloaded.Subject == "" || !reloaded.HasEstimate {
+		t.Fatalf("reloaded candidate details = %#v", reloaded)
+	}
+}
+
+func TestBisectEstimateRejectsMalformedValues(t *testing.T) {
+	for _, output := range []string{"bisect_nr=abc\nbisect_steps=2", "bisect_nr=-1\nbisect_steps=2", "bisect_nr=2"} {
+		if _, _, ok := bisectEstimate([]byte(output)); ok {
+			t.Fatalf("accepted malformed estimate %q", output)
+		}
+	}
+	remaining, steps, ok := bisectEstimate([]byte("bisect_nr=3\nbisect_steps=2\n"))
+	if !ok || remaining != 3 || steps != 2 {
+		t.Fatalf("estimate = %d, %d, %v", remaining, steps, ok)
+	}
+}
+
 func TestBisectSkipAndRestartFromFreshRunner(t *testing.T) {
 	ctx := context.Background()
 	dir, runner := bisectRepository(t)

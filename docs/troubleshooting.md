@@ -12,7 +12,9 @@ Remote and provider panels degrade independently of core status. Confirm the
 remote with `git remote -v`, verify network access, and check that the selected
 pull strategy is explicit. GitHub requires a token from the configured
 environment variable or the `gh auth token` command; missing credentials do
-not block local Git workflows.
+not block local Git workflows. A branch without an open pull request is normal;
+other provider resources can still load independently. Resource warnings name
+the failed GitHub request, while local status and Git operations remain usable.
 
 ## A plugin is unhealthy
 

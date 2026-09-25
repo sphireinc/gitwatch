@@ -21,12 +21,13 @@ const (
 
 // Model stores status rows, filters, sorting, and selection state.
 type Model struct {
-	Entries  []repo.Entry
-	Visible  []int
-	Selected int
-	Filter   string
-	Sort     SortMode
-	Offset   int
+	Entries      []repo.Entry
+	Visible      []int
+	Selected     int
+	Filter       string
+	Sort         SortMode
+	Offset       int
+	viewportRows int
 }
 
 // New creates a status table model from repository entries.
@@ -80,6 +81,7 @@ func (m *Model) Move(delta, height int) {
 		m.Selected = len(m.Visible) - 1
 	}
 	if height > 0 {
+		m.viewportRows = height
 		if m.Selected < m.Offset {
 			m.Offset = m.Selected
 		}
@@ -99,6 +101,7 @@ func (m Model) RowAt(y, top, height int) (repo.Entry, bool) {
 }
 
 func (m *Model) rebuild(previous string) {
+	previousOffset := m.Offset
 	m.Visible = m.Visible[:0]
 	for i, entry := range m.Entries {
 		if m.Filter == "!conflict" {
@@ -135,7 +138,21 @@ func (m *Model) rebuild(previous string) {
 	if m.Selected >= len(m.Visible) {
 		m.Selected = max(0, len(m.Visible)-1)
 	}
-	m.Offset = 0
+	if len(m.Visible) == 0 {
+		m.Offset = 0
+		return
+	}
+	if m.viewportRows <= 0 {
+		m.Offset = m.Selected
+		return
+	}
+	m.Offset = max(0, min(previousOffset, max(0, len(m.Visible)-m.viewportRows)))
+	if m.Selected < m.Offset {
+		m.Offset = m.Selected
+	}
+	if m.Selected >= m.Offset+m.viewportRows {
+		m.Offset = m.Selected - m.viewportRows + 1
+	}
 }
 func changed(e repo.Entry) int {
 	n := 0

@@ -43,3 +43,16 @@ renders these schemas and does not load plugin UI code. Contribution builders
 reject terminal control characters and enforce bounded row, field, column, and
 text sizes. Process, network, and Git-mutation permissions are separate
 capabilities and must be granted explicitly by the host.
+
+Read-only repository metadata actions may name a host provider. The initial
+provider, `github.repository`, is surfaced as a command-palette action outside
+the Plugins workspace. Selecting it opens the host GitHub workspace for the
+currently open repository; GitHub data is fetched by gitwatch's provider, not
+by executing the plugin again. The host resolves the repository from its Git
+remotes, owns credentials, and accepts no plugin-supplied URL or token. The
+plugin must be enabled and negotiate both `context_action` and
+`repository_metadata`, and the GitHub integration must be enabled. The action
+is read-only and is revalidated when invoked. Contributions are filtered by
+the capabilities actually negotiated: table, detail, notification, and
+repository-metadata data cannot appear merely because a plugin emitted a
+message for an ungranted capability.

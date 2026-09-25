@@ -207,3 +207,21 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   `GOOS=windows GOARCH=amd64 go build ./...` and
   `GOOS=linux GOARCH=amd64 go build ./...`. These are compile-only checks and
   do not replace hosted Windows/Linux tests or native PTY acceptance.
+
+## Progress evidence (2026-09-25)
+
+- Hosted Windows-2025 run `36092884046` timed out in
+  `TestRepositoryBatchCancellationIsReportedAsCancelled`: after the batch
+  result, `httptest.Server.Close` still observed an active TCP connection and
+  its handler remained blocked on `request.Context().Done()`. Linux/macOS and
+  policy jobs passed on that run. This is a cross-platform cancellation defect,
+  not a failure in the newly added operation-journal test.
+- Windows command cancellation now attempts a bounded
+  `SystemRoot\System32\taskkill.exe /PID <pid> /T /F` to terminate Git's
+  process tree (including remote helpers), then falls back to killing the
+  direct process. The Windows app test binary cross-compiles with Go
+  `go1.27.0 darwin/arm64`; the focused cancellation integration test passes on
+  Darwin and `make check` passes on that host. Hosted run `36096357394` for
+  `be0aca1` then passed the cancellation test and all Ubuntu 24.04, macOS 15,
+  Windows 2025, quality/policy, and full-history secret-scan jobs. Native
+  Windows and remaining parity evidence remain open.

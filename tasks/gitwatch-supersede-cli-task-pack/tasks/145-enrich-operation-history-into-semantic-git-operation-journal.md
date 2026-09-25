@@ -37,18 +37,18 @@ Upgrade the existing bounded operation completion history into a user-facing rec
 
 ## Acceptance criteria
 
-- [ ] Timeline explains what happened without leaking secrets.
-- [ ] Journal is repository-scoped and bounded.
+- [x] Timeline explains what happened without leaking secrets.
+- [x] Journal is repository-scoped and bounded.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -87,3 +87,12 @@ Upgrade the existing bounded operation completion history into a user-facing rec
   pinned golangci-lint reported 0 issues, followed by tests, race, vet,
   security, performance, and diff checks. Native/manual terminal evidence is
   still required before moving this task to `tasks/completed`.
+- The same complete local gate passed again at revision `cda3a1b` using
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` on Darwin arm64. GitHub Actions run
+  [35866597312](https://github.com/sphireinc/gitwatch/actions/runs/35866597312)
+  passed on `cda3a1b` across the Ubuntu, macOS, and Windows jobs, quality and
+  policy checks, and full-history secret scan. Existing focused coverage proves
+  redaction, bounded repository-separated journal records, and keyboard/mouse
+  browsing. Native/manual terminal evidence remains the only recorded gate to
+  completion.

@@ -176,7 +176,10 @@ func (w *Watcher) Events(ctx context.Context) <-chan Event {
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				if err := w.restoreMetadataWatches(); err != nil {
+				// Windows fsnotify may need to send an error while servicing a
+				// synchronous Remove/Add. Keep draining its channels during the
+				// repair, otherwise the backend and this event loop deadlock.
+				if err := w.restoreMetadataWatchesWhileDraining(); err != nil {
 					select {
 					case out <- Event{At: time.Now(), Mode: ModeFS, Err: err}:
 					case <-ctx.Done():
@@ -228,6 +231,28 @@ func (w *Watcher) Events(ctx context.Context) <-chan Event {
 		}
 	}()
 	return out
+}
+
+func (w *Watcher) restoreMetadataWatchesWhileDraining() error {
+	done := make(chan error, 1)
+	go func() { done <- w.restoreMetadataWatches() }()
+	var backendErr error
+	for {
+		select {
+		case err := <-done:
+			return errors.Join(err, backendErr)
+		case _, ok := <-w.fs.Events:
+			if !ok {
+				return <-done
+			}
+			// The pending timer event already requests an authoritative refresh.
+		case err, ok := <-w.fs.Errors:
+			if !ok {
+				return <-done
+			}
+			backendErr = errors.Join(backendErr, err)
+		}
+	}
 }
 
 func (w *Watcher) removeWatchedTree(root string) {

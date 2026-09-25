@@ -138,7 +138,7 @@ type Recovery struct {
 // RecoveryActions derives valid lifecycle actions from the Git-derived
 // operation kind and current authoritative conflict/index projection.
 func (m Model) RecoveryActions() Recovery {
-	actions := sequencer.ActionsFor(m.Operation, m.unresolvedCount(), m.Staged)
+	actions := sequencer.ActionsFor(m.Progress, m.unresolvedCount(), m.Staged)
 	return Recovery{Continue: actions.Continue, Abort: actions.Abort, Skip: actions.Skip}
 }
 
@@ -204,6 +204,8 @@ func (m Model) View(width, height int) string {
 	}
 	title := "Conflict resolver"
 	switch m.Operation {
+	case sequencer.KindRebase:
+		title = "Rebase recovery"
 	case sequencer.KindCherryPick:
 		title = "Cherry-pick progress"
 	case sequencer.KindRevert:
@@ -216,8 +218,26 @@ func (m Model) View(width, height int) string {
 		fmt.Sprintf("Operation: %s  Target: %s", m.Operation.String(), platform.SafeText(m.Target)),
 		fmt.Sprintf("Conflicts: %d total, %d resolved", len(m.Conflicts), m.ResolvedCount()),
 	}
+	if m.Operation == sequencer.KindCherryPick {
+		lines = append(lines, "Source ref: unavailable (Git records commit IDs)")
+	}
+	if m.Operation == sequencer.KindRebase && m.Progress != nil {
+		phase := m.Progress.Phase().String()
+		if details := m.Progress.Details().Rebase; details != nil && details.EditStopped {
+			phase += " (edit-stop)"
+		}
+		lines = append(lines, "State: "+phase,
+			fmt.Sprintf("Progress: %d completed · %d remaining", m.Progress.Completed(), m.Progress.Remaining()))
+		if current := m.Progress.CurrentCommit(); current != "" {
+			lines = append(lines, "Current commit: "+platform.SafeText(current))
+		}
+	}
 	if (m.Operation == sequencer.KindCherryPick || m.Operation == sequencer.KindRevert) && m.Progress != nil {
-		lines = append(lines, fmt.Sprintf("Original HEAD: %s  Current HEAD: %s", platform.SafeText(m.Progress.HeadBefore()), platform.SafeText(m.Progress.HeadCurrent())))
+		original, current := m.Progress.HeadBefore(), m.Progress.HeadCurrent()
+		if width < 100 {
+			original, current = shortCommit(original), shortCommit(current)
+		}
+		lines = append(lines, fmt.Sprintf("Original HEAD: %s  Current HEAD: %s", platform.SafeText(original), platform.SafeText(current)))
 		lines = append(lines, fmt.Sprintf("Progress: %d completed · %d remaining", m.Progress.Completed(), m.Progress.Remaining()))
 		if current := m.Progress.CurrentCommit(); current != "" {
 			lines = append(lines, "Current commit: "+platform.SafeText(current))
@@ -287,6 +307,13 @@ func (m Model) View(width, height int) string {
 		lines = lines[:height]
 	}
 	return strings.Join(lines, "\n")
+}
+
+func shortCommit(value string) string {
+	if len(value) > 12 {
+		return value[:12]
+	}
+	return value
 }
 
 func revertProgress(details *sequencer.RevertDetails) *sequencer.CherryPickDetails {

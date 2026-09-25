@@ -38,18 +38,18 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
 
 ## Acceptance criteria
 
-- [ ] Batch operations are observable, bounded and failure-isolated.
-- [ ] Watcher responsiveness remains acceptable during batch work.
+- [x] Batch operations are observable, bounded and failure-isolated.
+- [x] Watcher responsiveness remains acceptable during batch work (80x24 PTY check, 2026-09-25).
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commits recorded (`50a36b2`, `df1472b`, `173c0f8`, `c12c14d`).
+- [x] Exact tested revision recorded (`c12c14d`; prior batch-fetch fix at `173c0f8`).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded (`make check`, `c12c14d`).
+- [x] Race/vet/lint/format evidence recorded (`make check`, `c12c14d`; focused race, `c12c14d`).
+- [x] Native/manual 80x24 PTY evidence recorded for dashboard fetch and cancellation.
+- [x] Known limitations/deferred work documented, including hosted CI not rechecked for `c12c14d`.
 
 ## Progress evidence
 
@@ -129,3 +129,80 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   50-repository batch-fetch lane, watcher and polling lanes, and the complete
   integration/package coverage. Native cancellation and hosted cross-platform
   acceptance remain open.
+
+## Progress evidence (2026-09-25)
+
+- At revision `172d00a`, race-enabled focused tests passed:
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache go test
+  -race ./internal/app ./internal/integration -run
+  'TestRepositoryBatch|TestBatchFetchFiftyDisposableRepositoriesIsBoundedAndFailureIsolated'
+  -count=1`. This includes dashboard progress/cancel coverage and the real
+  50-repository disposable-local-remote test for worker bounds and failure
+  isolation.
+- At the same revision,
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache
+  ./scripts/parity-check.sh` passed. Its batch-fetch, watcher/manager,
+  provider, multirepo, and integration lanes all succeeded. The full
+  `make check` at `91424f1` passed formatting, pinned lint, tests, race, vet,
+  security fuzz, and performance checks; that revision contains the same Task
+  174 source as `172d00a` (the later commit only changed task documentation).
+- Hosted Actions run `36085163506` passed for `91424f1`, including Ubuntu,
+  macOS, and Windows test/build/runtime jobs and scripted PTY/large-status
+  acceptance. This does not measure concurrent watcher responsiveness during
+  an active batch or substitute for native/manual cancellation. Those gates
+  remain open, so Task 174 remains active.
+
+- Follow-up at `173c0f8`: the dashboard had populated fetch requests with the
+  row's checked-out branch and pull strategy. `multirepo.Request.Validate`
+  correctly rejects those fields on fetch, so real dashboard fetches were
+  skipped before invoking Git. Fetch requests now carry only repository,
+  remote, and fetch action; branch and strategy are attached only to pull
+  requests. Added `TestRepositoryBatchFetchIgnoresBranchAndPullStrategy`,
+  which uses a discovered-style row on `main`, sets `ff-only`, fetches from a
+  local bare remote, and asserts `succeeded`, ordered progress, and populated
+  `FETCH_HEAD`.
+- `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` passed on the source committed as `173c0f8`: formatting, pinned lint
+  (0 issues), all unit tests, race tests, vet, security fuzz checks, and
+  performance budgets. The focused regression also passed independently under
+  `go test -race ./internal/app -run
+  TestRepositoryBatchFetchIgnoresBranchAndPullStrategy -count=1`.
+- An interactive 80x24 PTY run of the `173c0f8` binary showed the two-repository
+  fetch confirmation, successful fetch of the local bare remote, and an
+  isolated failure row for the slow fixture. During a later in-flight batch,
+  the status view reported `UNTRACKED 1` and `activity: file modified` for a
+  new fixture path while batch progress remained `1/2 complete`; this supports
+  the watcher-responsiveness acceptance criterion.
+- The attempted `K` cancellation did not produce an unambiguous `cancelled`
+  terminal result (the slow fixture ended as failed). Native/manual cancellation
+  evidence is still required, so Task 174 remains active. Hosted Actions status
+  for `173c0f8` has not yet been recorded.
+
+## Cancellation follow-up (`c12c14d`)
+
+- Fixed cancellation identity propagation: `git.CommandError` now matches both
+  its kind (`git.ErrCancelled`) and underlying cause (`context.Canceled`) via
+  `errors.Is`, without changing `Unwrap` compatibility. Added runner coverage
+  and `TestRepositoryBatchCancellationIsReportedAsCancelled`, which blocks a
+  disposable HTTP remote until the real Git request is cancelled and asserts
+  the dashboard result is `cancelled`.
+- `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` passed on this source: formatting, pinned lint (0 issues), all unit
+  tests, race tests, vet, security fuzz checks, and performance budgets. The
+  focused app/Git cancellation tests also passed with `-race`.
+- Manually exercised the rebuilt `c12c14d` binary on Darwin arm64 with Go
+  1.27.0 in an 80x24 PTY. With one local bare remote and one stalled loopback
+  HTTP remote, the dashboard confirmed `F` fetch-all; after the slow request
+  was accepted, `K` cancelled it. The status view showed
+  `batch fetch complete: 1 succeeded, 0 failed, 1 cancelled, 0 skipped`.
+  This closes the Task 174 local PTY cancellation gate; it does not claim
+  hosted Actions or native acceptance on other operating systems. Hosted
+  Actions for `c12c14d` have not been recorded.
+- Task 174 acceptance and completion evidence are satisfied; this record is now
+  archived under `tasks/completed/`. Hosted Actions for the latest fix and
+  native acceptance on other operating systems remain separate follow-up gates.
+- Windows follow-up: command cancellation now terminates Git's process tree so
+  a canceled fetch cannot leave the HTTP remote helper holding the server
+  connection open. Hosted run `36096357394` for `be0aca1` passed Ubuntu 24.04,
+  macOS 15, Windows 2025, quality/policy, and full-history secret scanning.
+  Native acceptance on other operating systems remains a separate gate.

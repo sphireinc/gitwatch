@@ -38,3 +38,9 @@ func TestLoadValidatesBoundsAndRefs(t *testing.T) {
 		t.Fatal("invalid timestamp accepted")
 	}
 }
+
+func TestParseRejectsOutputAboveByteLimit(t *testing.T) {
+	if _, err := parse(make([]byte, MaxBytes+1)); err == nil {
+		t.Fatal("oversized reflog output was accepted")
+	}
+}

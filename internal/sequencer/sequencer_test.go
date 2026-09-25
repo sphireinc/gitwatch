@@ -28,14 +28,17 @@ func TestRouteForCoversAllDurableRecoveryKinds(t *testing.T) {
 
 func TestActionsForUsesOneLifecycleMatrix(t *testing.T) {
 	tests := []struct {
-		name       string
-		kind       Kind
-		unresolved int
-		staged     int
-		want       RecoveryActions
+		name        string
+		kind        Kind
+		editStopped bool
+		unresolved  int
+		staged      int
+		want        RecoveryActions
 	}{
 		{name: "unknown", kind: KindUnknown},
-		{name: "rebase edit stop", kind: KindRebase, staged: 0, want: RecoveryActions{Continue: true, Abort: true, Skip: true}},
+		{name: "rebase edit stop", kind: KindRebase, editStopped: true, staged: 0, want: RecoveryActions{Continue: true, Abort: true, Skip: true}},
+		{name: "rebase no changes without edit stop", kind: KindRebase, staged: 0, want: RecoveryActions{Abort: true, Skip: true}},
+		{name: "rebase staged", kind: KindRebase, staged: 1, want: RecoveryActions{Continue: true, Abort: true, Skip: true}},
 		{name: "rebase conflict", kind: KindRebase, unresolved: 1, staged: 1, want: RecoveryActions{Abort: true, Skip: true}},
 		{name: "cherry pick clean index", kind: KindCherryPick, want: RecoveryActions{Abort: true, Skip: true}},
 		{name: "cherry pick staged", kind: KindCherryPick, staged: 1, want: RecoveryActions{Continue: true, Abort: true, Skip: true}},
@@ -45,10 +48,23 @@ func TestActionsForUsesOneLifecycleMatrix(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := ActionsFor(test.kind, test.unresolved, test.staged); got != test.want {
-				t.Fatalf("ActionsFor(%s, unresolved=%d, staged=%d) = %#v, want %#v", test.kind, test.unresolved, test.staged, got, test.want)
+			state, err := NewState("repo", 1, test.kind, PhasePaused)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.kind == KindRebase {
+				state, err = state.WithDetails(Details{Rebase: &RebaseDetails{EditStopped: test.editStopped}})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if got := ActionsFor(&state, test.unresolved, test.staged); got != test.want {
+				t.Fatalf("ActionsFor(%s, unresolved=%d, staged=%d, editStopped=%v) = %#v, want %#v", test.kind, test.unresolved, test.staged, test.editStopped, got, test.want)
 			}
 		})
+	}
+	if got := ActionsFor(nil, 0, 1); got != (RecoveryActions{}) {
+		t.Fatalf("missing Git operation state exposed recovery actions: %+v", got)
 	}
 }
 
