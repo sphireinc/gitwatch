@@ -38,7 +38,7 @@ This task is a hard gate, not a documentation checkbox. The feature is done only
 
 ## Acceptance criteria
 
-- [ ] All platform CI passes.
+- [x] All platform CI passes.
 - [ ] Fresh-repo creation works with multi-select search.
 - [ ] Existing handwritten content survives append/remove flows exactly.
 - [ ] Overlap removal is reversible/safe.
@@ -73,3 +73,16 @@ offline operation). The owner-provided beta matrix sign-off is recorded
 separately and is not represented as a retained scenario-by-scenario Task 207
 run log. Task 207 remains open pending explicit linkage/carry of operator
 acceptance for those feature-specific scenarios.
+
+## Latest verification (2026-09-25)
+
+Hosted Actions run [36179909264](https://github.com/sphireinc/gitwatch/actions/runs/36179909264)
+for `eebde8f` completed successfully with quality/policy, full-history secret
+scanning, and all three OS matrix jobs. The `.gitignore` manager source is
+unchanged between `eebde8f` and local `main` `ab4b234`; the non-publishing
+`VERSION=1.1.0-beta.1 ./scripts/release-check.sh` also passed on `ab4b234`.
+This closes the hosted platform-CI criterion for the unchanged feature code,
+not the native feature-specific scenarios. Fresh-repo creation, exact
+handwritten-byte preservation, overlapping-template removal, multi-repo batch
+behavior, stale-preview protection, and offline operation still require
+auditable operator evidence or explicit owner closure.
