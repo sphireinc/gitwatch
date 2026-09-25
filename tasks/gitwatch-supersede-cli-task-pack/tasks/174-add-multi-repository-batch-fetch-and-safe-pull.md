@@ -39,15 +39,15 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
 ## Acceptance criteria
 
 - [x] Batch operations are observable, bounded and failure-isolated.
-- [ ] Watcher responsiveness remains acceptable during batch work.
+- [x] Watcher responsiveness remains acceptable during batch work (80x24 PTY check, 2026-09-25).
 
 ## Completion record
 
-- [x] Implementation commits recorded (`50a36b2`, `df1472b`, with follow-ups).
-- [x] Exact tested revisions recorded (`172d00a` focused/parity; `91424f1` full gate).
+- [x] Implementation commits recorded (`50a36b2`, `df1472b`, `173c0f8`, with follow-ups).
+- [x] Exact tested revisions recorded (`173c0f8` full gate and focused regression).
 - [x] Focused unit/integration tests recorded.
-- [x] `go test ./...` recorded (`make check`, `91424f1`).
-- [x] Race/vet/lint/format evidence recorded (`make check`, `91424f1`; focused race, `172d00a`).
+- [x] `go test ./...` recorded (`make check`, `173c0f8`).
+- [x] Race/vet/lint/format evidence recorded (`make check`, `173c0f8`; focused race, `173c0f8`).
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
 - [x] Known limitations/deferred work documented.
 
@@ -151,3 +151,29 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   acceptance. This does not measure concurrent watcher responsiveness during
   an active batch or substitute for native/manual cancellation. Those gates
   remain open, so Task 174 remains active.
+
+- Follow-up at `173c0f8`: the dashboard had populated fetch requests with the
+  row's checked-out branch and pull strategy. `multirepo.Request.Validate`
+  correctly rejects those fields on fetch, so real dashboard fetches were
+  skipped before invoking Git. Fetch requests now carry only repository,
+  remote, and fetch action; branch and strategy are attached only to pull
+  requests. Added `TestRepositoryBatchFetchIgnoresBranchAndPullStrategy`,
+  which uses a discovered-style row on `main`, sets `ff-only`, fetches from a
+  local bare remote, and asserts `succeeded`, ordered progress, and populated
+  `FETCH_HEAD`.
+- `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` passed on the source committed as `173c0f8`: formatting, pinned lint
+  (0 issues), all unit tests, race tests, vet, security fuzz checks, and
+  performance budgets. The focused regression also passed independently under
+  `go test -race ./internal/app -run
+  TestRepositoryBatchFetchIgnoresBranchAndPullStrategy -count=1`.
+- An interactive 80x24 PTY run of the `173c0f8` binary showed the two-repository
+  fetch confirmation, successful fetch of the local bare remote, and an
+  isolated failure row for the slow fixture. During a later in-flight batch,
+  the status view reported `UNTRACKED 1` and `activity: file modified` for a
+  new fixture path while batch progress remained `1/2 complete`; this supports
+  the watcher-responsiveness acceptance criterion.
+- The attempted `K` cancellation did not produce an unambiguous `cancelled`
+  terminal result (the slow fixture ended as failed). Native/manual cancellation
+  evidence is still required, so Task 174 remains active. Hosted Actions status
+  for `173c0f8` has not yet been recorded.
