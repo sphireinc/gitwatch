@@ -6,7 +6,7 @@ Tag `v0.9.0`, distribute binaries, test in real repositories including monorepos
 
 **Acceptance:** Zero open blocker/critical issues and no known data-loss issue.
 
-**Status:** In progress — repository discovery, status rendering, reversible stage/unstage and diff flows, explicit polling startup, non-repository diagnostics, strict five-target artifact verification, repeatable release checks, missing-Git classification, and real-repository coverage for spaces, Unicode, quotes, leading dashes, and renames are present. The operator matrix for candidate `5b2a8e9` records owner sign-off across all cells: macOS and Windows are attested green, and Linux is accepted by explicit equivalence while the expanded physical Linux testbed proceeds. The owner confirmed no known private/unreported blocker, critical, or data-loss issue on 2026-09-25; the public tracker showed zero open issues. Only the beta-wide carry-forward to current tested source `34562b5` remains pending because it changes merge-engine error propagation in the recovery path.
+**Status:** Complete — repository discovery, status rendering, reversible stage/unstage and diff flows, explicit polling startup, non-repository diagnostics, strict five-target artifact verification, repeatable release checks, missing-Git classification, and real-repository coverage for spaces, Unicode, quotes, leading dashes, and renames are present. The owner-approved all-cell matrix disposition for candidate `5b2a8e9` is carried to tested source `34562b5` as of 2026-09-25. macOS and Windows are owner-attested green; Linux is owner-approved by explicit equivalence while the expanded physical Linux testbed proceeds. This carry-forward is an operator decision, not a claim of fresh terminal runs on `34562b5`. The owner confirmed no known private/unreported blocker, critical, or data-loss issue on 2026-09-25; the public tracker showed zero open issues.
 
 ## Verified evidence (2026-09-25)
 
@@ -16,7 +16,7 @@ On Darwin arm64 with Git 2.33.0, `scripts/native-fixture.sh` prepared a reposito
 
 Watcher regression checks also passed: `TestWatcherSeesExternalGitMetadataAndRecreatedDirectory` with `-count=30`, and with `-race -count=5`. Serena inspection confirmed the test waits for path-specific events after metadata-directory recreation. The GitHub open-issue query returned no issues at this check; that alone does not establish that there are no unreported or externally tracked blocker/critical issues.
 
-**Still required before completion:** explicitly carry the candidate-specific all-cell operator disposition to current tested source `34562b5`, or keep the task evidence scoped to `5b2a8e9`. The matrix records owner sign-off for `5b2a8e9`; Linux is an accepted equivalence disposition, not a claim that physical Linux testing has already occurred. The blocker/data-loss review is complete as of 2026-09-25 based on the owner's confirmation and the public issue tracker; it does not claim that unknown future or unreported issues cannot exist.
+**Completion disposition:** On 2026-09-25, the owner explicitly approved carrying the all-cell green disposition from `5b2a8e9` to `34562b5`, including the merge-engine error-propagation delta because it affects merge recovery. This is a carry-forward of the recorded operator disposition, not fresh platform execution at `34562b5`. Linux remains an owner-approved equivalence disposition rather than a claim of completed physical Linux testing. The blocker/data-loss review is complete as of 2026-09-25 based on the owner's confirmation and the public issue tracker; it does not claim that unknown future or unreported issues cannot exist.
 
 ## Linked-worktree PTY follow-up (2026-09-25)
 
@@ -55,7 +55,7 @@ fixture and PTY metadata were retained temporarily under a private `/tmp`
 directory. These are automated tmux-PTY observations, not native operator
 evidence. At the time of this supplement, the operator cells were pending; the
 later owner sign-off for candidate `5b2a8e9` is recorded in the beta matrix.
-Task 34 remains in progress for the other acceptance criteria.
+Task 34's current completion disposition is recorded at the top of this file.
 
 ## Hosted CI follow-up (2026-09-25)
 
@@ -106,10 +106,9 @@ race job is skipped by the workflow). The public GitHub issues page showed no
 open issues at this check; this does not cover unreported or privately tracked
 blockers.
 
-This refresh confirms the merged code and automated gates only. Task 34 remains
-in progress pending the remaining beta scenarios and explicit blocker/data-loss
-review; the candidate-specific owner matrix sign-off remains recorded
-separately above.
+This historical refresh confirmed the merged code and automated gates only.
+Its then-pending beta scenarios and blocker/data-loss review were subsequently
+resolved by the owner matrix disposition and issue review recorded above.
 
 ## Guarded-mutation audit supplement (2026-09-25)
 
@@ -133,13 +132,12 @@ permitted`); this is an environment limitation, not a reported application
 assertion failure. The focused app tests passed separately. No actionable
 data-loss or security defect was found in the reviewed paths; this bounded code
 review does not establish that unknown issues cannot exist. Task 34's owner
-blocker review and final source-scope disposition are recorded below; the task
-remains in progress until the beta-wide carry-forward decision is resolved.
+blocker review and final source-scope disposition are recorded below.
 
 On 2026-09-25, the owner confirmed that no privately tracked or unreported
 blocker, critical, or data-loss issue is known beyond the public tracker. The
 [public issue list](https://github.com/sphireinc/gitwatch/issues) showed zero
-open issues at this check. This closes the known-issue review as of this date;
-the beta-wide carry-forward from candidate `5b2a8e9` to current tested source
-`34562b5` remains pending explicit approval before Task 34 can be marked
-complete.
+open issues at this check. This closes the known-issue review as of this date.
+The owner subsequently approved the beta-wide carry-forward from candidate
+`5b2a8e9` to current tested source `34562b5`; see the completion disposition
+above.
