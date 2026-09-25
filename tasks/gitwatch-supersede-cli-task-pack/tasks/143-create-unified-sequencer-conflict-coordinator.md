@@ -51,11 +51,10 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual acceptance for Task 143 remains open. The user's all-cell
-  sign-off is specific to candidate `5b2a8e9`; the carry-forward to `34562b5`
-  was explicitly recorded for Task 137. Since `34562b5` changes merge-engine
-  error propagation used by merge recovery, Task 143 awaits a separate
-  carry-forward decision or fresh operator evidence.
+- [x] Native/manual acceptance recorded by the user's explicit approval to
+  carry the all-cell green disposition from candidate `5b2a8e9` to `34562b5`
+  for Task 143. This is an owner-approved carry-forward, not a claim of a fresh
+  terminal session at `34562b5`.
 - [x] Known limitations/deferred work documented: Linux cells use the explicit
   owner-approved macOS-equivalence decision while physical multi-distribution
   testing continues; no fresh per-platform transcript was captured at
@@ -189,10 +188,10 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 - The owner-provided all-cell green disposition for candidate
   `5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725` records macOS and Windows green,
   with Linux accepted by macOS equivalence rather than a physical Linux run.
-- The user explicitly carried this disposition to `34562b5` for Task 137. The
-  Task 143 operator gate remains open pending the separate decision requested,
-  because that revision changes merge-engine error propagation used by merge
-  recovery.
+- The user explicitly carried this disposition to `34562b5` for Task 137 and
+  separately approved the same carry-forward for Task 143. The Linux pass
+  remains by macOS equivalence, not a claim of a physical Linux run. No fresh
+  native terminal transcript at `34562b5` is claimed.
 
-Task 143's implementation and automated verification audit is complete. Keep
-the task active until its native/operator acceptance gate is resolved.
+Task 143 is complete under the shared coordinator implementation, current-main
+verification, and owner-authorized platform-acceptance evidence recorded here.
