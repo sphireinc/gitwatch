@@ -46,6 +46,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/ui/gitignoreview"
 	"github.com/sphireinc/git-watch/internal/ui/historyview"
 	"github.com/sphireinc/git-watch/internal/ui/hunkview"
+	"github.com/sphireinc/git-watch/internal/ui/layout"
 	"github.com/sphireinc/git-watch/internal/ui/pluginview"
 	"github.com/sphireinc/git-watch/internal/ui/remoteview"
 	"github.com/sphireinc/git-watch/internal/ui/repoview"
@@ -1920,6 +1921,91 @@ func TestStatusMouseClickOpensSelectedFileDiff(t *testing.T) {
 	m = updated.(Model)
 	if command == nil || m.Files.Selected != 1 || m.DiffPath != "second.txt" || !m.DiffLoading {
 		t.Fatalf("mouse diff = commandnil=%v selected=%d path=%q loading=%v", command == nil, m.Files.Selected, m.DiffPath, m.DiffLoading)
+	}
+}
+
+func TestStatusMouseClickMapsWrappedOffscreenPath(t *testing.T) {
+	entries := make([]repo.Entry, 14953)
+	for index := range entries {
+		entries[index] = repo.Entry{Path: repo.Path(fmt.Sprintf("generated/%05d.txt", index)), Untracked: true}
+	}
+	selectedPath := strings.Repeat("wrapped/segment/", 20) + "selected-file.txt"
+	entries[len(entries)-1].Path = repo.Path(selectedPath)
+
+	m := NewRepository(git.Discovery{Root: t.TempDir()})
+	t.Cleanup(func() { _ = m.Close() })
+	m.Width, m.Height = 160, 20
+	m.Snapshot.Entries = entries
+	m.Files.SetEntries(entries)
+	target := len(m.Files.Visible) - 1
+	m.Files.Offset, m.Files.Selected = target-1, target-1
+
+	statusLayout := m.statusLayout()
+	files := statusLayout.Files
+	if statusLayout.Mode == layout.Wide {
+		files.Width = max(1, files.Width-1)
+	}
+	files.Width = max(1, files.Width-1)
+	visibleHeight := max(1, files.Height-1-m.statusFileHeaderRows(files.Width))
+	rowHeights := m.statusFileRowHeights(files.Width, visibleHeight)
+	if len(rowHeights) < 2 || rowHeights[0] != 1 || rowHeights[1] < 2 {
+		t.Fatalf("expected a wrapped offscreen target row, got heights %v", rowHeights)
+	}
+	rowTop := files.Y + 1 + m.statusFileHeaderRows(files.Width)
+	clickY := rowTop + rowHeights[0] + 1 // second visual line of the wrapped path
+	updated, command := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: files.X + 10, Y: clickY})
+	m = updated.(Model)
+	if command == nil || m.Files.SelectedPath() != selectedPath || m.DiffPath != selectedPath {
+		t.Fatalf("wrapped offscreen mouse selection = commandnil:%v selected:%q diff:%q", command == nil, m.Files.SelectedPath(), m.DiffPath)
+	}
+}
+
+func TestStatusMouseStageTargetsOffscreenPath(t *testing.T) {
+	root := t.TempDir()
+	runner := git.NewRunner(root)
+	if _, err := runner.Run(context.Background(), "init", "--quiet"); err != nil {
+		t.Fatal(err)
+	}
+	const target = "generated/14952.txt"
+	if err := os.MkdirAll(filepath.Join(root, "generated"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, target), []byte("offscreen target\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	entries := make([]repo.Entry, 14953)
+	for index := range entries {
+		entries[index] = repo.Entry{Path: repo.Path(fmt.Sprintf("generated/%05d.txt", index)), Untracked: true}
+	}
+
+	m := NewRepository(git.Discovery{Root: root})
+	t.Cleanup(func() { _ = m.Close() })
+	m.Width, m.Height = 160, 20
+	m.Snapshot.Entries = entries
+	m.Files.SetEntries(entries)
+	selected := len(m.Files.Visible) - 1
+	m.Files.Offset, m.Files.Selected = selected, selected
+	files := m.statusLayout().Files
+	if m.statusLayout().Mode == layout.Wide {
+		files.Width = max(1, files.Width-1)
+	}
+	files.Width = max(1, files.Width-1)
+	rowTop := files.Y + 1 + m.statusFileHeaderRows(files.Width)
+	updated, command := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: files.X + 1, Y: rowTop})
+	m = updated.(Model)
+	if command == nil || m.Files.SelectedPath() != target {
+		t.Fatalf("offscreen stage selection = commandnil:%v path:%q", command == nil, m.Files.SelectedPath())
+	}
+	message, ok := command().(OperationFinishedMsg)
+	if !ok || message.Err != nil {
+		t.Fatalf("offscreen stage result = %#v, valid:%v", message, ok)
+	}
+	staged, err := runner.Run(context.Background(), "diff", "--cached", "--name-only", "-z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(staged.Stdout), target+"\x00") {
+		t.Fatalf("staged paths do not contain selected offscreen path %q: %q", target, staged.Stdout)
 	}
 }
 

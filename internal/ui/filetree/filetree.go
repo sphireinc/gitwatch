@@ -26,12 +26,13 @@ type Counts struct {
 
 // Model is a pure, in-memory presentation index over status entries.
 type Model struct {
-	Entries  []repo.Entry
-	Visible  []int
-	Rows     []Row
-	Selected int
-	Offset   int
-	Expanded map[string]bool
+	Entries      []repo.Entry
+	Visible      []int
+	Rows         []Row
+	Selected     int
+	Offset       int
+	Expanded     map[string]bool
+	viewportRows int
 }
 
 // New creates an expanded tree. The visible indexes must refer to entries.
@@ -65,7 +66,11 @@ func (m *Model) SetEntries(entries []repo.Entry, visible []int, selectedPath str
 	if m.Selected >= len(m.Rows) {
 		m.Selected = max(0, len(m.Rows)-1)
 	}
-	m.Offset = min(m.Offset, max(0, len(m.Rows)-1))
+	if m.viewportRows > 0 {
+		m.keepVisible(m.viewportRows)
+	} else {
+		m.Offset = m.Selected
+	}
 }
 
 // SelectedEntryIndex resolves the selected row to a status entry.
@@ -155,6 +160,7 @@ func (m *Model) keepVisible(height int) {
 	if height <= 0 {
 		return
 	}
+	m.viewportRows = height
 	if m.Selected < m.Offset {
 		m.Offset = m.Selected
 	}

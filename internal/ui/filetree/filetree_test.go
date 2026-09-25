@@ -1,6 +1,7 @@
 package filetree
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/sphireinc/git-watch/internal/repo"
@@ -65,5 +66,38 @@ func TestTreeFiltersByCallerProvidedIndexes(t *testing.T) {
 	m := New(entries, []int{1}, "b/visible.txt")
 	if len(m.Rows) != 2 || m.Rows[0].Path != "b" || m.Rows[1].Path != "b/visible.txt" {
 		t.Fatalf("filtered rows = %#v", m.Rows)
+	}
+}
+
+func TestTreeRefreshKeepsSelectedPathVisible(t *testing.T) {
+	entries := make([]repo.Entry, 1000)
+	visible := make([]int, len(entries))
+	for index := range entries {
+		entries[index] = repo.Entry{Path: repo.Path(fmt.Sprintf("dir/file-%04d.txt", index))}
+		visible[index] = index
+	}
+	selectedPath := string(entries[len(entries)-1].Path)
+	m := New(entries, visible, selectedPath)
+	m.End(20)
+	selectedIndex, ok := m.SelectedEntryIndex()
+	if !ok || string(m.Entries[selectedIndex].Path) != selectedPath {
+		t.Fatalf("initial tree selection = index:%d ok:%v", selectedIndex, ok)
+	}
+	if m.Selected < m.Offset || m.Selected >= m.Offset+m.viewportRows {
+		t.Fatalf("initial tree selection %d is outside viewport [%d,%d)", m.Selected, m.Offset, m.Offset+m.viewportRows)
+	}
+
+	updatedEntries := append([]repo.Entry{{Path: repo.Path("aaa.txt")}}, entries...)
+	updatedVisible := make([]int, len(updatedEntries))
+	for index := range updatedVisible {
+		updatedVisible[index] = index
+	}
+	m.SetEntries(updatedEntries, updatedVisible, selectedPath)
+	selectedIndex, ok = m.SelectedEntryIndex()
+	if !ok || string(m.Entries[selectedIndex].Path) != selectedPath {
+		t.Fatalf("refreshed tree selection = index:%d ok:%v", selectedIndex, ok)
+	}
+	if m.Selected < m.Offset || m.Selected >= m.Offset+m.viewportRows {
+		t.Fatalf("refreshed tree selection %d is outside viewport [%d,%d)", m.Selected, m.Offset, m.Offset+m.viewportRows)
 	}
 }
