@@ -52,12 +52,18 @@ Make rebase durable: continue, skip, abort, restart recovery and conflict integr
 
 - [x] Recovery entry point and progress presentation are implemented; an active rebase discovered by the live snapshot can be opened from Status with `C`, including when no conflict file is present. Continue and abort remain typed lifecycle intents in the existing conflict/recovery workspace.
 - [x] Implementation commits recorded: `224362f` (active recovery route), `2374459` (continuation coverage and stale-marker fix), and the follow-up skip-support slice.
-- [x] Exact tested revision recorded.
+- [x] Exact tested revision recorded (`34562b5`; full local and hosted
+  verification is recorded below).
 - [x] Focused tests recorded: `TestActiveRebaseWithoutConflictsHasRecoveryRoute`, `TestOperationLifecycleAbortsRebaseAndRefreshesOperationState`, `TestOperationLifecycleContinuesResolvedRebase`, `TestOperationLifecycleSkipsRebase`, and `TestDetectOperationStateSurvivesRunnerReconstructionDuringRebase`; the real disposable-repository tests create a rebase conflict, exercise typed abort/continue/skip, verify fresh-runner rediscovery, and verify authoritative post-operation snapshots and worktree content.
 - [x] `go test ./...` recorded through `make check`.
 - [x] Race/vet/lint/format evidence recorded through `GOCACHE=/tmp/gitwatch-go-cache make check` (lint reported 0 issues).
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [x] Known limitations/deferred work documented: edit-stop continue/amend/abort variants and native Linux/macOS/Windows operator evidence still require dedicated acceptance coverage.
+- [x] Native/manual acceptance recorded from the user's all-cell green
+  disposition for candidate `5b2a8e9`. The rebase-specific app, Git, sequencer,
+  and conflict-view source remains unchanged through current main; this is not
+  a claim of a fresh terminal session at the current main revision.
+- [x] Known limitations/deferred work documented: Linux is accepted by the
+  owner's macOS-equivalence decision while physical multi-distribution testing
+  continues; no fresh per-platform transcript was captured at current main.
 
 ## Local progress evidence (task remains active)
 
@@ -156,3 +162,27 @@ history reload after successful rebase completion.
 This automated merged-main verification does not establish native/manual
 operator evidence for rebase recovery and does not close the remaining
 cross-platform lifecycle acceptance. Keep the task active.
+
+## Owner acceptance and current-source audit (2026-09-25)
+
+- Prerequisites 127 and 131 are in `tasks/completed`; Task 143's unified
+  coordinator acceptance is recorded on main, satisfying the corrected
+  `127, 131, 143` dependency chain.
+- The operator matrix records the user's all-cell green disposition for exact
+  candidate `5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725`. Linux is accepted by
+  the user's explicit macOS-equivalence decision, not represented as a
+  physical Linux session.
+- Comparison of candidate `5b2a8e9` with current main shows no Go source
+  changes in the rebase/app/Git/sequencer/conflict-view paths. The later code
+  change at `34562b5` is isolated to merge-engine error propagation and its
+  test, so the rebase terminal behavior covered by this task is unchanged.
+- At application revision `34562b5`, local
+  `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache
+  make check` passed on Darwin arm64, and hosted Actions run
+  [36143404629](https://github.com/sphireinc/gitwatch/actions/runs/36143404629)
+  passed quality/policy, full-history secret scanning, and Ubuntu, macOS, and
+  Windows jobs. The Windows race job is skipped by workflow configuration.
+  No Go source has changed since that revision.
+
+Task 132 is complete under the rebase implementation, automated verification,
+and owner-provided platform-acceptance evidence recorded here.
