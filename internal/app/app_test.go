@@ -3755,6 +3755,59 @@ func TestRepositoryBatchOperationEmitsBoundedProgressBeforeResults(t *testing.T)
 	}
 }
 
+func TestRepositoryBatchFetchIgnoresBranchAndPullStrategy(t *testing.T) {
+	ctx := context.Background()
+	base := t.TempDir()
+	root := filepath.Join(base, "repo")
+	remote := filepath.Join(base, "remote.git")
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	gitMustRunAppTest(t, ctx, git.NewRunner(base), "init", "--bare", "--initial-branch=main", "--", remote)
+	initCommittedTestRepository(t, ctx, root, "batch fetch fixture")
+	runner := git.NewRunner(root)
+	gitMustRunAppTest(t, ctx, runner, "remote", "add", "origin", remote)
+	gitMustRunAppTest(t, ctx, runner, "push", "--set-upstream", "origin", "main")
+
+	m := NewRepositoryWithConfig(git.Discovery{Root: root}, config.Defaults())
+	m.Repositories = repoview.New([]registry.Row{{
+		Repository: registry.Repository{Path: root, Name: "repo"},
+		Branch:     "main",
+	}})
+	m.RepositoryBatchAction = multirepo.ActionFetch
+	m.RepositoryBatchStrategy = "ff-only"
+
+	command := m.runRepositoryBatchFetch()
+	var statuses []string
+	for message := command(); ; {
+		switch value := message.(type) {
+		case RepositoryBatchProgressMsg:
+			statuses = append(statuses, value.Status)
+			command = batchProgressCommand(value.Events)
+			message = command()
+		case RepositoryBatchFinishedMsg:
+			if len(value.Results) != 1 || value.Results[0].Status != "succeeded" {
+				t.Fatalf("batch result = %#v", value.Results)
+			}
+			if got := strings.Join(statuses, ","); got != "queued,running,succeeded" {
+				t.Fatalf("progress statuses = %s", got)
+			}
+			goto finished
+		default:
+			t.Fatalf("unexpected batch message %T", message)
+		}
+	}
+
+finished:
+	fetchHead, err := os.ReadFile(filepath.Join(root, ".git", "FETCH_HEAD"))
+	if err != nil {
+		t.Fatalf("read FETCH_HEAD after batch fetch: %v", err)
+	}
+	if len(fetchHead) == 0 {
+		t.Fatal("FETCH_HEAD is empty after successful batch fetch")
+	}
+}
+
 func TestRepositoryBatchCancelUsesActiveContext(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{})
 	m.Workspace.Navigate(workspace.Repositories, "Repositories")

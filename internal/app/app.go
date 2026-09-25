@@ -5185,10 +5185,20 @@ func (m *Model) runRepositoryBatchFetch() tea.Cmd {
 			defer close(events)
 			requests := make([]multirepo.Request, len(rows))
 			for index, row := range rows {
-				requests[index] = multirepo.Request{Repository: multirepo.Repository{ID: domain.RepositoryID(row.Repository.Path), Root: row.Repository.Path}, Remote: "origin", Branch: row.Branch, Strategy: m.RepositoryBatchStrategy, Action: m.RepositoryBatchAction}
-				if requests[index].Action == "" {
-					requests[index].Action = multirepo.ActionFetch
+				action := m.RepositoryBatchAction
+				if action == "" {
+					action = multirepo.ActionFetch
 				}
+				request := multirepo.Request{
+					Repository: multirepo.Repository{ID: domain.RepositoryID(row.Repository.Path), Root: row.Repository.Path},
+					Remote:     "origin",
+					Action:     action,
+				}
+				if action == multirepo.ActionPull {
+					request.Branch = row.Branch
+					request.Strategy = m.RepositoryBatchStrategy
+				}
+				requests[index] = request
 				events <- RepositoryBatchProgressMsg{Path: row.Repository.Path, Status: "queued", Total: len(rows), Events: events}
 			}
 			var progressMu sync.Mutex
