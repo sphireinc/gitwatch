@@ -41,8 +41,8 @@ Support interactive custom workflows such as selecting a branch or entering a ti
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
+- [x] Implementation commit recorded.
+- [x] Exact tested revision recorded.
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
@@ -111,3 +111,7 @@ Support interactive custom workflows such as selecting a branch or entering a ti
   full-test attempt could not bind the app test's localhost listener; both full
   test suites passed when run with that listener permission. Native keyboard/
   mouse acceptance and provider-backed option sources remain open.
+- Exact tested implementation revision: `9b1cb342fffba50675ce83dfc957ac0cabae1ea9`
+  (`Fix custom command prompt defaults`). Its full `make check` passed on Darwin
+  arm64 with Go 1.27.0. This records automated validation only; native operator
+  evidence remains outstanding.
