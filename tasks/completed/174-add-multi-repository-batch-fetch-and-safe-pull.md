@@ -201,3 +201,8 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
 - Task 174 acceptance and completion evidence are satisfied; this record is now
   archived under `tasks/completed/`. Hosted Actions for the latest fix and
   native acceptance on other operating systems remain separate follow-up gates.
+- Windows follow-up: command cancellation now terminates Git's process tree so
+  a canceled fetch cannot leave the HTTP remote helper holding the server
+  connection open. Hosted run `36096357394` for `be0aca1` passed Ubuntu 24.04,
+  macOS 15, Windows 2025, quality/policy, and full-history secret scanning.
+  Native acceptance on other operating systems remains a separate gate.

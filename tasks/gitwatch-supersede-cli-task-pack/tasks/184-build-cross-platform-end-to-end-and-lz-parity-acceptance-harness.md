@@ -221,6 +221,7 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   process tree (including remote helpers), then falls back to killing the
   direct process. The Windows app test binary cross-compiles with Go
   `go1.27.0 darwin/arm64`; the focused cancellation integration test passes on
-  Darwin and `make check` passes on that host. A hosted Windows rerun is still
-  required to confirm the fix; native Windows and remaining parity evidence
-  remain open.
+  Darwin and `make check` passes on that host. Hosted run `36096357394` for
+  `be0aca1` then passed the cancellation test and all Ubuntu 24.04, macOS 15,
+  Windows 2025, quality/policy, and full-history secret-scan jobs. Native
+  Windows and remaining parity evidence remain open.

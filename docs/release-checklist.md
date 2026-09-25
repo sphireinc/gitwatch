@@ -57,7 +57,7 @@ Record the commit/tag, OS and architecture, terminal and dimensions, Git version
 ### Optional integrations and multi-repository workflows
 
 - [ ] GitHub disabled/offline behavior leaves core Git usable; enabled behavior shows current-branch PR/check/review state, cache refresh, sanitized errors, validated browser opening, and URL copying without credential disclosure.
-- [ ] Multi-repository dashboard: bounded discovery, filtering/sorting, favorites/groups, stale/error state, concurrent refresh limits, repository switching, linked worktrees, and persisted private metadata.
+- [ ] Multi-repository dashboard: bounded discovery, filtering/sorting, favorites/groups, stale/error state, concurrent refresh limits, repository switching, linked worktrees, persisted private metadata, offline authoritative local health, explicit fresh/stale provider data, and remote-fetch outcome/completion-time/latency details.
 - [ ] Plugins: manifest discovery, version-one protocol compatibility, permission display, enable/disable/reload, command and widget state, malformed or hostile output, timeout/crash isolation, and a public SDK example against the candidate host.
 
 ### Environment, edge cases, and lifecycle

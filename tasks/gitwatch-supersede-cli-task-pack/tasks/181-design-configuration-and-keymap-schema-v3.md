@@ -86,6 +86,10 @@ Version configuration deliberately for advanced workbench features instead of ac
   Focused `internal/config` tests and `make check` pass on Go
   `go1.27.0 darwin/arm64`; release-pinned Go and native/release acceptance
   remain open.
+- Hosted run `36096357394` for `be0aca1` passed Ubuntu 24.04, macOS 15,
+  Windows 2025, quality/policy, and full-history secret scanning. This records
+  hosted Go 1.25.10 matrix coverage; publication and native release gates
+  remain open.
 
 - Revision `852eb3e` closes the automated inspection-redaction gap for split
   credential argv values such as `--token secret`, bearer/basic authorization

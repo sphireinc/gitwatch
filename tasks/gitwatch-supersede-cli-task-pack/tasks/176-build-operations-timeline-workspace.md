@@ -75,4 +75,4 @@ Expose Git, network, provider, plugin and custom-command work as a searchable ht
 - Secret handling remains covered by `TestRedactArgsRemovesCredentialMaterial`; the journal stores sanitized argument copies at the recording boundary.
 - Focused test passed: `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache go test ./internal/app -run 'TestOperationJournalVirtualizesHighVolumeInterleavedRepositories' -count=1`.
 - Full gate passed on Go `go1.27.0 darwin/arm64` (macOS, Apple M1 Pro): `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make check` (pinned lint, full unit/race suites, vet, formatting, security fuzz, performance, diff checks).
-- Native/operator terminal evidence and the release-pinned Go 1.25.10/hosted cross-platform run remain outstanding; the current evidence is local automated test/CI-gate execution only.
+- Hosted run `36096357394` for revision `be0aca1` passed Ubuntu 24.04, macOS 15, and Windows 2025, along with quality/policy and full-history secret scanning. This closes the current hosted cross-platform check for the timeline changes; native/manual terminal acceptance remains open.
