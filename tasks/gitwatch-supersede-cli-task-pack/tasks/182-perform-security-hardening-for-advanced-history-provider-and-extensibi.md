@@ -38,18 +38,18 @@ Threat-model and harden the larger attack surface before release.
 
 ## Acceptance criteria
 
-- [ ] No feature weakens argv-only default execution or terminal sanitization.
-- [ ] Security evidence is recorded with exact tested revision.
+- [x] No feature weakens argv-only default execution or terminal sanitization.
+- [x] Security evidence is recorded with exact tested revision.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded (`8129780`; current prompt hardening `9b1cb34`).
+- [x] Exact tested revision recorded (`9b1cb342fffba50675ce83dfc957ac0cabae1ea9`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Current implementation evidence
 
@@ -115,3 +115,10 @@ Threat-model and harden the larger attack surface before release.
   `GITWATCH_FUZZTIME=5s`; all parser fuzz lanes completed successfully,
   including rebase, conflict-index, blame, reflog, tags, submodule config and
   status, and custom-command expansion. Native/manual review remains open.
+
+- At implementation revision `9b1cb342fffba50675ce83dfc957ac0cabae1ea9`,
+  full `make check` passed, then the broader security gate also passed with
+  `GITWATCH_FUZZTIME=5s GOCACHE=/tmp/git-watch-go-cache
+  GOMODCACHE=/tmp/git-watch-go-mod-cache GOPROXY=off GOSUMDB=off
+  ./scripts/security-check.sh`. The task-168 argv/process-inspection caveat is
+  now included in `docs/security.md`; native/manual review remains open.

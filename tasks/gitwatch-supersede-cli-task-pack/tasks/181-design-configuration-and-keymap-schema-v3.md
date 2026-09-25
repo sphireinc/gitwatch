@@ -37,8 +37,8 @@ Version configuration deliberately for advanced workbench features instead of ac
 
 ## Acceptance criteria
 
-- [ ] Existing users upgrade without losing watcher/multi-repo/plugin behavior.
-- [ ] New advanced config is typed and validated.
+- [x] Existing users upgrade without losing watcher/multi-repo/plugin behavior.
+- [x] New advanced config is typed and validated.
 
 ## Progress evidence (2026-09-22)
 
@@ -99,10 +99,17 @@ Version configuration deliberately for advanced workbench features instead of ac
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Implementation commit recorded (`14ed506`, redaction follow-up `852eb3e`, current prompt-schema follow-up `9b1cb34`).
+- [x] Exact tested revision recorded (`9b1cb342fffba50675ce83dfc957ac0cabae1ea9`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
+- [x] Native/manual evidence recorded where this task changes terminal interaction (not applicable; no TUI interaction changed).
+- [x] Known limitations/deferred work documented.
+
+- Current-main schema follow-up: the prompt defaults and option constraints
+  changed the documented v3 schema digest to
+  `cded805c00c7783ae2b04b6d22ffea69c938cc936e98340ef99f7daa3fede2ae`.
+  Full `make check` passed at `9b1cb342fffba50675ce83dfc957ac0cabae1ea9`
+  on Darwin arm64 / Go 1.27.0. Release-wide platform acceptance remains
+  tracked separately by the beta/release gates.

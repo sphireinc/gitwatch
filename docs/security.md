@@ -7,6 +7,12 @@ responses, terminal text, and plugin input/output as untrusted data.
 
 - Git is executed through `exec.CommandContext` argument vectors; filenames and
   refs are never interpolated into shell command strings.
+- Custom commands also use an executable plus separate argument values, never
+  shell parsing. Secret prompts are masked and gitwatch redacts their values
+  from its output and records, but substituting a secret into an argv value may
+  expose it through operating-system process inspection to another process
+  running as the same user. Use a custom tool that accepts secrets through
+  standard input when that exposure is unacceptable.
 - Plugins run out of process. A manifest is validated before execution, and
   requested capabilities must be present in the host grant.
 - Plugin stdout/stderr is bounded. The public newline-delimited protocol rejects

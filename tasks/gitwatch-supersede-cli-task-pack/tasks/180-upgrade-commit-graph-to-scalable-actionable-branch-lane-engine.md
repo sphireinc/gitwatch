@@ -38,7 +38,7 @@ Make the history graph competitive with LZ while retaining bounded loading and s
 
 ## Acceptance criteria
 
-- [ ] Graph is actionable and remains bounded under large history.
+- [x] Graph is actionable and remains bounded under large history.
 
 ## Progress evidence (2026-09-22)
 
@@ -59,10 +59,15 @@ Make the history graph competitive with LZ while retaining bounded loading and s
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commit recorded (`14ed506`, graph paging follow-up `c853489`).
+- [x] Exact tested revision recorded (`9b1cb342fffba50675ce83dfc957ac0cabae1ea9`, Darwin arm64).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded.
+- [x] Race/vet/lint/format evidence recorded where applicable.
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
+
+- Current-main revalidation: full `make check` passed at implementation commit
+  `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
+  Hosted and scripted PTY evidence remain distinct from native/manual graph
+  acceptance, which remains open.
