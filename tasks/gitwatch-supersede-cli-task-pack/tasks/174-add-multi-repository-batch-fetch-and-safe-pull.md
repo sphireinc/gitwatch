@@ -38,18 +38,18 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
 
 ## Acceptance criteria
 
-- [ ] Batch operations are observable, bounded and failure-isolated.
+- [x] Batch operations are observable, bounded and failure-isolated.
 - [ ] Watcher responsiveness remains acceptable during batch work.
 
 ## Completion record
 
-- [ ] Implementation commit recorded.
-- [ ] Exact tested revision recorded.
-- [ ] Focused unit/integration tests recorded.
-- [ ] `go test ./...` recorded.
-- [ ] Race/vet/lint/format evidence recorded where applicable.
+- [x] Implementation commits recorded (`50a36b2`, `df1472b`, with follow-ups).
+- [x] Exact tested revisions recorded (`172d00a` focused/parity; `91424f1` full gate).
+- [x] Focused unit/integration tests recorded.
+- [x] `go test ./...` recorded (`make check`, `91424f1`).
+- [x] Race/vet/lint/format evidence recorded (`make check`, `91424f1`; focused race, `172d00a`).
 - [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [ ] Known limitations/deferred work documented.
+- [x] Known limitations/deferred work documented.
 
 ## Progress evidence
 
@@ -129,3 +129,25 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   50-repository batch-fetch lane, watcher and polling lanes, and the complete
   integration/package coverage. Native cancellation and hosted cross-platform
   acceptance remain open.
+
+## Progress evidence (2026-09-25)
+
+- At revision `172d00a`, race-enabled focused tests passed:
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache go test
+  -race ./internal/app ./internal/integration -run
+  'TestRepositoryBatch|TestBatchFetchFiftyDisposableRepositoriesIsBoundedAndFailureIsolated'
+  -count=1`. This includes dashboard progress/cancel coverage and the real
+  50-repository disposable-local-remote test for worker bounds and failure
+  isolation.
+- At the same revision,
+  `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache
+  ./scripts/parity-check.sh` passed. Its batch-fetch, watcher/manager,
+  provider, multirepo, and integration lanes all succeeded. The full
+  `make check` at `91424f1` passed formatting, pinned lint, tests, race, vet,
+  security fuzz, and performance checks; that revision contains the same Task
+  174 source as `172d00a` (the later commit only changed task documentation).
+- Hosted Actions run `36085163506` passed for `91424f1`, including Ubuntu,
+  macOS, and Windows test/build/runtime jobs and scripted PTY/large-status
+  acceptance. This does not measure concurrent watcher responsiveness during
+  an active batch or substitute for native/manual cancellation. Those gates
+  remain open, so Task 174 remains active.
