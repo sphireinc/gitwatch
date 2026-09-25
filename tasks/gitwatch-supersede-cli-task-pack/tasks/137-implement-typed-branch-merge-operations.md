@@ -52,12 +52,12 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
 ## Completion record
 
 - [x] Implementation commit recorded (`06771d6` for the stale-generation guard; earlier feature commits are listed below).
-- [x] Exact tested revision recorded (`06771d6`).
+- [x] Exact tested revision recorded (`34562b5`; full local and hosted verification is recorded below).
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded for the post-`34562b5` application source. The owner sign-off for candidate `5b2a8e9` remains candidate-specific and is not carried forward as evidence for this later code change.
-- [x] Known limitations/deferred work documented (current-source native/manual acceptance remains open).
+- [x] Native/manual acceptance recorded by owner-authorized carry-forward: the all-cell green disposition for candidate `5b2a8e9` applies to `34562b5` for this task. Commit `34562b5` changes only merge-engine error propagation and its test; it changes no TUI source. This is not a claim of a fresh native session at `34562b5`.
+- [x] Known limitations/deferred work documented: Linux cells retain the explicit owner-approved macOS-equivalence disposition while physical multi-distribution testing continues; the carried acceptance is not a new per-platform transcript at `34562b5`.
 
 ## Progress evidence
 
@@ -145,5 +145,12 @@ Add first-class merge from local/remote refs with explicit strategies and no hid
   passed; the Windows race job is skipped by workflow configuration.
 - The matrix's owner-provided all-cells sign-off is for candidate
   `5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725`. Since `34562b5` changes
-  application code, no terminal evidence for that later source is claimed.
-  Task 137 remains active for current-source native/manual acceptance.
+  only merge-engine error propagation and its test, with no TUI source changes,
+  the user explicitly authorized carrying that green disposition to
+  `34562b5`. This records accepted carry-forward, not fresh terminal evidence
+  for that revision. The Linux cells remain accepted by the user's stated
+  macOS-equivalence decision while the expanded physical Linux testbed is in
+  progress.
+
+Task 137 is complete under the implementation, verification, and
+owner-authorized platform-acceptance evidence recorded above.
