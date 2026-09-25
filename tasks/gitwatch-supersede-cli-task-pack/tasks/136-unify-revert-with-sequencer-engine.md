@@ -1,7 +1,7 @@
 # Task 136: Unify revert with sequencer engine
 
 **Phase:** Cherry-pick and history selection
-**Depends on:** 123, 143
+**Depends on:** 123
 
 ## Goal
 
@@ -131,6 +131,9 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 
 ## Merged-main acceptance (2026-09-25)
 
+- Dependency ordering follows the user's resolution: Task 136 precedes Task 143
+  (`136 → 143`) as shown in `DEPENDENCY_GRAPH.md`; the stale Task 136
+  prerequisite on Task 143 has been removed.
 - Revert execution uses the typed `git.RevertRequest` adapter, while detection
   and progress use the shared `DetectOperationState` sequencer projection.
   Continue, Skip, and Abort pass through `Runner.OperationLifecycle`; the
@@ -158,6 +161,5 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   and lifecycle boundary required by the task are present and covered by the
   same merged-main evidence; no additional revert-only recovery path remains.
 
-Implementation, tests, and the user's owner acceptance are verified on merged
-main. Keep Task 136 active until the contradictory Task 136/143 dependency
-ordering is resolved; no revert implementation or validation gap remains.
+Task 136 is complete on merged main under the recorded implementation,
+verification, and owner-acceptance evidence.
