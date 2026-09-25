@@ -23,6 +23,10 @@ Do not skip this. Tasks 122–125 prevent every later feature from creating one-
 ```
 
 Task 143 is deliberately central. Rebase, cherry-pick, revert and merge must share conflict lifecycle behavior.
+The ordering is `135 → 143 → 132`: Task 135 feeds the shared coordinator, which
+then completes the rebase lifecycle in Task 132. Keep task prerequisites aligned
+with these arrows; in particular, Task 135 does not depend on Task 143, and Task
+143 does not depend on Task 132.
 
 ## Recovery
 

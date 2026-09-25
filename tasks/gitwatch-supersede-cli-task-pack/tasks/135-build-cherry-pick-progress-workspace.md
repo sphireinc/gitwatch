@@ -1,7 +1,7 @@
 # Task 135: Build cherry-pick progress workspace
 
 **Phase:** Cherry-pick and history selection
-**Depends on:** 134, 143
+**Depends on:** 134
 
 ## Goal
 

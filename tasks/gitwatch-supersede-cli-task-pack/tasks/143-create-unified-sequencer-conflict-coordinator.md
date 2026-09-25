@@ -1,7 +1,7 @@
 # Task 143: Create unified sequencer conflict coordinator
 
 **Phase:** Merge and conflicts
-**Depends on:** 132, 135, 136, 137, 140, 141
+**Depends on:** 135, 136, 137, 140, 141
 
 ## Goal
 
