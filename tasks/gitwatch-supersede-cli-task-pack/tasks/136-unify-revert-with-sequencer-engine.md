@@ -55,7 +55,7 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Owner-provided cross-platform operator acceptance recorded for the exact application source; Linux is accepted by the documented equivalence disposition, not represented as a physical Linux transcript.
 - [x] Known limitations/deferred work documented.
 
 ## Progress evidence
@@ -83,27 +83,28 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 - The History workspace now displays a bounded numbered revert-order preview,
   including an explicit overflow count for larger baskets.
 - App coverage verifies valid merge-parent selection before exact confirmation.
-  This task remains active: the unified coordinator, broader integration
-  coverage, and native acceptance evidence remain outstanding.
+  At this implementation point, the unified coordinator, broader integration
+  coverage, and native acceptance evidence were still outstanding.
 - Revert completion now returns a typed `RevertFinishedMsg` with the
   authoritative post-command snapshot and semantic operation metadata, applies
   paused conflict state through the shared resolver, and records success or
   failure in the operation journal before refreshing history/status.
 - This lifecycle slice is committed at `354e7c4`; the full `make check` gate
-  passed at that revision. The task remains active for the unified coordinator,
-  broader restart/abort integration evidence, and native acceptance.
+  passed at that revision. At that point the task remained active for the
+  unified coordinator, broader restart/abort integration evidence, and native
+  acceptance.
 
 - Revision `fc20c04` adds `TestRevertConflictAbortAfterFreshRunnerParityScenario`.
   It starts a real revert conflict, reconstructs the Git runner as a restarted
   process, rediscovers the durable revert state, aborts through the typed
   lifecycle boundary, and verifies the authoritative clean snapshot and
-  original worktree content. Focused normal and race runs pass; native
-  acceptance remains open.
+  original worktree content. Focused normal and race runs passed at that point;
+  native acceptance was still open.
 - At revision `b03e46d`, the focused application, Git-boundary, and integration
   suites passed with `go test ./internal/app ./internal/git
   ./internal/integration`, including shared revert conflict detection,
-  continuation, and fresh-runner abort coverage. Native acceptance and the
-  unified coordinator remain open.
+  continuation, and fresh-runner abort coverage. At that revision, native
+  acceptance and the unified coordinator remained open.
 - At revision `122c8de`, the production lifecycle audit found revert
   continuation/skip/abort routed through `Runner.OperationLifecycle`, with no
   separate revert conflict parser. `TestRevertConflictResumeParityScenario`,
@@ -111,7 +112,8 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   `TestDetectOperationStateReportsRevertProgress` passed as part of the full
   local `GOCACHE=/tmp/gitwatch-go-cache make check` on macOS arm64. Hosted run
   `35864391354` passed quality/policy, full-history secret scan, and Ubuntu,
-  macOS, and Windows matrices. Native operator acceptance remains open.
+  macOS, and Windows matrices. At that revision, native operator acceptance
+  remained open.
 - A real three-commit revert with a middle conflict exposed a restart
   projection defect: Git retained only the current/pending todo entries, so
   Original HEAD was blank and the already applied revert was omitted. The
@@ -124,5 +126,38 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
   normal/race tests, vet, formatting, security, and performance). Hosted run
   `36058259936` at `db4ae0a` passed quality/policy, full-history secret scan,
   and Ubuntu/macOS/Windows test jobs, including Unix PTY and Windows
-  path/CRLF checks.
-  Native/manual terminal acceptance and the unified coordinator remain open.
+  path/CRLF checks. At that revision, native/manual terminal acceptance and
+  the unified coordinator remained open.
+
+## Merged-main acceptance (2026-09-25)
+
+- Revert execution uses the typed `git.RevertRequest` adapter, while detection
+  and progress use the shared `DetectOperationState` sequencer projection.
+  Continue, Skip, and Abort pass through `Runner.OperationLifecycle`; the
+  shared conflict view consumes the same sequencer state and conflict
+  snapshot. No revert-specific conflict parser or lifecycle state machine
+  remains.
+- Existing tests cover ordered multi-commit and mainline revert validation,
+  conflict continuation, abort after fresh-runner restart, middle-conflict
+  progress reconstruction, and common revert progress/recovery presentation.
+  The real integration `TestRevertConflictResumeParityScenario` verifies
+  conflict detection, resolution, continuation, and the final authoritative
+  clean snapshot.
+- `make check` passed on merged-main application source revision
+  `be2d1d999ac3b3e62eafb59bd11b6f1703aac4c6`; hosted Actions run
+  [36137333931](https://github.com/sphireinc/gitwatch/actions/runs/36137333931)
+  passed quality/policy, full-history secret scan, and Ubuntu/macOS/Windows
+  matrices. Windows race testing is skipped by the workflow.
+- The beta matrix records the user's explicit all-cells operator sign-off for
+  candidate `5b2a8e9ca35e011f474bc1ddf542d3b98e3aa725`; tracked differences
+  from that candidate through merged main are documentation/task records, not
+  application code. The sign-off therefore covers this task's terminal
+  interaction. Linux is accepted by equivalence while physical Linux testing
+  continues; no raw terminal transcript is claimed here.
+- The revert-specific task criteria are met. The shared sequencer coordinator
+  and lifecycle boundary required by the task are present and covered by the
+  same merged-main evidence; no additional revert-only recovery path remains.
+
+Implementation, tests, and the user's owner acceptance are verified on merged
+main. Keep Task 136 active until the contradictory Task 136/143 dependency
+ordering is resolved; no revert implementation or validation gap remains.
