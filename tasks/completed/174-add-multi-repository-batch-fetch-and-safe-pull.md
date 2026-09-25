@@ -43,13 +43,13 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
 
 ## Completion record
 
-- [x] Implementation commits recorded (`50a36b2`, `df1472b`, `173c0f8`, with follow-ups).
-- [x] Exact tested revisions recorded (`173c0f8` full gate and focused regression).
+- [x] Implementation commits recorded (`50a36b2`, `df1472b`, `173c0f8`, `c12c14d`).
+- [x] Exact tested revision recorded (`c12c14d`; prior batch-fetch fix at `173c0f8`).
 - [x] Focused unit/integration tests recorded.
-- [x] `go test ./...` recorded (`make check`, `173c0f8`).
-- [x] Race/vet/lint/format evidence recorded (`make check`, `173c0f8`; focused race, `173c0f8`).
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
-- [x] Known limitations/deferred work documented.
+- [x] `go test ./...` recorded (`make check`, `c12c14d`).
+- [x] Race/vet/lint/format evidence recorded (`make check`, `c12c14d`; focused race, `c12c14d`).
+- [x] Native/manual 80x24 PTY evidence recorded for dashboard fetch and cancellation.
+- [x] Known limitations/deferred work documented, including hosted CI not rechecked for `c12c14d`.
 
 ## Progress evidence
 
@@ -177,3 +177,27 @@ Make the repositories dashboard an operations console that goes beyond LZ’s si
   terminal result (the slow fixture ended as failed). Native/manual cancellation
   evidence is still required, so Task 174 remains active. Hosted Actions status
   for `173c0f8` has not yet been recorded.
+
+## Cancellation follow-up (`c12c14d`)
+
+- Fixed cancellation identity propagation: `git.CommandError` now matches both
+  its kind (`git.ErrCancelled`) and underlying cause (`context.Canceled`) via
+  `errors.Is`, without changing `Unwrap` compatibility. Added runner coverage
+  and `TestRepositoryBatchCancellationIsReportedAsCancelled`, which blocks a
+  disposable HTTP remote until the real Git request is cancelled and asserts
+  the dashboard result is `cancelled`.
+- `GOCACHE=/tmp/gitwatch-go-cache GOMODCACHE=/tmp/gitwatch-go-mod-cache make
+  check` passed on this source: formatting, pinned lint (0 issues), all unit
+  tests, race tests, vet, security fuzz checks, and performance budgets. The
+  focused app/Git cancellation tests also passed with `-race`.
+- Manually exercised the rebuilt `c12c14d` binary on Darwin arm64 with Go
+  1.27.0 in an 80x24 PTY. With one local bare remote and one stalled loopback
+  HTTP remote, the dashboard confirmed `F` fetch-all; after the slow request
+  was accepted, `K` cancelled it. The status view showed
+  `batch fetch complete: 1 succeeded, 0 failed, 1 cancelled, 0 skipped`.
+  This closes the Task 174 local PTY cancellation gate; it does not claim
+  hosted Actions or native acceptance on other operating systems. Hosted
+  Actions for `c12c14d` have not been recorded.
+- Task 174 acceptance and completion evidence are satisfied; this record is now
+  archived under `tasks/completed/`. Hosted Actions for the latest fix and
+  native acceptance on other operating systems remain separate follow-up gates.
