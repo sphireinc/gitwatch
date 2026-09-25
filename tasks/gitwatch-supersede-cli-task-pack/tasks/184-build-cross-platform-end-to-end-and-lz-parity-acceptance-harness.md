@@ -220,6 +220,15 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   enable optional PTY lanes and does not close native/manual evidence. The full
   parity matrix and native operator sign-off remain open.
 
+- At `8988da6e7e778c6d12ae7422a656853f1780bc1c` on Darwin arm64 / Go 1.27.0,
+  the real-binary `scripts/pty-smoke.sh`, `scripts/pty-large-status-smoke.sh`,
+  and `scripts/pty-history-smoke.sh` lanes all passed: startup, 80x24 help and
+  clean quit; authoritative `UNTRACKED 14953`; and merge-graph history under
+  `NO_COLOR=1` with reduced motion. Sanitized captures are under
+  `/tmp/git-watch-parity-pty.VOcHHM`. These are local scripted PTY results,
+  not native operator sign-off; cross-platform PTY and feature-specific native
+  acceptance remain open.
+
 ## Progress evidence (2026-09-25)
 
 - Hosted Windows-2025 run `36092884046` timed out in

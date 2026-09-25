@@ -250,3 +250,8 @@ behavior without introducing a JavaScript runtime or web UI dependency.
   implementation revision `9b1cb342fffba50675ce83dfc957ac0cabae1ea9`.
   This is hosted CI evidence only; native mouse/NO_COLOR acceptance remains
   open.
+- On `8988da6e7e778c6d12ae7422a656853f1780bc1c` on Darwin arm64 / Go 1.27.0,
+  the current real-binary large-status PTY lane also passed at 80x24 with the
+  authoritative `UNTRACKED 14953` summary and clean quit. This is automated PTY
+  evidence; native mouse/NO_COLOR/reduced-motion operator acceptance remains
+  open.
