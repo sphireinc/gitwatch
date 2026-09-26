@@ -46,7 +46,7 @@ Support starting, resuming, marking, skipping and resetting Git bisect as a repo
 
 ## Acceptance criteria
 
-- [ ] Bisect can be fully controlled and resumed from gitwatch.
+- [x] Bisect can be fully controlled and resumed from gitwatch.
 
 ## Completion record
 
@@ -55,7 +55,7 @@ Support starting, resuming, marking, skipping and resetting Git bisect as a repo
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Owner-approved operator acceptance recorded by source equivalence; no fresh native transcript is claimed.
 - [x] Known limitations/deferred work documented.
 
 ## Progress evidence
@@ -89,5 +89,19 @@ Support starting, resuming, marking, skipping and resetting Git bisect as a repo
   restored the original `main` tip and clean worktree. A second in-progress
   bisect survived app exit/restart, was reopened through the palette's
   `Reopen active Bisect` action, and accepted another mark. This is scripted
-  PTY evidence, not native/manual operator sign-off; the completion record
-  remains open.
+  PTY evidence, not a native/manual transcript. The owner-approved task
+  acceptance by source equivalence is recorded below.
+
+## Owner-approved source-equivalence acceptance (2026-09-26)
+
+The owner explicitly approved carrying the operator disposition to Tasks
+148–150 by source equivalence, despite the beta matrix having no bisect-specific
+row. Task 148's engine/state-loader and app integration have no Go-source
+delta from the signed candidate through `9b1cb34`. This records owner-approved
+acceptance, not a fresh bisect transcript or physical Linux run; Linux remains
+accepted by the stated macOS-equivalence decision.
+
+Task 148 is complete under the implementation, verification, and
+owner-authorized platform-acceptance evidence recorded above. Its task-specific
+source is unchanged on `9b1cb34`; the separate Task 89 hosted-CI gate remains
+pending for beta publication.

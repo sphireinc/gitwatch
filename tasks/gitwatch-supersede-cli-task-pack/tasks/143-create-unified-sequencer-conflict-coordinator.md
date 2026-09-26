@@ -201,3 +201,12 @@ Make conflict handling identical across rebase, cherry-pick, revert and merge.
 
 Task 143 is complete under the shared coordinator implementation, current-main
 verification, and owner-authorized platform-acceptance evidence recorded here.
+
+## Owner-approved source-equivalence carry-forward (2026-09-25)
+
+The owner-approved carry-forward includes the merge-engine error-propagation
+change through `34562b5`. The owner now approves carrying Task 143's operator
+acceptance to beta target `9b1cb34`: no merge-engine, sequencer, or conflict-
+coordinator source changed after `34562b5`. This is source-equivalence
+acceptance, not a fresh native transcript; Linux remains accepted by the
+explicit macOS-equivalence decision, not represented as a physical Linux run.

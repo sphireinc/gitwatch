@@ -119,3 +119,29 @@ owner-approved disposition is recorded above.
 Tasks 34, 35, 89, and 90 remain in progress until their own acceptance criteria
 and the applicable rows above are complete. Do not move or relabel them based
 only on documentation or automated evidence.
+
+## Owner-approved feature carry-forwards (2026-09-25)
+
+The base matrix sign-off above remains an owner-provided disposition for exact
+candidate `5b2a8e9`; it is not a claim of fresh per-platform transcripts.
+The owner separately approved carrying the full matrix disposition to
+`34562b5` for Task 89 and carrying the context-pane cells to `34562b5` for Task
+120. The latter code path is unchanged at that revision. These are
+source-equivalence acceptances, not native runs performed on `34562b5`.
+
+For Tasks 132–147, the owner approved carrying each recovery feature's matrix
+acceptance to candidate `9b1cb34` where that task's source is unchanged. The
+merge-engine error-propagation change in `34562b5` was explicitly included for
+Tasks 137 and 143; no merge-engine source changes follow it through `9b1cb34`.
+For Tasks 148–150, the owner explicitly approved the same source-equivalence
+carry-forward even though the matrix has no bisect-specific row. These are
+task-level owner acceptances, not claims of bisect/recovery transcripts or
+physical Linux runs. Linux remains accepted by the stated macOS-equivalence
+decision while multi-distribution Linux testing continues.
+
+The owner selected `v1.1.0-beta.1` and exact target `9b1cb34`, conditional on
+hosted CI passing for that commit. The `9b1cb34` custom-command prompt-default
+source change is outside the recovery/bisect equivalence approvals; Task 89's
+beta-wide disposition is currently carried only through `34562b5`. Do not
+publish the beta until the target CI and the custom-command acceptance scope
+are resolved.

@@ -52,7 +52,7 @@ Offer Undo only where gitwatch can prove a safe recovery point; refuse when repo
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Owner-approved operator acceptance recorded by source equivalence; no fresh native transcript is claimed.
 - [x] Known limitations/deferred work documented.
 
 ## Progress evidence
@@ -96,4 +96,17 @@ Offer Undo only where gitwatch can prove a safe recovery point; refuse when repo
   Actions run
   [35867831486](https://github.com/sphireinc/gitwatch/actions/runs/35867831486)
   passed quality/policy, secret scanning, and Ubuntu, macOS, and Windows jobs.
-  Native/manual terminal evidence remains required before task completion.
+  At that time, native/manual terminal evidence remained required; the later
+  owner approval is recorded below.
+
+## Owner-approved source-equivalence carry-forward (2026-09-26)
+
+The owner approved carrying the recovery-feature acceptance to beta target
+`9b1cb34` where the task source is unchanged. The safe-undo policy and its
+application integration have no Go-source delta from the signed candidate
+through `9b1cb34`. This is owner-authorized acceptance, not a fresh native
+transcript. Linux remains accepted by macOS equivalence; no physical Linux run
+is claimed.
+
+Task 146 is complete under the implementation, verification, and
+owner-authorized platform-acceptance evidence recorded above.

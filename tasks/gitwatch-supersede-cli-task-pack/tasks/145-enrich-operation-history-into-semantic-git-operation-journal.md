@@ -47,7 +47,7 @@ Upgrade the existing bounded operation completion history into a user-facing rec
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Owner-approved operator acceptance recorded by source equivalence; no fresh native transcript is claimed.
 - [x] Known limitations/deferred work documented.
 
 ## Progress evidence
@@ -94,5 +94,17 @@ Upgrade the existing bounded operation completion history into a user-facing rec
   passed on `cda3a1b` across the Ubuntu, macOS, and Windows jobs, quality and
   policy checks, and full-history secret scan. Existing focused coverage proves
   redaction, bounded repository-separated journal records, and keyboard/mouse
-  browsing. Native/manual terminal evidence remains the only recorded gate to
-  completion.
+  browsing. At that time, native/manual terminal evidence remained the only
+  recorded gate; the later owner approval is recorded below.
+
+## Owner-approved source-equivalence carry-forward (2026-09-26)
+
+The owner approved carrying the recovery-feature acceptance to beta target
+`9b1cb34` where the task source is unchanged. The semantic journal and its
+application integration have no Go-source delta from the signed candidate
+through `9b1cb34`. This is owner-authorized acceptance, not a fresh native
+transcript. Linux remains accepted by macOS equivalence; no physical Linux run
+is claimed.
+
+Task 145 is complete under the implementation, verification, and
+owner-authorized platform-acceptance evidence recorded above.

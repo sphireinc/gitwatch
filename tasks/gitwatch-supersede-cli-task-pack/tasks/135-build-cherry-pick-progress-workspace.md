@@ -163,3 +163,12 @@ Provide visible progress and recovery instead of reducing multi-commit cherry-pi
   documented and does not block the listed acceptance criteria.
 
 Task 135 is complete on merged main under the recorded owner acceptance.
+
+## Owner-approved source-equivalence carry-forward (2026-09-25)
+
+The owner approved carrying Task 135's operator acceptance to beta target
+`9b1cb34` because the cherry-pick workspace, sequencer, and conflict-view
+sources used by this task are unchanged from the signed candidate. This is
+source-equivalence acceptance, not a fresh native transcript; Linux remains
+accepted by the explicit macOS-equivalence decision, not represented as a
+physical Linux run.

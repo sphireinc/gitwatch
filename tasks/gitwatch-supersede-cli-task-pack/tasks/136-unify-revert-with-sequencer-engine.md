@@ -163,3 +163,11 @@ Upgrade existing revert into a resumable multi-commit operation with the same re
 
 Task 136 is complete on merged main under the recorded implementation,
 verification, and owner-acceptance evidence.
+
+## Owner-approved source-equivalence carry-forward (2026-09-25)
+
+The owner approved carrying Task 136's operator acceptance to beta target
+`9b1cb34` because the revert, sequencer, and conflict-view sources used by this
+task are unchanged from the signed candidate. This is source-equivalence
+acceptance, not a fresh native transcript; Linux remains accepted by the
+explicit macOS-equivalence decision, not represented as a physical Linux run.

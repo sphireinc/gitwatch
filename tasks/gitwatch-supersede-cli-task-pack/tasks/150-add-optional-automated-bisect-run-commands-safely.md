@@ -41,8 +41,8 @@ Support automated bisect testing without violating argv-only execution.
 
 ## Acceptance criteria
 
-- [ ] Automated bisect is bounded/cancellable.
-- [ ] Default execution never uses shell interpolation.
+- [x] Automated bisect is bounded/cancellable.
+- [x] Default execution never uses shell interpolation.
 
 ## Completion record
 
@@ -51,7 +51,7 @@ Support automated bisect testing without violating argv-only execution.
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded through `make check` at `e3bdedb`.
 - [x] Race/vet/lint/format evidence recorded through `make check` at `e3bdedb`.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Owner-approved operator acceptance recorded by source equivalence; no fresh native transcript is claimed.
 - [x] Known limitations/deferred work documented.
 
 ## Progress evidence
@@ -138,9 +138,8 @@ Support automated bisect testing without violating argv-only execution.
   recorded as passing at `e3bdedb`, with current-main hosted CI below.
 - Hosted Actions run `36179909264` for current main `eebde8f` passed quality,
   policy, secret scanning, and the Ubuntu, macOS, and Windows matrix.
-- The user-approved matrix has no bisect-specific row. Keep Task 150's native
-  operator cell open unless task-specific operator acceptance is explicitly
-  carried or collected; no native transcript is claimed here.
+- The user-approved matrix has no bisect-specific row. The later explicit
+  source-equivalence approval and its no-transcript scope are recorded below.
 - User documentation now describes the manual and automated bisect workflows,
   argv-only command entry, confirmation, bounded output, timeout, and cancel
   behavior in `README.md`, `KEYMAP.md`, and `docs/advanced-workflows.md`.
@@ -148,6 +147,20 @@ Support automated bisect testing without violating argv-only execution.
   the network; gitwatch does not sandbox it. Output display is bounded and
   sanitized, so it is diagnostic rather than a source of operation truth.
 
-Task 150's code and hosted gates are complete. Native/operator acceptance for
-the automated-run workflow remains open, along with the Task 148–149
-bisect-workspace operator gates on which this workflow depends.
+Task 150's code and hosted gates are complete. The owner-approved operator
+acceptance for this automated-run workflow and its Task 148–149 workspace
+dependencies is recorded by source equivalence below.
+
+## Owner-approved source-equivalence acceptance (2026-09-26)
+
+The owner explicitly approved carrying the operator disposition to Tasks
+148–150 by source equivalence, despite the beta matrix having no bisect-specific
+row. The automated-run engine and app integration have no Go-source delta from
+the signed candidate through `9b1cb34`. This records owner-approved
+acceptance, not a fresh bisect transcript or physical Linux run; Linux remains
+accepted by the stated macOS-equivalence decision.
+
+Task 150 is complete under the implementation, verification, and
+owner-authorized platform-acceptance evidence recorded above. Its task-specific
+source is unchanged on `9b1cb34`; the separate Task 89 hosted-CI gate remains
+pending for beta publication.

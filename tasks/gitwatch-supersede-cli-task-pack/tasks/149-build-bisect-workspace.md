@@ -36,7 +36,7 @@ Make manual bisect visually obvious while live worktree status remains available
 
 ## Acceptance criteria
 
-- [ ] User can execute a manual bisect loop entirely inside gitwatch.
+- [x] User can execute a manual bisect loop entirely inside gitwatch.
 
 ## Completion record
 
@@ -45,7 +45,7 @@ Make manual bisect visually obvious while live worktree status remains available
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Owner-approved operator acceptance recorded by source equivalence; no fresh native transcript is claimed.
 - [x] Known limitations/deferred work documented.
 
 ## Progress evidence
@@ -114,5 +114,21 @@ Make manual bisect visually obvious while live worktree status remains available
   [36072840848](https://github.com/sphireinc/gitwatch/actions/runs/36072840848)
   for `12ec973` was still in progress with 2/3 jobs complete; evidence run
   [36073093897](https://github.com/sphireinc/gitwatch/actions/runs/36073093897)
-  for `39ef3ef` was waiting on that run. Hosted success/failure remains
-  unverified; native/manual acceptance remains open.
+  for `39ef3ef` was waiting on that run. Later hosted run `36179909264` for
+  `eebde8f` passed the repository matrix; exact-target CI for `9b1cb34` remains
+  pending and is tracked under Task 89. The owner-approved task acceptance is
+  recorded below.
+
+## Owner-approved source-equivalence acceptance (2026-09-26)
+
+The owner explicitly approved carrying the operator disposition to Tasks
+148–150 by source equivalence, despite the beta matrix having no bisect-specific
+row. The bisect workspace and app integration have no Go-source delta from the
+signed candidate through `9b1cb34`. This records owner-approved acceptance,
+not a fresh bisect transcript or physical Linux run; Linux remains accepted
+by the stated macOS-equivalence decision.
+
+Task 149 is complete under the implementation, verification, and
+owner-authorized platform-acceptance evidence recorded above. Its task-specific
+source is unchanged on `9b1cb34`; the separate Task 89 hosted-CI gate remains
+pending for beta publication.

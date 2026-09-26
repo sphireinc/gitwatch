@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Repository-wide tests, race tests, vetting, benchmarks, release checks, strict five-target artifact verification, OS-specific CI runtime smoke checks, and real-repository integration fixtures pass; the plugin API-1 compatibility fixtures, beta validation matrix, feedback template, and release sign-off record are documented. The matrix is owner-signed for exact candidate `5b2a8e9` across macOS, Windows, and all Linux cells by explicit platform-equivalence acceptance; physical multi-distribution Linux testing continues. On 2026-09-25 the owner confirmed no known private/unreported blocker, critical, or data-loss issue beyond the public tracker, which showed zero open issues. The owner selected beta tag `v1.1.0-beta.1`; candidate disposition, publication, and the feedback window remain open, and no beta tag or release has been created.
+Progress: Repository-wide tests, race tests, vetting, benchmarks, release checks, strict five-target artifact verification, OS-specific CI runtime smoke checks, and real-repository integration fixtures pass; the plugin API-1 compatibility fixtures, beta validation matrix, feedback template, and release sign-off record are documented. The matrix is owner-signed for exact candidate `5b2a8e9` across macOS, Windows, and all Linux cells by explicit platform-equivalence acceptance; physical multi-distribution Linux testing continues. On 2026-09-25 the owner confirmed no known private/unreported blocker, critical, or data-loss issue beyond the public tracker, which showed zero open issues. The owner selected beta tag `v1.1.0-beta.1`, approved the all-cell carry-forward to `34562b5`, and selected `9b1cb34` as the publication target only after its hosted CI passes. The beta-wide disposition is not yet carried across `9b1cb34`'s custom-command prompt-default source change; no beta tag or release has been created.
 
 ## Objective
 Cut a beta release containing all post-v1 features. Collect crash/error/performance feedback, test across macOS/Linux/Windows and major terminals, validate Git versions, freeze plugin API candidate, and resolve all release-blocking defects.
@@ -37,13 +37,19 @@ release list likewise shows `v1.0.9` as the latest publication. That stable
 release targets `951f3f6`, 200 commits and 89 Go source files before candidate
 `5b2a8e9`; it is not a post-v1 feature beta. Current tested source `34562b5`
 differs from `5b2a8e9` only in merge-engine error propagation and its test.
-The user-approved carry-forward to `34562b5` is recorded for Tasks 137 and
-143, but not yet for this beta-wide task. Do not claim the later disposition
-or the v1.0.9 stable publication satisfies Task 89's exact-candidate beta
-release requirement.
+On 2026-09-25 the owner explicitly carried the all-cell `5b2a8e9`
+disposition to `34562b5` for this beta-wide task. The owner selected exact
+publication target `9b1cb34`, conditional on that commit's hosted CI passing.
+That commit adds custom-command prompt-default Go source (`internal/customcmd`)
+after `34562b5`; the beta-wide operator disposition has not been carried over
+that changed feature. Task-specific source-equivalence approvals for the
+context-pane, recovery, and bisect features are recorded separately and do
+not constitute a Task 89-wide sign-off for the custom-command change. Do not
+claim the v1.0.9 stable publication satisfies Task 89's beta requirement.
 
-**Still required:** resolve whether the all-cell matrix disposition carries to
-the exact release commit, then create and publish the authorized
+**Still required:** hosted CI for exact target `9b1cb34`; an explicit
+operator-acceptance decision or exact-candidate evidence for the changed
+custom-command prompt-default behavior; then create and publish the authorized
 `v1.1.0-beta.1` tag/release and complete its feedback window. No beta tag or
 release has been created.
 
@@ -87,8 +93,19 @@ GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache
 ./scripts/release-check.sh` passed. It verified the local source install/runtime
 smoke, five supported platform archives, release metadata, SBOM inputs, and
 checksums. No tag, push, or GitHub Release was created. This local verification
-does not substitute for hosted CI or native operator evidence on `ab4b234`; the
-exact publication commit remains subject to owner selection.
+does not substitute for hosted CI or the exact-candidate operator disposition
+on `9b1cb34`; the owner selected `9b1cb34` as the target conditional on hosted
+CI success.
+
+## Selected-target CI trigger (2026-09-26)
+
+`git push origin 9b1cb34:refs/heads/main` successfully fast-forwarded remote
+`main` from `eebde8f` to exact target `9b1cb34`; GitHub reported that the
+required-PR rule was bypassed. No tag or release was created. The immediate
+`gh run list --commit 9b1cb34` query could not connect to `api.github.com`, but
+the public [Actions run 36265558585](https://github.com/sphireinc/gitwatch/actions/runs/36265558585)
+was subsequently confirmed for exact commit `9b1cb34`. It is in progress with
+1 of 3 jobs complete; poll it to a terminal result before tagging.
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.

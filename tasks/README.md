@@ -12,8 +12,10 @@ Tasks 34, 35, 89, 90, 120, and 207 remain explicitly in progress. Tasks 34, 35,
 context-pane release gate; Task 207 is the `.gitignore` manager acceptance and
 release gate. The implementation lanes through Task 119 are
 complete and remain in `tasks/completed/` as the public implementation record.
-Task 120 remains at the root until its operator-owned native release evidence
-is attached. Tasks 121–186 are the Supersede execution lane described in
+Task 120 remains at the root until its release acceptance is closed. Its
+context-pane operator disposition has owner-approved source-equivalence
+coverage through `34562b5`; no fresh native transcript is claimed. Tasks
+121–186 are the Supersede execution lane described in
 `tasks/gitwatch-supersede-cli-task-pack/`.
 
 Task 120 remains the prerequisite release/context gate for the Supersede lane.

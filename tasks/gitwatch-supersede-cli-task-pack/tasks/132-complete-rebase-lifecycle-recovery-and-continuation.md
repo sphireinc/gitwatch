@@ -191,3 +191,11 @@ cross-platform lifecycle acceptance. Keep the task active.
 
 Task 132 is complete under the rebase implementation, automated verification,
 and owner-provided platform-acceptance evidence recorded here.
+
+## Owner-approved source-equivalence carry-forward (2026-09-25)
+
+The owner approved carrying Task 132's operator acceptance to beta target
+`9b1cb34` because the rebase, sequencer, and conflict-view sources used by this
+task are unchanged from the signed candidate. This is source-equivalence
+acceptance, not a fresh native transcript; Linux remains accepted by the
+explicit macOS-equivalence decision, not represented as a physical Linux run.

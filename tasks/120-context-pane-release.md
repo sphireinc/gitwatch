@@ -23,5 +23,11 @@ backward compatibility for users who leave it disabled.
 exact `VERSION=1.0.9 ./scripts/release-check.sh` candidate gate passed at
 `0f10d5d`, including tests, race tests, security/performance checks, five-target
 archive verification, checksums, dependency-license/SBOM input packaging, and
-build identity. Native macOS, Linux, and Windows terminal evidence remains
-operator-owned and is not claimed here.
+build identity. The owner-provided matrix disposition covers all listed
+terminal, OS, Git, workbench, integration, and workload cells for candidate
+`5b2a8e9`; Linux is accepted by explicit macOS equivalence, not represented as
+physical Linux testing. On 2026-09-25 the owner approved carrying the
+context-pane disposition to `34562b5` because the context-pane source is
+unchanged through that revision. This is owner-approved acceptance by source
+equivalence, not a fresh native transcript at `34562b5`; physical
+multi-distribution Linux testing continues.
