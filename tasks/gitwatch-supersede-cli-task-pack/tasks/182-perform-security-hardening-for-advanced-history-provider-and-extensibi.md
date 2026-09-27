@@ -122,3 +122,12 @@ Threat-model and harden the larger attack surface before release.
   GOMODCACHE=/tmp/git-watch-go-mod-cache GOPROXY=off GOSUMDB=off
   ./scripts/security-check.sh`. The task-168 argv/process-inspection caveat is
   now included in `docs/security.md`; native/manual review remains open.
+
+- Current-main plugin hardening now applies a five-second default child-process
+  deadline and uses the shared cross-platform process-tree cancellation
+  boundary. `TestRuntimeTimeoutKillsPluginProcessTree` starts a real descendant
+  process and verifies timeout cancellation prevents it from surviving. The
+  regression passed three repeated race-enabled runs; full `make check`,
+  including the security fuzz gate and race suite, passed on Darwin arm64 / Go
+  1.27.0 in the working tree based on `9cb1212`. Native/manual review remains
+  open.

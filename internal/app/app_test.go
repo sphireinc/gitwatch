@@ -4185,6 +4185,32 @@ func TestPluginWorkspaceTogglesSelectedEntry(t *testing.T) {
 	}
 }
 
+func TestPluginReloadIsSingleFlight(t *testing.T) {
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.PluginDirectories = []string{t.TempDir()}
+
+	first := m.loadPlugins()
+	if first == nil || !m.pluginLoadInFlight.Load() {
+		t.Fatalf("first plugin load = command nil %v, in-flight %v", first == nil, m.pluginLoadInFlight.Load())
+	}
+	if duplicate := m.loadPlugins(); duplicate != nil {
+		t.Fatal("a second plugin load was admitted while the first was in flight")
+	}
+
+	updated, _ := m.Update(first())
+	m = updated.(Model)
+	if m.pluginLoadInFlight.Load() {
+		t.Fatal("plugin load guard remained set after the result was applied")
+	}
+	if retry := m.loadPlugins(); retry == nil {
+		t.Fatal("plugin reload was not admitted after the previous result settled")
+	} else {
+		updated, _ := m.Update(retry())
+		m = updated.(Model)
+	}
+}
+
 func TestHunkWorkspaceSelectionAndDiscardConfirmation(t *testing.T) {
 	m := New()
 	m.DiffText = "diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1,2 +1,2 @@\n keep\n-old\n+new\n"

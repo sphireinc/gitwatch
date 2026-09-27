@@ -14,12 +14,14 @@ responses, terminal text, and plugin input/output as untrusted data.
   running as the same user. Use a custom tool that accepts secrets through
   standard input when that exposure is unacceptable.
 - Plugins run out of process. A manifest is validated before execution, and
-  requested capabilities must be present in the host grant.
+  requested capabilities must be present in the host grant. Each child process
+  has a five-second default deadline; cancellation terminates its process tree.
 - Plugin stdout/stderr is bounded. The public newline-delimited protocol rejects
   empty messages, oversized messages, and oversized type/ID fields. Invalid or
   mismatched handshakes are refused.
 - Plugin cancellation is tied to the process context; restart supervision is
-  bounded by an explicit restart count and backoff.
+  bounded by an explicit restart count and backoff. Workspace reloads are
+  single-flight and probe enabled entries serially.
 
 ## Data and terminal safety
 

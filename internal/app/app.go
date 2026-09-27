@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"charm.land/bubbletea/v2"
@@ -923,6 +924,7 @@ type Model struct {
 	PluginDirectories         []string
 	PluginOutputLimit         int64
 	PluginStatePath           string
+	pluginLoadInFlight        *atomic.Bool
 	Repositories              repoview.Model
 	RepositorySearching       bool
 	RepositoryRoots           []string
@@ -981,7 +983,8 @@ func New() Model {
 		GitHubIssuesCache:   provider.NewCache[[]provider.Issue](2 * time.Minute),
 		GitHubReleasesCache: provider.NewCache[[]provider.Release](2 * time.Minute),
 		Plugins:             pluginview.New(nil), Theme: theme.New(theme.Auto, false), PanelSplit: layout.DefaultSplit(),
-		DetailsCache: details.NewCache(), ActivityLog: history.New(100),
+		pluginLoadInFlight: &atomic.Bool{},
+		DetailsCache:       details.NewCache(), ActivityLog: history.New(100),
 		ctx: ctx, cancel: cancel, RefreshInterval: 2 * time.Second,
 		ReconciliationInterval: 30 * time.Second, WatchDebounce: 75 * time.Millisecond,
 		DiffMaxBytes: 4 << 20, DiffMaxLines: 20_000, GitignoreMaxBytes: security.DefaultMaxDocumentBytes, CommitTreeMaxCommits: config.DefaultCommitTreeCommits,
@@ -4843,6 +4846,9 @@ func (m Model) deleteGitHubBranch() tea.Cmd {
 }
 
 func (m Model) loadPlugins() tea.Cmd {
+	if m.pluginLoadInFlight == nil || !m.pluginLoadInFlight.CompareAndSwap(false, true) {
+		return nil
+	}
 	directories := append([]string(nil), m.PluginDirectories...)
 	statePath := m.PluginStatePath
 	outputLimit := m.PluginOutputLimit
@@ -9768,6 +9774,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.loadGitHub()
 		}
 	case PluginsReadyMsg:
+		if m.pluginLoadInFlight != nil {
+			m.pluginLoadInFlight.Store(false)
+		}
 		if v.Err != nil {
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {

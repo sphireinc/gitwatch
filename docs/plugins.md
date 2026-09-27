@@ -16,6 +16,11 @@ payloads are opaque JSON and are bounded by the SDK limits. The runtime owns
 transport, timeout and cancellation handling, bounded restart supervision,
 crash containment, and capability validation.
 
+Each plugin child process has a five-second default deadline and a one-megabyte
+limit on each of stdout and stderr. Cancellation terminates the process tree.
+The Plugins workspace probes enabled entries serially and coalesces overlapping
+reload requests, so repeated reload input cannot fan out plugin processes.
+
 Compatibility guarantee: API version 1 is additive within the declared JSON
 fields. Hosts ignore optional fields they do not use, while plugins must not
 depend on undeclared capabilities or private gitwatch packages. A future

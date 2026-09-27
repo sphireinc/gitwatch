@@ -5,10 +5,67 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
+	"time"
 )
+
+const pluginHelperModeEnv = "GITWATCH_PLUGIN_RUNTIME_HELPER"
+
+func init() {
+	switch os.Getenv(pluginHelperModeEnv) {
+	case "parent":
+		childStarted := os.Getenv("GITWATCH_PLUGIN_RUNTIME_CHILD_STARTED")
+		childSurvived := os.Getenv("GITWATCH_PLUGIN_RUNTIME_CHILD_SURVIVED")
+		command := exec.Command(os.Args[0], "--gitwatch-plugin")
+		command.Env = replaceTestEnv(os.Environ(), pluginHelperModeEnv, "child")
+		command.Env = replaceTestEnv(command.Env, "GITWATCH_PLUGIN_RUNTIME_CHILD_STARTED", childStarted)
+		command.Env = replaceTestEnv(command.Env, "GITWATCH_PLUGIN_RUNTIME_CHILD_SURVIVED", childSurvived)
+		if err := command.Start(); err != nil || !waitForTestFile(childStarted, 1500*time.Millisecond) {
+			os.Exit(2)
+		}
+		if err := os.WriteFile(os.Getenv("GITWATCH_PLUGIN_RUNTIME_PARENT_STARTED"), []byte("started"), 0o600); err != nil {
+			os.Exit(2)
+		}
+		for {
+			time.Sleep(time.Hour)
+		}
+	case "child":
+		if err := os.WriteFile(os.Getenv("GITWATCH_PLUGIN_RUNTIME_CHILD_STARTED"), []byte("started"), 0o600); err != nil {
+			os.Exit(2)
+		}
+		time.Sleep(4 * time.Second)
+		if err := os.WriteFile(os.Getenv("GITWATCH_PLUGIN_RUNTIME_CHILD_SURVIVED"), []byte("survived"), 0o600); err != nil {
+			os.Exit(2)
+		}
+		os.Exit(0)
+	}
+}
+
+func replaceTestEnv(environment []string, name, value string) []string {
+	prefix := name + "="
+	filtered := environment[:0]
+	for _, entry := range environment {
+		if !strings.HasPrefix(entry, prefix) {
+			filtered = append(filtered, entry)
+		}
+	}
+	return append(filtered, prefix+value)
+}
+
+func waitForTestFile(path string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); err == nil {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return false
+}
 
 func TestRuntimeRejectsInvalidManifest(t *testing.T) {
 	_, err := (Runtime{}).Run(context.Background(), Manifest{}, nil)
@@ -53,6 +110,34 @@ func TestRuntimeContainsHostilePluginOutput(t *testing.T) {
 	result, err := (Runtime{OutputLimit: 4}).Run(context.Background(), manifest, nil)
 	if err == nil || len(result.Stdout) > 4 {
 		t.Fatalf("hostile output result = len=%d err=%v", len(result.Stdout), err)
+	}
+}
+
+func TestRuntimeTimeoutKillsPluginProcessTree(t *testing.T) {
+	directory := t.TempDir()
+	parentStarted := filepath.Join(directory, "parent-started")
+	childStarted := filepath.Join(directory, "child-started")
+	childSurvived := filepath.Join(directory, "child-survived")
+	t.Setenv(pluginHelperModeEnv, "parent")
+	t.Setenv("GITWATCH_PLUGIN_RUNTIME_PARENT_STARTED", parentStarted)
+	t.Setenv("GITWATCH_PLUGIN_RUNTIME_CHILD_STARTED", childStarted)
+	t.Setenv("GITWATCH_PLUGIN_RUNTIME_CHILD_SURVIVED", childSurvived)
+
+	manifest := Manifest{ID: "timeout", Name: "Timeout", Version: "1", APIVersion: APIVersion, Executable: os.Args[0]}
+	started := time.Now()
+	_, err := (Runtime{Timeout: 2 * time.Second}).Run(context.Background(), manifest, nil)
+	if !errors.Is(err, ErrPluginTimeout) {
+		t.Fatalf("timed plugin result error = %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > 4*time.Second {
+		t.Fatalf("plugin deadline returned too late: %s", elapsed)
+	}
+	if !waitForTestFile(parentStarted, 100*time.Millisecond) || !waitForTestFile(childStarted, 100*time.Millisecond) {
+		t.Fatal("plugin parent or descendant did not start before timeout")
+	}
+	time.Sleep(2200 * time.Millisecond)
+	if _, statErr := os.Stat(childSurvived); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("plugin descendant survived process-tree cancellation: stat error=%v", statErr)
 	}
 }
 

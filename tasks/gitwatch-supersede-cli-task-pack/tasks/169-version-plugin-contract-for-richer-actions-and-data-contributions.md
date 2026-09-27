@@ -95,6 +95,14 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
   fuzz checks, formatting, lint, and performance benchmarks. Provider-backed
   metadata actions and native/manual/release evidence remain open.
 
+- Current-main hardening adds a five-second default deadline per plugin child,
+  terminates descendant processes on cancellation, and prevents overlapping
+  Plugins-workspace reloads from multiplying probes. The timeout/process-tree
+  regression passed three repeated race-enabled runs, and the app single-flight
+  regression passed. Full `make check` passed on Darwin arm64 / Go 1.27.0 in the
+  working tree based on `9cb1212`; native/manual terminal acceptance remains
+  open.
+
 ## Additional progress evidence (2026-09-24)
 
 - Commit `844b9b2` adds a bounded `github.repository` API-2 metadata action.

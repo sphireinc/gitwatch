@@ -10,10 +10,12 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/sphireinc/git-watch/internal/platform"
 	publicplugin "github.com/sphireinc/git-watch/pkg/plugin"
 )
 
 const MaxOutputBytes = 1 << 20
+const DefaultProcessTimeout = 5 * time.Second
 
 var ErrOutputLimit = errors.New("plugin output exceeded limit")
 var ErrCapabilityDenied = errors.New("plugin capability was not granted")
@@ -23,6 +25,7 @@ var ErrPluginProtocol = errors.New("invalid plugin protocol")
 
 type Runtime struct {
 	OutputLimit int64
+	Timeout     time.Duration
 }
 
 type Supervision struct {
@@ -126,11 +129,18 @@ func (r Runtime) RunWithCapabilities(ctx context.Context, manifest Manifest, inp
 
 func (r Runtime) runProcess(ctx context.Context, manifest Manifest, input []byte) (Result, error) {
 	started := time.Now()
+	timeout := r.Timeout
+	if timeout <= 0 {
+		timeout = DefaultProcessTimeout
+	}
+	processContext, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	limit := r.OutputLimit
 	if limit <= 0 {
 		limit = MaxOutputBytes
 	}
-	command := exec.CommandContext(ctx, manifest.Executable, "--gitwatch-plugin")
+	command := exec.CommandContext(processContext, manifest.Executable, "--gitwatch-plugin")
+	platform.ConfigureProcessCancellation(command)
 	command.Stdin = bytes.NewReader(input)
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &limitedWriter{writer: &stdout, limit: limit}
@@ -141,11 +151,11 @@ func (r Runtime) runProcess(ctx context.Context, manifest Manifest, input []byte
 		result.ExitCode = exitErr.ExitCode()
 	}
 	if err != nil {
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return result, fmt.Errorf("%w: %v", ErrPluginTimeout, ctx.Err())
+		if errors.Is(processContext.Err(), context.DeadlineExceeded) {
+			return result, fmt.Errorf("%w: %v", ErrPluginTimeout, processContext.Err())
 		}
-		if errors.Is(ctx.Err(), context.Canceled) {
-			return result, fmt.Errorf("%w: %v", ErrPluginCancelled, ctx.Err())
+		if errors.Is(processContext.Err(), context.Canceled) {
+			return result, fmt.Errorf("%w: %v", ErrPluginCancelled, processContext.Err())
 		}
 		return result, err
 	}

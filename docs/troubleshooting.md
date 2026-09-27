@@ -19,8 +19,11 @@ the failed GitHub request, while local status and Git operations remain usable.
 ## A plugin is unhealthy
 
 Open `E`, inspect the manifest error and declared capabilities, then press `r`
-to reload. Plugins are separate processes and output is bounded. Run
-`./scripts/security-check.sh` when validating a local plugin installation.
+to reload. Plugins are separate processes, their output is bounded, and each
+handshake is stopped after five seconds by default. A timed-out plugin is shown
+as unhealthy; check that its executable starts promptly and returns a valid
+newline-delimited handshake. Run `./scripts/security-check.sh` when validating
+a local plugin installation.
 
 ## The lower-left context pane is empty or unavailable
 
