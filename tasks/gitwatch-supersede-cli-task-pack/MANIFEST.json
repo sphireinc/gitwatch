@@ -354,13 +354,13 @@
     },
     {
       "path": "tasks/183-set-and-enforce-large-scale-performance-budgets.md",
-      "bytes": 3545,
-      "sha256": "21baa21ec85c8710884d1280c81464e50c711092b652bb57dca21efc5ca3665d"
+      "bytes": 16036,
+      "sha256": "f748a51d48f2f47cf30d36c0e48b7a63f7f3c74b08b590e076723841a069fc8b"
     },
     {
       "path": "tasks/184-build-cross-platform-end-to-end-and-lz-parity-acceptance-harness.md",
-      "bytes": 3653,
-      "sha256": "e3c820094215028e12eda204b9ebfbe2f812bfe160113d8998357c89d22e2da9"
+      "bytes": 19434,
+      "sha256": "cee9a581f9557a8a8cc34b6b5816fcf8a7178d099c55be53d77ffdd854e12e73"
     },
     {
       "path": "tasks/185-run-supersede-beta-and-close-field-defects.md",
