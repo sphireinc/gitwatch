@@ -46,7 +46,7 @@ Make Ctrl-P a workspace-wide navigator across repositories and already-loaded Gi
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Owner-approved operator acceptance recorded by source equivalence; no fresh native transcript is claimed.
 - [x] Known limitations/deferred work documented.
 
 ## Progress evidence (2026-09-22)
@@ -67,3 +67,15 @@ Make Ctrl-P a workspace-wide navigator across repositories and already-loaded Gi
   `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
   Dedicated cross-platform latency samples and native/manual acceptance remain
   open; benchmark coverage is not represented as operator evidence.
+
+## Owner-approved source-equivalence acceptance (2026-09-27)
+
+The owner approved carrying the all-platform disposition for beta candidate
+`5b2a8e9` to current main `6e05247` for Task 178. The `Command palette and
+notifications` matrix row was owner-signed green on macOS and Windows, with
+Linux accepted by the stated macOS-equivalence decision. The palette's loaded
+repository indexing, query/search, and selection routing are unchanged from
+the candidate. The later plugin-load in-flight guard may affect when loaded
+plugin entries become available; the owner explicitly accepted this carry.
+This is owner-approved acceptance, not fresh native transcripts or physical
+Linux runs. Cross-platform latency samples remain open.

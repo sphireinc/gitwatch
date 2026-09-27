@@ -64,10 +64,22 @@ Make the history graph competitive with LZ while retaining bounded loading and s
 - [x] Focused unit/integration tests recorded.
 - [x] `go test ./...` recorded.
 - [x] Race/vet/lint/format evidence recorded where applicable.
-- [ ] Native/manual evidence recorded where this task changes terminal interaction.
+- [x] Owner-approved operator acceptance recorded by source equivalence; no fresh native transcript is claimed.
 - [x] Known limitations/deferred work documented.
 
 - Current-main revalidation: full `make check` passed at implementation commit
   `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
   Hosted and scripted PTY evidence remain distinct from native/manual graph
   acceptance, which remains open.
+
+## Owner-approved source-equivalence acceptance (2026-09-27)
+
+The owner approved carrying the all-platform disposition for beta candidate
+`5b2a8e9` to current main `6e05247` for Task 180. The `History and commit
+inspector` matrix row was owner-signed green on macOS and Windows, with Linux
+accepted by the stated macOS-equivalence decision. The history graph engine,
+pagination, and graph-view source are unchanged from the candidate; subsequent
+`internal/app/app.go` changes are outside the graph path. This is
+owner-approved acceptance, not fresh native transcripts or physical Linux
+runs. With this disposition recorded, all listed acceptance and completion-
+record checks are satisfied; Task 180 is complete.

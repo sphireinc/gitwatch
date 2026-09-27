@@ -329,8 +329,8 @@
     },
     {
       "path": "tasks/178-add-cross-repository-command-palette-and-search.md",
-      "bytes": 3302,
-      "sha256": "38de91931811d2c72b18dd500c99904d3e27b0289b863bb18fe7212aa6ffd2fa"
+      "bytes": 6746,
+      "sha256": "a8dcb40fa056434f906b762d99105e12a2403503d3700b4d96794612701ce3aa"
     },
     {
       "path": "tasks/179-add-information-dense-repository-activity-visualization.md",
@@ -339,8 +339,8 @@
     },
     {
       "path": "tasks/180-upgrade-commit-graph-to-scalable-actionable-branch-lane-engine.md",
-      "bytes": 3297,
-      "sha256": "c21e882818db48edb9ed64fe4de69ff27147e272dba1affdca15144d2d115ba0"
+      "bytes": 6221,
+      "sha256": "ff931a5c469b1b02edb022a136c568a255a836d01ba393586286050615366fbc"
     },
     {
       "path": "tasks/181-design-configuration-and-keymap-schema-v3.md",
