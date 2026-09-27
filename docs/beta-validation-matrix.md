@@ -140,8 +140,20 @@ physical Linux runs. Linux remains accepted by the stated macOS-equivalence
 decision while multi-distribution Linux testing continues.
 
 The owner selected `v1.1.0-beta.1` and exact target `9b1cb34`, conditional on
-hosted CI passing for that commit. The `9b1cb34` custom-command prompt-default
-source change is outside the recovery/bisect equivalence approvals; Task 89's
-beta-wide disposition is currently carried only through `34562b5`. Do not
-publish the beta until the target CI and the custom-command acceptance scope
-are resolved.
+hosted CI passing for that commit. On 2026-09-27, after that CI passed, the
+owner explicitly carried the complete all-platform disposition through
+`34562b5` to `9b1cb34`, including the custom-command prompt-default source
+change. This is owner acceptance, not fresh native transcripts for the exact
+candidate. The signed tag `v1.1.0-beta.1` was then published from `9b1cb34`
+after release workflow [36307343578](https://github.com/sphireinc/gitwatch/actions/runs/36307343578)
+passed.
+
+The owner also accepted Task 207's seven `.gitignore` manager feature criteria
+by source equivalence because that application source is unchanged between
+`5b2a8e9` and `9b1cb34`. This closes those feature-specific acceptance criteria
+as owner disposition only; it does not add or imply fresh native runs or
+scenario transcripts. General platform operator evidence remains separate.
+
+The beta feedback window is in progress. Keep owner dispositions, automated
+release results, and native operator transcripts distinct; reopen any affected
+acceptance if follow-up testing reports a regression.

@@ -2,7 +2,7 @@
 
 Status: In progress
 
-Progress: Repository-wide tests, race tests, vetting, benchmarks, release checks, strict five-target artifact verification, OS-specific CI runtime smoke checks, and real-repository integration fixtures pass; the plugin API-1 compatibility fixtures, beta validation matrix, feedback template, and release sign-off record are documented. The matrix is owner-signed for exact candidate `5b2a8e9` across macOS, Windows, and all Linux cells by explicit platform-equivalence acceptance; physical multi-distribution Linux testing continues. On 2026-09-25 the owner confirmed no known private/unreported blocker, critical, or data-loss issue beyond the public tracker, which showed zero open issues. The owner selected beta tag `v1.1.0-beta.1`, approved the all-cell carry-forward to `34562b5`, and selected `9b1cb34` as the publication target conditional on hosted CI. Exact-target Actions run `36265558585` passed all five workflow jobs, including Ubuntu 24.04, macOS 15, and Windows 2025. On 2026-09-27 the owner explicitly carried the all-platform disposition to `9b1cb34` across the custom-command prompt-default change; this is owner acceptance, not fresh operator transcripts. No beta tag or release has been created.
+Progress: Repository-wide tests, race tests, vetting, benchmarks, release checks, strict five-target artifact verification, OS-specific CI runtime smoke checks, and real-repository integration fixtures pass; the plugin API-1 compatibility fixtures, beta validation matrix, feedback template, and release sign-off record are documented. The matrix is owner-signed for exact candidate `5b2a8e9` across macOS, Windows, and all Linux cells by explicit platform-equivalence acceptance; physical multi-distribution Linux testing continues. On 2026-09-25 the owner confirmed no known private/unreported blocker, critical, or data-loss issue beyond the public tracker, which showed zero open issues. The owner selected beta tag `v1.1.0-beta.1`, approved the all-cell carry-forward to `34562b5`, and selected `9b1cb34` as the publication target conditional on hosted CI. Exact-target Actions run `36265558585` passed all five workflow jobs, including Ubuntu 24.04, macOS 15, and Windows 2025. On 2026-09-27 the owner explicitly carried the all-platform disposition to `9b1cb34` across the custom-command prompt-default change; this is owner acceptance, not fresh operator transcripts. The signed `v1.1.0-beta.1` prerelease was published from `9b1cb34` after release workflow `36307343578` passed. The beta feedback window and remaining release-acceptance evidence are still open.
 
 ## Objective
 Cut a beta release containing all post-v1 features. Collect crash/error/performance feedback, test across macOS/Linux/Windows and major terminals, validate Git versions, freeze plugin API candidate, and resolve all release-blocking defects.
@@ -46,11 +46,11 @@ context-pane, recovery, and bisect features are recorded separately and do
 not constitute a Task 89-wide sign-off for the custom-command change. Do not
 claim the v1.0.9 stable publication satisfies Task 89's beta requirement.
 
-**Still required:** create and publish the authorized `v1.1.0-beta.1`
-tag/release and complete its feedback window. The owner accepted the
-custom-command prompt-default behavior for this candidate by disposition, not
-by new exact-candidate operator evidence. No beta tag or release has been
-created.
+**Still required:** complete the beta feedback window, monitor and triage
+crash/security/data-loss/install reports, and finish remaining operator and
+release-acceptance evidence. The owner accepted the custom-command
+prompt-default behavior for this candidate by disposition, not by new
+exact-candidate operator evidence. The beta tag and release are published.
 
 ## Prerelease channel safeguard (2026-09-25)
 
@@ -116,8 +116,19 @@ The owner explicitly approved carrying the all-platform disposition from
 custom-command prompt-default change. This closes the Task 89 operator
 acceptance decision by owner disposition; it is not a claim that new native
 operator transcripts were collected for `9b1cb34`. Hosted CI for the exact
-candidate passed in run `36265558585`. The authorized beta tag and release
-remain unpublished.
+candidate passed in run `36265558585`. At the time this disposition was
+recorded, the authorized beta tag and release remained unpublished.
+
+## Beta publication (2026-09-27)
+
+The signed annotated tag [`v1.1.0-beta.1`](https://github.com/sphireinc/gitwatch/releases/tag/v1.1.0-beta.1)
+targets exact commit `9b1cb342fffba50675ce83dfc957ac0cabae1ea9`. Release
+workflow [36307343578](https://github.com/sphireinc/gitwatch/actions/runs/36307343578)
+verified the signed tag, passed all build/source/history/artifact checks, and
+published the GitHub prerelease. It includes the five macOS/Linux/Windows
+archives, release metadata, `SHA256SUMS`, SPDX SBOM, and artifact attestation.
+The feedback window starts with publication; Task 89 remains in progress until
+its follow-up monitoring and remaining acceptance evidence are complete.
 
 ## Completion artifact
 Record implementation notes, key decisions, new commands/keybindings/configuration, tests added, and any deliberately deferred follow-ups in the task/PR completion summary.

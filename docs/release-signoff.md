@@ -1,11 +1,22 @@
 # Release sign-off record
 
 This file preserves the prepublication sign-off snapshot for candidate
-`0f10d5d` and records the later v1.0.9 publication separately. The publication
-is verified. Exact-tag native runs were later confirmed by the owner; the
-release workflow itself is not native operator evidence.
+`0f10d5d` and records the later v1.0.9 stable and v1.1.0-beta.1 prerelease
+publications separately. Both publications are verified. Exact-tag native runs
+for v1.0.9 were later confirmed by the owner; release workflows are not native
+operator evidence.
 
-## Current public release: v1.0.9
+## Current published prerelease: v1.1.0-beta.1
+
+- Published: 2026-09-27 08:52:17 UTC
+- Signed tag: [`v1.1.0-beta.1`](https://github.com/sphireinc/gitwatch/releases/tag/v1.1.0-beta.1), targeting `9b1cb342fffba50675ce83dfc957ac0cabae1ea9`
+- The signed annotated tag was verified locally and by the release workflow; the tag-verification job also confirmed GitHub reports the signature as verified.
+- [Release workflow 36307343578](https://github.com/sphireinc/gitwatch/actions/runs/36307343578) passed both `Build and verify` and `Attest and publish`, including source tests/race/vet/security/performance, full-history secret scan, five-target archive verification, SPDX SBOM, checksums, attestation, and GitHub publication.
+- Published assets: macOS amd64/arm64, Linux amd64/arm64, and Windows amd64 archives, release metadata, `SHA256SUMS`, and SPDX SBOM.
+- The release is classified as a prerelease. The all-platform acceptance on this exact candidate includes the owner's explicit carry-forward from `5b2a8e9` across the custom-command prompt-default change; this is owner acceptance, not fresh native operator transcripts.
+- The beta feedback window is in progress. The beta validation matrix and Task 89 retain the distinction between owner disposition, automated release workflow evidence, and native operator transcripts.
+
+## Latest stable release: v1.0.9
 
 - Published: 2026-09-22 06:49:28 UTC
 - Signed tag: [`v1.0.9`](https://github.com/sphireinc/gitwatch/releases/tag/v1.0.9), targeting `951f3f64c64fef31c3fc088577f14713e1175ffb`
