@@ -18,6 +18,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/operations"
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
+	"github.com/sphireinc/git-watch/internal/watch"
 )
 
 func TestEngineUsesBoundedWorkersAndCachesInactiveRepositories(t *testing.T) {
@@ -334,13 +335,153 @@ func TestRegistryAndOperationEnginesBoundDirectChildProcesses(t *testing.T) {
 	t.Logf("observed peak of %d direct child processes for %d repositories and %d concurrent operations (combined worker cap %d)", peak, repositoryCount, operationCount, processBound)
 }
 
+func TestRefreshCoordinatorBoundsChildrenDuringWatcherEventStorm(t *testing.T) {
+	const (
+		processCounterEnv = "GITWATCH_REGISTRY_PROCESS_COUNTER"
+		processDelayEnv   = "GITWATCH_REGISTRY_PROCESS_DELAY"
+		processDelay      = time.Second
+		fileCount         = 256
+	)
+	root := t.TempDir()
+	watcher, err := watch.New(root, 10*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = watcher.Close() })
+	watchCtx, stopWatcher := context.WithCancel(context.Background())
+	t.Cleanup(stopWatcher)
+	events := watcher.Events(watchCtx)
+
+	counterDir := t.TempDir()
+	runner := git.Runner{
+		Binary: os.Args[0],
+		Dir:    counterDir,
+		Env: []string{
+			processCounterEnv + "=" + counterDir,
+			processDelayEnv + "=" + processDelay.String(),
+		},
+	}
+	started := make(chan struct{}, 2)
+	coordinator := git.NewRefreshCoordinator(func(ctx context.Context, generation uint64) (repo.Snapshot, error) {
+		started <- struct{}{}
+		if _, err := runner.Run(ctx, "-test.run=^TestRegistryDirectChildProcessProbe$"); err != nil {
+			return repo.Snapshot{}, err
+		}
+		return repo.Snapshot{Root: root, Generation: generation}, nil
+	})
+	t.Cleanup(coordinator.Close)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	coordinator.Request(ctx)
+	select {
+	case <-started:
+	case <-ctx.Done():
+		t.Fatalf("initial refresh did not start: %v", ctx.Err())
+	}
+	processDeadline := time.Now().Add(2 * time.Second)
+	for {
+		active, _ := readProcessCounter(t, counterDir)
+		if active == 1 {
+			break
+		}
+		if time.Now().After(processDeadline) {
+			t.Fatalf("initial child process did not become active; active=%d", active)
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	for index := 0; index < fileCount; index++ {
+		path := filepath.Join(root, fmt.Sprintf("storm-%03d", index))
+		if err := os.WriteFile(path, []byte("refresh storm"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	eventCount := 0
+	eventDuringRefresh := false
+	quiet := time.NewTimer(100 * time.Millisecond)
+	defer quiet.Stop()
+	stormDeadline := time.NewTimer(3 * time.Second)
+	defer stormDeadline.Stop()
+eventsLoop:
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				t.Fatal("watcher events closed during event storm")
+			}
+			if event.Err != nil || event.Mode != watch.ModeFS {
+				t.Fatalf("event storm produced invalid event: %#v", event)
+			}
+			eventCount++
+			active, _ := readProcessCounter(t, counterDir)
+			if active > 0 {
+				eventDuringRefresh = true
+			}
+			coordinator.Request(ctx)
+			if !quiet.Stop() {
+				select {
+				case <-quiet.C:
+				default:
+				}
+			}
+			quiet.Reset(100 * time.Millisecond)
+		case <-quiet.C:
+			if eventCount == 0 {
+				t.Fatal("event storm produced no watcher events")
+			}
+			if !eventDuringRefresh {
+				t.Fatal("watcher event storm did not overlap the active child process")
+			}
+			stopWatcher()
+			for range events {
+				// Drain any final buffered event and wait for the watcher goroutine
+				// to observe cancellation and close its output channel.
+			}
+			break eventsLoop
+		case <-stormDeadline.C:
+			t.Fatalf("watcher event storm did not settle: %d events", eventCount)
+		case <-ctx.Done():
+			t.Fatalf("watcher event storm exceeded context: %v", ctx.Err())
+		}
+	}
+
+	for index := 0; index < 2; index++ {
+		select {
+		case result := <-coordinator.Results():
+			if result.Err != nil {
+				t.Fatalf("refresh %d failed: %v", index+1, result.Err)
+			}
+			if result.Snapshot.Root != root || result.Snapshot.Generation != uint64(index+1) {
+				t.Fatalf("refresh %d snapshot = %+v", index+1, result.Snapshot)
+			}
+		case <-ctx.Done():
+			t.Fatalf("waiting for coalesced refresh %d: %v", index+1, ctx.Err())
+		}
+	}
+	active, peak := readProcessCounter(t, counterDir)
+	if active != 0 || peak != 1 {
+		t.Fatalf("event-storm child process counts: active=%d peak=%d, want active=0 peak=1", active, peak)
+	}
+	t.Logf("coalesced %d filesystem events into two refreshes with peak child processes %d", eventCount, peak)
+}
+
 func TestRegistryDirectChildProcessProbe(t *testing.T) {
 	counterDir := os.Getenv("GITWATCH_REGISTRY_PROCESS_COUNTER")
 	if counterDir == "" {
 		t.Skip("child-process probe is run only by its parent regression test")
 	}
 	updateProcessCounter(t, counterDir, 1)
-	time.Sleep(40 * time.Millisecond)
+	delay := 40 * time.Millisecond
+	if configured := os.Getenv("GITWATCH_REGISTRY_PROCESS_DELAY"); configured != "" {
+		parsed, err := time.ParseDuration(configured)
+		if err != nil {
+			t.Fatalf("parse child-process delay %q: %v", configured, err)
+		}
+		delay = parsed
+	}
+	time.Sleep(delay)
 	updateProcessCounter(t, counterDir, -1)
 }
 

@@ -83,12 +83,24 @@ workers, bounded plugin output, and visible-list rendering proportional to the v
 rather than total history/repository size. Record benchmark output with
 `go test -bench . -benchmem` before changing those budgets.
 
+Plugin workspace reloads are single-flight and probe entries serially. Each
+plugin child process has a five-second default deadline and cancellation kills
+its process tree; this bounds the active plugin-process count to one during a
+workspace load even if reload input is repeated.
+
 The registry engine also has a deterministic 100-repository refresh regression,
 `TestEngineRefreshKeepsHundredRepositoriesWithinWorkerBound`. It injects a small
 cooperative source delay, asserts all 100 repository results are returned in input
 order, and proves peak refresh concurrency never exceeds the configured eight
 workers. This complements the 20-repository mixed-health isolation scenario and
 does not depend on a live network or filesystem.
+
+`TestRefreshCoordinatorBoundsChildrenDuringWatcherEventStorm` joins the
+filesystem watcher, refresh coordinator, and a cross-process child counter. A
+256-file create burst while the first refresh child is active must yield one
+coalesced follow-up refresh; the measured peak child-process count remains one
+and returns to zero. This does not model checkout/rebase subprocesses, provider
+or history work, or native terminal responsiveness.
 
 CI and the release check enforce allocation budgets for these representative
 workloads: fewer than 1,000 allocations for the 10,000-line patch parser,

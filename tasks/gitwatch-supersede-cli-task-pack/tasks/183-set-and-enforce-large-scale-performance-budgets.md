@@ -38,9 +38,11 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
 
 ## Acceptance criteria
 
-- [ ] No unbounded list/process/goroutine behavior (registry-refresh direct
-  child-process bounds are now measured; end-to-end process/leak coverage
-  remains open).
+- [ ] No unbounded list/process/goroutine behavior (registry-refresh process
+  workers, operation admission, watcher-event-storm refresh processes, and
+  plugin reload processes are bounded and measured; checkout/rebase,
+  provider/history, batch external-tool, and native responsiveness profiles
+  remain open).
 - [x] Live status remains responsive under documented scale scenarios.
 
 ## Completion record
@@ -181,3 +183,24 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   `TestRemoteOperationQueueFullCancelsJobContext` confirms rejected work does
   not invoke the remote operation and its scoped context is released. The full
   `make check` gate passed again on Darwin arm64 / Go 1.27.0 after this change.
+- Plugin probes now have a five-second default process deadline and terminate
+  descendant processes when cancelled. A shared platform helper applies the
+  same process-tree cancellation policy to Git and plugins; plugin-workspace
+  reload is single-flight, preventing repeated reload requests from starting
+  overlapping probe loops. `TestRuntimeTimeoutKillsPluginProcessTree`,
+  `TestPluginReloadIsSingleFlight`, and Git cancellation coverage pass in the
+  focused run; the plugin descendant-cancellation regression passed three
+  repeated race-enabled runs. Full `make check` passed on Darwin arm64 / Go
+  1.27.0 in the working tree based on `9cb1212`, including race, security,
+  performance, and release-policy checks. Event-storm/checkout/rebase,
+  provider/history, and native responsiveness profiles remain open.
+- At working-tree revision `9cb1212` on Darwin arm64 / Go 1.27.0,
+  `TestRefreshCoordinatorBoundsChildrenDuringWatcherEventStorm` connected the
+  filesystem watcher, refresh coordinator, and a cross-process child counter.
+  A 256-file create burst overlapped the active refresh, yielded one debounced
+  watcher event and exactly one coalesced follow-up refresh, and measured peak
+  child-process concurrency of one with no child left active. The focused test
+  passed normally and passed three consecutive race-enabled runs. This closes
+  only the watcher-event-storm/refresh-process slice; checkout/rebase,
+  provider/history, batch external-tool, and native responsiveness evidence
+  remain open.
