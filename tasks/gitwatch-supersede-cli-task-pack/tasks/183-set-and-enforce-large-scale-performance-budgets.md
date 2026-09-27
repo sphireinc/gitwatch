@@ -204,3 +204,11 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   only the watcher-event-storm/refresh-process slice; checkout/rebase,
   provider/history, batch external-tool, and native responsiveness evidence
   remain open.
+- Hosted Actions run [36308198716](https://github.com/sphireinc/gitwatch/actions/runs/36308198716)
+  passed quality/policy, full-history secret scanning, and the Ubuntu/macOS
+  test and parity lanes, but Windows failed in
+  `TestRegistryAndOperationEnginesBoundDirectChildProcesses` before its parity
+  step. The failure log omitted child-process cause/output. Added diagnostic
+  reporting to that test; the focused Windows-targeted host test passed five
+  local repetitions and three race-enabled repetitions on Darwin arm64. A new
+  hosted run is required before claiming cross-platform success.

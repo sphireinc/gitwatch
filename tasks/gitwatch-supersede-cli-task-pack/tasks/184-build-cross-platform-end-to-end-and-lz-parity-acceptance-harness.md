@@ -266,6 +266,12 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   ./scripts/parity-check.sh` passed the real integration, watcher, process-
   bounded registry refresh, bisect, cherry-pick, submodule, remote/provider,
   multi-repository, custom-command, plugin, and app lanes.
+- Hosted Actions run [36308198716](https://github.com/sphireinc/gitwatch/actions/runs/36308198716)
+  passed the Linux and macOS parity steps plus quality/policy and history
+  scanning. Windows failed earlier in the full package suite at
+  `TestRegistryAndOperationEnginesBoundDirectChildProcesses`, so its parity
+  step was not reached. Diagnostic output was added and local repeated/race
+  checks passed; hosted cross-platform acceptance remains pending the rerun.
 - Task 184 remains open: the cross-platform workflow change needs a hosted CI
   result; not-yet-shipped parity rows and native/operator evidence remain
   outstanding.

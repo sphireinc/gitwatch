@@ -275,7 +275,7 @@ func TestRegistryAndOperationEnginesBoundDirectChildProcesses(t *testing.T) {
 		return git.Discovery{Root: path}, nil
 	}
 	registryEngine.Snapshot = func(ctx context.Context, discovery git.Discovery, _ uint64) (repo.Snapshot, error) {
-		if _, err := runner.Run(ctx, "-test.run=^TestRegistryDirectChildProcessProbe$"); err != nil {
+		if err := runRegistryDirectChildProbe(ctx, runner); err != nil {
 			return repo.Snapshot{}, err
 		}
 		return repo.Snapshot{Root: discovery.Root}, nil
@@ -295,8 +295,7 @@ func TestRegistryAndOperationEnginesBoundDirectChildProcesses(t *testing.T) {
 	operationResults := make(chan operations.ResultMsg, operationCount)
 	for index := 0; index < operationCount; index++ {
 		command := operationEngine.Command(ctx, fmt.Sprintf("process-probe-%02d", index), fmt.Sprintf("repo-%02d", index), "child-process probe", 10*time.Second, func(workCtx context.Context) error {
-			_, err := runner.Run(workCtx, "-test.run=^TestRegistryDirectChildProcessProbe$")
-			return err
+			return runRegistryDirectChildProbe(workCtx, runner)
 		})
 		go func() { operationResults <- command() }()
 	}
@@ -333,6 +332,18 @@ func TestRegistryAndOperationEnginesBoundDirectChildProcesses(t *testing.T) {
 		t.Fatalf("peak direct child processes = %d, want 2..%d", peak, processBound)
 	}
 	t.Logf("observed peak of %d direct child processes for %d repositories and %d concurrent operations (combined worker cap %d)", peak, repositoryCount, operationCount, processBound)
+}
+
+func runRegistryDirectChildProbe(ctx context.Context, runner git.Runner) error {
+	result, err := runner.Run(ctx, "-test.run=^TestRegistryDirectChildProcessProbe$")
+	if err == nil {
+		return nil
+	}
+	var commandErr *git.CommandError
+	if errors.As(err, &commandErr) {
+		return fmt.Errorf("child process exit=%d stdout=%q stderr=%q cause=%v: %w", commandErr.Result.ExitCode, commandErr.Result.Stdout, commandErr.Result.Stderr, commandErr.Cause, err)
+	}
+	return fmt.Errorf("child process stdout=%q stderr=%q: %w", result.Stdout, result.Stderr, err)
 }
 
 func TestRefreshCoordinatorBoundsChildrenDuringWatcherEventStorm(t *testing.T) {
