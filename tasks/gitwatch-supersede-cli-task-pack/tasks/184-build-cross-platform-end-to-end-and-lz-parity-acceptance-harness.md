@@ -246,3 +246,26 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   `be0aca1` then passed the cancellation test and all Ubuntu 24.04, macOS 15,
   Windows 2025, quality/policy, and full-history secret-scan jobs. Native
   Windows and remaining parity evidence remain open.
+
+## Progress evidence (2026-09-26)
+
+- `scripts/parity-check.sh` now includes the watcher-event-storm refresh
+  process-bound regression. Its default cache path uses Go's native cache on
+  Windows and a writable temporary cache on Unix, preserving any explicit
+  `GOCACHE` override.
+- The CI OS matrix now runs the parity scenario gate on Ubuntu 24.04, macOS 15,
+  and Windows 2025 after the complete unit suite. This makes the watcher,
+  multi-repository, and real sequencer scenarios explicit automated release
+  gates; hosted results for this workflow change are still pending.
+- `PARITY_MATRIX.md` was reconciled with the current completed sequencer,
+  recovery, bisect, path-history, health, remote-intelligence, and graph
+  implementations. It names concrete regression/integration tests while
+  retaining explicit native-evidence and not-yet-shipped feature gaps.
+- On Darwin arm64 / Go 1.27.0 at working-tree base `9cb1212`,
+  `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache
+  ./scripts/parity-check.sh` passed the real integration, watcher, process-
+  bounded registry refresh, bisect, cherry-pick, submodule, remote/provider,
+  multi-repository, custom-command, plugin, and app lanes.
+- Task 184 remains open: the cross-platform workflow change needs a hosted CI
+  result; not-yet-shipped parity rows and native/operator evidence remain
+  outstanding.
