@@ -60,6 +60,7 @@ type BulkOutcome struct {
 	Action     BulkAction
 	Items      []BulkItem
 	Cancelled  bool
+	Err        error // Failure to admit or execute the bulk operation itself.
 }
 
 // Bulk executes selected initialize/update/sync operations with a hard worker

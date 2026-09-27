@@ -37,6 +37,13 @@ Open the repository to make it active, or press `v` then `r` to refresh the
 dashboard. A warning count indicates that an auxiliary stash/remote summary
 failed while the authoritative status snapshot was still available.
 
+## An operation reports that capacity was reached
+
+Each shared operation engine caps the combined running and queued work at 64.
+An excess submission is rejected before its operation starts; let existing
+work finish, then retry. No optimistic success is shown for a rejected
+operation.
+
 ## The gitignore manager is read-only or a preview was rejected
 
 An oversized, NUL-containing, invalid-text, symlinked, or malformed

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/gitignore/catalog"
 	"github.com/sphireinc/git-watch/internal/gitignore/managed"
+	"github.com/sphireinc/git-watch/internal/operations"
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/sequencer"
 )
@@ -250,6 +252,155 @@ func TestEngineRefreshKeepsHundredRepositoriesWithinWorkerBound(t *testing.T) {
 	if len(seen) != repositoryCount {
 		t.Fatalf("distinct refreshed repositories = %d, want %d", len(seen), repositoryCount)
 	}
+}
+
+func TestRegistryAndOperationEnginesBoundDirectChildProcesses(t *testing.T) {
+	const (
+		repositoryCount   = 100
+		registryWorkers   = 8
+		operationWorkers  = 4
+		operationCount    = 16
+		processCounterEnv = "GITWATCH_REGISTRY_PROCESS_COUNTER"
+	)
+	counterDir := t.TempDir()
+	runner := git.Runner{
+		Binary: os.Args[0],
+		Dir:    counterDir,
+		Env:    []string{processCounterEnv + "=" + counterDir},
+	}
+	registryEngine := NewEngine(registryWorkers)
+	registryEngine.Stashes, registryEngine.Remotes, registryEngine.Worktrees = nil, nil, nil
+	registryEngine.Discover = func(_ context.Context, path string) (git.Discovery, error) {
+		return git.Discovery{Root: path}, nil
+	}
+	registryEngine.Snapshot = func(ctx context.Context, discovery git.Discovery, _ uint64) (repo.Snapshot, error) {
+		if _, err := runner.Run(ctx, "-test.run=^TestRegistryDirectChildProcessProbe$"); err != nil {
+			return repo.Snapshot{}, err
+		}
+		return repo.Snapshot{Root: discovery.Root}, nil
+	}
+	repositories := make([]Repository, repositoryCount)
+	for index := range repositories {
+		repositories[index] = Repository{Path: fmt.Sprintf("/process-probe-%03d", index)}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	registryResults := make(chan []StatusResult, 1)
+	go func() {
+		registryResults <- registryEngine.Refresh(ctx, repositories, repositories[0].Path)
+	}()
+
+	operationEngine := operations.New(operationWorkers)
+	operationResults := make(chan operations.ResultMsg, operationCount)
+	for index := 0; index < operationCount; index++ {
+		command := operationEngine.Command(ctx, fmt.Sprintf("process-probe-%02d", index), fmt.Sprintf("repo-%02d", index), "child-process probe", 10*time.Second, func(workCtx context.Context) error {
+			_, err := runner.Run(workCtx, "-test.run=^TestRegistryDirectChildProcessProbe$")
+			return err
+		})
+		go func() { operationResults <- command() }()
+	}
+	for index := 0; index < operationCount; index++ {
+		select {
+		case result := <-operationResults:
+			if result.Result.State != operations.Succeeded {
+				t.Errorf("operation %q result = %+v", result.Result.ID, result.Result)
+			}
+		case <-ctx.Done():
+			t.Fatalf("waiting for operation child processes: %v", ctx.Err())
+		}
+	}
+	var results []StatusResult
+	select {
+	case results = <-registryResults:
+	case <-ctx.Done():
+		t.Fatalf("waiting for registry child processes: %v", ctx.Err())
+	}
+	if len(results) != repositoryCount {
+		t.Fatalf("refresh result count = %d, want %d", len(results), repositoryCount)
+	}
+	for index, result := range results {
+		if result.Error != nil {
+			t.Fatalf("refresh result[%d] error = %v", index, result.Error)
+		}
+	}
+	active, peak := readProcessCounter(t, counterDir)
+	if active != 0 {
+		t.Fatalf("active direct child processes after refresh = %d, want 0", active)
+	}
+	processBound := registryWorkers + operationWorkers
+	if peak < 2 || peak > processBound {
+		t.Fatalf("peak direct child processes = %d, want 2..%d", peak, processBound)
+	}
+	t.Logf("observed peak of %d direct child processes for %d repositories and %d concurrent operations (combined worker cap %d)", peak, repositoryCount, operationCount, processBound)
+}
+
+func TestRegistryDirectChildProcessProbe(t *testing.T) {
+	counterDir := os.Getenv("GITWATCH_REGISTRY_PROCESS_COUNTER")
+	if counterDir == "" {
+		t.Skip("child-process probe is run only by its parent regression test")
+	}
+	updateProcessCounter(t, counterDir, 1)
+	time.Sleep(40 * time.Millisecond)
+	updateProcessCounter(t, counterDir, -1)
+}
+
+func updateProcessCounter(t *testing.T, directory string, delta int) {
+	t.Helper()
+	lockPath := filepath.Join(directory, "lock")
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		err := os.Mkdir(lockPath, 0o700)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, os.ErrExist) {
+			t.Fatalf("acquire process-counter lock: %v", err)
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for process-counter lock")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	defer func() {
+		if err := os.Remove(lockPath); err != nil {
+			t.Errorf("release process-counter lock: %v", err)
+		}
+	}()
+
+	active, _ := readProcessCounter(t, directory)
+	active += delta
+	if active < 0 {
+		t.Fatalf("active direct child process count became negative: %d", active)
+	}
+	_, peak := readProcessCounter(t, directory)
+	if active > peak {
+		peak = active
+	}
+	if err := os.WriteFile(filepath.Join(directory, "counter"), []byte(strconv.Itoa(active)), 0o600); err != nil {
+		t.Fatalf("write active child-process count: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "peak"), []byte(strconv.Itoa(peak)), 0o600); err != nil {
+		t.Fatalf("write peak child-process count: %v", err)
+	}
+}
+
+func readProcessCounter(t *testing.T, directory string) (active, peak int) {
+	t.Helper()
+	read := func(name string) int {
+		content, err := os.ReadFile(filepath.Join(directory, name))
+		if errors.Is(err, os.ErrNotExist) {
+			return 0
+		}
+		if err != nil {
+			t.Fatalf("read %s child-process count: %v", name, err)
+		}
+		value, err := strconv.Atoi(string(content))
+		if err != nil {
+			t.Fatalf("parse %s child-process count %q: %v", name, content, err)
+		}
+		return value
+	}
+	return read("counter"), read("peak")
 }
 
 func TestEngineCancelledRefreshesSettleWithoutGoroutineGrowth(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -803,6 +804,132 @@ func TestBulkSubmodulePreviewAndFailureRetryRouting(t *testing.T) {
 	m = updated.(Model)
 	if m.SubmoduleAction != "bulk-confirm" || len(m.BulkSubmodulePaths) != 1 || m.BulkSubmodulePaths[0] != "first" {
 		t.Fatalf("bulk retry preview = action=%q paths=%v", m.SubmoduleAction, m.BulkSubmodulePaths)
+	}
+}
+
+func TestBulkSubmoduleQueueFullIsSurfacedAndRefreshes(t *testing.T) {
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.Discovery.Root = t.TempDir()
+	m.OperationEngine = operations.New(1)
+	m.BulkSubmoduleAction = string(submodules.BulkUpdate)
+	m.BulkSubmodulePaths = []string{"nested"}
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseWorkers := func() { releaseOnce.Do(func() { close(release) }) }
+	defer releaseWorkers()
+	blockedWork := func(ctx context.Context) error {
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	for index := 0; index < operations.MaxOutstandingOperations; index++ {
+		id := fmt.Sprintf("bulk-blocker-%03d", index)
+		if err := m.OperationEngine.Submit(context.Background(), id, "repo-"+id, "blocked", time.Minute, blockedWork); err != nil {
+			t.Fatalf("submit operation blocker %q: %v", id, err)
+		}
+	}
+
+	command := m.runBulkSubmodule()
+	if command == nil {
+		t.Fatal("bulk submodule command is nil")
+	}
+	rawMessage := command()
+	message, ok := rawMessage.(BulkSubmoduleFinishedMsg)
+	if !ok {
+		t.Fatalf("bulk submodule message type = %T", rawMessage)
+	}
+	if !errors.Is(message.Outcome.Err, operations.ErrQueueFull) || message.Outcome.Action != submodules.BulkUpdate || message.Outcome.Repository != m.Discovery.Root {
+		t.Fatalf("bulk admission failure = %+v", message.Outcome)
+	}
+	releaseWorkers()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		active := false
+		for _, result := range m.OperationEngine.Snapshot() {
+			if result.State == operations.Pending || result.State == operations.Running {
+				active = true
+				break
+			}
+		}
+		if !active {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("operation blockers did not settle after release")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	updated, refresh := m.Update(message)
+	m = updated.(Model)
+	if m.State != StateError || !strings.Contains(m.Status, "operation capacity reached") || refresh == nil {
+		t.Fatalf("bulk admission error state=%v status=%q refreshnil=%v", m.State, m.Status, refresh == nil)
+	}
+}
+
+func TestRemoteOperationQueueFullCancelsJobContext(t *testing.T) {
+	m := New()
+	defer func() { _ = m.Close() }()
+	m.Discovery.Root = t.TempDir()
+	m.OperationEngine = operations.New(1)
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseWorkers := func() { releaseOnce.Do(func() { close(release) }) }
+	defer releaseWorkers()
+	blockedWork := func(ctx context.Context) error {
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	for index := 0; index < operations.MaxOutstandingOperations; index++ {
+		id := fmt.Sprintf("remote-blocker-%03d", index)
+		if err := m.OperationEngine.Submit(context.Background(), id, "repo-"+id, "blocked", time.Minute, blockedWork); err != nil {
+			t.Fatalf("submit operation blocker %q: %v", id, err)
+		}
+	}
+
+	ctx := m.startRemoteJob("fetch", "origin")
+	var workRan atomic.Bool
+	command := m.remoteCommand(ctx, "fetch", "origin", func(context.Context) error {
+		workRan.Store(true)
+		return nil
+	})
+	message, ok := command().(RemoteOperationFinishedMsg)
+	if !ok || !errors.Is(message.Err, operations.ErrQueueFull) {
+		t.Fatalf("remote admission result = %#v", message)
+	}
+	if workRan.Load() {
+		t.Fatal("remote work ran after operation capacity was exhausted")
+	}
+	select {
+	case <-ctx.Done():
+	default:
+		t.Fatal("remote job context was not cancelled after completion")
+	}
+
+	releaseWorkers()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		active := false
+		for _, result := range m.OperationEngine.Snapshot() {
+			if result.State == operations.Pending || result.State == operations.Running {
+				active = true
+				break
+			}
+		}
+		if !active {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("operation blockers did not settle after release")
+		}
+		time.Sleep(time.Millisecond)
 	}
 }
 

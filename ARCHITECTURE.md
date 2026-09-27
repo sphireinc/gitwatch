@@ -104,6 +104,7 @@ The architecture test permits direct process execution only at explicit boundari
 - Bubble Tea owns UI state.
 - The refresh coordinator deduplicates status work and records a dirty bit when another hint arrives during a refresh.
 - The repository engine uses bounded workers; it never starts an unbounded watcher or process per repository.
+- The shared operations engine admits at most 64 running-or-queued operations per instance; its worker semaphore separately bounds concurrent work, and overflow is rejected before the operation callback runs.
 - History, remote, provider, and plugin operations are context-cancellable.
 - Watcher goroutines terminate through context cancellation and close their output channels.
 - Channels, activity history, plugin output, provider responses, and history pages are bounded.

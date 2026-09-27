@@ -38,7 +38,9 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
 
 ## Acceptance criteria
 
-- [ ] No unbounded list/process/goroutine behavior (direct child-process-count evidence remains open).
+- [ ] No unbounded list/process/goroutine behavior (registry-refresh direct
+  child-process bounds are now measured; end-to-end process/leak coverage
+  remains open).
 - [x] Live status remains responsive under documented scale scenarios.
 
 ## Completion record
@@ -150,3 +152,32 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   cache churn. The 50,000-row viewport benchmark remains bounded at about
   105 microseconds, 46 KB, and 296 allocations per iteration. Direct child-
   process-count evidence and native responsiveness remain open.
+
+- On Darwin 25.6.0 arm64 / Go 1.27.0 at `main` revision `9cb1212` plus the
+  current working-tree changes, `TestRegistryAndOperationEnginesBoundDirectChildProcesses`
+  launches the Go test executable through the real `git.Runner` boundary while
+  refreshing 100 repositories and running 16 operations concurrently. The
+  registry's eight workers plus the operations engine's four workers bound
+  these two process sources to 12; the cross-process counter measured a peak
+  of 11 in the focused run and returned to zero after both workloads settled.
+- `internal/operations.Engine` now rejects submissions once 64 operations are
+  running or queued, bounding the corresponding goroutines and retained active
+  state. `TestEngineBoundsOutstandingOperationsAndReleasesCancelledCapacity`
+  verifies overflow is rejected before work starts, cancellation frees an
+  admission slot, and per-repository/waiter state is released. The bulk
+  submodule TUI path now propagates this rejection, cancels its child context,
+  reports an error rather than a false success, and requests a refresh.
+- The focused process-bound test, operation-capacity test, and bulk-submodule
+  UI regression pass normally; the operation-capacity test passed 20 repeated
+  race runs. After these changes, `GOCACHE=/tmp/git-watch-go-cache
+  GOMODCACHE=/tmp/git-watch-go-mod-cache make check` passed on Darwin arm64 /
+  Go 1.27.0: pinned golangci-lint v2.12.0 reported 0 issues, and format, full
+  tests, full race tests, vet, diff checks, fuzz/security, performance, and
+  release-policy targets passed. This still does not prove
+  event-storm/checkout/rebase and plugin/provider/history process/leak
+  profiles or native responsiveness.
+- Remote operation job contexts are now cancelled after every command result,
+  including immediate operation-capacity rejection. The focused
+  `TestRemoteOperationQueueFullCancelsJobContext` confirms rejected work does
+  not invoke the remote operation and its scoped context is released. The full
+  `make check` gate passed again on Darwin arm64 / Go 1.27.0 after this change.

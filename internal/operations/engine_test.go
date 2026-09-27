@@ -3,6 +3,8 @@ package operations
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -56,6 +58,90 @@ func TestEngineSerializesRepoAndCancels(t *testing.T) {
 		t.Fatalf("second result = %#v", results["two"])
 	}
 }
+
+func TestEngineBoundsOutstandingOperationsAndReleasesCancelledCapacity(t *testing.T) {
+	e := New(1)
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseWorkers := func() { releaseOnce.Do(func() { close(release) }) }
+	defer releaseWorkers()
+	started := make(chan struct{}, 1)
+	work := func(ctx context.Context) error {
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	for index := 0; index < MaxOutstandingOperations; index++ {
+		id := fmt.Sprintf("bounded-%03d", index)
+		if err := e.Submit(context.Background(), id, "repo-"+id, "blocked", time.Minute, work); err != nil {
+			t.Fatalf("submit %q: %v", id, err)
+		}
+	}
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("no operation entered the bounded worker pool")
+	}
+	if err := e.Submit(context.Background(), "overflow", "repo-overflow", "blocked", time.Minute, work); !errors.Is(err, ErrQueueFull) {
+		t.Fatalf("overflow submit error = %v, want %v", err, ErrQueueFull)
+	}
+	var overflowWorkCalls atomic.Int32
+	overflow := e.Command(context.Background(), "overflow-command", "repo-overflow", "blocked", time.Minute, func(context.Context) error {
+		overflowWorkCalls.Add(1)
+		return nil
+	})()
+	if overflow.Result.State != Failed || !errors.Is(overflow.Result.Err, ErrQueueFull) {
+		t.Fatalf("overflow command result = %+v", overflow.Result)
+	}
+	if overflowWorkCalls.Load() != 0 {
+		t.Fatal("work ran despite the outstanding-operation cap")
+	}
+
+	if !e.Cancel("bounded-063") {
+		t.Fatal("queued operation was not cancellable")
+	}
+	waitOutstandingOperations(t, e, MaxOutstandingOperations-1)
+	if err := e.Submit(context.Background(), "replacement", "repo-replacement", "blocked", time.Minute, work); err != nil {
+		t.Fatalf("submit after cancellation: %v", err)
+	}
+	releaseWorkers()
+	waitOutstandingOperations(t, e, 0)
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if len(e.repos) != 0 || len(e.repoRefs) != 0 || len(e.waiters) != 0 {
+		t.Fatalf("outstanding-operation cleanup: repos=%d refs=%d waiters=%d", len(e.repos), len(e.repoRefs), len(e.waiters))
+	}
+	if len(e.latest) > retainedHistoryLimit || len(e.retry) > retainedHistoryLimit {
+		t.Fatalf("completed-operation retention: latest=%d retry=%d", len(e.latest), len(e.retry))
+	}
+}
+
+func waitOutstandingOperations(t *testing.T, engine *Engine, want int) {
+	t.Helper()
+	deadline := time.After(5 * time.Second)
+	for {
+		engine.mu.Lock()
+		got := len(engine.active)
+		engine.mu.Unlock()
+		if got == want {
+			return
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("outstanding operations = %d, want %d", got, want)
+		case <-time.After(time.Millisecond):
+		}
+	}
+}
+
 func TestEngineTimeout(t *testing.T) {
 	e := New(1)
 	if err := e.Submit(context.Background(), "slow", "repo", "slow", time.Millisecond, func(ctx context.Context) error { <-ctx.Done(); return ctx.Err() }); err != nil {

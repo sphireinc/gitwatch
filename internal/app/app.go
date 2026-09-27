@@ -5387,8 +5387,12 @@ func (m *Model) remoteCommand(ctx context.Context, operation, remote string, wor
 		OldHead:    m.Snapshot.Branch.OID,
 		Refs:       []string{remote},
 	}
+	cancel := m.RemoteCancel
 	command := m.OperationEngine.CommandWithOptions(ctx, id, repoRoot, operation, 5*time.Minute, work, operations.Options{Retryable: operation == "fetch"})
 	return func() tea.Msg {
+		if cancel != nil {
+			defer cancel()
+		}
 		started := time.Now()
 		result := command()
 		completed := *journal
@@ -6122,13 +6126,17 @@ func (m *Model) runBulkSubmodule() tea.Cmd {
 	action := submodules.BulkAction(m.BulkSubmoduleAction)
 	paths := append([]string(nil), m.BulkSubmodulePaths...)
 	runner := git.NewRunner(m.Discovery.Root)
-	var outcome submodules.BulkOutcome
+	outcome := submodules.BulkOutcome{Repository: m.Discovery.Root, Action: action}
 	command := m.OperationEngine.Command(ctx, fmt.Sprintf("submodule-bulk-%s-%d", action, generation), m.Discovery.Root, "bulk submodule "+string(action), 30*time.Minute, func(ctx context.Context) error {
 		outcome = submodules.Bulk(ctx, runner, submodules.BulkRequest{Repository: m.Discovery.Root, Paths: paths, Action: action})
 		return nil
 	})
 	return func() tea.Msg {
-		_ = command()
+		result := command()
+		cancel()
+		if outcome.Err == nil {
+			outcome.Err = result.Result.Err
+		}
 		return BulkSubmoduleFinishedMsg{Generation: generation, Outcome: outcome}
 	}
 }
@@ -8861,6 +8869,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.SubmoduleAction = ""
 		outcome := v.Outcome
 		m.BulkSubmoduleOutcome = &outcome
+		if outcome.Err != nil {
+			m.State = StateError
+			m.Status = "bulk submodule " + string(outcome.Action) + ": " + platform.SafeText(outcome.Err.Error())
+			return m, m.refresh()
+		}
 		succeeded, failed, skipped := 0, 0, 0
 		for _, item := range outcome.Items {
 			switch item.State {

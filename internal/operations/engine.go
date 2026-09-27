@@ -9,8 +9,13 @@ import (
 
 var ErrDuplicate = errors.New("operation already running")
 var ErrNotRetryable = errors.New("operation is not marked replayable")
+var ErrQueueFull = errors.New("operation capacity reached")
 
 const retainedHistoryLimit = 32
+
+// MaxOutstandingOperations bounds admitted work per Engine, including queued
+// operations waiting for a worker or repository lock.
+const MaxOutstandingOperations = 64
 
 type State uint8
 
@@ -108,6 +113,10 @@ func (e *Engine) submit(parent context.Context, id, repo, name string, timeout t
 	if _, ok := e.active[id]; ok {
 		e.mu.Unlock()
 		return nil, ErrDuplicate
+	}
+	if len(e.active) >= MaxOutstandingOperations {
+		e.mu.Unlock()
+		return nil, ErrQueueFull
 	}
 	ctx, cancel := context.WithCancel(parent)
 	e.active[id] = cancel
