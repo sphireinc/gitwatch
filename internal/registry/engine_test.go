@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -262,12 +263,16 @@ func TestRegistryAndOperationEnginesBoundDirectChildProcesses(t *testing.T) {
 		operationWorkers  = 4
 		operationCount    = 16
 		processCounterEnv = "GITWATCH_REGISTRY_PROCESS_COUNTER"
+		processTokenEnv   = "GITWATCH_REGISTRY_PROCESS_TOKENS"
 	)
 	counterDir := t.TempDir()
 	runner := git.Runner{
 		Binary: os.Args[0],
 		Dir:    counterDir,
-		Env:    []string{processCounterEnv + "=" + counterDir},
+		Env: []string{
+			processCounterEnv + "=" + counterDir,
+			processTokenEnv + "=" + counterDir,
+		},
 	}
 	registryEngine := NewEngine(registryWorkers)
 	registryEngine.Stashes, registryEngine.Remotes, registryEngine.Worktrees = nil, nil, nil
@@ -286,6 +291,8 @@ func TestRegistryAndOperationEnginesBoundDirectChildProcesses(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	stopSampling, sampledPeak := startProcessMarkerSampler(t, counterDir)
+	defer stopSampling()
 	registryResults := make(chan []StatusResult, 1)
 	go func() {
 		registryResults <- registryEngine.Refresh(ctx, repositories, repositories[0].Path)
@@ -323,10 +330,12 @@ func TestRegistryAndOperationEnginesBoundDirectChildProcesses(t *testing.T) {
 			t.Fatalf("refresh result[%d] error = %v", index, result.Error)
 		}
 	}
-	active, peak := readProcessCounter(t, counterDir)
+	stopSampling()
+	active := countActiveProcessMarkers(t, counterDir)
 	if active != 0 {
 		t.Fatalf("active direct child processes after refresh = %d, want 0", active)
 	}
+	peak := sampledPeak()
 	processBound := registryWorkers + operationWorkers
 	if peak < 2 || peak > processBound {
 		t.Fatalf("peak direct child processes = %d, want 2..%d", peak, processBound)
@@ -483,7 +492,6 @@ func TestRegistryDirectChildProcessProbe(t *testing.T) {
 	if counterDir == "" {
 		t.Skip("child-process probe is run only by its parent regression test")
 	}
-	updateProcessCounter(t, counterDir, 1)
 	delay := 40 * time.Millisecond
 	if configured := os.Getenv("GITWATCH_REGISTRY_PROCESS_DELAY"); configured != "" {
 		parsed, err := time.ParseDuration(configured)
@@ -492,8 +500,86 @@ func TestRegistryDirectChildProcessProbe(t *testing.T) {
 		}
 		delay = parsed
 	}
+	if tokenDir := os.Getenv("GITWATCH_REGISTRY_PROCESS_TOKENS"); tokenDir != "" {
+		marker, err := os.CreateTemp(tokenDir, "child-process-*")
+		if err != nil {
+			t.Fatalf("create child-process marker: %v", err)
+		}
+		markerPath := marker.Name()
+		if err := marker.Close(); err != nil {
+			t.Fatalf("close child-process marker: %v", err)
+		}
+		defer func() {
+			if err := os.Remove(markerPath); err != nil {
+				t.Errorf("remove child-process marker: %v", err)
+			}
+		}()
+		time.Sleep(delay)
+		return
+	}
+	updateProcessCounter(t, counterDir, 1)
 	time.Sleep(delay)
 	updateProcessCounter(t, counterDir, -1)
+}
+
+func startProcessMarkerSampler(t *testing.T, directory string) (stop func(), peak func() int) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	var maxActive atomic.Int32
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
+		sample := func() {
+			entries, err := os.ReadDir(directory)
+			if err != nil {
+				t.Errorf("sample child-process markers: %v", err)
+				return
+			}
+			active := int32(0)
+			for _, entry := range entries {
+				if strings.HasPrefix(entry.Name(), "child-process-") {
+					active++
+				}
+			}
+			for active > maxActive.Load() {
+				previous := maxActive.Load()
+				if active <= previous || maxActive.CompareAndSwap(previous, active) {
+					break
+				}
+			}
+		}
+		for {
+			sample()
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+	stop = func() {
+		cancel()
+		<-done
+	}
+	peak = func() int { return int(maxActive.Load()) }
+	return stop, peak
+}
+
+func countActiveProcessMarkers(t *testing.T, directory string) int {
+	t.Helper()
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatalf("read child-process markers: %v", err)
+	}
+	active := 0
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "child-process-") {
+			active++
+		}
+	}
+	return active
 }
 
 func updateProcessCounter(t *testing.T, directory string, delta int) {

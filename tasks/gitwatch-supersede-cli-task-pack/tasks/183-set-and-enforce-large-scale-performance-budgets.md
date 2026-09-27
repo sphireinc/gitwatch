@@ -215,6 +215,16 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
 
 ## Progress evidence (2026-09-27)
 
+- The next hosted run, [36311291634](https://github.com/sphireinc/gitwatch/actions/runs/36311291634),
+  disproved the exclusive-create lock-file workaround: Windows also returned
+  `Access is denied` when concurrent child probes encountered the existing
+  lock file. The concurrent process-bound test now gives each child its own
+  temporary marker and samples active markers in the parent, avoiding shared
+  cross-process lock/counter semantics; the separate watcher-storm test remains
+  serialized. On Darwin arm64 / Go 1.27.0, the revised focused test passed 20
+  normal repetitions and three race-enabled repetitions, and full `make check`
+  passed. The Windows hosted rerun is still pending, so this does not establish
+  Windows acceptance.
 - Hosted Actions run [36309865205](https://github.com/sphireinc/gitwatch/actions/runs/36309865205)
   reproduced the Windows failure and captured its cause: concurrent
   `os.Mkdir` attempts on the process-counter lock directory returned Windows

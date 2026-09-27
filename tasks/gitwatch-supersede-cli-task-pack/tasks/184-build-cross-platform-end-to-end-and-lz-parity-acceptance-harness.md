@@ -278,6 +278,15 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
 
 ## Progress evidence (2026-09-27)
 
+- Hosted Actions run [36311291634](https://github.com/sphireinc/gitwatch/actions/runs/36311291634)
+  showed the exclusive-create lock-file workaround was not Windows-safe either:
+  a concurrent probe opening an existing lock file failed with `Access is
+  denied`, and the Windows parity step was not reached. The concurrent child
+  process-bound regression now uses one temporary marker per child, sampled by
+  the parent, rather than a shared cross-process lock/counter. On Darwin arm64 /
+  Go 1.27.0, the revised focused test passed 20 normal repetitions and three
+  race-enabled repetitions; full `make check` also passed. A fresh hosted run
+  must still verify the revised test on Windows before cross-platform acceptance.
 - The diagnostic follow-up in hosted run
   [36309865205](https://github.com/sphireinc/gitwatch/actions/runs/36309865205)
   confirmed the Windows package-suite failure came from the test helper's
