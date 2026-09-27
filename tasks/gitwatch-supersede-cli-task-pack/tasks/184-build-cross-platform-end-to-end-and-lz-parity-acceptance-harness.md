@@ -295,3 +295,9 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
   Darwin arm64 / Go 1.27.0, its focused test passed 20 normal repetitions and
   five race-enabled repetitions, and full `make check` passed. A new hosted
   run is still required; the failed run did not reach Windows parity scenarios.
+- Hosted Actions run [36351636208](https://github.com/sphireinc/gitwatch/actions/runs/36351636208)
+  passed every job on Ubuntu, macOS, and Windows. Windows package tests,
+  cross-platform parity scenarios, runtime smoke, and Windows path/CRLF checks
+  all passed. This clears the regression's hosted-CI gate; Task 184 remains open
+  because parity-matrix coverage and native/operator evidence are still
+  outstanding.

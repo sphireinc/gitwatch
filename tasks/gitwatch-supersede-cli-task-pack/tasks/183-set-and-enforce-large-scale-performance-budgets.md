@@ -234,3 +234,9 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   repetitions; full `make check` passed, including formatting, lint, full tests,
   race tests, vet, security fuzzing, performance budgets, and release policy.
   Hosted verification of this fix remains pending.
+- Hosted Actions run [36351636208](https://github.com/sphireinc/gitwatch/actions/runs/36351636208)
+  passed all jobs on Ubuntu, macOS, and Windows after the per-child marker
+  change. Windows package tests, parity scenarios, runtime smoke, and path/CRLF
+  checks passed. This verifies the process-bound regression in hosted CI; the
+  task remains open for the broader multi-repository, leak, profiling, and
+  native-responsiveness evidence listed in its acceptance criteria.
