@@ -500,9 +500,11 @@ func updateProcessCounter(t *testing.T, directory string, delta int) {
 	t.Helper()
 	lockPath := filepath.Join(directory, "lock")
 	deadline := time.Now().Add(5 * time.Second)
+	var lockFile *os.File
 	for {
-		err := os.Mkdir(lockPath, 0o700)
+		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if err == nil {
+			lockFile = file
 			break
 		}
 		if !errors.Is(err, os.ErrExist) {
@@ -514,6 +516,9 @@ func updateProcessCounter(t *testing.T, directory string, delta int) {
 		time.Sleep(time.Millisecond)
 	}
 	defer func() {
+		if err := lockFile.Close(); err != nil {
+			t.Errorf("close process-counter lock: %v", err)
+		}
 		if err := os.Remove(lockPath); err != nil {
 			t.Errorf("release process-counter lock: %v", err)
 		}

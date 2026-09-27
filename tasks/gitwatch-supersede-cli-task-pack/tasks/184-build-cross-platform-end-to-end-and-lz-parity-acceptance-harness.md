@@ -275,3 +275,14 @@ Create reproducible evidence for advanced Git semantics and every parity claim.
 - Task 184 remains open: the cross-platform workflow change needs a hosted CI
   result; not-yet-shipped parity rows and native/operator evidence remain
   outstanding.
+
+## Progress evidence (2026-09-27)
+
+- The diagnostic follow-up in hosted run
+  [36309865205](https://github.com/sphireinc/gitwatch/actions/runs/36309865205)
+  confirmed the Windows package-suite failure came from the test helper's
+  process-counter lock: `os.Mkdir` on an already-existing directory produced
+  `Access is denied`. The helper now uses an exclusive-create lock file. On
+  Darwin arm64 / Go 1.27.0, its focused test passed 20 normal repetitions and
+  five race-enabled repetitions, and full `make check` passed. A new hosted
+  run is still required; the failed run did not reach Windows parity scenarios.

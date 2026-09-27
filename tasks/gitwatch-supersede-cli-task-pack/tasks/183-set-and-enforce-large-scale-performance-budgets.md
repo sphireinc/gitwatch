@@ -212,3 +212,15 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   reporting to that test; the focused Windows-targeted host test passed five
   local repetitions and three race-enabled repetitions on Darwin arm64. A new
   hosted run is required before claiming cross-platform success.
+
+## Progress evidence (2026-09-27)
+
+- Hosted Actions run [36309865205](https://github.com/sphireinc/gitwatch/actions/runs/36309865205)
+  reproduced the Windows failure and captured its cause: concurrent
+  `os.Mkdir` attempts on the process-counter lock directory returned Windows
+  `Access is denied`, not `os.ErrExist`. The regression helper now uses an
+  exclusive-create lock file (`O_CREATE|O_EXCL`) instead. On Darwin arm64 / Go
+  1.27.0, the focused regression passed 20 repetitions and five race-enabled
+  repetitions; full `make check` passed, including formatting, lint, full tests,
+  race tests, vet, security fuzzing, performance budgets, and release policy.
+  Hosted verification of this fix remains pending.
