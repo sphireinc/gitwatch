@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-const configurationSchemaV3SHA256 = "cded805c00c7783ae2b04b6d22ffea69c938cc936e98340ef99f7daa3fede2ae"
+const configurationSchemaV3SHA256 = "485684f7923c83fac85631d69aadfcb27ee8be768b868dfd5e6ed319be375373"
 
 func TestDocumentedSchemaV3CoversAdvancedConfigurationSurface(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "configuration.schema.json"))
@@ -97,6 +97,7 @@ func TestDocumentedSchemaV3CoversCustomCommandPrompts(t *testing.T) {
 		Items struct {
 			Required   []string                   `json:"required"`
 			Properties map[string]json.RawMessage `json:"properties"`
+			AllOf      json.RawMessage            `json:"allOf"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(customCommands.Items.Properties["prompts"], &prompts); err != nil {
@@ -107,9 +108,21 @@ func TestDocumentedSchemaV3CoversCustomCommandPrompts(t *testing.T) {
 			t.Errorf("prompt schema does not require %q", required)
 		}
 	}
-	for _, name := range []string{"id", "label", "kind", "required", "pattern", "options", "options_source", "default"} {
+	for _, name := range []string{"id", "label", "kind", "required", "pattern", "min_length", "max_length", "options", "options_source", "default"} {
 		if _, ok := prompts.Items.Properties[name]; !ok {
 			t.Errorf("prompt schema is missing property %q", name)
+		}
+	}
+	for _, name := range []string{"min_length", "max_length"} {
+		var bound struct {
+			Type    string `json:"type"`
+			Minimum int    `json:"minimum"`
+		}
+		if err := json.Unmarshal(prompts.Items.Properties[name], &bound); err != nil {
+			t.Fatalf("prompt %s schema: %v", name, err)
+		}
+		if bound.Type != "integer" || bound.Minimum != 0 {
+			t.Errorf("prompt %s schema = %#v, want non-negative integer", name, bound)
 		}
 	}
 	var kind struct {
@@ -122,5 +135,34 @@ func TestDocumentedSchemaV3CoversCustomCommandPrompts(t *testing.T) {
 		if !slices.Contains(kind.Enum, expected) {
 			t.Errorf("prompt kind schema is missing %q", expected)
 		}
+	}
+	var restrictions []struct {
+		If struct {
+			Properties map[string]struct {
+				Enum []string `json:"enum"`
+			} `json:"properties"`
+		} `json:"if"`
+		Then struct {
+			Properties map[string]struct {
+				Maximum *int `json:"maximum"`
+			} `json:"properties"`
+		} `json:"then"`
+	}
+	if err := json.Unmarshal(prompts.Items.AllOf, &restrictions); err != nil {
+		t.Fatalf("prompt conditional schema: %v", err)
+	}
+	lengthKindsRestricted := false
+	for _, restriction := range restrictions {
+		kinds := restriction.If.Properties["kind"].Enum
+		if len(kinds) != 3 || !slices.Contains(kinds, "confirm") || !slices.Contains(kinds, "select") || !slices.Contains(kinds, "multi-select") {
+			continue
+		}
+		minMax := restriction.Then.Properties["min_length"].Maximum
+		maxMax := restriction.Then.Properties["max_length"].Maximum
+		lengthKindsRestricted = minMax != nil && maxMax != nil && *minMax == 0 && *maxMax == 0
+		break
+	}
+	if !lengthKindsRestricted {
+		t.Error("prompt schema must restrict non-text/non-secret length bounds to zero")
 	}
 }

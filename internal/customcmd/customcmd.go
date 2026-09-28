@@ -156,15 +156,24 @@ func (d Definition) Expand(ctx Context) (Invocation, error) {
 	}
 	args := make([]string, len(d.Args))
 	for index, token := range d.Args {
-		for name, value := range values {
-			placeholder := "{" + name + "}"
-			if strings.Contains(token, placeholder) {
-				if value == "" {
-					return Invocation{}, fmt.Errorf("custom command %q requires context value %s", d.Name, placeholder)
-				}
-				token = strings.ReplaceAll(token, placeholder, value)
+		var expanded strings.Builder
+		for {
+			start := strings.IndexByte(token, '{')
+			if start < 0 {
+				expanded.WriteString(token)
+				break
 			}
+			expanded.WriteString(token[:start])
+			end := strings.IndexByte(token[start:], '}') + start
+			name := token[start+1 : end]
+			value := values[name]
+			if value == "" {
+				return Invocation{}, fmt.Errorf("custom command %q requires context value {%s}", d.Name, name)
+			}
+			expanded.WriteString(value)
+			token = token[end+1:]
 		}
+		token = expanded.String()
 		if strings.ContainsAny(token, "\x00\r\n") {
 			return Invocation{}, fmt.Errorf("custom command %q contains an invalid argv value", d.Name)
 		}

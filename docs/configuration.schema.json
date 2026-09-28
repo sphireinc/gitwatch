@@ -120,11 +120,22 @@
                 "kind": { "enum": ["text", "secret", "confirm", "select", "multi-select"] },
                 "required": { "type": "boolean" },
                 "pattern": { "type": "string" },
+                "min_length": { "type": "integer", "minimum": 0 },
+                "max_length": { "type": "integer", "minimum": 0 },
                 "options": { "type": "array", "items": { "type": "string" } },
                 "options_source": { "enum": ["branches", "remotes", "tags", "commits", "paths"] },
                 "default": { "type": "string" }
               },
               "allOf": [
+                {
+                  "if": {
+                    "properties": { "kind": { "enum": ["confirm", "select", "multi-select"] } },
+                    "required": ["kind"]
+                  },
+                  "then": {
+                    "properties": { "min_length": { "maximum": 0 }, "max_length": { "maximum": 0 } }
+                  }
+                },
                 {
                   "if": {
                     "properties": { "kind": { "enum": ["secret", "confirm"] } },

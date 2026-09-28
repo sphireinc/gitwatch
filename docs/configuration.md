@@ -125,7 +125,9 @@ Each `prompts[]` object supports these fields:
 | `label` | User-facing prompt label. |
 | `kind` | `text`, `secret`, `confirm`, `select`, or `multi-select`. |
 | `required` | Reject an empty value when the prompt is submitted. |
-| `pattern` | Go regular expression used to validate text or secret input. |
+| `pattern` | Go regular expression used to validate text/secret input or the selected choice value (comma-joined for multi-select). |
+| `min_length` | Minimum Unicode character count for text/secret input; defaults to `0`. An empty value fails a positive minimum. |
+| `max_length` | Maximum Unicode character count for text/secret input; defaults to `0` (no limit). A positive maximum must be at least `min_length`. Defaults must satisfy both limits. |
 | `options` | Static choices for `select` and `multi-select`. |
 | `options_source` | Append choices from already-loaded `branches`, `remotes`, `tags`, `commits`, or `paths`; opening the form does not launch a Git or provider request. |
 | `default` | Initial value for text, or one preselected option for select/multi-select. It must satisfy validation and match an available choice. Secret and confirmation prompts cannot have defaults. |

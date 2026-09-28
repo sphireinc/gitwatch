@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // PromptKind identifies the input control required before a command runs.
@@ -27,6 +28,8 @@ type Prompt struct {
 	Kind          PromptKind `json:"kind"`
 	Required      bool       `json:"required,omitempty"`
 	Pattern       string     `json:"pattern,omitempty"`
+	MinLength     int        `json:"min_length,omitempty"`
+	MaxLength     int        `json:"max_length,omitempty"`
 	Options       []string   `json:"options,omitempty"`
 	OptionsSource string     `json:"options_source,omitempty"`
 	Default       string     `json:"default,omitempty"`
@@ -71,7 +74,8 @@ func NewForm(prompts []Prompt) (Form, error) {
 		if err := validatePrompt(prompt); err != nil {
 			return Form{}, err
 		}
-		copyPrompts[index] = Prompt{ID: prompt.ID, Label: prompt.Label, Kind: prompt.Kind, Required: prompt.Required, Pattern: prompt.Pattern, Options: append([]string(nil), prompt.Options...), OptionsSource: prompt.OptionsSource, Default: prompt.Default}
+		copyPrompts[index] = prompt
+		copyPrompts[index].Options = append([]string(nil), prompt.Options...)
 	}
 	form := Form{prompts: copyPrompts, values: make(map[string]string), selected: make(map[string]map[string]bool)}
 	for _, prompt := range copyPrompts {
@@ -91,6 +95,17 @@ func NewForm(prompts []Prompt) (Form, error) {
 }
 
 func validatePrompt(prompt Prompt) error {
+	if prompt.MinLength < 0 || prompt.MaxLength < 0 || (prompt.MaxLength > 0 && prompt.MinLength > prompt.MaxLength) {
+		return fmt.Errorf("prompt %q has invalid length limits", prompt.ID)
+	}
+	if (prompt.MinLength != 0 || prompt.MaxLength != 0) && prompt.Kind != PromptText && prompt.Kind != PromptSecret {
+		return fmt.Errorf("prompt %q only accepts length limits for text or secret input", prompt.ID)
+	}
+	if prompt.Default != "" {
+		if err := validatePromptLength(prompt, prompt.Default); err != nil {
+			return err
+		}
+	}
 	switch prompt.Kind {
 	case PromptText:
 		if len(prompt.Options) != 0 {
@@ -151,6 +166,17 @@ func validatePrompt(prompt Prompt) error {
 	}
 	if prompt.Default != "" && prompt.OptionsSource == "" && (prompt.Kind == PromptSelect || prompt.Kind == PromptMultiSelect) && !containsOption(prompt.Options, prompt.Default) {
 		return fmt.Errorf("prompt %q default must match an option", prompt.ID)
+	}
+	return nil
+}
+
+func validatePromptLength(prompt Prompt, value string) error {
+	length := utf8.RuneCountInString(value)
+	if length < prompt.MinLength {
+		return fmt.Errorf("%s requires at least %d characters", prompt.Label, prompt.MinLength)
+	}
+	if prompt.MaxLength > 0 && length > prompt.MaxLength {
+		return fmt.Errorf("%s allows at most %d characters", prompt.Label, prompt.MaxLength)
 	}
 	return nil
 }
@@ -240,10 +266,7 @@ func (f *Form) Handle(key string) (FormEvent, error) {
 				f.input = string(runes[:len(runes)-1])
 			}
 		case "enter":
-			if err := f.acceptCurrent(); err != nil {
-				return FormChanged, err
-			}
-			return f.advance(), nil
+			return f.advance()
 		default:
 			if len([]rune(key)) == 1 && key != "\x00" && key != "\r" && key != "\n" {
 				f.input += key
@@ -254,7 +277,7 @@ func (f *Form) Handle(key string) (FormEvent, error) {
 		case "y", "yes", "enter":
 			f.input = "true"
 			f.values[prompt.ID] = f.input
-			return f.advance(), nil
+			return f.advance()
 		case "n", "no":
 			f.input = "false"
 			return FormCancelled, nil
@@ -267,7 +290,7 @@ func (f *Form) Handle(key string) (FormEvent, error) {
 			f.cursor = (f.cursor + 1) % len(prompt.Options)
 		case "enter":
 			f.input = prompt.Options[f.cursor]
-			return f.advance(), nil
+			return f.advance()
 		}
 	case PromptMultiSelect:
 		if f.selected[prompt.ID] == nil {
@@ -289,7 +312,7 @@ func (f *Form) Handle(key string) (FormEvent, error) {
 				}
 			}
 			f.input = strings.Join(selected, ",")
-			return f.advance(), nil
+			return f.advance()
 		}
 	}
 	return FormChanged, nil
@@ -297,11 +320,17 @@ func (f *Form) Handle(key string) (FormEvent, error) {
 
 func (f *Form) acceptCurrent() error {
 	prompt, _ := f.Current()
+	if err := validatePromptLength(prompt, f.input); err != nil {
+		return err
+	}
 	if prompt.Required && strings.TrimSpace(f.input) == "" {
 		return fmt.Errorf("%s is required", prompt.Label)
 	}
 	if prompt.Pattern != "" && f.input != "" {
-		matched, _ := regexp.MatchString(prompt.Pattern, f.input)
+		matched, err := regexp.MatchString(prompt.Pattern, f.input)
+		if err != nil {
+			return fmt.Errorf("%s has an invalid validation pattern", prompt.Label)
+		}
 		if !matched {
 			return fmt.Errorf("%s has an invalid value", prompt.Label)
 		}
@@ -310,19 +339,19 @@ func (f *Form) acceptCurrent() error {
 	return nil
 }
 
-func (f *Form) advance() FormEvent {
+func (f *Form) advance() (FormEvent, error) {
 	prompt, _ := f.Current()
 	if prompt.Kind != PromptConfirm {
 		if err := f.acceptCurrent(); err != nil {
-			return FormChanged
+			return FormChanged, err
 		}
 	}
 	f.index++
 	if f.index >= len(f.prompts) {
-		return FormSubmitted
+		return FormSubmitted, nil
 	}
 	f.loadCurrent()
-	return FormChanged
+	return FormChanged, nil
 }
 
 // Values returns a copy only after all prompts have been accepted. It is safe

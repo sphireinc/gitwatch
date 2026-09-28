@@ -115,3 +115,29 @@ Support interactive custom workflows such as selecting a branch or entering a ti
   (`Fix custom command prompt defaults`). Its full `make check` passed on Darwin
   arm64 with Go 1.27.0. This records automated validation only; native operator
   evidence remains outstanding.
+
+## Length validation and literal argv audit (2026-09-28)
+
+- Added `min_length` and `max_length` to text and secret prompts. Limits count
+  Unicode characters, reject invalid bounds/defaults, and keep invalid input in
+  the form with a value-free diagnostic. Zero maximum preserves the existing
+  unlimited behavior. The configuration guide and JSON schema document both
+  options.
+- Selection and multi-selection validation errors now reach the shared keyboard
+  and mouse form handler, allowing the user to correct the field without
+  launching a command. Previously `advance` swallowed these errors.
+- Custom-command argv templates now substitute each original placeholder once.
+  Selected paths and prompt values containing literal placeholder-shaped braces
+  remain byte-for-byte values, independent of Go map iteration order.
+- Added Unicode length, invalid-definition, secret-safe diagnostic, selection
+  correction, literal argv, and app launch-blocking regression coverage.
+- Task 168 requires dynamic choices from already-loaded repository state; the
+  existing branch/remote/tag/commit/path sources meet that requirement.
+  Provider-backed choices are optional future work rather than a task gate.
+  Native keyboard/mouse acceptance remains open for the updated behavior.
+- Final assembled-worktree validation on Darwin arm64 / Go 1.27.1 passed
+  `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache make check`:
+  formatting, pinned golangci-lint v2.12.0 (0 issues), full tests, full race
+  tests, vet, security fuzz checks, performance budgets, and release policy.
+  This records the pre-commit changes based on `fbd0728`; hosted CI and native
+  acceptance for the new form behavior remain separate gates.

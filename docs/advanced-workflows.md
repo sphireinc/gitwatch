@@ -105,6 +105,10 @@ whether it mutates repository state. Supported placeholders are `{repo}`,
 confirmation, and static or already-loaded branch/remote/tag/commit/path
 selections. The form must be fully submitted before any process starts; `Esc`
 cancels it. Commands do not accept shell strings or unknown placeholders.
+Text and secret prompts can set Unicode character length limits in addition
+to pattern validation. Validation failures keep the current field open and
+show an error. Placeholders are expanded once, preserving braces and other
+literal characters in selected paths and submitted prompt values.
 Mutating commands request a status refresh when they finish; commands requiring
 confirmation use the prompt/form workflow before execution.
 

@@ -279,8 +279,8 @@
     },
     {
       "path": "tasks/168-add-prompt-and-form-engine-for-custom-commands.md",
-      "bytes": 3236,
-      "sha256": "206ca4dfcc5e1c3c4a71ab38c6b08694e3af4baf0fa850495c43d9490f35a419"
+      "bytes": 9482,
+      "sha256": "19e3612a6d078f9da36060604a1355bd3db3dbdd160a3573ed0320d016abca7e"
     },
     {
       "path": "tasks/169-version-plugin-contract-for-richer-actions-and-data-contributions.md",
