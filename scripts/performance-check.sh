@@ -19,3 +19,6 @@ go test ./internal/app -run '^$' -bench '^BenchmarkStatusMouseRowHeightsScale$' 
 	-benchmem -benchtime=1x
 go test ./internal/app -run '^$' -bench '^BenchmarkCommandPalette50Repositories$' \
 	-benchmem -benchtime=1x
+go test ./internal/commands -run '^$' -bench '^BenchmarkSearch5000LoadedActions$' \
+	-benchmem -benchtime=1x
+go test ./internal/commands -run '^TestSearch5000LoadedActionsAllocationBudget$'

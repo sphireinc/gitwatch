@@ -414,7 +414,11 @@ func redactInspection(value any) {
 				item[name] = "<redacted>"
 				continue
 			}
-			redactInspection(child)
+			if text, ok := child.(string); ok {
+				item[name] = redactInspectionText(text)
+			} else {
+				redactInspection(child)
+			}
 		}
 	case []any:
 		redactNext := false
@@ -431,7 +435,7 @@ func redactInspection(value any) {
 				continue
 			}
 			if text, ok := child.(string); ok {
-				item[index] = platform.RedactSecrets(text)
+				item[index] = redactInspectionText(text)
 				if isCredentialFlag(text) {
 					redactNext = true
 				}
@@ -442,9 +446,20 @@ func redactInspection(value any) {
 	}
 }
 
+func redactInspectionText(value string) string {
+	if looksLikeInlineCredential(value) {
+		return "<redacted>"
+	}
+	return platform.RedactSecrets(value)
+}
+
 func looksLikeInlineCredential(value string) bool {
 	lower := strings.ToLower(value)
-	for _, marker := range []string{"token=", "token:", "password=", "password:", "secret=", "secret:", "authorization: bearer ", "authorization:bearer ", "basic "} {
+	for _, marker := range []string{
+		"token=", "token:", "password=", "password:", "secret=", "secret:",
+		"credential=", "credential:", "api_key=", "api-key=", "access_token=", "access-token=",
+		"authorization: bearer ", "authorization:bearer ", "bearer ", "basic ",
+	} {
 		if strings.Contains(lower, marker) {
 			return true
 		}
@@ -454,7 +469,7 @@ func looksLikeInlineCredential(value string) bool {
 
 func isCredentialFlag(value string) bool {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "--token", "--password", "--passwd", "--secret", "--credential", "--authorization", "-p":
+	case "--token", "--password", "--passwd", "--secret", "--credential", "--authorization", "--auth", "--api-key", "--api_key", "--access-token", "--client-secret", "-p":
 		return true
 	default:
 		return false

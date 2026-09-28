@@ -3,6 +3,12 @@
 **Phase:** Hardening
 **Depends on:** 121, 167, 177
 
+**Status:** Complete for the configuration task's acceptance scope. Typed v3
+configuration, deterministic read-only migration, schema and migration
+goldens, invalid-field rejection, safe keybindings, and inspection redaction
+are implemented and tested. This task changes no TUI interaction; wider
+publication and native release acceptance remain in the release tasks.
+
 ## Goal
 
 Version configuration deliberately for advanced workbench features instead of accumulating ad-hoc keys.
@@ -96,6 +102,37 @@ Version configuration deliberately for advanced workbench features instead of ac
   forms, and colon-delimited credential markers. Focused config tests and the
   full `make check` gate pass, including lint, race, vet, security fuzz checks,
   and performance benchmarks. Native/release acceptance remains open.
+
+## Progress evidence (2026-09-28)
+
+- Extended `--config-inspect` redaction to scalar configuration strings as well
+  as argv arrays, covering URL user-info, bearer/inline credential markers, and
+  split API-key/client-secret flags. Regression tests assert credential
+  absence while retaining ordinary command configuration.
+- Refreshed the v3 schema SHA-256 golden to
+  `485684f7923c83fac85631d69aadfcb27ee8be768b868dfd5e6ed319be375373` and
+  added schema assertions for non-negative integer prompt length bounds and
+  zero-only bounds on confirmation and selection prompts.
+- Added a historical v2 input fixture and a paired v3 `--config-inspect`
+  golden generated from the current loader. The v2 source contains no v3
+  workspace/visual fields or later prompt length fields; tests verify the
+  source remains unchanged and existing v2 settings survive normalization.
+- On pre-commit worktree based at `fbd0728`,
+  `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache go test ./internal/config`
+  and `go vet ./...` pass; `gofmt` and `git diff --check` pass. The full
+  `make test` attempt failed in `internal/app` because `httptest` could not
+  bind its loopback listener (`operation not permitted`). The full race run
+  was interrupted to let the main full-suite run proceed. These are local
+  worktree results, not commit-level validation; the main agent should record
+  its final suite result against the final source before committing.
+- The orchestrator's final assembled-source run passed
+  `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache make check`
+  on Darwin arm64 / Go 1.27.1 after all agent edits were finished. It includes
+  pinned golangci-lint v2.12.0 (0 issues), full tests, full race tests, vet,
+  formatting, security fuzz checks, performance budgets, and release policy.
+  The sandbox listener/download failures above are superseded by this
+  successful run with the required test permissions. These are pre-commit
+  worktree changes based on `fbd0728`; hosted CI is recorded separately.
 
 ## Completion record
 

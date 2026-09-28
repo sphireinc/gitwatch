@@ -19,15 +19,26 @@ backward compatibility for users who leave it disabled.
   resize, keyboard/mouse operation, no-upstream and unpushed states.
 - Remaining operator-owned evidence is explicitly recorded before release.
 
-**Status:** In progress — implementation and documentation are complete; the
-exact `VERSION=1.0.9 ./scripts/release-check.sh` candidate gate passed at
-`0f10d5d`, including tests, race tests, security/performance checks, five-target
-archive verification, checksums, dependency-license/SBOM input packaging, and
-build identity. The owner-provided matrix disposition covers all listed
-terminal, OS, Git, workbench, integration, and workload cells for candidate
-`5b2a8e9`; Linux is accepted by explicit macOS equivalence, not represented as
-physical Linux testing. On 2026-09-25 the owner approved carrying the
-context-pane disposition to `34562b5` because the context-pane source is
-unchanged through that revision. This is owner-approved acceptance by source
-equivalence, not a fresh native transcript at `34562b5`; physical
-multi-distribution Linux testing continues.
+**Status:** Complete for this task's acceptance scope, with the context-pane
+operator disposition bounded to `34562b5`. Existing configurations retain the
+disabled-by-default behavior (`README.md`, `internal/config` tests); built-in
+`T`/`P`/`B` shortcuts and safe keymap overrides are documented in `README.md`,
+`KEYMAP.md`, and `docs/context-panes.md`. The exact
+`VERSION=1.0.9 ./scripts/release-check.sh` gate passed at `0f10d5d`, including
+tests, race tests, security/performance checks, five-target archive
+verification, checksums, dependency-license/SBOM input packaging, and build
+identity. The owner-provided beta matrix disposition for `5b2a8e9` was
+explicitly carried to `34562b5` for the context-pane feature because its source
+was unchanged through that revision. That owner acceptance covers enabled and
+disabled panes, resizing, keyboard/mouse operation, and no-upstream/unpushed
+states on macOS and Windows, with Linux accepted by the stated macOS-equivalence
+exception. It is not a fresh native transcript or physical Linux test.
+
+The separate release workflow for `9b1cb34` passed archive, checksum, SBOM,
+attestation/provenance, and publication checks ([run 36307343578](https://github.com/sphireinc/gitwatch/actions/runs/36307343578));
+this does not extend Task 120's owner-approved matrix carry beyond `34562b5`.
+Physical multi-distribution Linux testing and the broader, row-by-row native
+release evidence remain tracked by `docs/beta-validation-matrix.md` and
+`docs/release-checklist.md`; they are broader release gates, not unsatisfied
+Task 120 criteria. The remaining operator-owned evidence is explicitly
+recorded there.

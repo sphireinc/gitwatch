@@ -1,0 +1,55 @@
+{
+  "version": 2,
+  "theme": "dark",
+  "motion": "reduced",
+  "watch": "fs",
+  "interval": 5000000000,
+  "reconciliation": 45000000000,
+  "show_untracked": false,
+  "show_ignored": true,
+  "mouse": false,
+  "debounce": 125000000,
+  "repositories": {
+    "roots": ["/work/one", "/work/two"],
+    "groups": {"clients": ["/work/one", "/work/two"]},
+    "group_refresh": {"clients": 60000000000},
+    "group_auto_fetch": {"clients": 120000000000},
+    "ignore_dirs": ["vendor", "node_modules"],
+    "max_depth": 6,
+    "max_repositories": 42
+  },
+  "remote": {
+    "pull_strategy": "rebase",
+    "auto_fetch": true,
+    "auto_fetch_interval": 900000000000,
+    "auto_fetch_profiles": {
+      "work": {"enabled": true, "interval": 600000000000}
+    }
+  },
+  "github": {"enabled": true, "token_env": "WORK_GITHUB_TOKEN"},
+  "plugins": {"enabled": true, "directories": ["/work/plugins"]},
+  "notifications": {"quiet": true},
+  "layout": {"files_percent": 55, "details_percent": 45},
+  "diff": {"max_bytes": 2097152, "max_lines": 12000},
+  "tools": {
+    "editor": {"executable": "editor", "args": ["--wait"]}
+  },
+  "custom_commands": [{
+    "name": "show-ticket",
+    "executable": "ticket-tool",
+    "contexts": ["status"],
+    "args": ["show", "--id", "{prompt:ticket}"],
+    "prompts": [{
+      "id": "ticket",
+      "label": "Ticket ID",
+      "kind": "text",
+      "required": true
+    }]
+  }],
+  "gitignore_max_bytes": 4194304,
+  "show_commit_tree": true,
+  "commit_tree": {"max_commits": 75},
+  "keymap": {"quit": "x"},
+  "profile": "work",
+  "keymap_profiles": {"work": {"help": "h"}}
+}

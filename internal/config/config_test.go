@@ -62,6 +62,35 @@ func TestInspectRedactsNestedCredentialValuesAndBearerForms(t *testing.T) {
 	}
 }
 
+func TestInspectRedactsCredentialsInScalarFieldsAndAdditionalArgvForms(t *testing.T) {
+	c := Defaults()
+	c.CustomCommands = []customcmd.Definition{{
+		Name:       "publish",
+		Executable: "https://user:scalar-url-secret@example.invalid/publish",
+		Label:      "Authorization: Bearer scalar-label-secret",
+		Directory:  "/tmp/token:scalar-path-secret",
+		Args:       []string{"--api-key", "split-api-key-secret", "--client-secret=inline-client-secret", "--mode=release"},
+	}}
+	data, err := Inspect(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, secret := range []string{
+		"scalar-url-secret", "scalar-label-secret", "scalar-path-secret",
+		"split-api-key-secret", "inline-client-secret",
+	} {
+		if strings.Contains(text, secret) {
+			t.Errorf("inspection leaked %q: %s", secret, text)
+		}
+	}
+	for _, visible := range []string{"publish", "--mode=release"} {
+		if !strings.Contains(text, visible) {
+			t.Errorf("inspection unexpectedly hid non-secret value %q: %s", visible, text)
+		}
+	}
+}
+
 func TestNotificationQuietSettingLoadsAndBuildsModelConfig(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
@@ -237,6 +266,23 @@ func TestLoadRejectsFutureConfigurationVersion(t *testing.T) {
 	}
 	if _, err := Load(path); err == nil {
 		t.Fatal("future version was accepted")
+	}
+}
+
+func TestLoadRejectsMalformedTypedFields(t *testing.T) {
+	for name, data := range map[string]string{
+		"duration":      `{"version":3,"interval":"two seconds"}`,
+		"prompt length": `{"version":3,"custom_commands":[{"name":"inspect","executable":"tool","prompts":[{"id":"query","label":"Query","kind":"text","min_length":"many"}]}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.json")
+			if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Load(path); err == nil {
+				t.Fatalf("malformed typed field was accepted: %s", data)
+			}
+		})
 	}
 }
 

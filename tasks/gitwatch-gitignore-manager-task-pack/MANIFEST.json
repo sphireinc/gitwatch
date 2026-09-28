@@ -117,8 +117,8 @@
     },
     {
       "path": "tasks/207-run-the-gitignore-manager-acceptance-and-release-gate.md",
-      "sha256": "db60629a8d757510d7090df03a8797f316f1bdad007dcf49e75fad06344259fa",
-      "bytes": 4075
+      "sha256": "def226aee9798fca12a407e56d161a3b2bebf9f96a934ce2193ac78675be7e51",
+      "bytes": 8840
     }
   ]
 }

@@ -38,6 +38,31 @@ go test ./internal/app -run '^$' -bench '^BenchmarkCommandPalette50Repositories$
 It indexes only already-loaded in-memory rows and searches the bounded palette
 action set; it must not start Git, provider, filesystem, or plugin processes.
 The regression test caps the allocation count at 2,500 allocations per search.
+An isolated Darwin arm64 / Apple M1 Pro run with Go 1.27.1 in a working tree
+based on `fbd07285cfc554c51f740313411cbbd13f24ad7f`, including the new
+uncommitted benchmark, measured 35,724 ns/op,
+40,122 B/op, and 406 allocs/op with `-benchtime=3s`. This includes palette
+action construction and the 50-repository query; it remains host-specific.
+
+`internal/commands/palette_performance_test.go` also measures search over 5,000
+already-loaded actions (50 repositories with 100 entries each). It reports a
+rare multiword query and the full unfiltered result set separately:
+
+```text
+go test ./internal/commands -run '^$' -bench '^BenchmarkSearch5000LoadedActions$' -benchmem -benchtime=3s
+go test ./internal/commands -run '^TestSearch5000LoadedActionsAllocationBudget$'
+```
+
+The performance check runs both benchmark cases and the allocation regression.
+The test caps each case at 1,000 allocations; elapsed time and bytes/op are
+reported for comparison, not treated as portable pass/fail limits. On Darwin
+arm64 with Go 1.27.1 in a working tree based on
+`fbd07285cfc554c51f740313411cbbd13f24ad7f` (including this new uncommitted
+benchmark; Apple M1 Pro), the isolated 3-second run measured 428,340 ns/op,
+232 B/op, and 4 allocs/op for the rare query, and 357,869 ns/op, 1,842,535
+B/op, and 16 allocs/op for the full result set. This package benchmark is non-interactive,
+so terminal dimensions are not applicable. These are local measurements, not
+Linux or Windows samples or a native-terminal acceptance run.
 
 The scale benchmark and allocation regression cover 1,000, 10,000, and 50,000
 changed-path models, with the measured viewport near the end of each list:

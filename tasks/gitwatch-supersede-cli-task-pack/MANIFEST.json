@@ -329,8 +329,8 @@
     },
     {
       "path": "tasks/178-add-cross-repository-command-palette-and-search.md",
-      "bytes": 6746,
-      "sha256": "a8dcb40fa056434f906b762d99105e12a2403503d3700b4d96794612701ce3aa"
+      "bytes": 8502,
+      "sha256": "d633659e119eef63ee5019181fd5fa165b5a8376f7b7f169226cc467f657f169"
     },
     {
       "path": "tasks/179-add-information-dense-repository-activity-visualization.md",
@@ -344,8 +344,8 @@
     },
     {
       "path": "tasks/181-design-configuration-and-keymap-schema-v3.md",
-      "bytes": 3316,
-      "sha256": "c8e931c501e932e1da89a9f74c4bc31a5527d5f36d46a5e70703e198b6685041"
+      "bytes": 9946,
+      "sha256": "b2973daeda6d84c1a35800f5195e89ef013e576edb66b5d4bd602357a461d02f"
     },
     {
       "path": "tasks/182-perform-security-hardening-for-advanced-history-provider-and-extensibi.md",

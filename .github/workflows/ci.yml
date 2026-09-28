@@ -74,6 +74,11 @@ jobs:
       - name: Cross-platform parity scenarios
         shell: bash
         run: ./scripts/parity-check.sh
+      - name: Command palette latency samples
+        shell: bash
+        run: |
+          go test ./internal/commands -run '^$' -bench '^BenchmarkSearch5000LoadedActions$' -benchmem -benchtime=3x -count=3
+          go test ./internal/app -run '^$' -bench '^BenchmarkCommandPalette50Repositories$' -benchmem -benchtime=3x -count=3
       - name: Race test
         if: runner.os != 'Windows'
         run: go test -race ./...

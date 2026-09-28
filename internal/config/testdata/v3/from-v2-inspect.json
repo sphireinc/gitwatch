@@ -1,0 +1,155 @@
+{
+  "commit_tree": {
+    "max_commits": 75
+  },
+  "custom_commands": [
+    {
+      "args": [
+        "show",
+        "--id",
+        "{prompt:ticket}"
+      ],
+      "confirm": false,
+      "contexts": [
+        "status"
+      ],
+      "executable": "ticket-tool",
+      "mutates_repository": false,
+      "name": "show-ticket",
+      "prompts": [
+        {
+          "id": "ticket",
+          "kind": "text",
+          "label": "Ticket ID",
+          "required": true
+        }
+      ],
+      "refresh": false,
+      "timeout": 0
+    }
+  ],
+  "debounce": 125000000,
+  "diff": {
+    "max_bytes": 2097152,
+    "max_lines": 12000
+  },
+  "github": {
+    "cache_ttl": 120000000000,
+    "enabled": true,
+    "token_env": "WORK_GITHUB_TOKEN"
+  },
+  "gitignore_max_bytes": 4194304,
+  "interval": 5000000000,
+  "keymap": {
+    "branch_summary": "B",
+    "branches": "b",
+    "commit": "c",
+    "commit_tree": "T",
+    "help": "?",
+    "history": "l",
+    "quit": "x",
+    "refresh": "r",
+    "remotes": "n",
+    "repositories": "v",
+    "stashes": "s",
+    "status": "1",
+    "unpushed": "P",
+    "worktrees": "w"
+  },
+  "keymap_profiles": {
+    "work": {
+      "help": "h"
+    }
+  },
+  "layout": {
+    "details_percent": 45,
+    "files_percent": 55
+  },
+  "motion": "reduced",
+  "mouse": false,
+  "notifications": {
+    "quiet": true
+  },
+  "plugins": {
+    "directories": [
+      "/work/plugins"
+    ],
+    "enabled": true,
+    "max_output": 1048576
+  },
+  "profile": "work",
+  "reconciliation": 45000000000,
+  "remote": {
+    "auto_fetch": true,
+    "auto_fetch_backoff": 60000000000,
+    "auto_fetch_backoff_max": 1800000000000,
+    "auto_fetch_interval": 900000000000,
+    "auto_fetch_jitter": 30000000000,
+    "auto_fetch_profiles": {
+      "work": {
+        "backoff": 0,
+        "backoff_max": 0,
+        "enabled": true,
+        "interval": 600000000000,
+        "jitter": 0
+      }
+    },
+    "pull_strategy": "rebase",
+    "stale_after": 1800000000000,
+    "workers": 2
+  },
+  "repositories": {
+    "group_auto_fetch": {
+      "clients": 120000000000
+    },
+    "group_refresh": {
+      "clients": 60000000000
+    },
+    "groups": {
+      "clients": [
+        "/work/one",
+        "/work/two"
+      ]
+    },
+    "ignore_dirs": [
+      "vendor",
+      "node_modules"
+    ],
+    "max_depth": 6,
+    "max_repositories": 42,
+    "roots": [
+      "/work/one",
+      "/work/two"
+    ]
+  },
+  "show_commit_tree": true,
+  "show_ignored": true,
+  "show_untracked": false,
+  "theme": "dark",
+  "tools": {
+    "difftool": {
+      "args": null,
+      "executable": ""
+    },
+    "editor": {
+      "args": [
+        "--wait"
+      ],
+      "executable": "editor"
+    },
+    "opener": {
+      "args": null,
+      "executable": ""
+    }
+  },
+  "version": 3,
+  "visuals": {
+    "activity_buckets": 8,
+    "enabled": true
+  },
+  "watch": "fs",
+  "workspace": {
+    "palette_max_results": 200,
+    "status_overscan": 4
+  }
+}

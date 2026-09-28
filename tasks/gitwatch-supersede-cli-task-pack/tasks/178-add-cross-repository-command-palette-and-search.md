@@ -79,3 +79,31 @@ the candidate. The later plugin-load in-flight guard may affect when loaded
 plugin entries become available; the owner explicitly accepted this carry.
 This is owner-approved acceptance, not fresh native transcripts or physical
 Linux runs. Cross-platform latency samples remain open.
+
+## Latency benchmark follow-up (2026-09-28)
+
+- Added a deterministic `internal/commands` benchmark for 5,000 already-loaded
+  palette actions representing 50 repositories with 100 entries each. It
+  reports rare multiword search and full result-set search separately.
+- Added a portable allocation regression ceiling of 1,000 allocations per
+  measured case and included both benchmark cases plus the allocation test in
+  `scripts/performance-check.sh`.
+- Recorded on Darwin arm64 / Apple M1 Pro with Go 1.27.1 in a working tree
+  based on `fbd07285cfc554c51f740313411cbbd13f24ad7f`, including this new
+  uncommitted benchmark: isolated rare query
+  `428,340 ns/op`, `232 B/op`, `4 allocs/op`; full results `357,869 ns/op`,
+  `1,842,535 B/op`, `16 allocs/op`. The benchmark is non-interactive (terminal dimensions do not
+  apply). Reproduce with
+  `go test ./internal/commands -run '^$' -bench '^BenchmarkSearch5000LoadedActions$' -benchmem -benchtime=3s`.
+- Re-ran the existing full-palette `BenchmarkCommandPalette50Repositories`
+  in that working tree with the same Go version and host: `35,724 ns/op`,
+  `40,122 B/op`, `406 allocs/op` (`-benchtime=3s`).
+- Focused validation passed: `go test ./internal/commands`,
+  `go vet ./internal/commands`, `sh -n scripts/performance-check.sh`,
+  `git diff --check`, and `./scripts/performance-check.sh` (including the new
+  5,000-action benchmark and allocation test).
+- The CI workflow now runs both palette benchmarks three times on Linux,
+  macOS, and Windows. Hosted results remain pending; this local run does not
+  satisfy that measurement gate. No additional native/manual evidence is
+  claimed. The owner-approved source-equivalence acceptance above remains the
+  recorded local acceptance disposition.

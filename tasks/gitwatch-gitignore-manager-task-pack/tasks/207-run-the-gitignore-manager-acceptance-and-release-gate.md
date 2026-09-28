@@ -51,12 +51,12 @@ This task is a hard gate, not a documentation checkbox. The feature is done only
 
 This task is not done when the UI merely looks correct. It is done only when the behavior is implemented through production code, covered by unit/integration tests appropriate to the task, works under the repository-scoped operation model, and passes `go test ./...` plus the project lint/vet gates.
 
-## Local gate evidence (task remains open)
+## Automated gate and release evidence
 
 - `VERSION=1.0.0 ./scripts/release-check.sh` passed on macOS arm64 with Go 1.27.0, including full tests, race tests, vet, performance, security, isolated install/config smoke, demo-repository status, cross-target archive generation, SBOM packaging, and artifact verification.
 - `./scripts/secret-scan.sh --history` passed with no leaks found across 369 commits.
 - `make check` passed on macOS arm64 with Go 1.27.0 after fixing all 21 golangci-lint findings and making disposable-commit tests independent of host-wide Git signing configuration. This includes formatting, lint (0 issues), full tests, race tests, vet, security, and performance gates.
-- Native operator acceptance and CI evidence for Linux, macOS, and Windows remain required by `docs/release-checklist.md`, including terminal/UI, filesystem notification, resize, installation, and shutdown checks. This task remains open until those platform-scoped requirements have authoritative evidence or an explicit owner disposition.
+- General native operator acceptance remains tracked by `docs/release-checklist.md`, including terminal/UI, filesystem notification, resize, installation, and shutdown checks. Those repository-wide release rows are separate from this task's feature-specific acceptance criteria and do not reopen them.
 
 ## Current-main automated revalidation (2026-09-25)
 
@@ -93,18 +93,21 @@ Hosted Actions run [36265558585](https://github.com/sphireinc/gitwatch/actions/r
 completed successfully for exact commit `9b1cb342fffba50675ce83dfc957ac0cabae1ea9`.
 All five jobs passed: quality/policy, full-history secret scan, and test jobs
 for Ubuntu 24.04, macOS 15, and Windows 2025. The `.gitignore` manager source
-is unchanged at this candidate. This updates automated platform evidence only;
-it does not provide the feature-specific native/operator transcripts. At that
-point all seven operator acceptance criteria above remained open pending
-explicit owner disposition.
+is unchanged at this candidate. At this point the seven feature-specific
+operator criteria still awaited owner disposition; the result did not itself
+provide native/operator transcripts.
 
 ## Owner acceptance by source equivalence (2026-09-27)
 
-The owner explicitly accepted carrying the all-platform disposition to this
-task because the `.gitignore` manager application source is unchanged from
-`5b2a8e9` through exact candidate `9b1cb34`. This closes the seven
-feature-specific acceptance criteria above by owner acceptance. It is not a
-claim that fresh native runs or scenario-by-scenario transcripts were
-collected; those transcripts remain absent. The exact candidate's hosted CI
-passed in run `36265558585`. General platform operator evidence listed above
-remains a separate open gate.
+**Status: Complete.** The owner explicitly accepted carrying the all-platform
+disposition to this task because the `.gitignore` manager application source is
+unchanged from `5b2a8e9` through exact candidate `9b1cb34`. This closes each of
+the seven feature-specific criteria above by owner acceptance: fresh-repo
+composition, handwritten-byte preservation, overlap removal, multi-repo batch
+behavior, concurrent-edit protection, offline use, and authoritative live
+status refresh. It is not a claim that fresh native runs or
+scenario-by-scenario transcripts were collected; those transcripts remain
+absent. Exact-candidate hosted CI passed in run `36265558585`, and the
+published beta release workflow passed in [run 36307343578](https://github.com/sphireinc/gitwatch/actions/runs/36307343578).
+The repository-wide native operator rows in `docs/release-checklist.md` remain
+a separate open release gate.
