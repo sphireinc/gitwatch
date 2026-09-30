@@ -49,6 +49,11 @@ reject terminal control characters and enforce bounded row, field, column, and
 text sizes. Process, network, and Git-mutation permissions are separate
 capabilities and must be granted explicitly by the host.
 
+In the Plugins workspace, select a plugin to inspect its contributed table
+rows and detail fields. The list follows the selected plugin, and the selected
+plugin's data is clipped to the available terminal viewport after sanitization;
+keyboard navigation and clicking a visible plugin row select the same entry.
+
 Read-only repository metadata actions may name a host provider. The initial
 provider, `github.repository`, is surfaced as a command-palette action outside
 the Plugins workspace. Selecting it opens the host GitHub workspace for the

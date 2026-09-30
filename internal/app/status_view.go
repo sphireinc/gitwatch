@@ -166,6 +166,7 @@ func (m Model) statusView() string {
 	header := fmt.Sprintf("gitwatch · %s · %s · watch:%s", name, stateName(m.State), watchLabel)
 	metrics := fmt.Sprintf("STAGED %d  MODIFIED %d  UNTRACKED %d  CONFLICTS %d", m.Snapshot.Counts.Staged, m.Snapshot.Counts.Unstaged, m.Snapshot.Counts.Untracked, m.Snapshot.Counts.Conflicted)
 	localHealth := health.Compute(m.Snapshot, len(m.Stashes.Entries), len(m.Worktrees.Entries), nil)
+	metrics += fmt.Sprintf("  AHEAD %d  BEHIND %d  UNPUSHED %d  SUBMODULE ISSUES %d", localHealth.Ahead, localHealth.Behind, localHealth.Unpushed, localHealth.SubmoduleIssues)
 	if m.CommitConfigReady {
 		localHealth = health.ApplySigning(localHealth, m.CommitConfig.SignEnabled, m.CommitConfig.SignFormat)
 	}
@@ -758,6 +759,7 @@ func padStatusPanelWithTopBorder(lines []string, width, height int) []string {
 func (m Model) statusDetailsLines(width, height int) []string {
 	lines := []string{"Selected file details", "", "Select a file and press Enter/d, or click its row, to open its diff."}
 	if m.Files.Selected < 0 || m.Files.Selected >= len(m.Files.Visible) {
+		lines = append(lines, m.statusHealthDetails()...)
 		return fitLines(lines, width, height)
 	}
 	entry := m.Files.Entries[m.Files.Visible[m.Files.Selected]]
@@ -790,7 +792,43 @@ func (m Model) statusDetailsLines(width, height int) []string {
 		lines = append(lines, "Observed: "+detail.ObservedAt.Format("15:04:05"))
 	}
 	lines = append(lines, "", detail.Hint)
+	lines = append(lines, m.statusHealthDetails()...)
 	return fitLines(lines, width, height)
+}
+
+// statusHealthDetails renders only already observed state; rendering never probes Git.
+func (m Model) statusHealthDetails() []string {
+	summary := health.Compute(m.Snapshot, len(m.Stashes.Entries), len(m.Worktrees.Entries), nil)
+	observed := "unknown"
+	if !summary.FreshAt.IsZero() {
+		observed = summary.FreshAt.Format(time.RFC3339)
+	}
+	operation := summary.ActiveOperation
+	if operation == "" {
+		operation = "none"
+	}
+	lines := []string{
+		"", "Repository health",
+		fmt.Sprintf("Dirty: %d · conflicts: %d", summary.Dirty, summary.Conflicts),
+		fmt.Sprintf("Ahead: %d · behind: %d · unpushed: %d", summary.Ahead, summary.Behind, summary.Unpushed),
+		fmt.Sprintf("Submodule issues: %d · operation: %s", summary.SubmoduleIssues, operation),
+		"Source: " + summary.Source + " · observed: " + observed,
+	}
+	for _, metric := range []struct {
+		name     string
+		count    int
+		observed time.Time
+	}{
+		{"Stashes", len(m.Stashes.Entries), m.StashesObservedAt},
+		{"Worktrees", len(m.Worktrees.Entries), m.WorktreesObservedAt},
+	} {
+		if metric.observed.IsZero() {
+			lines = append(lines, metric.name+": unknown · source: not loaded")
+		} else {
+			lines = append(lines, fmt.Sprintf("%s: %d · source: cached Git list · observed: %s", metric.name, metric.count, metric.observed.Format(time.RFC3339)))
+		}
+	}
+	return lines
 }
 
 func (m Model) latestActivityLine() string {

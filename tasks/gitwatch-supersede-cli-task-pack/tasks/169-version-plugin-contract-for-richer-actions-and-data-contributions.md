@@ -151,3 +151,19 @@ Extend out-of-process plugins without allowing arbitrary in-process UI code.
   `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
   Plugin SDK/runtime/contribution code is unchanged from hosted-verified
   `91424f1`; native/manual acceptance and release evidence remain open.
+
+- 2026-09-28 working-tree follow-up: the Plugins workspace now renders the
+  selected plugin's schema-defined table rows and detail fields in a bounded,
+  sanitized viewport. Its compact plugin list follows keyboard selection and
+  exposes the same visible-row mapping for mouse selection; rendering stops at
+  the viewport budget instead of building every plugin's contribution rows.
+  Focused `internal/ui/pluginview` normal, race, and vet checks are recorded in
+  the current handoff, not as commit or native/manual evidence. The broader
+  native/manual terminal acceptance and release evidence remain open.
+- The assembled pre-commit worktree based on `5497288` passed
+  `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache make check`
+  on Go 1.27.1 darwin/arm64 (Apple M1 Pro), including zero-issue lint, full
+  normal/race tests, vet, formatting, security fuzz, performance, and release
+  policy. App regression coverage also verifies mouse selection uses the
+  visible plugin-list offset. New terminal behavior still requires operator
+  acceptance; this is not native/manual evidence.

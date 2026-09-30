@@ -3,6 +3,7 @@ package repoview
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/registry"
@@ -109,17 +110,50 @@ func (m *Model) Move(delta int) {
 	}
 }
 
-// View renders repositories and their current health state.
-func (m Model) View() string {
+// VisibleWindow returns the row range that fits within maxContentLines while
+// keeping the selected repository visible. A non-positive limit is unbounded.
+func (m Model) VisibleWindow(maxContentLines int) (offset, count int) {
+	total := len(m.Rows)
+	if total == 0 {
+		return 0, 0
+	}
+	if maxContentLines <= 0 {
+		return 0, total
+	}
+	count = min(total, max(0, (maxContentLines-1)/2))
+	if count == 0 {
+		return 0, 0
+	}
+	selected := min(max(m.Selected, 0), total-1)
+	if selected >= count {
+		offset = selected - count + 1
+	}
+	if offset+count > total {
+		offset = total - count
+	}
+	return offset, count
+}
+
+// View renders repositories and their current health state. An optional
+// content-line limit keeps each repository's two-line presentation intact.
+func (m Model) View(maxContentLines ...int) string {
 	header := "Repositories"
 	if m.Query != "" {
 		header += " · filter: " + platform.SafeText(m.Query)
 	}
 	header += fmt.Sprintf(" · sort: %s", m.Sort)
 	lines := []string{header}
-	for i, row := range m.Rows {
+	limit := 0
+	if len(maxContentLines) > 0 {
+		limit = maxContentLines[0]
+	}
+	offset, count := m.VisibleWindow(limit)
+	end := offset + count
+	now := time.Now()
+	for i, row := range m.Rows[offset:end] {
+		selectedIndex := offset + i
 		prefix := "  "
-		if i == m.Selected {
+		if selectedIndex == m.Selected {
 			prefix = "> "
 		}
 		line := fmt.Sprintf("%s%s · %s [%s] health:%s", prefix, platform.SafeText(row.Repository.Name), platform.SafeText(row.Branch), row.State, platform.SafeText(string(row.Health.Severity)))
@@ -136,14 +170,19 @@ func (m Model) View() string {
 		if row.Attention != "" {
 			line += " attention:" + platform.SafeText(row.Attention)
 		}
-		if row.RemoteFetchStatus != "" {
-			line += " remote-fetch:" + platform.SafeText(row.RemoteFetchStatus)
+		if row.RemoteFetchStatus != "" || !row.RemoteFetchAt.IsZero() {
+			status := row.RemoteFetchStatus
+			if status == "" {
+				status = "unknown"
+			}
+			line += " remote-fetch:" + platform.SafeText(status)
 			if row.RemoteFetchError != "" {
 				line += "/" + platform.SafeText(row.RemoteFetchError)
 			}
 			if row.Repository.LastAutoFetchMillis > 0 {
 				line += fmt.Sprintf(" latency:%dms", row.Repository.LastAutoFetchMillis)
 			}
+			line += " age:" + formatFetchAge(row.RemoteFetchAt, now)
 		}
 		line += fmt.Sprintf(" dirty:%d +%d/-%d stashes:%d worktrees:%d remotes:%d", row.Dirty, row.Ahead, row.Behind, row.Stashes, row.Worktrees, row.Remotes)
 		if m.VisualsEnabled {
@@ -192,6 +231,26 @@ func (m Model) View() string {
 		lines = append(lines, "  No repositories")
 	}
 	return strings.Join(lines, "\n")
+}
+
+func formatFetchAge(observed, now time.Time) string {
+	if observed.IsZero() {
+		return "unknown"
+	}
+	age := now.Sub(observed)
+	if age < 0 {
+		return "clock-skew"
+	}
+	switch {
+	case age < time.Minute:
+		return "just now"
+	case age < time.Hour:
+		return fmt.Sprintf("%dm ago", int(age/time.Minute))
+	case age < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(age/time.Hour))
+	default:
+		return fmt.Sprintf("%dd ago", int(age/(24*time.Hour)))
+	}
 }
 
 func gitignoreLabel(health registry.GitignoreHealth) string {

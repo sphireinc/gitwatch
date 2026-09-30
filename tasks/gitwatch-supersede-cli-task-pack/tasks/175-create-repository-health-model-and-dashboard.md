@@ -116,3 +116,22 @@ Turn gitwatch’s htop identity into a concrete repository-health surface.
 - User-facing behavior is now described in the README, provider guide, advanced multi-repository workflow guide, and Unreleased changelog: local status remains authoritative/offline-capable, provider freshness is explicit, and fetch completion/latency is reported without probing on each status refresh.
 - Configuration docs now enumerate defaults and nested settings, environment variables, CLI overrides, migration behavior, and the custom-command prompt fields. The published v3 JSON Schema now includes typed prompt definitions; a schema regression test verifies that surface.
 - Documentation/schema checks and `make check` pass on Go `go1.27.0 darwin/arm64` (format, pinned lint, full unit/race suites, vet, security fuzz, performance). Hosted run `36096357394` for `be0aca1` passed Ubuntu 24.04, macOS 15, Windows 2025, quality/policy, and full-history secret scanning. Richer single-repository detail and native/manual acceptance remain open.
+
+## Progress evidence (2026-09-28, uncommitted follow-up)
+
+- Working tree based on `5497288` adds live ahead/behind/unpushed/submodule
+  counts to the existing Status metrics row and a repository-health appendix
+  to file/clean-state details, without changing the number of header rows or
+  running Git while rendering.
+- Stash/worktree list observations have separate timestamps. Unloaded or failed
+  lists render `unknown`; a successful empty list renders zero with its actual
+  cached-list observation timestamp/source, rather than borrowing status freshness.
+- Focused health rendering tests passed locally on Go 1.27.1 darwin/arm64.
+  The assembled follow-up still requires a commit record,
+  hosted cross-platform evidence, and native/operator acceptance. Earlier
+  source-equivalence dispositions do not cover these new rendering changes.
+- The assembled pre-commit worktree based on `5497288` passed
+  `GOCACHE=/tmp/git-watch-go-cache GOMODCACHE=/tmp/git-watch-go-mod-cache make check`
+  on Go 1.27.1 darwin/arm64 (Apple M1 Pro): formatting, lint (zero issues), full
+  normal/race tests, vet, diff checks, security fuzz, performance budgets, and
+  release policy. This supersedes the agent's restricted-loopback test failure.

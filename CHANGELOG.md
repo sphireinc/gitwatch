@@ -4,7 +4,17 @@ All notable user-visible changes to gitwatch are documented here. The project fo
 
 ## [Unreleased]
 
-No post-v1.0.9 entries have been recorded here yet.
+### Added
+
+- Custom-command text and secret prompts support Unicode-aware minimum and maximum lengths; invalid selection values are reported before execution.
+- Status details expose live repository health and independently timestamped stash/worktree counts; large repository dashboards keep selection visible and show remote-fetch age.
+- The Plugins workspace displays sanitized, viewport-bounded table rows and detail fields for the selected plugin, with selection-following keyboard and mouse navigation.
+
+### Fixed
+
+- Custom-command argv expansion preserves literal placeholder-like text inside inserted paths and prompt values.
+- Configuration inspection redacts scalar credential-bearing values and split credential flags while preserving non-secret configuration.
+- Cross-process refresh-bound tests synchronize counter readers with writers to avoid transient empty-file failures on Windows.
 
 ## [1.0.9] - 2026-09-22
 

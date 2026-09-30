@@ -141,6 +141,27 @@ pool indefinitely.
 
 ## Recording a baseline
 
+### Hosted palette samples, 2026-09-28
+
+[CI run 36379055493](https://github.com/sphireinc/gitwatch/actions/runs/36379055493)
+passed all five jobs at exact revision `5497288ef726b8b90b7df3fb915144c6346fb1fb`.
+The workflow uses the repository-pinned Go 1.25.10 toolchain.
+The following ranges cover three independent benchmark samples, each with
+`-benchtime=3x`; they are short hosted observations, not interactive/native
+operator evidence or portable wall-clock gates. Terminal dimensions do not
+apply to these pure in-memory benchmarks.
+
+| Runner / CPU | Rare query (ms/op) | Full 5,000 results (ms/op) | 50-repo palette (ms/op) |
+| --- | ---: | ---: | ---: |
+| macOS 15 arm64 / Apple M1 (Virtual) | 0.475–0.519 | 0.334–0.601 | 0.048–0.052 |
+| Ubuntu 24.04 amd64 / Xeon Platinum 8573C | 0.619–0.626 | 0.526–0.704 | 0.039–0.065 |
+| Windows 2025 amd64 / EPYC 7763 | 0.577–0.583 | 0.670–0.804 | 0.052–0.063 |
+
+Search allocations were 4/op for rare queries and 16/op for full results;
+the full palette used 406/op on all three runners. The existing allocation
+ceilings remain unchanged. Fetch the exact benchmark command/output from the
+`Command palette latency samples` step of each job in the linked run.
+
 Record the complete output of the benchmark commands above with `go version`,
 OS/architecture, CPU, terminal dimensions, and the exact commit. Compare
 allocations and bytes/op first; wall-clock values are useful for a single host

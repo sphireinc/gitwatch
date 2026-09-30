@@ -173,6 +173,15 @@ freshness is not inferred from local status and remotes are not probed on every
 status refresh. See [provider behavior](provider.md) and
 [configuration](configuration.md) for cache and auto-fetch controls.
 
+The Status header includes ahead/behind, unpushed, and submodule-issue counts
+when terminal width permits. Its details pane includes repository health even
+when the worktree is clean. Stash and worktree counts come from the most recent
+successful list load and show that list's observation time, not the live status
+timestamp; before loading (or after a failed load), their values are `unknown`.
+These views do not run Git commands while rendering. The repository dashboard
+keeps the selected two-line row visible as you move through large registries,
+and reports fetch age separately from fetch duration.
+
 ## Configuration and safety
 
 ### Background operation lifecycle

@@ -278,8 +278,9 @@ type BranchesReadyMsg struct {
 	Err     error
 }
 type StashesReadyMsg struct {
-	Entries []stash.Entry
-	Err     error
+	Entries    []stash.Entry
+	Generation uint64
+	Err        error
 }
 type ReflogReadyMsg struct {
 	Entries    []reflog.Entry
@@ -440,8 +441,9 @@ type RemotesReadyMsg struct {
 	Err       error
 }
 type WorktreesReadyMsg struct {
-	Entries []worktrees.Entry
-	Err     error
+	Entries    []worktrees.Entry
+	Generation uint64
+	Err        error
 }
 type WorktreeOperationFinishedMsg struct {
 	Operation  string
@@ -711,6 +713,7 @@ type Model struct {
 	BranchResetPrompt         bool
 	BranchResetInput          string
 	Stashes                   stashview.Model
+	StashesObservedAt         time.Time
 	Reflog                    reflogview.Model
 	ReflogSkip                int
 	ReflogLoading             bool
@@ -846,6 +849,7 @@ type Model struct {
 	StashBranchName           string
 	Remotes                   remoteview.Model
 	Worktrees                 worktreeview.Model
+	WorktreesObservedAt       time.Time
 	WorktreeAddMode           bool
 	WorktreeAddPath           string
 	WorktreeAddCommit         string
@@ -1894,6 +1898,7 @@ func (m *Model) setRepository(discovery git.Discovery) error {
 		m.StatusCommitCancel = nil
 	}
 	m.Discovery = discovery
+	m.StashesObservedAt, m.WorktreesObservedAt = time.Time{}, time.Time{}
 	m.TagSnapshot, m.TagsLoading, m.TagsErr, m.TagsSelected, m.TagsFilter, m.TagsFilterMode = tags.Snapshot{}, false, nil, 0, "", false
 	m.Submodules, m.SubmodulesLoading, m.SubmodulesGeneration, m.SubmodulesErr = submodules.Snapshot{}, false, 0, nil
 	m.SubmoduleAction, m.SubmodulePath, m.SubmoduleInput, m.SubmoduleURL = "", "", "", ""
@@ -3541,11 +3546,14 @@ func mergeStrategy(value string) (mergeops.Strategy, bool) {
 	}
 }
 
-func (m Model) loadStashes() tea.Cmd {
+func (m *Model) loadStashes() tea.Cmd {
+	m.StashesObservedAt = time.Time{}
 	r := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	ctx := m.commandContext()
 	return func() tea.Msg {
-		entries, err := stash.List(m.commandContext(), r)
-		return StashesReadyMsg{Entries: entries, Err: err}
+		entries, err := stash.List(ctx, r)
+		return StashesReadyMsg{Entries: entries, Generation: generation, Err: err}
 	}
 }
 
@@ -4890,11 +4898,14 @@ func (m *Model) recordRemoteActivity(operation, message string, success bool) {
 	m.Remotes.Dashboard.Activity = activity
 }
 
-func (m Model) loadWorktrees() tea.Cmd {
+func (m *Model) loadWorktrees() tea.Cmd {
+	m.WorktreesObservedAt = time.Time{}
 	runner := git.NewRunner(m.Discovery.Root)
+	generation := m.repositoryGeneration
+	ctx := m.commandContext()
 	return func() tea.Msg {
-		entries, err := worktrees.List(m.commandContext(), runner)
-		return WorktreesReadyMsg{Entries: entries, Err: err}
+		entries, err := worktrees.List(ctx, runner)
+		return WorktreesReadyMsg{Entries: entries, Generation: generation, Err: err}
 	}
 }
 
@@ -8736,11 +8747,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Hunks.SelectLine(m.Hunks.LineAt(v.Y - 3))
 				return m, nil
 			}
+			if m.currentView() == workspace.Plugins {
+				m.Plugins.SelectVisibleRow(v.Y-2, m.Width, m.repositoryViewportLines())
+				return m, nil
+			}
 			if m.currentView() == workspace.Repositories {
 				// Each repository occupies a name/state row followed by its path row.
-				row := (v.Y - 3) / 2
-				if v.Y >= 3 && row >= 0 && row < len(m.Repositories.Rows) {
-					m.Repositories.Selected = row
+				if v.Y >= 3 {
+					row := (v.Y - 3) / 2
+					offset, count := m.Repositories.VisibleWindow(m.repositoryViewportLines())
+					if row >= 0 && row < count {
+						m.Repositories.Selected = offset + row
+					}
 				}
 				return m, nil
 			}
@@ -9470,7 +9488,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State = StateReady
 		}
 	case StashesReadyMsg:
+		if v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
 		if v.Err != nil {
+			m.StashesObservedAt = time.Time{}
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			if len(m.Stashes.Entries) == 0 {
@@ -9478,6 +9500,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.Stashes.SetEntries(v.Entries)
 			}
+			m.StashesObservedAt = time.Now()
 			m.State = StateReady
 		}
 	case ReflogReadyMsg:
@@ -10056,7 +10079,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Status = fmt.Sprintf("push %s/%s: %s -> %s? (y/n)", v.Preview.Remote, v.Preview.Branch, remoteSHA, v.Preview.LocalSHA)
 		}
 	case WorktreesReadyMsg:
+		if v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
 		if v.Err != nil {
+			m.WorktreesObservedAt = time.Time{}
 			m.State, m.Status = StateError, v.Err.Error()
 		} else {
 			if len(m.Worktrees.Entries) == 0 {
@@ -10064,6 +10091,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.Worktrees.SetEntries(v.Entries)
 			}
+			m.WorktreesObservedAt = time.Now()
 			m.State = StateReady
 		}
 	case RepositoriesReadyMsg:
@@ -10404,6 +10432,14 @@ func (m Model) View() tea.View {
 	return v
 }
 
+func (m Model) repositoryViewportLines() int {
+	if m.Height <= 0 {
+		return 0
+	}
+	// The feature-view title, spacing, divider, and footer reserve five lines.
+	return max(1, m.Height-5)
+}
+
 func (m Model) featureView(view workspace.View) tea.View {
 	title, content := "gitwatch", "Loading…"
 	switch view {
@@ -10537,7 +10573,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 			content += "\n\n" + platform.SafeText(m.Status)
 		}
 	case workspace.Plugins:
-		title, content = "gitwatch · plugins", m.Plugins.View()
+		title, content = "gitwatch · plugins", m.Plugins.ViewWithSize(m.Width, m.repositoryViewportLines())
 	case workspace.Hunks:
 		title, content = "gitwatch · hunk selection", m.Hunks.View()
 		if m.HistoricalPatchMode {
@@ -10549,7 +10585,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 	case workspace.Worktrees:
 		title, content = "gitwatch · worktrees", m.Worktrees.View()
 	case workspace.Repositories:
-		title, content = "gitwatch · repositories", m.Repositories.View()
+		title, content = "gitwatch · repositories", m.Repositories.View(m.repositoryViewportLines())
 	case workspace.Rebase:
 		title, content = "gitwatch · interactive rebase", m.Rebase.View()
 		if m.Status != "" {

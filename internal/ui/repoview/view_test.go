@@ -1,6 +1,7 @@
 package repoview
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -78,6 +79,52 @@ func TestViewShowsMeasuredAutoFetchLatency(t *testing.T) {
 		if index := strings.Index(lines[2], detail); index < 0 || index >= 80 {
 			t.Fatalf("freshness detail %q is not prioritized in 80 columns: %q", detail, lines[2])
 		}
+	}
+	if !strings.Contains(lines[1], "age:") {
+		t.Fatalf("fetch age missing: %q", lines[1])
+	}
+}
+
+func TestFetchAgeHandlesUnknownFutureAndElapsedTimes(t *testing.T) {
+	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		name string
+		at   time.Time
+		want string
+	}{
+		{name: "unknown", want: "unknown"},
+		{name: "future", at: now.Add(time.Second), want: "clock-skew"},
+		{name: "recent", at: now.Add(-30 * time.Second), want: "just now"},
+		{name: "minutes", at: now.Add(-3 * time.Minute), want: "3m ago"},
+		{name: "hours", at: now.Add(-2 * time.Hour), want: "2h ago"},
+		{name: "days", at: now.Add(-48 * time.Hour), want: "2d ago"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := formatFetchAge(test.at, now); got != test.want {
+				t.Fatalf("fetch age = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestViewBoundsRepositoriesWithoutSplittingPairs(t *testing.T) {
+	rows := make([]registry.Row, 256)
+	for i := range rows {
+		rows[i].Repository = registry.Repository{Name: fmt.Sprintf("repo-%03d", i), Path: fmt.Sprintf("/repo/%03d", i)}
+	}
+	m := New(rows)
+	m.Move(255)
+	view := m.View(19)
+	lines := strings.Split(view, "\n")
+	if len(lines) != 19 {
+		t.Fatalf("bounded line count = %d, want 19; view=%q", len(lines), view)
+	}
+	if !strings.HasPrefix(lines[len(lines)-2], "> repo-255") || !strings.Contains(lines[len(lines)-1], "/repo/255") {
+		t.Fatalf("selected repository not visible as a two-line pair: %q", view)
+	}
+	offset, count := m.VisibleWindow(19)
+	if offset != 247 || count != 9 {
+		t.Fatalf("visible window = (%d,%d), want (247,9)", offset, count)
 	}
 }
 

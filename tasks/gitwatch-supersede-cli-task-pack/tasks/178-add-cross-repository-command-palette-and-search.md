@@ -3,6 +3,9 @@
 **Phase:** Multi-repository differentiation
 **Depends on:** 125, 162, 170, 175
 
+**Status:** Complete for the command-palette acceptance scope. This does not
+close the independent upstream dashboard/operator gates or the release checklist.
+
 ## Goal
 
 Make Ctrl-P a workspace-wide navigator across repositories and already-loaded Git/provider state.
@@ -107,3 +110,17 @@ Linux runs. Cross-platform latency samples remain open.
   satisfy that measurement gate. No additional native/manual evidence is
   claimed. The owner-approved source-equivalence acceptance above remains the
   recorded local acceptance disposition.
+
+## Hosted latency gate closure (2026-09-28)
+
+- Exact revision `5497288ef726b8b90b7df3fb915144c6346fb1fb` passed all five jobs
+  in [CI run 36379055493](https://github.com/sphireinc/gitwatch/actions/runs/36379055493).
+- Dedicated benchmarks ran three times on macOS 15 arm64 (Apple M1 Virtual),
+  Ubuntu 24.04 amd64 (Xeon Platinum 8573C), and Windows 2025 amd64 (EPYC 7763).
+  All 5,000-action search samples were below 0.81 ms/op; search allocations
+  were 4/op (rare) and 16/op (full results), and full palette construction/search
+  used 406/op. Exact ranges and command scope are in `docs/performance.md`.
+- This closes the missing hosted measurement gate. Palette application source
+  is unchanged from the recorded owner-approved source-equivalence acceptance;
+  the added benchmark/CI measurement does not introduce terminal behavior.
+  No new native transcripts or physical Linux runs are claimed.

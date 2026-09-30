@@ -584,6 +584,27 @@ func countActiveProcessMarkers(t *testing.T, directory string) int {
 
 func updateProcessCounter(t *testing.T, directory string, delta int) {
 	t.Helper()
+	unlock := lockProcessCounter(t, directory)
+	defer unlock()
+
+	active, peak := readProcessCounterUnlocked(t, directory)
+	active += delta
+	if active < 0 {
+		t.Fatalf("active direct child process count became negative: %d", active)
+	}
+	if active > peak {
+		peak = active
+	}
+	if err := os.WriteFile(filepath.Join(directory, "counter"), []byte(strconv.Itoa(active)), 0o600); err != nil {
+		t.Fatalf("write active child-process count: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "peak"), []byte(strconv.Itoa(peak)), 0o600); err != nil {
+		t.Fatalf("write peak child-process count: %v", err)
+	}
+}
+
+func lockProcessCounter(t *testing.T, directory string) func() {
+	t.Helper()
 	lockPath := filepath.Join(directory, "lock")
 	deadline := time.Now().Add(5 * time.Second)
 	var lockFile *os.File
@@ -601,33 +622,25 @@ func updateProcessCounter(t *testing.T, directory string, delta int) {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	defer func() {
+	return func() {
 		if err := lockFile.Close(); err != nil {
 			t.Errorf("close process-counter lock: %v", err)
 		}
 		if err := os.Remove(lockPath); err != nil {
 			t.Errorf("release process-counter lock: %v", err)
 		}
-	}()
-
-	active, _ := readProcessCounter(t, directory)
-	active += delta
-	if active < 0 {
-		t.Fatalf("active direct child process count became negative: %d", active)
-	}
-	_, peak := readProcessCounter(t, directory)
-	if active > peak {
-		peak = active
-	}
-	if err := os.WriteFile(filepath.Join(directory, "counter"), []byte(strconv.Itoa(active)), 0o600); err != nil {
-		t.Fatalf("write active child-process count: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(directory, "peak"), []byte(strconv.Itoa(peak)), 0o600); err != nil {
-		t.Fatalf("write peak child-process count: %v", err)
 	}
 }
 
 func readProcessCounter(t *testing.T, directory string) (active, peak int) {
+	t.Helper()
+	unlock := lockProcessCounter(t, directory)
+	defer unlock()
+	return readProcessCounterUnlocked(t, directory)
+}
+
+// readProcessCounterUnlocked requires the caller to hold the process-counter lock.
+func readProcessCounterUnlocked(t *testing.T, directory string) (active, peak int) {
 	t.Helper()
 	read := func(name string) int {
 		content, err := os.ReadFile(filepath.Join(directory, name))

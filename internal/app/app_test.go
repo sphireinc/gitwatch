@@ -4621,6 +4621,81 @@ func TestRepositoryMouseSelectsRow(t *testing.T) {
 	}
 }
 
+func TestRepositoryViewportTracksKeyboardSelectionAndMouseOffset(t *testing.T) {
+	m := New()
+	m.Width, m.Height = 80, 24
+	m.Workspace.Navigate(workspace.Repositories, "Repositories")
+	rows := make([]registry.Row, 256)
+	for i := range rows {
+		rows[i].Repository = registry.Repository{Name: fmt.Sprintf("repo-%03d", i), Path: fmt.Sprintf("/repo/%03d", i)}
+	}
+	m.Repositories = repoview.New(rows)
+	for i := 0; i < 200; i++ {
+		updated, cmd := m.Update(key("j"))
+		if cmd != nil {
+			t.Fatalf("keyboard navigation %d unexpectedly returned a command", i)
+		}
+		m = updated.(Model)
+	}
+	selectedPath := m.Repositories.Rows[m.Repositories.Selected].Repository.Path
+	lines := strings.Split(m.View().Content, "\n")
+	if len(lines) != 24 || !strings.Contains(m.View().Content, selectedPath) {
+		t.Fatalf("80x24 repository viewport lines=%d selected=%q view=%q", len(lines), selectedPath, m.View().Content)
+	}
+
+	refreshed := append([]registry.Row{{Repository: registry.Repository{Name: "first", Path: "/a-first"}}}, rows...)
+	m.Repositories.SetRows(refreshed)
+	if got := m.Repositories.Rows[m.Repositories.Selected].Repository.Path; got != selectedPath {
+		t.Fatalf("refresh selection identity = %q, want %q", got, selectedPath)
+	}
+	offset, count := m.Repositories.VisibleWindow(m.repositoryViewportLines())
+	if count != 9 || offset == 0 {
+		t.Fatalf("scrolled visible window = (%d,%d)", offset, count)
+	}
+	updated, cmd := m.Update(tea.MouseClickMsg{X: 2, Y: 5, Button: tea.MouseLeft})
+	m = updated.(Model)
+	if cmd != nil || m.Repositories.Selected != offset+1 {
+		t.Fatalf("mouse selection with scrolled offset = cmdnil:%v selected:%d want:%d", cmd == nil, m.Repositories.Selected, offset+1)
+	}
+}
+
+func TestRepositoryAuxiliaryObservationTimesTrackSuccessfulLoads(t *testing.T) {
+	m := New()
+	m.StashesObservedAt = time.Now().Add(-time.Hour)
+	m.WorktreesObservedAt = time.Now().Add(-time.Hour)
+	if m.loadStashes() == nil || !m.StashesObservedAt.IsZero() {
+		t.Fatalf("stash load start should clear old observation: %v", m.StashesObservedAt)
+	}
+	updated, _ := m.Update(StashesReadyMsg{Generation: m.repositoryGeneration})
+	m = updated.(Model)
+	if m.StashesObservedAt.IsZero() || time.Since(m.StashesObservedAt) > time.Second {
+		t.Fatalf("successful stash load observation = %v", m.StashesObservedAt)
+	}
+	if m.loadWorktrees() == nil || !m.WorktreesObservedAt.IsZero() {
+		t.Fatalf("worktree load start should clear old observation: %v", m.WorktreesObservedAt)
+	}
+	updated, _ = m.Update(WorktreesReadyMsg{Generation: m.repositoryGeneration})
+	m = updated.(Model)
+	if m.WorktreesObservedAt.IsZero() || time.Since(m.WorktreesObservedAt) > time.Second {
+		t.Fatalf("successful worktree load observation = %v", m.WorktreesObservedAt)
+	}
+
+	updated, _ = m.Update(StashesReadyMsg{Generation: m.repositoryGeneration, Err: fmt.Errorf("stash read failed")})
+	m = updated.(Model)
+	updated, _ = m.Update(WorktreesReadyMsg{Generation: m.repositoryGeneration, Err: fmt.Errorf("worktree read failed")})
+	m = updated.(Model)
+	if !m.StashesObservedAt.IsZero() || !m.WorktreesObservedAt.IsZero() {
+		t.Fatalf("failed loads retained observation times: stashes=%v worktrees=%v", m.StashesObservedAt, m.WorktreesObservedAt)
+	}
+	m.StashesObservedAt, m.WorktreesObservedAt = time.Now(), time.Now()
+	if err := m.setRepository(git.Discovery{}); err != nil {
+		t.Fatalf("reset repository: %v", err)
+	}
+	if !m.StashesObservedAt.IsZero() || !m.WorktreesObservedAt.IsZero() {
+		t.Fatalf("repository switch retained observation times: stashes=%v worktrees=%v", m.StashesObservedAt, m.WorktreesObservedAt)
+	}
+}
+
 func TestRepositoryDashboardFiltersAndSortsFromKeyboard(t *testing.T) {
 	m := New()
 	m.Workspace.Navigate(workspace.Repositories, "Repositories")
