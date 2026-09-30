@@ -1,10 +1,12 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/sphireinc/git-watch/internal/git"
 	"github.com/sphireinc/git-watch/internal/repo"
 	"github.com/sphireinc/git-watch/internal/ui/layout"
 	"github.com/sphireinc/git-watch/internal/ui/theme"
@@ -289,6 +291,87 @@ func BenchmarkStatusMouseRowHeightsScale(b *testing.B) {
 			}
 		})
 	}
+}
+
+func TestStatusPorcelainSnapshotFilterRender50K(t *testing.T) {
+	payload := statusPorcelainFixture(50_000)
+	snapshot, err := statusSnapshotFromPorcelain(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(snapshot.Entries); got != 50_000 {
+		t.Fatalf("parsed snapshot entries = %d, want 50000", got)
+	}
+
+	m := New()
+	m.Width, m.Height = 80, 24
+	m.applySnapshot(snapshot)
+	m.Files.SetFilter("generated/49999.go")
+	if got := m.Files.SelectedPath(); got != "generated/49999.go" {
+		t.Fatalf("filtered selection = %q, want generated/49999.go", got)
+	}
+	if rendered := m.statusView(); !strings.Contains(rendered, "generated/49999.go") {
+		t.Fatalf("render omitted filtered entry: %s", rendered)
+	}
+}
+
+func TestStatusPorcelainSnapshotFilterRender50KAllocationBudget(t *testing.T) {
+	payload := statusPorcelainFixture(50_000)
+	allocations := testing.AllocsPerRun(1, func() {
+		snapshot, err := statusSnapshotFromPorcelain(payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := New()
+		m.Width, m.Height = 80, 24
+		m.applySnapshot(snapshot)
+		m.Files.SetFilter("generated/49999.go")
+		_ = m.statusView()
+	})
+	// The measured working-tree baseline is about 701k allocations. This
+	// portable ceiling allows roughly 14% runtime/platform variance while
+	// retaining a sub-16-allocation-per-input-path bound.
+	if allocations > 800_000 {
+		t.Fatalf("50k parse/snapshot/filter/render allocations = %.0f, want <= 800000", allocations)
+	}
+}
+
+func BenchmarkStatusParseSnapshotFilterRender50K(b *testing.B) {
+	payload := statusPorcelainFixture(50_000)
+	b.ReportAllocs()
+	b.ReportMetric(float64(len(payload)), "input-bytes")
+	b.ResetTimer()
+	for range b.N {
+		snapshot, err := statusSnapshotFromPorcelain(payload)
+		if err != nil {
+			b.Fatal(err)
+		}
+		m := New()
+		m.Width, m.Height = 80, 24
+		m.applySnapshot(snapshot)
+		m.Files.SetFilter("generated/49999.go")
+		_ = m.statusView()
+	}
+}
+
+func statusSnapshotFromPorcelain(payload []byte) (repo.Snapshot, error) {
+	status, err := git.ParseStatus(payload)
+	if err != nil {
+		return repo.Snapshot{}, err
+	}
+	entries := make([]repo.Entry, len(status.Entries))
+	for index, parsed := range status.Entries {
+		entries[index] = repo.Entry{Path: repo.Path(parsed.Path), Kind: parsed.Kind, Untracked: parsed.Kind == '?', Unstaged: parsed.Kind == '1' || parsed.Kind == '2'}
+	}
+	return repo.Snapshot{Entries: entries}, nil
+}
+
+func statusPorcelainFixture(size int) []byte {
+	var payload bytes.Buffer
+	for index := 0; index < size; index++ {
+		fmt.Fprintf(&payload, "1 .M N... 100644 100644 100644 %040d %040d generated/%05d.go\x00", index, index, index)
+	}
+	return payload.Bytes()
 }
 
 func statusModelWithEntries(size int) Model {

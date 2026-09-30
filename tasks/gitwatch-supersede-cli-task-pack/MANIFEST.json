@@ -289,18 +289,18 @@
     },
     {
       "path": "tasks/170-expand-github-integration-to-pull-request-lifecycle.md",
-      "bytes": 3453,
-      "sha256": "da319855630e4d4e48157aac0bcb439dcb7bd616567a82e7cde40e776b5b16a5"
+      "bytes": 9624,
+      "sha256": "ad6413818bccc8285f231cb9d5ef44cf5da941b099f17ca7b177f08574eda229"
     },
     {
       "path": "tasks/171-add-github-review-comments-and-merge-workflows.md",
-      "bytes": 3238,
-      "sha256": "589bb9940432337a567a02fb41b7bb409164d3fc8263dcf586a9f80371d115a6"
+      "bytes": 8880,
+      "sha256": "91e1d4fc8195d6f06629bd2b3a5b648771357a5eda5c17dc8f6d256e7b41572f"
     },
     {
       "path": "tasks/172-add-github-actions-and-check-run-operations.md",
-      "bytes": 3108,
-      "sha256": "fd4aa445b2dd07c654a5e688f96717ad7bd99766d6f4b47e7f2b4ece48531d73"
+      "bytes": 9170,
+      "sha256": "f114b59978993d1644d26363a583d9f9dd4164b840069929546c94fd4321e411"
     },
     {
       "path": "tasks/173-add-github-issues-releases-and-navigation-hooks.md",
@@ -354,8 +354,8 @@
     },
     {
       "path": "tasks/183-set-and-enforce-large-scale-performance-budgets.md",
-      "bytes": 16036,
-      "sha256": "f748a51d48f2f47cf30d36c0e48b7a63f7f3c74b08b590e076723841a069fc8b"
+      "bytes": 20599,
+      "sha256": "621b04fa9727b7701ea4ffceba11f7576cca7f3c882722e214a70d061ba72ade"
     },
     {
       "path": "tasks/184-build-cross-platform-end-to-end-and-lz-parity-acceptance-harness.md",

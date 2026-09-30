@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -28,7 +29,10 @@ func TestGitHubClientUsesTokenAndParsesResponses(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/pulls"):
 			body = `[{"number":7,"title":"Fix","state":"open","html_url":"https://github.com/o/r/pull/7","base":{"ref":"main"},"head":{"ref":"feature"}}]`
 		case strings.HasSuffix(r.URL.Path, "/check-runs"):
-			body = `{"check_runs":[]}`
+			if r.URL.Query().Get("filter") != "latest" || r.URL.Query().Get("per_page") != "100" {
+				t.Fatalf("check-run query = %s", r.URL.RawQuery)
+			}
+			body = `{"total_count":0,"check_runs":[]}`
 		default:
 			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header), Request: r}, nil
 		}
@@ -222,13 +226,16 @@ func TestGitHubClientRunsCheckActionsWithoutRetrying(t *testing.T) {
 		if !strings.HasSuffix(r.URL.Path, "/rerun-failed-jobs") && !strings.HasSuffix(r.URL.Path, "/cancel") {
 			t.Fatalf("unexpected action path: %s", r.URL.Path)
 		}
+		if !strings.Contains(r.URL.Path, "/actions/runs/304/") {
+			t.Fatalf("workflow action targeted wrong identity: %s", r.URL.Path)
+		}
 		return &http.Response{StatusCode: http.StatusNoContent, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header), Request: r}, nil
 	})}}
 	repository := Repository{Owner: "o", Name: "r"}
-	if err := client.RerunFailedJobs(context.Background(), repository, 12); err != nil {
+	if err := client.RerunFailedJobs(context.Background(), repository, 304); err != nil {
 		t.Fatal(err)
 	}
-	if err := client.CancelRun(context.Background(), repository, 12); err != nil {
+	if err := client.CancelRun(context.Background(), repository, 304); err != nil {
 		t.Fatal(err)
 	}
 	if attempts != 2 {
@@ -246,6 +253,74 @@ func TestGitHubClientReviews(t *testing.T) {
 	reviews, err := client.Reviews(context.Background(), Repository{Owner: "o", Name: "r"}, 3)
 	if err != nil || reviews.State() != "approved" {
 		t.Fatalf("reviews = %#v, err=%v", reviews, err)
+	}
+}
+
+func TestGitHubClientReviewsPaginatesBeforeProjectingLatestReviewerState(t *testing.T) {
+	firstPage := strings.TrimSuffix(strings.Repeat(`{"id":1,"state":"CHANGES_REQUESTED","user":{"login":"sam"}},`, 100), ",")
+	var pages []string
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Query().Get("per_page") != "100" {
+			t.Errorf("per_page = %q", r.URL.Query().Get("per_page"))
+		}
+		page := r.URL.Query().Get("page")
+		pages = append(pages, page)
+		recorder := httptest.NewRecorder()
+		recorder.Header().Set("Content-Type", "application/json")
+		switch page {
+		case "1":
+			_, _ = recorder.WriteString("[" + firstPage + "]")
+		case "2":
+			_, _ = recorder.WriteString(`[{"id":101,"state":"APPROVED","user":{"login":"SAM"}}]`)
+		default:
+			t.Errorf("unexpected review page %q", page)
+			recorder.WriteHeader(http.StatusBadRequest)
+			_, _ = recorder.WriteString("unexpected page")
+		}
+		return recorder.Result(), nil
+	})
+
+	client := GitHubClient{BaseURL: "https://api.github.test", TokenSource: fixedToken("test"), HTTPClient: &http.Client{Transport: transport}, Retries: 0}
+	snapshot, err := client.Reviews(context.Background(), Repository{Owner: "o", Name: "r"}, 3)
+	if err != nil || snapshot.Approved != 1 || snapshot.Changes != 0 {
+		t.Fatalf("paged review state = %#v, err=%v", snapshot, err)
+	}
+	if strings.Join(pages, ",") != "1,2" {
+		t.Fatalf("review pages requested = %v, want [1 2]", pages)
+	}
+}
+
+func TestGitHubClientReviewsFailsClosedWhenHistoryExceedsPageBound(t *testing.T) {
+	fullPage := "[" + strings.TrimSuffix(strings.Repeat(`{"state":"COMMENTED"},`, 100), ",") + "]"
+	pages := 0
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		pages++
+		if r.URL.Query().Get("per_page") != "100" {
+			t.Errorf("per_page = %q", r.URL.Query().Get("per_page"))
+		}
+		recorder := httptest.NewRecorder()
+		recorder.Header().Set("Content-Type", "application/json")
+		_, _ = recorder.WriteString(fullPage)
+		return recorder.Result(), nil
+	})
+
+	client := GitHubClient{BaseURL: "https://api.github.test", TokenSource: fixedToken("test"), HTTPClient: &http.Client{Transport: transport}, Retries: 0}
+	if _, err := client.Reviews(context.Background(), Repository{Owner: "o", Name: "r"}, 3); err == nil {
+		t.Fatal("truncated review history was accepted")
+	}
+	if pages != MaxReviewHistoryPages+1 {
+		t.Fatalf("review pages requested = %d, want bounded %d", pages, MaxReviewHistoryPages+1)
+	}
+}
+
+func TestGitHubClientReviewsRejectsNullPage(t *testing.T) {
+	client := GitHubClient{BaseURL: "https://api.github.test", TokenSource: fixedToken("test"), HTTPClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		_, _ = recorder.WriteString("null")
+		return recorder.Result(), nil
+	})}, Retries: 0}
+	if _, err := client.Reviews(context.Background(), Repository{Owner: "o", Name: "r"}, 3); err == nil {
+		t.Fatal("null review page was accepted as an empty response")
 	}
 }
 
@@ -304,7 +379,10 @@ func TestProviderClassifiesStatesAndRetriesSafeReads(t *testing.T) {
 		if attempts == 1 {
 			return &http.Response{StatusCode: 503, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header), Request: r}, nil
 		}
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"check_runs":[]}`)), Header: make(http.Header), Request: r}, nil
+		if r.URL.Query().Get("filter") != "latest" || r.URL.Query().Get("per_page") != "100" {
+			t.Fatalf("check-run query = %s", r.URL.RawQuery)
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"total_count":0,"check_runs":[]}`)), Header: make(http.Header), Request: r}, nil
 	})}}
 	if _, err := client.Checks(context.Background(), Repository{Owner: "o", Name: "r"}, "main"); err != nil || attempts != 2 {
 		t.Fatalf("retry attempts=%d err=%v", attempts, err)

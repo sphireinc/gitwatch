@@ -502,8 +502,10 @@ type PushPreviewReadyMsg struct {
 }
 type GitHubReadyMsg struct {
 	Generation    uint64
+	Request       uint64
 	Repository    provider.Repository
 	Branch        string
+	BranchPull    provider.PullRequest
 	Pull          provider.PullRequest
 	Pulls         []provider.PullRequest
 	Issues        []provider.Issue
@@ -512,6 +514,7 @@ type GitHubReadyMsg struct {
 	Comments      []provider.ReviewComment
 	Checks        provider.ChecksSnapshot
 	Review        provider.ReviewSnapshot
+	Workflows     []provider.WorkflowRun
 	ProviderStale bool
 	Warnings      []githubview.ResourceWarning
 	Err           error
@@ -521,6 +524,12 @@ type providerCIAttention struct {
 	State, Attention string
 	Stale            bool
 }
+type githubPRSelection struct {
+	Repository provider.Repository
+	Number     int
+	Generation uint64
+	Pull       provider.PullRequest
+}
 type GitHubPullRequestCreatedMsg struct {
 	Generation uint64
 	Repository provider.Repository
@@ -529,24 +538,29 @@ type GitHubPullRequestCreatedMsg struct {
 	Err        error
 }
 type GitHubMergeFinishedMsg struct {
-	Result provider.MergeResult
-	Err    error
+	Generation uint64
+	Result     provider.MergeResult
+	Err        error
 }
 type GitHubBranchDeleteFinishedMsg struct {
-	Branch string
-	Err    error
+	Generation uint64
+	Branch     string
+	Err        error
 }
 type GitHubReviewFinishedMsg struct {
-	Result provider.ReviewSubmissionResult
-	Err    error
+	Generation uint64
+	Result     provider.ReviewSubmissionResult
+	Err        error
 }
 type GitHubReviewCommentFinishedMsg struct {
-	Comment provider.ReviewComment
-	Err     error
+	Generation uint64
+	Comment    provider.ReviewComment
+	Err        error
 }
 type GitHubCheckActionFinishedMsg struct {
-	Action string
-	Err    error
+	Generation uint64
+	Action     string
+	Err        error
 }
 type GitHubIssueCreatedMsg struct {
 	Issue provider.Issue
@@ -875,6 +889,7 @@ type Model struct {
 	RemoteCancel              context.CancelFunc
 	RemoteJobID               string
 	GitHub                    githubview.Model
+	GitHubBranchPull          provider.PullRequest
 	GitHubEnabled             bool
 	GitHubTokenEnv            string
 	GitHubCache               *provider.PullRequestCache
@@ -885,6 +900,11 @@ type Model struct {
 	GitHubReviewsCache        *provider.Cache[provider.ReviewSnapshot]
 	GitHubIssuesCache         *provider.Cache[[]provider.Issue]
 	GitHubReleasesCache       *provider.Cache[[]provider.Release]
+	GitHubWorkflowsCache      *provider.Cache[[]provider.WorkflowRun]
+	GitHubWorkflowWarning     string
+	GitHubWorkflowStale       bool
+	githubPRSelection         *githubPRSelection
+	githubLoadRequest         uint64
 	ProviderCI                map[string]providerCIAttention
 	RepositoryCIRequest       uint64
 	GitHubCreateMode          bool
@@ -893,6 +913,7 @@ type Model struct {
 	GitHubCreateBody          string
 	GitHubCreateBase          string
 	GitHubCreateConfirm       bool
+	GitHubPushOffer           bool
 	GitHubMergeMode           bool
 	GitHubMergeMethod         provider.MergeMethod
 	GitHubMergeRefresh        bool
@@ -978,15 +999,16 @@ func New() Model {
 	return Model{
 		State: StateLoading, Focus: "files", Motion: MotionFull,
 		Keymap: config.DefaultKeymap(), GitHub: githubview.New(),
-		GitHubCache:         provider.NewPullRequestCache(2 * time.Minute),
-		GitHubPullsCache:    provider.NewCache[[]provider.PullRequest](2 * time.Minute),
-		GitHubDetailsCache:  provider.NewCache[provider.PullRequestDetail](2 * time.Minute),
-		GitHubCommentsCache: provider.NewCache[[]provider.ReviewComment](2 * time.Minute),
-		GitHubChecksCache:   provider.NewCache[provider.ChecksSnapshot](2 * time.Minute),
-		GitHubReviewsCache:  provider.NewCache[provider.ReviewSnapshot](2 * time.Minute),
-		GitHubIssuesCache:   provider.NewCache[[]provider.Issue](2 * time.Minute),
-		GitHubReleasesCache: provider.NewCache[[]provider.Release](2 * time.Minute),
-		Plugins:             pluginview.New(nil), Theme: theme.New(theme.Auto, false), PanelSplit: layout.DefaultSplit(),
+		GitHubCache:          provider.NewPullRequestCache(2 * time.Minute),
+		GitHubPullsCache:     provider.NewCache[[]provider.PullRequest](2 * time.Minute),
+		GitHubDetailsCache:   provider.NewCache[provider.PullRequestDetail](2 * time.Minute),
+		GitHubCommentsCache:  provider.NewCache[[]provider.ReviewComment](2 * time.Minute),
+		GitHubChecksCache:    provider.NewCache[provider.ChecksSnapshot](2 * time.Minute),
+		GitHubReviewsCache:   provider.NewCache[provider.ReviewSnapshot](2 * time.Minute),
+		GitHubIssuesCache:    provider.NewCache[[]provider.Issue](2 * time.Minute),
+		GitHubReleasesCache:  provider.NewCache[[]provider.Release](2 * time.Minute),
+		GitHubWorkflowsCache: provider.NewCache[[]provider.WorkflowRun](2 * time.Minute),
+		Plugins:              pluginview.New(nil), Theme: theme.New(theme.Auto, false), PanelSplit: layout.DefaultSplit(),
 		pluginLoadInFlight: &atomic.Bool{},
 		DetailsCache:       details.NewCache(), ActivityLog: history.New(100),
 		ctx: ctx, cancel: cancel, RefreshInterval: 2 * time.Second,
@@ -1494,9 +1516,19 @@ func (m *Model) executePaletteAction(id string) tea.Cmd {
 			if index >= len(m.GitHub.Pulls) {
 				return nil
 			}
-			m.GitHub.Pull = m.GitHub.Pulls[index]
-			m.Status = fmt.Sprintf("selected GitHub pull request #%d", m.GitHub.Pull.Number)
-			return m.navigate(workspace.GitHub, "GitHub")
+			pull := m.GitHub.Pulls[index]
+			m.githubPRSelection = &githubPRSelection{Repository: m.GitHub.Repository, Number: pull.Number, Generation: m.repositoryGeneration, Pull: pull}
+			m.GitHub.SetData(m.GitHub.Repository, m.GitHub.Branch, pull, provider.ChecksSnapshot{})
+			m.GitHub.SetWorkflows(nil)
+			m.GitHub.Ready = false
+			m.GitHub.Detail, m.GitHub.Comments = nil, nil
+			m.GitHub.SelectedComment = 0
+			m.Status = fmt.Sprintf("selected GitHub pull request #%d", pull.Number)
+			if m.Workspace == nil {
+				m.Workspace = workspace.New()
+			}
+			m.Workspace.Navigate(workspace.GitHub, "GitHub")
+			return m.loadGitHub()
 		case "palette_issue_":
 			if index >= len(m.GitHub.Issues) {
 				return nil
@@ -1804,6 +1836,7 @@ func NewRepositoryWithConfig(d git.Discovery, c config.Config) Model {
 	m.GitHubReviewsCache = provider.NewCache[provider.ReviewSnapshot](c.GitHub.CacheTTL)
 	m.GitHubIssuesCache = provider.NewCache[[]provider.Issue](c.GitHub.CacheTTL)
 	m.GitHubReleasesCache = provider.NewCache[[]provider.Release](c.GitHub.CacheTTL)
+	m.GitHubWorkflowsCache = provider.NewCache[[]provider.WorkflowRun](c.GitHub.CacheTTL)
 	m.PluginsEnabled, m.PluginDirectories = c.Plugins.Enabled, append([]string(nil), c.Plugins.Directories...)
 	m.PluginOutputLimit = c.Plugins.MaxOutput
 	if path, err := plugins.StatePath(); err == nil {
@@ -1865,6 +1898,8 @@ func (m *Model) setRepository(discovery git.Discovery) error {
 	m.closeDiff()
 	m.DiffAutoPreviewed = false
 	m.repositoryGeneration++
+	m.githubLoadRequest++
+	m.githubPRSelection = nil
 	if m.repositoryCancel != nil {
 		m.repositoryCancel()
 		m.repositoryCancel = nil
@@ -4366,14 +4401,18 @@ func (m Model) previewRemotePrune(remote string) tea.Cmd {
 	}
 }
 
-func (m Model) loadGitHub() tea.Cmd {
+func (m *Model) loadGitHub() tea.Cmd {
 	return m.loadGitHubWithClient(nil)
 }
 
-func (m Model) loadGitHubWithClient(clientOverride *provider.GitHubClient) tea.Cmd {
+func (m *Model) loadGitHubWithClient(clientOverride *provider.GitHubClient) tea.Cmd {
 	generation := m.repositoryGeneration
+	m.githubLoadRequest++
+	request := m.githubLoadRequest
+	selection := m.githubPRSelection
 	runner := git.NewRunner(m.Discovery.Root)
 	branch := m.Snapshot.Branch.Name
+	headOID := m.Snapshot.Branch.OID
 	tokenEnv := m.GitHubTokenEnv
 	if tokenEnv == "" {
 		tokenEnv = "GITHUB_TOKEN"
@@ -4381,7 +4420,7 @@ func (m Model) loadGitHubWithClient(clientOverride *provider.GitHubClient) tea.C
 	return func() tea.Msg {
 		entries, err := remotes.List(m.commandContext(), runner)
 		if err != nil {
-			return GitHubReadyMsg{Generation: generation, Branch: branch, Err: err}
+			return GitHubReadyMsg{Generation: generation, Request: request, Branch: branch, Err: err}
 		}
 		var repository provider.Repository
 		for _, remote := range entries {
@@ -4391,7 +4430,7 @@ func (m Model) loadGitHubWithClient(clientOverride *provider.GitHubClient) tea.C
 			}
 		}
 		if repository.Owner == "" {
-			return GitHubReadyMsg{Generation: generation, Branch: branch, Err: provider.ErrNoGitHubRemote}
+			return GitHubReadyMsg{Generation: generation, Request: request, Branch: branch, Err: provider.ErrNoGitHubRemote}
 		}
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
 		if clientOverride != nil {
@@ -4401,7 +4440,7 @@ func (m Model) loadGitHubWithClient(clientOverride *provider.GitHubClient) tea.C
 		if cache == nil {
 			cache = provider.NewPullRequestCache(2 * time.Minute)
 		}
-		warnings := make([]githubview.ResourceWarning, 0, 7)
+		warnings := make([]githubview.ResourceWarning, 0, 9)
 		addWarning := func(resource string, err error, stale bool) {
 			if err == nil {
 				return
@@ -4412,17 +4451,8 @@ func (m Model) loadGitHubWithClient(clientOverride *provider.GitHubClient) tea.C
 			}
 			warnings = append(warnings, githubview.ResourceWarning{Resource: resource, Message: message})
 		}
-		pull, pullErr := cache.Get(m.commandContext(), client, repository, branch)
-		addWarning("current-branch PR", pullErr, false)
-		checksCache := m.GitHubChecksCache
-		if checksCache == nil {
-			checksCache = provider.NewCache[provider.ChecksSnapshot](2 * time.Minute)
-		}
-		checks, checksStale, checksErr := checksCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"@"+branch, func(ctx context.Context) (provider.ChecksSnapshot, error) {
-			return client.Checks(ctx, repository, branch)
-		})
-		providerStale := checksStale
-		addWarning("checks", checksErr, checksStale)
+		branchPull, branchPullStale, pullErr := cache.GetWithStale(m.commandContext(), client, repository, branch)
+		addWarning("current-branch PR", pullErr, branchPullStale)
 		pullsCache := m.GitHubPullsCache
 		if pullsCache == nil {
 			pullsCache = provider.NewCache[[]provider.PullRequest](2 * time.Minute)
@@ -4430,8 +4460,49 @@ func (m Model) loadGitHubWithClient(clientOverride *provider.GitHubClient) tea.C
 		pulls, pullsStale, pullsErr := pullsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"/open", func(ctx context.Context) ([]provider.PullRequest, error) {
 			return client.ListPullRequests(ctx, repository, 1, 25)
 		})
-		providerStale = providerStale || pullsStale
+		providerStale := pullsStale || branchPullStale
 		addWarning("open PR list", pullsErr, pullsStale)
+		pull := branchPull
+		if selection != nil && selection.Generation == generation && selection.Repository == repository && selection.Number > 0 {
+			pull = selection.Pull
+			for _, candidate := range pulls {
+				if candidate.Number == selection.Number {
+					pull = candidate
+					break
+				}
+			}
+		}
+		headSHA := headOID
+		if pull.Number > 0 && pull.HeadSHA != "" {
+			headSHA = pull.HeadSHA
+		}
+		var checks provider.ChecksSnapshot
+		var checksStale bool
+		if headSHA != "" {
+			checksCache := m.GitHubChecksCache
+			if checksCache == nil {
+				checksCache = provider.NewCache[provider.ChecksSnapshot](2 * time.Minute)
+			}
+			checks, checksStale, err = checksCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"@"+headSHA, func(ctx context.Context) (provider.ChecksSnapshot, error) {
+				return client.Checks(ctx, repository, headSHA)
+			})
+			addWarning("checks", err, checksStale)
+		}
+		providerStale = providerStale || checksStale
+		var workflows []provider.WorkflowRun
+		var workflowsStale bool
+		if headSHA != "" {
+			workflowsCache := m.GitHubWorkflowsCache
+			if workflowsCache == nil {
+				workflowsCache = provider.NewCache[[]provider.WorkflowRun](2 * time.Minute)
+			}
+			var workflowsErr error
+			workflows, workflowsStale, workflowsErr = workflowsCache.GetWithStale(m.commandContext(), repository.Host+"/"+repository.Owner+"/"+repository.Name+"@"+headSHA, func(ctx context.Context) ([]provider.WorkflowRun, error) {
+				return client.ListWorkflowRuns(ctx, repository, headSHA, 1, provider.MaxWorkflowRuns)
+			})
+			addWarning("workflow runs", workflowsErr, workflowsStale)
+		}
+		providerStale = providerStale || workflowsStale
 		var detail *provider.PullRequestDetail
 		var comments []provider.ReviewComment
 		var review provider.ReviewSnapshot
@@ -4491,7 +4562,7 @@ func (m Model) loadGitHubWithClient(clientOverride *provider.GitHubClient) tea.C
 			providerStale = providerStale || reviewStale
 			addWarning("reviews", reviewErr, reviewStale)
 		}
-		return GitHubReadyMsg{Generation: generation, Repository: repository, Branch: branch, Pull: pull, Pulls: pulls, Issues: issues, Releases: releases, Detail: detail, Comments: comments, Checks: checks, Review: review, ProviderStale: providerStale, Warnings: warnings}
+		return GitHubReadyMsg{Generation: generation, Request: request, Repository: repository, Branch: branch, BranchPull: branchPull, Pull: pull, Pulls: pulls, Issues: issues, Releases: releases, Detail: detail, Comments: comments, Checks: checks, Review: review, Workflows: workflows, ProviderStale: providerStale, Warnings: warnings}
 	}
 }
 
@@ -4504,7 +4575,16 @@ func (m *Model) startGitHubCreate() tea.Cmd {
 		m.Status = "PR creation requires a checked-out branch"
 		return nil
 	}
-	base := m.GitHub.Pull.Base
+	if strings.TrimSpace(m.Snapshot.Branch.Upstream) == "" || m.Snapshot.Branch.Ahead > 0 {
+		m.GitHubPushOffer = true
+		if strings.TrimSpace(m.Snapshot.Branch.Upstream) == "" {
+			m.Status = "branch has no upstream; open Remotes to choose a remote and use guarded [u] push with upstream tracking before creating the PR? (y/n)"
+		} else {
+			m.Status = "branch has unpushed commits; open Remotes and use guarded [u] push before creating the PR? (y/n)"
+		}
+		return nil
+	}
+	base := m.GitHubBranchPull.Base
 	if strings.TrimSpace(base) == "" {
 		base = m.Snapshot.Branch.Upstream
 	}
@@ -4703,7 +4783,7 @@ func (m *Model) updateGitHubMergeKey(key string) tea.Cmd {
 	case "enter":
 		m.GitHubMergeMode, m.GitHubMergeRefresh = false, true
 		m.State, m.Status = StateOperationPending, "refreshing GitHub mergeability, checks, and review state"
-		return m.loadGitHub()
+		return m.githubMergePreflight()
 	}
 	if m.GitHubMergeMode {
 		m.Status = "merge method: " + string(m.GitHubMergeMethod) + "  [enter] refresh  [esc] cancel"
@@ -4773,44 +4853,53 @@ func (m Model) submitGitHubReview() tea.Cmd {
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
 		if m.GitHubReplyCommentID > 0 && m.GitHubReviewEvent == provider.ReviewEventComment {
 			comment, err := client.CreateReviewComment(ctx, repository, number, provider.ReviewCommentRequest{Body: m.GitHubReviewBody, CommitID: m.GitHub.Pull.HeadSHA, InReplyTo: m.GitHubReplyCommentID})
-			return GitHubReviewCommentFinishedMsg{Comment: comment, Err: err}
+			return GitHubReviewCommentFinishedMsg{Generation: m.repositoryGeneration, Comment: comment, Err: err}
 		}
 		result, err := client.SubmitReview(ctx, repository, number, submission)
-		return GitHubReviewFinishedMsg{Result: result, Err: err}
+		return GitHubReviewFinishedMsg{Generation: m.repositoryGeneration, Result: result, Err: err}
 	}
 }
 
 func (m *Model) startGitHubCheckAction(action string) tea.Cmd {
-	if len(m.GitHub.Checks.Runs) == 0 || m.GitHub.SelectedRun < 0 || m.GitHub.SelectedRun >= len(m.GitHub.Checks.Runs) {
-		m.Status = "no GitHub check run is selected"
+	if action != "rerun" && action != "cancel" {
+		m.Status = "unsupported GitHub workflow action"
 		return nil
 	}
-	run := m.GitHub.Checks.Runs[m.GitHub.SelectedRun]
+	if len(m.GitHub.Workflows) == 0 || m.GitHub.SelectedRun < 0 || m.GitHub.SelectedRun >= len(m.GitHub.Workflows) {
+		m.Status = "no GitHub workflow run is selected; check runs alone cannot be rerun or canceled"
+		return nil
+	}
+	run := m.GitHub.Workflows[m.GitHub.SelectedRun]
 	if run.ID < 1 {
-		m.Status = "selected check run has no provider action ID"
+		m.Status = "selected workflow run has no provider action ID"
 		return nil
 	}
 	if action == "rerun" {
 		if run.Status != "completed" {
-			m.Status = "selected check run is still running"
+			m.Status = "selected workflow run is still running"
 			return nil
 		}
 		if run.Conclusion == "success" || run.Conclusion == "neutral" || run.Conclusion == "skipped" {
-			m.Status = "selected check run did not fail"
+			m.Status = "selected workflow run did not fail"
 			return nil
 		}
 	}
 	if action == "cancel" && run.Status == "completed" {
-		m.Status = "selected check run is already completed"
+		m.Status = "selected workflow run is already completed"
 		return nil
 	}
 	m.GitHubCheckAction, m.GitHubCheckActionRunID, m.GitHubCheckActionConfirm = action, run.ID, true
-	m.Status = "confirm GitHub " + action + " for check " + platform.SafeText(run.Name) + "? (y/n)"
+	m.Status = "confirm GitHub " + action + " for workflow " + workflowActionLabel(run) + "? (y/n)"
 	return nil
+}
+
+func workflowActionLabel(run provider.WorkflowRun) string {
+	return fmt.Sprintf("%s (#%d, attempt %d)", strings.NewReplacer("\n", " ", "\t", " ").Replace(platform.SafeText(run.Name)), run.ID, run.Attempt)
 }
 
 func (m Model) runGitHubCheckAction() tea.Cmd {
 	repository, runID, action, tokenEnv := m.GitHub.Repository, m.GitHubCheckActionRunID, m.GitHubCheckAction, m.GitHubTokenEnv
+	generation := m.repositoryGeneration
 	if tokenEnv == "" {
 		tokenEnv = "GITHUB_TOKEN"
 	}
@@ -4818,12 +4907,15 @@ func (m Model) runGitHubCheckAction() tea.Cmd {
 	return func() tea.Msg {
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
 		var err error
-		if action == "rerun" {
+		switch action {
+		case "rerun":
 			err = client.RerunFailedJobs(ctx, repository, runID)
-		} else {
+		case "cancel":
 			err = client.CancelRun(ctx, repository, runID)
+		default:
+			err = errors.New("unsupported GitHub workflow action")
 		}
-		return GitHubCheckActionFinishedMsg{Action: action, Err: err}
+		return GitHubCheckActionFinishedMsg{Generation: generation, Action: action, Err: err}
 	}
 }
 
@@ -4836,7 +4928,7 @@ func (m Model) mergeGitHubPullRequest() tea.Cmd {
 	return func() tea.Msg {
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
 		result, err := client.MergePullRequest(ctx, repository, number, provider.MergeRequest{Method: method, ExpectedSHA: expectedSHA})
-		return GitHubMergeFinishedMsg{Result: result, Err: err}
+		return GitHubMergeFinishedMsg{Generation: m.repositoryGeneration, Result: result, Err: err}
 	}
 }
 
@@ -4849,7 +4941,7 @@ func (m Model) deleteGitHubBranch() tea.Cmd {
 	return func() tea.Msg {
 		client := provider.GitHubClient{TokenSource: provider.FallbackToken{Sources: []provider.TokenSource{provider.CLIToken{}, provider.EnvironmentToken(tokenEnv)}}}
 		err := client.DeleteBranch(ctx, repository, branch)
-		return GitHubBranchDeleteFinishedMsg{Branch: branch, Err: err}
+		return GitHubBranchDeleteFinishedMsg{Generation: m.repositoryGeneration, Branch: branch, Err: err}
 	}
 }
 
@@ -5639,6 +5731,12 @@ func (m Model) previewSelectedRemotePush() tea.Cmd {
 func (m *Model) navigate(view workspace.View, label string) tea.Cmd {
 	if m.Workspace == nil {
 		m.Workspace = workspace.New()
+	}
+	if view == workspace.GitHub || (m.currentView() == workspace.GitHub && view != workspace.GitHub) {
+		m.githubPRSelection = nil
+		m.githubLoadRequest++
+		m.GitHub.Detail, m.GitHub.Comments = nil, nil
+		m.GitHub.SelectedComment = 0
 	}
 	m.Workspace.Navigate(view, label)
 	switch view {
@@ -6786,6 +6884,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentView() == workspace.GitHub && m.GitHubCreateMode {
 			return m, m.updateGitHubCreateKey(v.String())
 		}
+		if m.currentView() == workspace.GitHub && m.GitHubPushOffer {
+			switch v.String() {
+			case "y", "Y":
+				m.GitHubPushOffer = false
+				m.Status = "choose a remote, then use [u] and confirm the guarded push; return here to create the PR"
+				return m, m.navigate(workspace.Remotes, "Remotes")
+			case "n", "N", "esc":
+				m.GitHubPushOffer = false
+				m.Status = "GitHub PR creation deferred until the branch is pushed"
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.GitHub && m.GitHubIssueMode {
 			return m, m.updateGitHubIssueKey(v.String())
 		}
@@ -7557,6 +7667,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "W":
 			if m.currentView() == workspace.GitHub {
+				if len(m.GitHub.Workflows) > 0 && m.GitHub.SelectedRun >= 0 && m.GitHub.SelectedRun < len(m.GitHub.Workflows) {
+					run := m.GitHub.Workflows[m.GitHub.SelectedRun]
+					command, err := platform.OpenURLCommand(run.URL)
+					if err != nil {
+						m.Status = err.Error()
+						return m, nil
+					}
+					m.Status = "opening GitHub workflow " + workflowActionLabel(run)
+					return m, tea.ExecProcess(command, nil)
+				}
 				if len(m.GitHub.Checks.Runs) == 0 || m.GitHub.SelectedRun < 0 || m.GitHub.SelectedRun >= len(m.GitHub.Checks.Runs) || m.GitHub.Checks.Runs[m.GitHub.SelectedRun].URL == "" {
 					m.Status = "no GitHub check URL available"
 					return m, nil
@@ -8395,6 +8515,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, command
 			}
 		case "pgup":
+			if m.currentView() == workspace.GitHub && m.GitHub.ReviewFocused {
+				m.GitHub.ScrollReview(-max(1, m.Height-10), m.Width, m.repositoryViewportLines())
+				return m, nil
+			}
 			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				m.scrollContextPane(-m.statusLayout().CommitTree.Height)
 				return m, nil
@@ -8405,6 +8529,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.scrollDiff(-m.statusRowCount())
 			}
 		case "pgdown":
+			if m.currentView() == workspace.GitHub && m.GitHub.ReviewFocused {
+				m.GitHub.ScrollReview(max(1, m.Height-10), m.Width, m.repositoryViewportLines())
+				return m, nil
+			}
 			if m.currentView() == workspace.Status && m.contextPaneFocused() {
 				m.scrollContextPane(m.statusLayout().CommitTree.Height)
 				return m, nil
@@ -8593,6 +8721,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.refresh()
 		}
 	case tea.MouseWheelMsg:
+		if m.currentView() == workspace.GitHub {
+			delta := 1
+			if v.Button == tea.MouseWheelUp {
+				delta = -1
+			}
+			if m.GitHub.ReviewFocused {
+				m.GitHub.ScrollReview(delta*3, m.Width, m.repositoryViewportLines())
+			} else {
+				m.GitHub.SelectRun(delta)
+			}
+			return m, nil
+		}
 		if m.currentView() == workspace.Journal {
 			switch v.Button {
 			case tea.MouseWheelUp:
@@ -8745,6 +8885,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentView() == workspace.Hunks {
 				// The hunk header occupies the first content row; patch lines start at y=3.
 				m.Hunks.SelectLine(m.Hunks.LineAt(v.Y - 3))
+				return m, nil
+			}
+			if m.currentView() == workspace.GitHub {
+				if m.GitHub.SelectReviewControl(v.Y-2, v.X) {
+					if m.GitHub.SelectedComment >= 0 && m.GitHub.SelectedComment < len(m.GitHub.Comments) {
+						m.GitHubReplyCommentID = m.GitHub.Comments[m.GitHub.SelectedComment].ID
+					}
+					return m, nil
+				}
+				m.GitHub.SelectWorkflowRow(v.Y-2, m.repositoryViewportLines())
 				return m, nil
 			}
 			if m.currentView() == workspace.Plugins {
@@ -9658,6 +9808,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
 			return m, nil
 		}
+		if v.Request != 0 && v.Request != m.githubLoadRequest {
+			return m, nil
+		}
 		if v.Err != nil {
 			m.GitHubMergeRefresh = false
 			m.GitHub.SetError(v.Repository, v.Branch, v.Err)
@@ -9670,12 +9823,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.State, m.Status = StateReady, "GitHub provider unavailable; local Git remains available"
 		} else {
+			m.GitHubBranchPull = v.BranchPull
 			v.Pull.Checks = provider.Checks{Total: v.Checks.Passing + v.Checks.Failing + v.Checks.Pending, Passing: v.Checks.Passing, Failing: v.Checks.Failing, Pending: v.Checks.Pending}
 			v.Pull.ReviewState = v.Review.State()
 			m.GitHub.SetData(v.Repository, v.Branch, v.Pull, v.Checks)
 			m.GitHub.SetPullRequests(v.Pulls)
 			m.GitHub.SetIssues(v.Issues)
 			m.GitHub.SetReleases(v.Releases)
+			m.GitHub.SetWorkflows(v.Workflows)
 			m.GitHub.SetProviderFreshness(v.ProviderStale)
 			m.GitHub.SetWarnings(v.Warnings)
 			if m.ProviderCI == nil {
@@ -9707,15 +9862,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.GitHub.SetDetail(*v.Detail)
 			}
 			m.GitHub.SetComments(v.Comments)
-			if m.GitHubMergeRefresh {
-				m.GitHubMergeRefresh, m.GitHubMergeConfirm = false, true
-				m.State = StateReady
-				m.Status = "confirm GitHub " + string(m.GitHubMergeMethod) + " merge of PR #" + fmt.Sprint(v.Pull.Number) + "? (y/n)"
-				return m, nil
-			}
 			m.State, m.Status = StateReady, "GitHub data loaded"
 			m.reindexPalette()
 		}
+	case GitHubMergePreflightMsg:
+		if v.Generation != m.repositoryGeneration || !m.GitHubMergeRefresh || m.currentView() != workspace.GitHub || v.PullNumber != m.GitHub.Pull.Number {
+			return m, nil
+		}
+		m.GitHubMergeRefresh, m.GitHubMergeConfirm = false, false
+		m.State = StateReady
+		if !v.CanConfirm || len(v.Failures) != 0 || v.State.Detail.Number != v.PullNumber || !validGitHubHeadSHA(v.State.Detail.HeadSHA) {
+			reasons := make([]string, 0, len(v.Failures))
+			for _, failure := range v.Failures {
+				reasons = append(reasons, platform.SafeText(failure.Error()))
+			}
+			m.Status = "GitHub merge preflight blocked"
+			if len(reasons) > 0 {
+				m.Status += ": " + strings.Join(reasons, "; ")
+			}
+			return m, nil
+		}
+		m.GitHub.Pull = v.State.Detail.PullRequest
+		m.GitHub.Pull.ReviewState = v.State.Reviews.State()
+		m.GitHub.Checks = v.State.Checks
+		m.GitHub.SetDetail(v.State.Detail)
+		m.GitHubMergeConfirm = true
+		m.Status = "confirm GitHub " + string(m.GitHubMergeMethod) + " merge of PR #" + fmt.Sprint(v.PullNumber) + " at freshly checked " + v.State.Detail.HeadSHA[:8] + "? (y/n)"
+		return m, nil
 	case GitHubPullRequestCreatedMsg:
 		if v.Generation != 0 && v.Generation != m.repositoryGeneration {
 			return m, nil
@@ -9728,6 +9901,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.State, m.Status = StateError, "GitHub PR creation: "+platform.SafeText(v.Err.Error())
 		} else {
 			m.State, m.Status = StateReady, fmt.Sprintf("GitHub PR #%d created", v.Pull.Number)
+			m.githubPRSelection = nil
 			if m.GitHubCache != nil {
 				repository, branch := v.Repository, v.Branch
 				if repository.Owner == "" {
@@ -9738,54 +9912,75 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.loadGitHub()
 		}
 	case GitHubMergeFinishedMsg:
+		if v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
 		m.GitHubMergeConfirm = false
 		if v.Err != nil {
-			m.State, m.Status = StateError, "GitHub merge: "+platform.SafeText(v.Err.Error())
+			m.State, m.Status = StateReady, "GitHub merge: "+platform.SafeText(v.Err.Error())
 		} else if !v.Result.Merged {
-			m.State, m.Status = StateError, "GitHub merge was not completed: "+platform.SafeText(v.Result.Message)
+			m.State, m.Status = StateReady, "GitHub merge was not completed: "+platform.SafeText(v.Result.Message)
 		} else {
 			m.State = StateReady
+			m.invalidateGitHubMutationCaches()
 			m.GitHubBranchDeleteTarget = m.GitHub.Pull.Head
 			if err := provider.ValidateCheckoutRef(m.GitHubBranchDeleteTarget); err == nil {
 				m.GitHubBranchDeleteConfirm = true
 				m.Status = "GitHub merge completed. delete remote branch " + platform.SafeText(m.GitHubBranchDeleteTarget) + "? (y/n)"
-				return m, nil
+				return m, m.loadGitHub()
 			}
 			m.Status = "GitHub merge completed; local refs unchanged until fetch"
 			return m, m.loadGitHub()
 		}
 	case GitHubBranchDeleteFinishedMsg:
+		if v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
 		m.GitHubBranchDeleteConfirm = false
 		if v.Err != nil {
-			m.State, m.Status = StateError, "GitHub branch deletion: "+platform.SafeText(v.Err.Error())
+			m.State, m.Status = StateReady, "GitHub branch deletion: "+platform.SafeText(v.Err.Error())
 		} else {
+			m.invalidateGitHubMutationCaches()
 			m.State, m.Status = StateReady, "deleted remote branch "+platform.SafeText(v.Branch)+"; local refs unchanged"
 			m.GitHubBranchDeleteTarget = ""
 		}
 		return m, m.loadGitHub()
 	case GitHubReviewFinishedMsg:
+		if v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
 		m.GitHubReviewConfirm = false
 		if v.Err != nil {
-			m.State, m.Status = StateError, "GitHub review: "+platform.SafeText(v.Err.Error())
+			m.State, m.Status = StateReady, "GitHub review: "+platform.SafeText(v.Err.Error())
 		} else {
+			m.invalidateGitHubMutationCaches()
 			m.State, m.Status = StateReady, "GitHub review submitted; refreshing review state"
 			return m, m.loadGitHub()
 		}
 	case GitHubReviewCommentFinishedMsg:
+		if v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
 		m.GitHubReviewConfirm = false
 		if v.Err != nil {
-			m.State, m.Status = StateError, "GitHub review comment: "+platform.SafeText(v.Err.Error())
+			m.State, m.Status = StateReady, "GitHub review comment: "+platform.SafeText(v.Err.Error())
 		} else {
+			m.invalidateGitHubMutationCaches()
 			m.State, m.Status = StateReady, "GitHub reply submitted; refreshing review comments"
 			m.GitHubReplyCommentID = 0
 			return m, m.loadGitHub()
 		}
 	case GitHubCheckActionFinishedMsg:
+		if v.Generation != m.repositoryGeneration {
+			return m, nil
+		}
 		m.GitHubCheckActionConfirm = false
 		if v.Err != nil {
-			m.State, m.Status = StateError, "GitHub check action: "+platform.SafeText(v.Err.Error())
+			m.State, m.Status = StateReady, "GitHub workflow action: "+platform.SafeText(v.Err.Error())
 		} else {
-			m.State, m.Status = StateReady, "GitHub check "+v.Action+" requested; refreshing checks"
+			m.State, m.Status = StateReady, "GitHub workflow "+v.Action+" requested; refreshing workflow state"
+			m.GitHubWorkflowsCache.InvalidateAll()
+			m.GitHubChecksCache.InvalidateAll()
 			return m, m.loadGitHub()
 		}
 	case GitHubIssueCreatedMsg:
@@ -10556,7 +10751,7 @@ func (m Model) featureView(view workspace.View) tea.View {
 			}
 		}
 	case workspace.GitHub:
-		title, content = "gitwatch · GitHub", m.GitHub.View()
+		title, content = "gitwatch · GitHub", m.GitHub.ViewWithSize(m.Width, m.repositoryViewportLines())
 		if m.GitHubCreateMode || m.GitHubCreateConfirm {
 			content += "\n\n" + platform.SafeText(m.Status)
 		}

@@ -75,8 +75,9 @@ Move optional GitHub support from read-only visibility to a practical pull-reque
 - Added TTL caches for bounded open-PR pages and PR detail; expired provider
   data can be rendered as stale without blocking or replacing local Git status
   refresh.
-- Remaining: broader provider failure presentation and native/manual acceptance
-  evidence.
+- Broader provider failure presentation was subsequently implemented with the
+  bounded per-resource warnings and provider states recorded under Task 171.
+  Native/manual acceptance evidence remains open.
 - At revision `6a23844`, the focused provider, GitHub workspace, and app suites
   passed with `go test ./internal/provider ./internal/ui/githubview
   ./internal/app`, covering pagination/detail parsing, provider error states,
@@ -112,3 +113,39 @@ Move optional GitHub support from read-only visibility to a practical pull-reque
   `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
   PR/provider implementation is unchanged from hosted-verified `91424f1`;
   native/manual acceptance remains open.
+
+## Follow-up implementation evidence (2026-09-28)
+
+- Explicit palette PR selection now survives asynchronous PR/detail loading;
+  repository changes and newer GitHub load requests invalidate stale results.
+  Leaving/re-entering the GitHub workspace clears the explicit selection.
+- PR creation checks the authoritative branch upstream/ahead state first. When
+  pushing is needed, the user is offered navigation to Remotes; no push or PR
+  creation occurs until the user chooses a remote and confirms the existing
+  guarded push workflow.
+- Workflow-run data uses its own TTL cache and per-resource warning, queried for
+  the selected PR's exact head SHA or the authoritative local branch HEAD. It
+  remains separate from check-run identities/actions.
+- Added focused app regressions for selection/detail retention, stale response
+  rejection, exact workflow head selection, workflow display handoff, and the
+  non-mutating Remotes offer; added an expired-401 unauthorized/no-secret-leak
+  provider regression. On Darwin arm64 / Go 1.27.1 at working-tree base
+  `5497288ef726`, `go test ./internal/app -run TestTask170 -count=3`,
+  `go test ./internal/provider -run TestTask170 -count=3`, and both matching
+  focused `-race` commands passed. `go vet ./internal/provider` passed. Combined
+  app/provider vet is currently blocked by the concurrent untracked
+  `internal/app/github_merge_preflight.go` importing
+  `github.com/charmbracelet/bubbletea`, which is absent from `go.mod`; this is
+  not recorded as a Task 170 vet pass. Native/manual terminal acceptance remains
+  outstanding.
+- Native/manual terminal acceptance remains outstanding; this follow-up does
+  not mark Task 170 complete or alter its broader release gates.
+
+## Assembled verification (2026-09-30)
+
+- On Darwin arm64 / Go 1.27.1, `make check` passed on the assembled working
+  tree based on `5497288`: pinned golangci-lint v2.12.0 (0 issues), full tests,
+  full race tests, vet, formatting, security fuzz checks, performance budgets,
+  and release-policy checks. The GitHub follow-ups remain uncommitted until
+  this changeset is committed, and native/manual terminal acceptance remains
+  open.

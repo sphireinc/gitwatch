@@ -39,14 +39,19 @@ type ChecksSnapshot struct {
 	Pending int
 }
 
-type CheckRunClient interface {
+type WorkflowRunActionClient interface {
 	RerunFailedJobs(context.Context, Repository, int64) error
 	CancelRun(context.Context, Repository, int64) error
 }
 
+// CheckRunClient is retained for source compatibility. Its methods take Actions
+// workflow-run IDs, never IDs from the Checks API.
+type CheckRunClient = WorkflowRunActionClient
+
 func ParseChecks(data []byte) (ChecksSnapshot, error) {
 	var response struct {
-		CheckRuns []struct {
+		TotalCount *int `json:"total_count"`
+		CheckRuns  []struct {
 			ID          int64      `json:"id"`
 			Name        string     `json:"name"`
 			Status      string     `json:"status"`
@@ -64,11 +69,17 @@ func ParseChecks(data []byte) (ChecksSnapshot, error) {
 	if err := json.Unmarshal(data, &response); err != nil {
 		return ChecksSnapshot{}, err
 	}
-	if response.CheckRuns == nil {
+	if response.CheckRuns == nil || response.TotalCount == nil || *response.TotalCount < 0 {
 		return ChecksSnapshot{}, errors.New("invalid checks response")
 	}
 	if len(response.CheckRuns) > MaxCheckRuns {
 		return ChecksSnapshot{}, errors.New("check run page exceeds bound")
+	}
+	if *response.TotalCount < len(response.CheckRuns) {
+		return ChecksSnapshot{}, errors.New("check run total is smaller than returned page")
+	}
+	if *response.TotalCount > len(response.CheckRuns) {
+		return ChecksSnapshot{}, errors.New("check run page is incomplete")
 	}
 	snapshot := ChecksSnapshot{Runs: make([]CheckRun, 0, len(response.CheckRuns))}
 	for _, raw := range response.CheckRuns {

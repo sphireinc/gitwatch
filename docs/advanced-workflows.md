@@ -155,6 +155,30 @@ failures appear as sanitized resource warnings, and unavailable/authentication/
 rate-limit states never mark the local repository unavailable. Creating a pull
 request is an explicit provider action and never pushes the local branch.
 
+In the GitHub workspace, `A` approves the selected pull request, `R` opens a
+request-changes review form, and `c` comments or replies. Use `[` and `]` to
+choose a reply target and focus that comment’s thread; the visible Previous /
+Next comment controls do the same. The focused thread shows the selected
+sanitized, wrapped comment and its loaded parent reply context when available.
+Use `PgUp` / `PgDn` or the mouse wheel to scroll it. `j` / `k` returns to
+workflow-row selection. `m` opens merge-method selection (`m` merge, `s`
+squash, or `r` rebase); `Enter` performs a fresh merge preflight and only then offers
+the separate `y` confirmation. Preflight bypasses workspace caches and fetches
+PR detail, its head SHA, checks for that exact SHA, and review history. It fails
+closed if the PR is no longer open, is a draft, lacks a valid head SHA, is not
+reported clean, checks are unavailable/failing/pending, review state is
+unavailable, or any reviewer’s latest submitted review requests changes. The
+provider check-runs endpoint does not identify which checks are required, so
+the current conservative policy requires every observed check to pass; there
+is no local override. It requests latest check attempts in a 100-row page and
+requires the API total to match the returned rows; incomplete or oversized
+results block confirmation. Review history is also paged with a fixed bound
+and projected to each reviewer’s latest submitted state; incomplete or
+oversized history blocks confirmation. A successful merge is followed by an optional, separate
+remote-branch deletion confirmation; neither action changes local refs. The
+GitHub API remains authoritative and can reject a merge if repository policy
+changes after preflight.
+
 ## Plugins and multi-repository work
 
 Plugins use the dependency-free `pkg/plugin` wire contract and execute out of

@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -128,6 +129,28 @@ func TestParseReviewsPrioritizesRequestedChanges(t *testing.T) {
 	reviews, err := ParseReviews([]byte(`[{"state":"APPROVED"},{"state":"COMMENTED"},{"state":"CHANGES_REQUESTED"}]`))
 	if err != nil || reviews.Approved != 1 || reviews.Commented != 1 || reviews.Changes != 1 || reviews.State() != "changes requested" {
 		t.Fatalf("reviews = %#v, err=%v", reviews, err)
+	}
+}
+
+func TestParseReviewsUsesLatestSubmittedReviewPerReviewer(t *testing.T) {
+	reviews, err := ParseReviews([]byte(`[
+		{"id":10,"state":"CHANGES_REQUESTED","submitted_at":"2026-09-01T10:00:00Z","user":{"login":"sam"}},
+		{"id":11,"state":"APPROVED","submitted_at":"2026-09-02T10:00:00Z","user":{"login":"SAM"}},
+		{"id":12,"state":"CHANGES_REQUESTED","submitted_at":"2026-09-01T11:00:00Z","user":{"login":"lee"}},
+		{"id":13,"state":"PENDING","user":{"login":"lee"}}
+	]`))
+	if err != nil || reviews.Approved != 1 || reviews.Changes != 1 || reviews.State() != "changes requested" {
+		t.Fatalf("latest reviewer states = %#v, err=%v", reviews, err)
+	}
+}
+
+func TestParseReviewsRejectsUnboundedHistory(t *testing.T) {
+	data := []byte("[" + strings.TrimSuffix(strings.Repeat(`{"state":"APPROVED"},`, MaxReviewHistory+1), ",") + "]")
+	if _, err := ParseReviews(data); err == nil {
+		t.Fatal("oversized review history was accepted")
+	}
+	if _, err := ParseReviews([]byte("null")); err == nil {
+		t.Fatal("null review history was accepted as an empty successful response")
 	}
 }
 

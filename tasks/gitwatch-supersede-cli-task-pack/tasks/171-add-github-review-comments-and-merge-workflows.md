@@ -113,3 +113,29 @@ Support common review and merge actions while keeping provider state distinct fr
   `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
   Review/merge behavior is unchanged from hosted-verified `91424f1`; native
   manual acceptance remains open.
+
+- Fresh merge preflight follow-up: direct uncached PR detail, exact-head-SHA
+  checks (`filter=latest`, `per_page=100`, with a required complete `total_count`),
+  and bounded paginated review history now produce a generation/PR-
+  scoped typed result. Non-open/draft PRs, non-clean mergeability, missing or
+  invalid head SHA, unavailable or incomplete critical data, failing/pending
+  observed checks, and latest-per-reviewer changes-requested reviews fail
+  closed. The local check policy is deliberately conservative because the
+  Checks API response does not identify which runs the repository requires; a
+  missing or mismatched `total_count`, or more than the 100-row bound, also
+  blocks confirmation. Focused provider and preflight/merge-safety app tests,
+  plus GitHub-view tests, passed in normal and race modes; `go vet` passed for
+  provider/app/GitHub-view in the current worktree. Full repository/task gates
+  and native/manual acceptance are not claimed by this follow-up.
+- Selected review comments can be focused as sanitized, wrapped thread detail;
+  `[` / `]` and visible Previous / Next controls select the reply target, while
+  `PgUp` / `PgDn` and the mouse wheel scroll the focused thread. `j` / `k`
+  returns to workflow-row selection. Native interaction remains subject to
+  manual acceptance evidence.
+
+## Assembled verification (2026-09-30)
+
+- On Darwin arm64 / Go 1.27.1, `make check` passed on the assembled working
+  tree based on `5497288`: pinned golangci-lint v2.12.0 (0 issues), full tests,
+  full race tests, vet, formatting, security fuzz checks, performance budgets,
+  and release-policy checks. Native/manual terminal acceptance remains open.

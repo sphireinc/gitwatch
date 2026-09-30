@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/sphireinc/git-watch/internal/platform"
 	"github.com/sphireinc/git-watch/internal/provider"
 )
@@ -28,6 +30,7 @@ type Model struct {
 	Comments        []provider.ReviewComment
 	SelectedComment int
 	Checks          provider.ChecksSnapshot
+	Workflows       []provider.WorkflowRun
 	SelectedRun     int
 	Ready           bool
 	Error           string
@@ -36,6 +39,9 @@ type Model struct {
 	RetryAfter      string
 	ProviderStale   bool
 	Warnings        []ResourceWarning
+	workflowHeight  int
+	ReviewFocused   bool
+	ReviewOffset    int
 }
 
 func New() Model { return Model{} }
@@ -45,6 +51,7 @@ func (m *Model) SetData(repository provider.Repository, branch string, pull prov
 		m.Detail = nil
 		m.Comments = nil
 		m.SelectedComment = 0
+		m.ReviewFocused, m.ReviewOffset = false, 0
 	}
 	m.Repository, m.Branch, m.Pull, m.Checks, m.Ready, m.Error = repository, branch, pull, checks, true, ""
 	m.State, m.RetryAfter = provider.StateAvailable, ""
@@ -53,6 +60,22 @@ func (m *Model) SetData(repository provider.Repository, branch string, pull prov
 
 func (m *Model) SetPullRequests(pulls []provider.PullRequest) {
 	m.Pulls = append([]provider.PullRequest(nil), pulls...)
+}
+
+// SetWorkflows preserves a selected workflow by provider identity on refresh.
+func (m *Model) SetWorkflows(runs []provider.WorkflowRun) {
+	var selectedID int64
+	if m.SelectedRun >= 0 && m.SelectedRun < len(m.Workflows) {
+		selectedID = m.Workflows[m.SelectedRun].ID
+	}
+	m.Workflows = append([]provider.WorkflowRun(nil), runs...)
+	m.SelectedRun = 0
+	for i, run := range m.Workflows {
+		if run.ID == selectedID {
+			m.SelectedRun = i
+			break
+		}
+	}
 }
 
 func (m *Model) SetIssues(issues []provider.Issue) {
@@ -99,6 +122,7 @@ func (m *Model) SetComments(comments []provider.ReviewComment) {
 }
 
 func (m *Model) SelectComment(delta int) {
+	m.ReviewFocused, m.ReviewOffset = true, 0
 	if len(m.Comments) == 0 {
 		m.SelectedComment = 0
 		return
@@ -110,17 +134,76 @@ func (m *Model) SelectComment(delta int) {
 }
 
 func (m *Model) SelectRun(delta int) {
-	if len(m.Checks.Runs) == 0 {
+	m.ReviewFocused = false
+	count := len(m.Workflows)
+	if count == 0 {
+		count = len(m.Checks.Runs)
+	}
+	if count == 0 {
 		m.SelectedRun = 0
 		return
 	}
 	m.SelectedRun += delta
 	if m.SelectedRun < 0 {
-		m.SelectedRun = len(m.Checks.Runs) - 1
+		m.SelectedRun = count - 1
 	}
-	if m.SelectedRun >= len(m.Checks.Runs) {
+	if m.SelectedRun >= count {
 		m.SelectedRun = 0
 	}
+}
+
+func (m Model) workflowWindow(height int) (start, count int) {
+	count = len(m.Workflows)
+	if height > 0 {
+		count = min(count, max(0, (height-5)/2))
+	}
+	if count == 0 {
+		return 0, 0
+	}
+	selected := min(max(0, m.SelectedRun), len(m.Workflows)-1)
+	start = min(max(0, selected-count/2), len(m.Workflows)-count)
+	return start, count
+}
+
+// SelectWorkflowRow accepts a content-relative terminal row, not a provider ID.
+func (m *Model) SelectWorkflowRow(row, height int) bool {
+	if m.ReviewFocused {
+		return false
+	}
+	if m.Error != "" || !m.Ready || m.Repository.Owner == "" || row < 5 {
+		return false
+	}
+	start, count := m.workflowWindow(height)
+	index := (row - 5) / 2
+	if index >= count {
+		return false
+	}
+	m.SelectedRun = start + index
+	return true
+}
+
+// ViewWithSize keeps selected workflow rows visible without doing provider I/O.
+func (m Model) ViewWithSize(width, height int) string {
+	if width <= 0 {
+		width = 80
+	}
+	if height <= 0 {
+		height = 24
+	}
+	m.workflowHeight = height
+	var lines []string
+	if m.ReviewFocused && m.Ready && m.Error == "" && m.Repository.Owner != "" {
+		lines = m.reviewViewportLines(width, height)
+	} else {
+		lines = strings.Split(m.View(), "\n")
+	}
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+	for i := range lines {
+		lines[i] = runewidth.Truncate(platform.SafeText(lines[i]), width, "…")
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (m *Model) SetError(repository provider.Repository, branch string, err error) {
@@ -186,6 +269,21 @@ func (m Model) View() string {
 		cacheState = "stale"
 	}
 	lines = append(lines, "  provider cache: "+cacheState)
+	if len(m.Workflows) > 0 {
+		lines = append(lines, fmt.Sprintf("Workflow runs: %d (j/k select, W logs, ! rerun failed, K cancel)", len(m.Workflows)))
+		start, count := m.workflowWindow(m.workflowHeight)
+		now := time.Now()
+		for i := start; i < start+count; i++ {
+			run := m.Workflows[i]
+			prefix := "  "
+			if i == m.SelectedRun {
+				prefix = "> "
+			}
+			lines = append(lines,
+				fmt.Sprintf("%s%s [%s/%s] attempt:%d elapsed:%s", prefix, workflowText(run.Name), workflowText(run.Status), workflowText(run.Conclusion), run.Attempt, run.Elapsed(now).Truncate(time.Second)),
+				"    "+workflowText(run.URL))
+		}
+	}
 	if len(m.Warnings) > 0 {
 		lines = append(lines, "Provider warnings:")
 		for _, warning := range m.Warnings {
@@ -236,7 +334,7 @@ func (m Model) View() string {
 	lines = append(lines, fmt.Sprintf("Checks: %d passing  %d failing  %d pending", m.Checks.Passing, m.Checks.Failing, m.Checks.Pending))
 	for i, run := range m.Checks.Runs {
 		selected := " "
-		if i == m.SelectedRun {
+		if len(m.Workflows) == 0 && i == m.SelectedRun {
 			selected = ">"
 		}
 		marker := "✓"
@@ -277,4 +375,8 @@ func (m Model) View() string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+func workflowText(value string) string {
+	return strings.NewReplacer("\n", " ", "\t", " ").Replace(platform.SafeText(value))
 }

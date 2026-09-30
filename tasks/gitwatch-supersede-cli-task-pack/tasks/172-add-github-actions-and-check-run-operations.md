@@ -112,3 +112,31 @@ Turn CI visibility into actionable but bounded workflow support.
   `9b1cb342fffba50675ce83dfc957ac0cabae1ea9` on Darwin arm64 / Go 1.27.0.
   Hosted results remain tied to `91424f1`; native/manual workflow and
   watcher-responsiveness evidence remain open.
+
+## Correct workflow identity and viewport follow-up (2026-09-28)
+
+- The working tree based on `5497288` fixes an actual identity mismatch:
+  check-run IDs from the Checks API were previously sent to Actions workflow
+  rerun/cancel endpoints. A separate provider-neutral `WorkflowRun` model and
+  bounded exact-head-SHA list now supply the correct Actions IDs and attempts.
+  Check-only data cannot authorize an Actions mutation.
+- The loader independently TTL-caches at most 100 workflow runs for the selected
+  PR head SHA or local HEAD. Failures and stale state are explicit and do not
+  replace local status. The workspace shows status/conclusion, attempt, URL,
+  and observed elapsed time, with selection-following viewport rows.
+- Keyboard and mouse select the same visible workflow. `W` opens its run/log
+  URL, `!` requests failed-job rerun, and `K` requests cancellation only after
+  explicit ID/attempt confirmation. Late mutation results are repository-
+  generation scoped; success invalidates workflow/check caches before reload.
+- Focused workflow/provider/view normal and race tests pass, as do the app's
+  workflow-ID, cache-invalidation, and late-result regression tests. This is
+  uncommitted working-tree evidence, not exact-revision hosted or operator
+  evidence. Full assembled gates and native workflow/responsiveness acceptance
+  are still required before this follow-up is complete.
+
+## Assembled verification (2026-09-30)
+
+- On Darwin arm64 / Go 1.27.1, `make check` passed on the assembled working
+  tree based on `5497288`: pinned golangci-lint v2.12.0 (0 issues), full tests,
+  full race tests, vet, formatting, security fuzz checks, performance budgets,
+  and release-policy checks. Native/manual terminal acceptance remains open.

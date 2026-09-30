@@ -277,19 +277,20 @@ func (c GitHubClient) CreatePullRequest(ctx context.Context, repository Reposito
 // Checks fetches check runs for ref.
 func (c GitHubClient) Checks(ctx context.Context, repository Repository, ref string) (ChecksSnapshot, error) {
 	var response json.RawMessage
-	path := "/repos/" + url.PathEscape(repository.Owner) + "/" + url.PathEscape(repository.Name) + "/commits/" + url.PathEscape(ref) + "/check-runs"
+	query := url.Values{"filter": []string{"latest"}, "per_page": []string{"100"}}
+	path := "/repos/" + url.PathEscape(repository.Owner) + "/" + url.PathEscape(repository.Name) + "/commits/" + url.PathEscape(ref) + "/check-runs?" + query.Encode()
 	if err := c.getJSON(ctx, path, &response); err != nil {
 		return ChecksSnapshot{}, err
 	}
 	return ParseChecks(response)
 }
 
-// RerunFailedJobs requests a rerun of failed jobs for a check run. The
+// RerunFailedJobs requests a rerun of failed jobs for an Actions workflow run. The
 // mutation is deliberately non-retrying because repeating it can duplicate a
 // provider-side action.
 func (c GitHubClient) RerunFailedJobs(ctx context.Context, repository Repository, runID int64) error {
 	if runID < 1 {
-		return errors.New("invalid check run id")
+		return errors.New("invalid workflow run id")
 	}
 	path := "/repos/" + url.PathEscape(repository.Owner) + "/" + url.PathEscape(repository.Name) + "/actions/runs/" + url.PathEscape(fmt.Sprint(runID)) + "/rerun-failed-jobs"
 	return c.postJSON(ctx, path, nil, nil)
@@ -300,7 +301,7 @@ func (c GitHubClient) RerunFailedJobs(ctx context.Context, repository Repository
 // action.
 func (c GitHubClient) CancelRun(ctx context.Context, repository Repository, runID int64) error {
 	if runID < 1 {
-		return errors.New("invalid check run id")
+		return errors.New("invalid workflow run id")
 	}
 	path := "/repos/" + url.PathEscape(repository.Owner) + "/" + url.PathEscape(repository.Name) + "/actions/runs/" + url.PathEscape(fmt.Sprint(runID)) + "/cancel"
 	return c.postJSON(ctx, path, nil, nil)
@@ -308,10 +309,45 @@ func (c GitHubClient) CancelRun(ctx context.Context, repository Repository, runI
 
 // Reviews fetches review state for a pull request number.
 func (c GitHubClient) Reviews(ctx context.Context, repository Repository, number int) (ReviewSnapshot, error) {
-	var response json.RawMessage
-	path := "/repos/" + url.PathEscape(repository.Owner) + "/" + url.PathEscape(repository.Name) + "/pulls/" + url.PathEscape(fmt.Sprint(number)) + "/reviews"
-	if err := c.getJSON(ctx, path, &response); err != nil {
-		return ReviewSnapshot{}, err
+	if number < 1 {
+		return ReviewSnapshot{}, errors.New("invalid pull request number")
+	}
+	base := "/repos/" + url.PathEscape(repository.Owner) + "/" + url.PathEscape(repository.Name) + "/pulls/" + url.PathEscape(fmt.Sprint(number)) + "/reviews"
+	reviews := make([]json.RawMessage, 0)
+	complete := false
+	// Read at most MaxReviewHistory entries, then make one bounded probe to
+	// prove that a full final page was not silently truncated.
+	for page := 1; page <= MaxReviewHistoryPages+1; page++ {
+		query := url.Values{"per_page": []string{"100"}, "page": []string{fmt.Sprint(page)}}
+		var pageReviews []json.RawMessage
+		if err := c.getJSON(ctx, base+"?"+query.Encode(), &pageReviews); err != nil {
+			return ReviewSnapshot{}, err
+		}
+		if pageReviews == nil {
+			return ReviewSnapshot{}, errors.New("invalid pull request review page")
+		}
+		if len(pageReviews) > 100 {
+			return ReviewSnapshot{}, errors.New("pull request review page exceeds bound")
+		}
+		if page > MaxReviewHistoryPages {
+			if len(pageReviews) != 0 {
+				return ReviewSnapshot{}, errors.New("pull request review history exceeds bound")
+			}
+			complete = true
+			break
+		}
+		reviews = append(reviews, pageReviews...)
+		if len(pageReviews) < 100 {
+			complete = true
+			break
+		}
+	}
+	if !complete {
+		return ReviewSnapshot{}, errors.New("pull request review history is truncated")
+	}
+	response, err := json.Marshal(reviews)
+	if err != nil {
+		return ReviewSnapshot{}, fmt.Errorf("encode pull request review history: %w", err)
 	}
 	return ParseReviews(response)
 }

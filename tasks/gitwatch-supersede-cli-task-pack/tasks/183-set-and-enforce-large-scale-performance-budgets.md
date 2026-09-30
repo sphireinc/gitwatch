@@ -240,3 +240,74 @@ Prove the expanded workbench remains an always-on htop-like tool rather than bec
   checks passed. This verifies the process-bound regression in hosted CI; the
   task remains open for the broader multi-repository, leak, profiling, and
   native-responsiveness evidence listed in its acceptance criteria.
+
+## Progress evidence (2026-09-28)
+
+- Added scale benchmarks and allocation gates for porcelain-v2 parsing at
+  10,000/50,000 records and status-table filtering at 10,000/50,000 entries.
+  Added a 50,000-record parse-to-snapshot-projection, filter, and 80x24 status
+  render benchmark and fixture regression. The parser ceiling is 10
+  allocations per record (observed about 9.0 at both scales); the filter gate
+  allows at most 64 allocation calls and at most 16 more at 50k than at 10k
+  (observed 23 and 30–32). The end-to-end fixture ceiling is 800,000
+  allocations, about 14% over the measured 701,024–701,025, while limiting
+  growth to fewer than 16 calls per input path.
+- Added exact 10/50/100-repository refresh benchmark series for cold engines,
+  warm repeated active refreshes, mixed discovery failures (one failure per
+  ten repositories), and the engine's actual inactive-repository cache-hit
+  path. The cache-hit variant warms the production cache first and verifies
+  every result is marked skipped; no product cache behavior was added for the
+  benchmark. Mixed-failure refreshes use a fresh engine per iteration and
+  report one deterministic discovery failure per ten repositories. All
+  variants report allocations and bytes.
+- Local measurements used `go test` with `-benchmem -benchtime=3x -count=3`
+  on Darwin 25.6.0 arm64 / Apple M1 Pro / Go 1.27.1. Source attribution is the
+  working tree based on `5497288ef726b8b90b7df3fb915144c6346fb1fb`, including
+  these uncommitted benchmark changes and contemporaneous staged/unstaged
+  worktree changes; this is not a measurement of the base commit alone. The
+  parser/table/app figures below are three independent samples per benchmark;
+  registry figures are three-sample ranges and use injected discovery and
+  snapshot callbacks rather than real Git or network I/O. These timings are
+  host observations, not portable latency thresholds.
+
+  | Workload | Scale / case | ns/op range | B/op | allocs/op |
+  | --- | --- | ---: | ---: | ---: |
+  | Porcelain parse | 10k | 4,817,722–4,956,889 | 13,033,285–13,033,322 | 90,021 |
+  | Porcelain parse | 50k | 19,474,111–20,520,055 | 71,941,413–71,941,445 | 450,028 |
+  | Table filter | 10k | 888,778–1,104,125 | 1,799,498 | 23 |
+  | Table filter | 50k | 5,026,403–5,172,806 | 9,155,946–9,157,720 | 30–32 |
+  | Parse/snapshot/filter/render | 50k | 44,954,639–47,592,667 | 121,538,106–121,538,181 | 701,024–701,025 |
+
+  | Registry repos | Scenario | ns/op range | B/op range | allocs/op range |
+  | ---: | --- | ---: | ---: | ---: |
+  | 10 | cold | 49,180–74,458 | 43,258–45,776 | 118–125 |
+  | 10 | warm | 46,972–53,180 | 32,056–33,176 | 97–99 |
+  | 10 | production cache hit | 19,722–28,542 | 26,616–28,093 | 27–30 |
+  | 10 | mixed failure | 47,556–57,847 | 41,770–42,645 | 113–116 |
+  | 50 | cold | 122,264–183,764 | 204,538–207,072 | 479–485 |
+  | 50 | warm | 147,556–189,083 | 156,168–156,509 | 418–420 |
+  | 50 | production cache hit | 58,278–71,861 | 128,856–129,192 | 67–70 |
+  | 50 | mixed failure | 127,125–155,556 | 203,360–205,690 | 470–475 |
+  | 100 | cold | 313,292–342,389 | 408,021–409,920 | 932–936 |
+  | 100 | warm | 276,070–336,639 | 311,240–314,112 | 818–824 |
+  | 100 | production cache hit | 98,625–171,917 | 256,877–256,952 | 118–119 |
+  | 100 | mixed failure | 295,153–369,264 | 405,456–406,858 | 912–914 |
+
+- The focused allocation/fixture tests passed normally and under `-race`,
+  including the existing 100-repository worker-bound and canceled-refresh
+  goroutine checks. `go vet` passed for `internal/git`, `internal/ui/table`,
+  `internal/registry`, and `internal/app`; `sh -n scripts/performance-check.sh`
+  passed; the updated `scripts/performance-check.sh` completed successfully.
+- This closes only the parser/table/50k status-presentation and registry
+  refresh measurement slice. Checkout/rebase, provider/history, batch external
+  tool and native responsiveness profiles remain required; hosted cross-platform
+  samples from the updated benchmark gate are also still needed. Task 183 is
+  not complete.
+
+## Assembled verification (2026-09-30)
+
+- On Darwin arm64 / Go 1.27.1, `make check` passed on the assembled working
+  tree based on `5497288`: pinned golangci-lint v2.12.0 (0 issues), full tests,
+  full race tests, vet, formatting, security fuzz checks, performance budgets,
+  and release-policy checks. Hosted cross-platform samples and the remaining
+  profiles/native responsiveness acceptance remain open.

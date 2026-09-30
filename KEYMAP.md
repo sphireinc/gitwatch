@@ -45,7 +45,14 @@
 | E | Plugin workspace (when enabled) |
 | I | Open the repository-scoped `.gitignore` manager |
 | o / y | Open GitHub PR / copy its URL (in GitHub view) |
-| W | Open the selected check/workflow-run URL (in GitHub view) |
+| j / k | Select a workflow run (or a check when no workflows are loaded); leave review-thread focus for workflow selection |
+| [ / ] or visible Prev / Next comment controls | Select the prior / next review comment and its reply target; focus the selected review thread |
+| PgUp / PgDn / mouse wheel | Scroll the focused review thread |
+| A / R / c | Approve / request changes / comment or reply on the selected PR |
+| m, then m / s / r | Start merge and choose merge / squash / rebase; Enter refreshes preflight, then y/n confirms or cancels |
+| y / n | Confirm / cancel the separately prompted remote-branch deletion after merge |
+| W | Open the selected workflow-run URL; if there are no workflow rows, open the selected check URL |
+| ! / K | Rerun failed jobs / cancel the selected workflow run (with confirmation); Actions are refused for check-only rows |
 | A / D / P | Add / remove / prune worktrees (in Worktrees view) |
 | Enter | Open selected repository or worktree |
 | H | Open hunk selection for the currently loaded diff |

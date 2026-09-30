@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +13,8 @@ import (
 const MaxPullRequests = 100
 const MaxPullRequestFiles = 100
 const MaxPullRequestCommits = 100
+const MaxReviewHistory = 1000
+const MaxReviewHistoryPages = MaxReviewHistory / 100
 const MaxPatchBytes = 64 << 10
 
 func ValidateCheckoutRef(ref string) error {
@@ -73,6 +76,13 @@ type ReviewSnapshot struct {
 	Commented int
 }
 
+type parsedReviewState struct {
+	state       string
+	id          int64
+	submittedAt *time.Time
+	position    int
+}
+
 func (s ReviewSnapshot) State() string {
 	if s.Changes > 0 {
 		return "changes requested"
@@ -88,14 +98,43 @@ func (s ReviewSnapshot) State() string {
 
 func ParseReviews(data []byte) (ReviewSnapshot, error) {
 	var reviews []struct {
-		State string `json:"state"`
+		ID          int64      `json:"id"`
+		State       string     `json:"state"`
+		SubmittedAt *time.Time `json:"submitted_at"`
+		User        struct {
+			Login string `json:"login"`
+		} `json:"user"`
 	}
 	if err := json.Unmarshal(data, &reviews); err != nil {
 		return ReviewSnapshot{}, err
 	}
+	if reviews == nil {
+		return ReviewSnapshot{}, errors.New("invalid pull request review history")
+	}
+	if len(reviews) > MaxReviewHistory {
+		return ReviewSnapshot{}, errors.New("pull request review history exceeds bound")
+	}
+	latestByReviewer := make(map[string]parsedReviewState, len(reviews))
+	for index, review := range reviews {
+		state := strings.ToUpper(strings.TrimSpace(review.State))
+		if state == "PENDING" {
+			continue
+		}
+		login := strings.ToLower(strings.TrimSpace(review.User.Login))
+		if login == "" {
+			// Incomplete historical fixtures or API records cannot safely be
+			// attributed to another reviewer, so count each independently.
+			login = fmt.Sprintf("#unknown-%d", index)
+		}
+		candidate := parsedReviewState{state: state, id: review.ID, submittedAt: review.SubmittedAt, position: index}
+		previous, exists := latestByReviewer[login]
+		if !exists || reviewIsLater(candidate, previous) {
+			latestByReviewer[login] = candidate
+		}
+	}
 	snapshot := ReviewSnapshot{}
-	for _, review := range reviews {
-		switch strings.ToUpper(review.State) {
+	for _, review := range latestByReviewer {
+		switch review.state {
 		case "APPROVED":
 			snapshot.Approved++
 		case "CHANGES_REQUESTED":
@@ -105,6 +144,16 @@ func ParseReviews(data []byte) (ReviewSnapshot, error) {
 		}
 	}
 	return snapshot, nil
+}
+
+func reviewIsLater(candidate, previous parsedReviewState) bool {
+	if candidate.submittedAt != nil && previous.submittedAt != nil && !candidate.submittedAt.Equal(*previous.submittedAt) {
+		return candidate.submittedAt.After(*previous.submittedAt)
+	}
+	if candidate.id > 0 && previous.id > 0 && candidate.id != previous.id {
+		return candidate.id > previous.id
+	}
+	return candidate.position > previous.position
 }
 
 func ParsePullRequest(data []byte) (PullRequest, error) {
@@ -248,9 +297,10 @@ type cachedPullRequest struct {
 }
 
 type PullRequestCache struct {
-	mu    sync.Mutex
-	ttl   time.Duration
-	items map[string]cachedPullRequest
+	mu         sync.Mutex
+	ttl        time.Duration
+	items      map[string]cachedPullRequest
+	generation uint64
 }
 
 func NewPullRequestCache(ttl time.Duration) *PullRequestCache {
@@ -263,25 +313,44 @@ func NewPullRequestCache(ttl time.Duration) *PullRequestCache {
 func (c *PullRequestCache) Invalidate(repository Repository, branch string) {
 	key := repository.Host + "/" + repository.Owner + "/" + repository.Name + "@" + branch
 	c.mu.Lock()
+	c.generation++
 	delete(c.items, key)
 	c.mu.Unlock()
 }
 
 func (c *PullRequestCache) Get(ctx context.Context, client PullRequestClient, repository Repository, branch string) (PullRequest, error) {
+	value, _, err := c.GetWithStale(ctx, client, repository, branch)
+	if err != nil {
+		return PullRequest{}, err
+	}
+	return value, nil
+}
+
+func (c *PullRequestCache) GetWithStale(ctx context.Context, client PullRequestClient, repository Repository, branch string) (PullRequest, bool, error) {
 	key := repository.Host + "/" + repository.Owner + "/" + repository.Name + "@" + branch
 	now := time.Now()
 	c.mu.Lock()
-	if item, ok := c.items[key]; ok && now.Sub(item.At) < c.ttl {
+	generation := c.generation
+	item, ok := c.items[key]
+	if ok && now.Sub(item.At) < c.ttl {
 		c.mu.Unlock()
-		return item.Value, nil
+		return item.Value, false, nil
 	}
 	c.mu.Unlock()
 	value, err := client.PullRequest(ctx, repository, branch)
 	if err != nil {
-		return PullRequest{}, err
+		c.mu.Lock()
+		current := c.generation == generation
+		c.mu.Unlock()
+		if ok && current {
+			return item.Value, true, err
+		}
+		return PullRequest{}, false, err
 	}
 	c.mu.Lock()
-	c.items[key] = cachedPullRequest{Value: value, At: now}
+	if c.generation == generation {
+		c.items[key] = cachedPullRequest{Value: value, At: now}
+	}
 	for len(c.items) > maxProviderCacheEntries {
 		oldestKey := ""
 		var oldest time.Time
@@ -296,5 +365,5 @@ func (c *PullRequestCache) Get(ctx context.Context, client PullRequestClient, re
 		delete(c.items, oldestKey)
 	}
 	c.mu.Unlock()
-	return value, nil
+	return value, false, nil
 }

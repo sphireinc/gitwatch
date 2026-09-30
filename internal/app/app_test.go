@@ -3636,6 +3636,8 @@ func TestGitHubProviderFailureDoesNotHideIndependentResourcesOrBreakGitState(t *
 		case r.URL.Path == "/repos/octo/repo/releases":
 			releaseLists.Add(1)
 			return respond(http.StatusOK, `[{"id":1,"tag_name":"v1.0.0","name":"First"}]`)
+		case r.URL.Path == "/repos/octo/repo/actions/runs":
+			return respond(http.StatusOK, `{"workflow_runs":[]}`)
 		default:
 			return respond(http.StatusNotFound, `{}`)
 		}
@@ -3645,6 +3647,7 @@ func TestGitHubProviderFailureDoesNotHideIndependentResourcesOrBreakGitState(t *
 	defer func() { _ = m.Close() }()
 	m.Snapshot.Branch.Name = "feature"
 	client := provider.GitHubClient{BaseURL: "https://api.test", HTTPClient: &http.Client{Transport: transport}}
+	m.Snapshot.Branch.OID = strings.Repeat("a", 40)
 
 	msg, ok := m.loadGitHubWithClient(&client)().(GitHubReadyMsg)
 	if !ok {
@@ -3701,6 +3704,7 @@ func TestGitHubCreatePRFormRequiresExplicitConfirmation(t *testing.T) {
 	m.Workspace.Navigate(workspace.GitHub, "GitHub")
 	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Base: "main", State: "open"}, provider.ChecksSnapshot{})
 	m.Snapshot.Branch.Name = "feature"
+	m.Snapshot.Branch.Upstream = "origin/feature"
 	updated, cmd := m.Update(key("n"))
 	m = updated.(Model)
 	if cmd != nil || !m.GitHubCreateMode || m.GitHubCreateField != 0 {
@@ -3723,7 +3727,7 @@ func TestGitHubCreatePRFormRequiresExplicitConfirmation(t *testing.T) {
 func TestGitHubMergeRefreshesBeforeExplicitConfirmation(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
 	m.Workspace.Navigate(workspace.GitHub, "GitHub")
-	pull := provider.PullRequest{Number: 4, Title: "Improve", State: "open", HeadSHA: "abc", Mergeable: "clean"}
+	pull := provider.PullRequest{Number: 4, Title: "Improve", State: "open", HeadSHA: strings.Repeat("a", 40), Mergeable: "clean"}
 	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", pull, provider.ChecksSnapshot{})
 	updated, cmd := m.Update(key("m"))
 	m = updated.(Model)
@@ -3737,7 +3741,7 @@ func TestGitHubMergeRefreshesBeforeExplicitConfirmation(t *testing.T) {
 	if cmd == nil || m.GitHubMergeMode || !m.GitHubMergeRefresh || m.GitHubMergeConfirm {
 		t.Fatalf("merge refresh = cmd=%v mode=%v refresh=%v confirm=%v", cmd != nil, m.GitHubMergeMode, m.GitHubMergeRefresh, m.GitHubMergeConfirm)
 	}
-	updated, _ = m.Update(GitHubReadyMsg{Repository: provider.Repository{Owner: "octo", Name: "repo"}, Branch: "main", Pull: pull, Checks: provider.ChecksSnapshot{Passing: 1}, Review: provider.ReviewSnapshot{Approved: 1}})
+	updated, _ = m.Update(GitHubMergePreflightMsg{Generation: m.repositoryGeneration, PullNumber: pull.Number, CanConfirm: true, State: GitHubMergeCriticalState{Detail: provider.PullRequestDetail{PullRequest: pull}, Checks: provider.ChecksSnapshot{Passing: 1}, Reviews: provider.ReviewSnapshot{Approved: 1}}})
 	m = updated.(Model)
 	if !m.GitHubMergeConfirm || !strings.Contains(m.Status, "squash") {
 		t.Fatalf("merge confirmation = %v status=%q", m.GitHubMergeConfirm, m.Status)
@@ -3753,9 +3757,9 @@ func TestGitHubMergeOffersSeparateRemoteBranchDeletion(t *testing.T) {
 	m := NewRepositoryWithConfig(git.Discovery{Root: "/repo"}, config.Config{GitHub: config.GitHubConfig{Enabled: true}})
 	m.Workspace.Navigate(workspace.GitHub, "GitHub")
 	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", provider.PullRequest{Number: 4, Head: "feature/topic", State: "open"}, provider.ChecksSnapshot{})
-	updated, cmd := m.Update(GitHubMergeFinishedMsg{Result: provider.MergeResult{Merged: true}})
+	updated, cmd := m.Update(GitHubMergeFinishedMsg{Generation: m.repositoryGeneration, Result: provider.MergeResult{Merged: true}})
 	m = updated.(Model)
-	if cmd != nil || !m.GitHubBranchDeleteConfirm || m.GitHubBranchDeleteTarget != "feature/topic" {
+	if cmd == nil || !m.GitHubBranchDeleteConfirm || m.GitHubBranchDeleteTarget != "feature/topic" {
 		t.Fatalf("branch deletion offer = cmd=%v confirm=%v target=%q", cmd != nil, m.GitHubBranchDeleteConfirm, m.GitHubBranchDeleteTarget)
 	}
 	updated, cmd = m.Update(key("n"))
@@ -3822,6 +3826,10 @@ func TestGitHubCheckActionsSelectAndConfirm(t *testing.T) {
 		{ID: 13, Name: "lint", Status: "in_progress"},
 	}}
 	m.GitHub.SetData(provider.Repository{Owner: "octo", Name: "repo"}, "main", pull, checks)
+	m.GitHub.SetWorkflows([]provider.WorkflowRun{
+		{ID: 304, Name: "build", Status: "completed", Conclusion: "failure", Attempt: 1},
+		{ID: 305, Name: "lint", Status: "in_progress", Attempt: 2},
+	})
 	updated, cmd := m.Update(key("j"))
 	m = updated.(Model)
 	if cmd != nil || m.GitHub.SelectedRun != 1 {
@@ -3829,7 +3837,7 @@ func TestGitHubCheckActionsSelectAndConfirm(t *testing.T) {
 	}
 	updated, cmd = m.Update(key("K"))
 	m = updated.(Model)
-	if cmd != nil || !m.GitHubCheckActionConfirm || m.GitHubCheckAction != "cancel" || m.GitHubCheckActionRunID != 13 {
+	if cmd != nil || !m.GitHubCheckActionConfirm || m.GitHubCheckAction != "cancel" || m.GitHubCheckActionRunID != 305 {
 		t.Fatalf("cancel confirmation = cmd=%v confirm=%v action=%q id=%d", cmd != nil, m.GitHubCheckActionConfirm, m.GitHubCheckAction, m.GitHubCheckActionRunID)
 	}
 	updated, _ = m.Update(key("n"))

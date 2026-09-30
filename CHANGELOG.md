@@ -9,6 +9,7 @@ All notable user-visible changes to gitwatch are documented here. The project fo
 - Custom-command text and secret prompts support Unicode-aware minimum and maximum lengths; invalid selection values are reported before execution.
 - Status details expose live repository health and independently timestamped stash/worktree counts; large repository dashboards keep selection visible and show remote-fetch age.
 - The Plugins workspace displays sanitized, viewport-bounded table rows and detail fields for the selected plugin, with selection-following keyboard and mouse navigation.
+- The optional GitHub workspace now supports selection-safe pull request loading, review-thread navigation, fresh merge preflight, and separate Actions workflow listing and guarded rerun/cancel controls.
 
 ### Fixed
 

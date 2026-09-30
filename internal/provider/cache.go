@@ -7,9 +7,10 @@ import (
 )
 
 type Cache[T any] struct {
-	mu    sync.Mutex
-	ttl   time.Duration
-	items map[string]cacheItem[T]
+	mu         sync.Mutex
+	ttl        time.Duration
+	items      map[string]cacheItem[T]
+	generation uint64
 }
 
 type cacheItem[T any] struct {
@@ -37,9 +38,22 @@ func (c *Cache[T]) GetWithStale(ctx context.Context, key string, fetch func(cont
 	return c.get(ctx, key, fetch)
 }
 
+// InvalidateAll forces the next read to contact the provider. A request that
+// began before invalidation cannot repopulate the cache after a mutation.
+func (c *Cache[T]) InvalidateAll() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.generation++
+	clear(c.items)
+}
+
 func (c *Cache[T]) get(ctx context.Context, key string, fetch func(context.Context) (T, error)) (T, bool, error) {
 	now := time.Now()
 	c.mu.Lock()
+	generation := c.generation
 	item, ok := c.items[key]
 	if ok && now.Sub(item.At) < c.ttl {
 		c.mu.Unlock()
@@ -48,15 +62,20 @@ func (c *Cache[T]) get(ctx context.Context, key string, fetch func(context.Conte
 	c.mu.Unlock()
 	value, err := fetch(ctx)
 	if err != nil {
-		if ok {
+		c.mu.Lock()
+		current := c.generation == generation
+		c.mu.Unlock()
+		if ok && current {
 			return item.Value, true, err
 		}
 		var zero T
 		return zero, false, err
 	}
 	c.mu.Lock()
-	c.items[key] = cacheItem[T]{Value: value, At: now}
-	c.pruneLocked()
+	if c.generation == generation {
+		c.items[key] = cacheItem[T]{Value: value, At: now}
+		c.pruneLocked()
+	}
 	c.mu.Unlock()
 	return value, false, nil
 }
